@@ -1,0 +1,355 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd" >
+<html>
+<head>
+  <title>r2w: radare to web</title>
+  <!-- CSS -->
+  <link href="/ui/etc/css/style.css" rel="stylesheet" type="text/css"/>
+  <!-- JS -->
+  <script type="text/javascript" src="ui/etc/js/jquery-1.4.min.js"></script>
+  <script type="text/javascript" src="ui/etc/js/r2w.js"></script>
+  <script type="text/javascript" src="ui/etc/js/r2w_hotkeys.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"></script>
+  <script type="text/javascript">
+	dbgOffset =	<!--(esp)--> ;
+	</script>
+</head>
+<body>
+<center>
+<div class="background" id="bg"></div>
+<div class="popup" id="panel-popup" style="padding:10px">
+<h2>Welcome to r2w</h2>
+<hr size=1 width="100%" />
+<ul>
+<li> <a href="#">Open file</a>
+<li> Upload file
+<li> Open project
+<li> Debug program
+<li> Attach process
+</ul>
+[<a href="#" id="toggle-popup">Close</a>]
+<br />
+<br />
+</div>
+</center>
+  <div id="header" class="header">r2w -
+<!--(menu)-->
+( view
+<a id="toggle-hex" href="#">hex</a>
+<a id="toggle-panel" href="#">panel</a>
+<a id="toggle-bytes" href="#">bytes</a>
+)
+( debug
+<a href="#" id="dbg-step">step</a>
+<!--
+<a href="#">cont</a>
+<a href="#">break</a>
+-->
+)
+ </div>
+
+ <table width="100%">
+   <tr>
+    <td colspan="3">
+      <table width="100%">
+        <tr>
+          <td class="cmd"><a id="toggle-cmdlog" href="#">&gt;</a></td>
+          <td width="100%"><input type="text" class="cmd"/>
+            <div id="cmdlog">
+              <textarea rows="5" id="log-zone" class="log" readonly></textarea>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<table>
+  <tr>
+    <td>
+    </td>
+    <td width="100%">
+    </td>
+  </tr>
+</table>
+<table>
+  <tr>
+    <td rowspan=3 valign="top" class="td-work-zone">
+      <div id="panel" valign="top" class="work-zone">
+        <div style="width:150px">
+<select id="panel-option">
+  <option>---</option>
+<!--
+  <option>Functions</option>
+  <option>Flags</option>
+  <option>Comments</option>
+-->
+  <option>File</option>
+  <option>Symbols</option>
+  <option>Imports</option>
+  <option>Sections</option>
+</select>
+<div id="panel-data">
+<br />...
+</div>
+        </div>
+      </div>
+   </td>
+   <td width="75%" class="td-work-zone" valign="top">
+      <div id="panel-stack" style="height:100px;overflow: auto">
+<!--
+<div class="line">0xb787d810, 89e0 e849 0700 0089 c7e8 e2ff ffff 81c3 .I................</div>
+<div class="line">0xb787d824, 8b83 00ff ffff 5a8d 2484 29c2 528b 833c ....Z.$.).R..&lt;....</div>
+<div class="line">0xb787d838, 7494 088d 4c24 0489 e583 e4f0 5050 5556 ..L$......PPUV1...</div>
+<div class="line">0xb787d84c, da00 008d 934c 16ff ff8b 2424 ffe7 8db6 ...L....$$........</div>
+<div class="line">0xb787d860, e8e2 6901 0081 c15f c701 0055 89e5 5d8d i...._...U..]..h..</div>
+<div class="line">0xb787d874, 00c3 8d76 008d bc27 0000 0000 5589 e58b .v...'....U...E..@</div>
+<div class="line">0xb787d888, 0401 5dc3 8d74 2600 5589 e58b 4508 8368 ]..t&amp;.U...E..h..].</div>
+<div class="line">0xb787d89c, 8d74 2600 5589 e556 83ec 188b 7508 8d4d &amp;.U..V....u..M..E.</div>
+<div class="line">0xb787d8b0, 0000 0000 8b56 04c7 4608 0000 0000 c744 ...V..F......D$...</div>
+<div class="line">0xb787d8c4, 0000 c744 240c 0200 0000 8d82 d001 0000 .D$............D$.</div>
+<div class="line">0xb787d8d8, 0000 0000 c744 2404 0000 0000 8904 248b ...D$.......$.....</div>
+<div class="line">0xb787d8ec, 0000 8b55 f883 ec14 85d2 740e 31c9 85c0 .U......t.1...t...</div>
+<div class="line">0xb787d900, 034a 0489 4e08 8b75 fcc9 c390 8d74 2600 ..N..u.....t&amp;.U...</div>
+<div class="line">0xb787d914, ec24 895d f8e8 2d69 0100 81c3 a6c6 0100 .]..-i.........u..</div>
+<div class="line">0xb787d928, 7508 8b83 2400 0000 8b00 c744 240c ffff ..$......D$......D</div>
+<div class="line">0xb787d93c, 2404 0100 0088 8944 2418 8b83 9cfc ffff .....D$........D$.</div>
+<div class="line">0xb787d950, 8b83 fcfe ffff 8944 2410 8d83 dc53 feff .....D$....S...D$.</div>
+<div class="line">0xb787d964, 8b06 8904 24e8 4212 0100 8946 048b 5df8 ..$.B....F..]..u..</div>
+<div class="line">0xb787d978, ec5d c390 8d74 2600 5589 e557 5653 81ec ...t&amp;.U..WVS..@...</div>
+<div class="line">0xb787d98c, 8985 dcfe ffff 8b8d dcfe ffff 8d75 f4e8 ...........u...h..</div>
+<div class="line">0xb787d9a0, 81c3 24c6 0100 c744 2410 0000 0000 c744 $....D$......D$...</div>
+<div class="line">0xb787d9b4, 0000 8974 2408 8b01 8b51 0489 0424 8954 .t$....Q...$.T$...</div>
+<div class="line">0xb787d9c8, 4101 0039 c60f 866c 0500 000f b610 8d8d .9...l............</div>
+<div class="line">0xb787d9dc, 83c0 0188 95fa feff ffba c600 0000 8995 ..................</div>
+<div class="line">0xb787d9f0, eb27 8db6 0000 0000 0fb6 3889 fa88 1183 ........8.........</div>
+-->
+      </div>
+     <div class="row">( disasm 
+       <a alt="Seek 64 bytes backward" href="#">s-64</a>
+       <a alt="Seek 64 bytes forward" href="#">s+64</a>
+       <a href="#">s</a>
+       <a href="#">pc</a>
+       <a href="#">options</a>
+       )</div>
+<!--
+      <div class="work-zone" id="panel-bytes">
+        <div class="line">0xb7720812     e849070000      call 0xb7720f60</div>
+        <div class="line">0xb7720817     89c7            mov edi, eax</div>
+</div>
+-->
+      <div class="work-zone" id="panel-code">
+      <br />...
+      </div>
+<!--
+      <div class="work-zone" id="panel-bytes">
+        <div class="line">0xb7720812     e849070000      call 0xb7720f60</div>
+        <div class="line">0xb7720817     89c7            mov edi, eax</div>
+        <div class="line">0xb7720819     e8e2ffffff      call 0xb7720800</div>
+        <div class="line">0xb772081e     81c3a6c70100    add ebx, 0x1c7a6</div>
+        <div class="line">0xb7720824,    8b8300ffffff    mov eax, [ebx-0x100]</div>
+        <div class="line">0xb772082a     5a              pop edx</div>
+        <div class="line">0xb772082b     8d2484          lea esp, [esp+eax*4]</div>
+        <div class="line">0xb772082e     29c2            sub edx, eax</div>
+        <div class="line">0xb7720830,    52              push edx ; eax+0x2</div>
+        <div class="line">0xb7720831     8b833c000000    mov eax, [ebx+0x3c]</div>
+        <div class="line">0xb7720837     8d749408        lea esi, [esp+edx*4+0x8]</div>
+        <div class="line">0xb772083b     8d4c2404        lea ecx, [esp+0x4]</div>
+        <div class="line">0xb772083f     89e5            mov ebp, esp</div>
+        <div class="line">0xb7720841     83e4f0          and esp, 0xf0</div>
+        <div class="line">0xb7720844,    50              push eax</div>
+        <div class="line">0xb7720845     50              push eax</div>
+        <div class="line">0xb7720846     55              push ebp ; eax+0x5</div>
+        <div class="line">0xb7720847     56              push esi ; eax+0x6</div>
+        <div class="line">0xb7720848,    31ed            xor ebp, ebp</div>
+        <div class="line">0xb772084a     e801da0000      call 0xb772e250  ; 3 = 0xb772e250</div>
+        <div class="line">0xb772084f     8d934c16ffff    lea edx, [ebx-0xe9b4]</div>
+        <div class="line">0xb7720855     8b2424          mov esp, [esp]</div>
+        <div class="line">0xb7720858,    ffe7            jmp edi</div>
+        <div class="line">0xb772085a     8db600000000    lea esi, [esi+0x0]</div>
+        <div class="line">0xb7720860,    e8e2690100      call 0xb7737247  ; 4 = 0xb7737247</div>
+        <div class="line">0xb7720865     81c15fc70100    add ecx, 0x1c75f</div>
+        <div class="line">0xb772086b     55              push ebp ; eax+0x5</div>
+        <div class="line">0xb772086c,    89e5            mov ebp, esp</div>
+        <div class="line">0xb772086e     5d              pop ebp</div>
+        <div class="line">0xb7720812     e849070000      call 0xb7720f60</div>
+        <div class="line">0xb7720817     89c7            mov edi, eax</div>
+        <div class="line">0xb7720819     e8e2ffffff      call 0xb7720800</div>
+        <div class="line">0xb772081e     81c3a6c70100    add ebx, 0x1c7a6</div>
+        <div class="line">0xb7720824,    8b8300ffffff    mov eax, [ebx-0x100]</div>
+        <div class="line">0xb772082a     5a              pop edx</div>
+        <div class="line">0xb772082b     8d2484          lea esp, [esp+eax*4]</div>
+        <div class="line">0xb772082e     29c2            sub edx, eax</div>
+        <div class="line">0xb7720830,    52              push edx ; eax+0x2</div>
+        <div class="line">0xb7720831     8b833c000000    mov eax, [ebx+0x3c]</div>
+        <div class="line">0xb7720837     8d749408        lea esi, [esp+edx*4+0x8]</div>
+        <div class="line">0xb772083b     8d4c2404        lea ecx, [esp+0x4]</div>
+        <div class="line">0xb772083f     89e5            mov ebp, esp</div>
+        <div class="line">0xb7720841     83e4f0          and esp, 0xf0</div>
+        <div class="line">0xb7720844,    50              push eax</div>
+        <div class="line">0xb7720845     50              push eax</div>
+        <div class="line">0xb7720846     55              push ebp ; eax+0x5</div>
+        <div class="line">0xb7720847     56              push esi ; eax+0x6</div>
+        <div class="line">0xb7720848,    31ed            xor ebp, ebp</div>
+        <div class="line">0xb772084a     e801da0000      call 0xb772e250  ; 3 = 0xb772e250</div>
+        <div class="line">0xb772084f     8d934c16ffff    lea edx, [ebx-0xe9b4]</div>
+        <div class="line">0xb7720855     8b2424          mov esp, [esp]</div>
+        <div class="line">0xb7720858,    ffe7            jmp edi</div>
+        <div class="line">0xb772085a     8db600000000    lea esi, [esi+0x0]</div>
+        <div class="line">0xb7720860,    e8e2690100      call 0xb7737247  ; 4 = 0xb7737247</div>
+        <div class="line">0xb7720865     81c15fc70100    add ecx, 0x1c75f</div>
+        <div class="line">0xb772086b     55              push ebp ; eax+0x5</div>
+        <div class="line">0xb772086c,    89e5            mov ebp, esp</div>
+        <div class="line">0xb772086e     5d              pop ebp</div>
+        <div class="line">0xb7720812     e849070000      call 0xb7720f60</div>
+        <div class="line">0xb7720817     89c7            mov edi, eax</div>
+        <div class="line">0xb7720819     e8e2ffffff      call 0xb7720800</div>
+        <div class="line">0xb772081e     81c3a6c70100    add ebx, 0x1c7a6</div>
+        <div class="line">0xb7720824,    8b8300ffffff    mov eax, [ebx-0x100]</div>
+        <div class="line">0xb772082a     5a              pop edx</div>
+        <div class="line">0xb772082b     8d2484          lea esp, [esp+eax*4]</div>
+        <div class="line">0xb772082e     29c2            sub edx, eax</div>
+        <div class="line">0xb7720830,    52              push edx ; eax+0x2</div>
+        <div class="line">0xb7720831     8b833c000000    mov eax, [ebx+0x3c]</div>
+        <div class="line">0xb7720837     8d749408        lea esi, [esp+edx*4+0x8]</div>
+        <div class="line">0xb772083b     8d4c2404        lea ecx, [esp+0x4]</div>
+        <div class="line">0xb772083f     89e5            mov ebp, esp</div>
+        <div class="line">0xb7720841     83e4f0          and esp, 0xf0</div>
+        <div class="line">0xb7720844,    50              push eax</div>
+        <div class="line">0xb7720845     50              push eax</div>
+        <div class="line">0xb7720846     55              push ebp ; eax+0x5</div>
+        <div class="line">0xb7720847     56              push esi ; eax+0x6</div>
+        <div class="line">0xb7720848,    31ed            xor ebp, ebp</div>
+        <div class="line">0xb772084a     e801da0000      call 0xb772e250  ; 3 = 0xb772e250</div>
+        <div class="line">0xb772084f     8d934c16ffff    lea edx, [ebx-0xe9b4]</div>
+        <div class="line">0xb7720855     8b2424          mov esp, [esp]</div>
+        <div class="line">0xb7720858,    ffe7            jmp edi</div>
+        <div class="line">0xb772085a     8db600000000    lea esi, [esi+0x0]</div>
+        <div class="line">0xb7720860,    e8e2690100      call 0xb7737247  ; 4 = 0xb7737247</div>
+        <div class="line">0xb7720865     81c15fc70100    add ecx, 0x1c75f</div>
+        <div class="line">0xb772086b     55              push ebp ; eax+0x5</div>
+        <div class="line">0xb772086c,    89e5            mov ebp, esp</div>
+        <div class="line">0xb772086e     5d              pop ebp</div>
+        <div class="row"><a href="">[v]</a></div>
+      </div>
+      <div class="work-zone" id="panel-bytes2">
+        <div class="line">0xb7720812     call 0xb7720f60</div>
+        <div class="line">0xb7720817     mov edi, eax</div>
+        <div class="line">0xb7720819     call 0xb7720800</div>
+        <div class="line">0xb772081e     add ebx, 0x1c7a6</div>
+        <div class="line">0xb7720824,    mov eax, [ebx-0x100]</div>
+        <div class="line">0xb772082a     pop edx</div>
+        <div class="line">0xb772082b     lea esp, [esp+eax*4]</div>
+        <div class="line">0xb772082e     sub edx, eax</div>
+        <div class="line">0xb7720830,    push edx ; eax+0x2</div>
+        <div class="line">0xb7720831     mov eax, [ebx+0x3c]</div>
+        <div class="line">0xb7720837     lea esi, [esp+edx*4+0x8]</div>
+        <div class="line">0xb772083b     lea ecx, [esp+0x4]</div>
+        <div class="line">0xb772083f     mov ebp, esp</div>
+        <div class="line">0xb7720841     and esp, 0xf0</div>
+        <div class="line">0xb7720844,    push eax</div>
+        <div class="line">0xb7720845     push eax</div>
+        <div class="line">0xb7720846     push ebp ; eax+0x5</div>
+        <div class="line">0xb7720847     push esi ; eax+0x6</div>
+        <div class="line">0xb7720848,    xor ebp, ebp</div>
+        <div class="line">0xb772084a     call 0xb772e250  ; 3 = 0xb772e250</div>
+        <div class="line">0xb772084f     lea edx, [ebx-0xe9b4]</div>
+        <div class="line">0xb7720855     mov esp, [esp]</div>
+        <div class="line">0xb7720858,    jmp edi</div>
+        <div class="line">0xb772085a     lea esi, [esi+0x0]</div>
+        <div class="line">0xb7720860,    call 0xb7737247  ; 4 = 0xb7737247</div>
+        <div class="line">0xb7720865     add ecx, 0x1c75f</div>
+        <div class="line">0xb772086b     push ebp ; eax+0x5</div>
+        <div class="line">0xb772086c,    mov ebp, esp</div>
+        <div class="line">0xb772086e     pop ebp</div>
+        <div class="line">0xb7720812     call 0xb7720f60</div>
+        <div class="line">0xb7720817     mov edi, eax</div>
+        <div class="line">0xb7720819     call 0xb7720800</div>
+        <div class="line">0xb772081e     add ebx, 0x1c7a6</div>
+        <div class="line">0xb7720824,    mov eax, [ebx-0x100]</div>
+        <div class="line">0xb772082a     pop edx</div>
+        <div class="line">0xb772082b     lea esp, [esp+eax*4]</div>
+        <div class="line">0xb772082e     sub edx, eax</div>
+        <div class="line">0xb7720830,    push edx ; eax+0x2</div>
+        <div class="line">0xb7720831     mov eax, [ebx+0x3c]</div>
+        <div class="line">0xb7720837     lea esi, [esp+edx*4+0x8]</div>
+        <div class="line">0xb772083b     lea ecx, [esp+0x4]</div>
+        <div class="line">0xb772083f     mov ebp, esp</div>
+        <div class="line">0xb7720841     and esp, 0xf0</div>
+        <div class="line">0xb7720844,    push eax</div>
+        <div class="line">0xb7720845     push eax</div>
+        <div class="line">0xb7720846     push ebp ; eax+0x5</div>
+        <div class="line">0xb7720847     push esi ; eax+0x6</div>
+        <div class="line">0xb7720848,    xor ebp, ebp</div>
+        <div class="line">0xb772084a     call 0xb772e250  ; 3 = 0xb772e250</div>
+        <div class="line">0xb772084f     lea edx, [ebx-0xe9b4]</div>
+        <div class="line">0xb7720855     mov esp, [esp]</div>
+        <div class="line">0xb7720858,    jmp edi</div>
+        <div class="line">0xb772085a     lea esi, [esi+0x0]</div>
+        <div class="line">0xb7720860,    call 0xb7737247  ; 4 = 0xb7737247</div>
+        <div class="line">0xb7720865     add ecx, 0x1c75f</div>
+        <div class="line">0xb772086b     push ebp ; eax+0x5</div>
+        <div class="line">0xb772086c,    mov ebp, esp</div>
+        <div class="line">0xb772086e     pop ebp</div>
+        <div class="line">0xb7720812     call 0xb7720f60</div>
+        <div class="line">0xb7720817     mov edi, eax</div>
+        <div class="line">0xb7720819     call 0xb7720800</div>
+        <div class="line">0xb772081e     add ebx, 0x1c7a6</div>
+        <div class="line">0xb7720824,    mov eax, [ebx-0x100]</div>
+        <div class="line">0xb772082a     pop edx</div>
+        <div class="line">0xb772082b     lea esp, [esp+eax*4]</div>
+        <div class="line">0xb772082e     sub edx, eax</div>
+        <div class="line">0xb7720830,    push edx ; eax+0x2</div>
+        <div class="line">0xb7720831     mov eax, [ebx+0x3c]</div>
+        <div class="line">0xb7720837     lea esi, [esp+edx*4+0x8]</div>
+        <div class="line">0xb772083b     lea ecx, [esp+0x4]</div>
+        <div class="line">0xb772083f     mov ebp, esp</div>
+        <div class="line">0xb7720841     and esp, 0xf0</div>
+        <div class="line">0xb7720844,    push eax</div>
+        <div class="line">0xb7720845     push eax</div>
+        <div class="line">0xb7720846     push ebp ; eax+0x5</div>
+        <div class="line">0xb7720847     push esi ; eax+0x6</div>
+        <div class="line">0xb7720848,    xor ebp, ebp</div>
+        <div class="line">0xb772084a     call 0xb772e250  ; 3 = 0xb772e250</div>
+        <div class="line">0xb772084f     lea edx, [ebx-0xe9b4]</div>
+        <div class="line">0xb7720855     mov esp, [esp]</div>
+        <div class="line">0xb7720858,    jmp edi</div>
+        <div class="line">0xb772085a     lea esi, [esi+0x0]</div>
+        <div class="line">0xb7720860,    call 0xb7737247  ; 4 = 0xb7737247</div>
+        <div class="line">0xb7720865     add ecx, 0x1c75f</div>
+        <div class="line">0xb772086b     push ebp ; eax+0x5</div>
+        <div class="line">0xb772086c,    mov ebp, esp</div>
+        <div class="line">0xb772086e     pop ebp</div>
+        <div class="row"><a href="">[v]</a></div>
+      </div>
+-->
+    </td>
+    <td width="25%" class="td-reg" id="panel-regs">
+<!--
+( regs
+<a href="load">load</a>
+<a href="save">save</a>
+)
+       <div id="reg">
+          <div id="eax" class="line editable">eax       0xbfb00d24</div>
+          <div class="line editable">ecx       0x1c247596</div>
+          <div class="line editable">edx       0x1</div>
+          <div class="line editable">ebx       0xb80a5ff4 </div>
+          <div class="line editable">esp       0xbfb00c98</div>
+          <div class="line editable">ebp       0xbfb00c98</div>
+          <div class="line editable">esi       0x8048440</div>
+          <div class="line editable">edi       0x8048320</div>
+          <div class="line editable">eip       0x80483d7 <main+3></div>
+          <div class="line editable">eflags    0x246  [ PF ZF IF ]</div>
+          <div class="line editable">cs        0x73   115</div>
+          <div class="line editable">ss        0x7b   123</div>
+          <div class="line editable">ds        0x7b   123</div>
+          <div class="line editable">es        0x7b   123</div>
+          <div class="line editable">fs        0x0    0</div>
+          <div id="gs" class="line editable">gs        0x33</div>
+        </div>
+-->
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

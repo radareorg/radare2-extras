@@ -1,0 +1,15 @@
+#!/bin/sh
+r2 -e io.va=1 /bin/ls <<EOF
+b 2048
+s 0x804f4e0
+af
+ab
+s 0x0804a992
+af
+ab
+s 0x0805aa10
+af
+ab
+:bc auth pancake 123
+:bc pull
+EOF

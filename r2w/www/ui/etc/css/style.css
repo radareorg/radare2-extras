@@ -1,0 +1,140 @@
+/* main scheme styles */
+body {
+ background: #101010;
+ font-size: 8pt;
+ color: #ffffff;
+ font-family: monospace;
+ margin-left: 0;
+ margin-top: 0;
+ margin-right: 0;
+ padding: 0;
+}
+
+/* divs */
+#work-zone {
+ height: 100%;
+ overflow: auto;
+}
+
+#reg {
+}
+
+.line {
+ white-space: pre;
+}
+
+.header {
+ text-align: left;
+ background-color: #010101;
+}
+
+#header {
+ clear: both;
+ border-bottom: 1px solid;
+}
+
+#bottom {
+ clear: both;
+ border-top: 1px solid;
+}
+
+/* tables */
+table {
+ margin: 0;
+ padding: 0;
+ border-spacing: 0;
+ vertical-align: text-top;
+}
+
+td {
+ vertical-align: text-top;
+}
+
+.background {
+ position:absolute;
+ width:100%;
+ height:100%;
+ background-color:#000000;
+ opacity:0.6;
+}
+
+.popup {
+ background-color:#505060;
+ top: 32px;
+ left: 32px;
+ text-align: left;
+ margin: 10px;
+ width: 80%;
+ opacity:0.9;
+ position: absolute;
+}
+
+.td-work-zone {
+ border-bottom: 1px solid;
+ border-right: 1px solid;
+}
+
+.td-reg {
+ border-bottom: 1px solid;
+}
+
+/* diasassembler */
+
+.eip {
+ background: #66ff66;
+}
+
+/* Forms */
+input {
+ width: 100%;
+ font-size: 8pt;
+ background: #010101;
+ color: #ffffff;
+ border: 1px solid;
+ font-family: monospace;
+ margin: 0;
+ padding: 0;
+ border-spacing: 0;
+}
+
+textarea {
+ width: 100%;
+ font-size: 8pt;
+ background: #010101;
+ color: #ffffff;
+ border: 1px solid;
+ font-family: monospace;
+ margin: 0;
+ padding: 0;
+ border-spacing: 0;
+ overflow: auto;
+}
+
+label {
+ border: 0;
+}
+
+/* links */
+a:link {
+    color : #3399ff;
+    text-decoration: none;
+    background-color: transparent;
+}
+
+a:visited {
+    color : #3399ff;
+    text-decoration : none;
+    background-color: transparent;
+}
+
+a:active {
+    color : #3399ff;
+    text-decoration : none;
+    background-color: transparent;
+}
+
+a:hover {
+    color : #3399ff;
+    text-decoration : underline;
+    background-color: transparent;
+}

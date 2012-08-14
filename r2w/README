@@ -1,0 +1,18 @@
+r2w -- radare2 web frontend
+===========================
+
+r2w aims to be the next user interface of radare2
+
+- Gtk app managing webkit tabs and daemon lifecicle
+- python webapp server handling a RCore
+- templates to generate widgets
+
+Workflow
+========
+
+.----------------.
+| Welcome Wizard |
+`----------------'
+| * New project  |
+| * Open project |
+`----------------'

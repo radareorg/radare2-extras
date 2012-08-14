@@ -1,0 +1,94 @@
+bincrowd protocol
+=================
+
+methodName: upload
+params:
+  param:
+     struct:
+	username: foo
+	password: bar
+	version: 1
+	file_information:
+		hash_md5: ..
+		operating system: 0
+		name: file.path
+		description: ..
+	functions: ...
+Functions[] = {
+
+}
+		function_information
+			language
+			rva
+			numberofnodes
+			processor
+			base_address
+		name: WinMain
+		edges: (array)
+			topo_order..
+			...
+		prime_product: ...
+		stack_frame:
+			size: 28
+			name: Msg
+			description:
+			...
+		description: foo is bar
+
+reply:
+int[] { error_code, response_list}
+      0, 1
+(error_code, response_list)
+
+T 188.40.58.40:80 -> 192.168.0.196:58393 [AP]
+  HTTP/1.1 200 OK..Date: Mon, 24 May 2010 21:25:28 GMT..Server: Apache..Vary: Accept-Encoding..Transfer-Encoding: chunked..C
+  ontent-Type: text/xml....102..<?xml version='1.0'?>.<methodResponse>.<params>.<param>.<value><array><data>.<value><int>3</
+  int></value>.<value><string>Argument 'function' has an invalid type &lt;type 'dict'&gt;</string></value>.</data></array></
+  value>.</param>.</params>.</methodResponse>...
+
+T 188.40.58.40:80 -> 192.168.0.196:55623 [AP]
+  HTTP/1.1 200 OK..Date: Mon, 24 May 2010 22:13:45 GMT..Server: Apache..Vary: Accept-Encoding..Transfer-Encoding: chunked..Content-Type: text/xml....139..<?xml version='1.0'?>.<m
+  ethodResponse>.<fault>.<value><struct>.<member>.<name>faultCode</name>.<value><int>1</int></value>.</member>.<member>.<name>faultString</name>.<value><string>&lt;type 'exceptio
+  ns.ZeroDivisionError'&gt;:float division</string></value>.</member>.</struct></value>.</fault>.</methodResponse>...   
+
+1295 <?xml version='1.0'?>
+1296 <methodResponse>
+1297 <params>
+1298 <param>
+1299 <value><array><data>
+1300 <value><int>0</int></value>
+1301 <value><array><data>
+1302 <value><int>1</int></value>
+1303 </data></array></value>
+1304 </data></array></value>
+1305 </param>
+1306 </params>
+1307 </methodResponse>
+
+
+download:
+	username: foo
+	password: bar
+	version: 1
+	edges: ..
+	prime_product: ...
+	functions: (empty array) 
+
+(reply-download)
+string containing xml code
+((error_code, results), method_name) = xmlrpclib.loads(response.encode("utf-8"))
+	methodName: download_return
+		name: WinMain
+		number_of_nodes: 18
+		description: Fjsfjklasf 
+		match_degree: 1
+		number_of_edges: 26
+		file_id: 546
+		file: notepad.exe
+		owner: username
+		stack_frame:
+			{
+				name: Msg
+				description: 
+			}, { ... }
+
