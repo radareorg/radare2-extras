@@ -1,0 +1,34 @@
+VERSION=@VERSION@
+HAVE_LIB_YARA=@HAVE_LIB_YARA@
+PREFIX=@PREFIX@
+
+DIRS=
+ifeq ($(HAVE_LIB_YARA),1)
+DIRS+=yara/yara2
+DIRS+=yara/yara3
+endif
+
+all:
+	for a in $(DIRS) ; do \
+	( cd $$a ; ./configure --prefix=$(PREFIX) ; $(MAKE) ) ; \
+	done
+
+clean:
+	for a in $(DIRS) ; do \
+	( cd $$a ; $(MAKE) clean ) ; \
+	done
+
+mrproper:
+	for a in $(DIRS) ; do ( cd $$a ; $(MAKE) mrproper ) ; done
+
+install:
+	for a in $(DIRS) ; do ( cd $$a ; $(MAKE) install ) ; done
+
+symstall:
+	for a in $(DIRS) ; do ( cd $$a ; $(MAKE) symstall ) ; done
+
+uninstall deinstall:
+	for a in $(DIRS) ; do ( cd $$a ; $(MAKE) uninstall ) ; done
+
+dist:
+	@echo TODO

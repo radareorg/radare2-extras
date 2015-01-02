@@ -100,12 +100,12 @@ done
 : ${INSTALL_PROGRAM_STRIP:=${INSTALL} -m 755 -s}
 : ${INSTALL_MAN:=${INSTALL} -m 444}
 : ${INSTALL_LIB:=${INSTALL} -m 755 -c}
- PKGNAME='radare2-extras' ; VERSION='0.9.9-git' ; CONTACT_MAIL="pancake@nopcode.org" ; CONTACT_NAME="pancake" ; CONTACT="pancake <pancake@nopcode.org>" ;
+ PKGNAME='radare2-extras-yara2' ; VERSION='0.9.9-git' ; CONTACT_MAIL="julien.voisin@dustri.org" ; CONTACT_NAME="jvoisin" ; CONTACT="jvoisin <julien.voisin@dustri.org>" ;
 }
                 
 show_usage() {
 cat <<EOF2
-'configure' configures radare2-extras-0.9.9-git to adapt to many kinds of systems.
+'configure' configures radare2-extras-yara2-0.9.9-git to adapt to many kinds of systems.
 
 Usage: ./configure [OPTION]... [VAR=VALUE]...
 
@@ -156,7 +156,7 @@ Some influential environment variables:
   CPP         C preprocessor
 "
 printf "
-Report bugs to: pancake <pancake@nopcode.org>"
+Report bugs to: jvoisin <julien.voisin@dustri.org>"
 echo ""
 exit 0
 }
@@ -169,7 +169,7 @@ take_environ() {
 }
 
 show_version() {
-echo "radare2-extras-0.9.9-git configuration script done with acr v0.9.9.
+echo "radare2-extras-yara2-0.9.9-git configuration script done with acr v0.9.9.
 The 'Free Software Foundation' message is only for autodetection.
 Originally written by pancake <nopcode.org>."
 exit 0
@@ -192,10 +192,11 @@ case $flag in
 -V|-version|--version)
 	show_version ; ;;
 -r|--r|--report)
-echo "PKGNAME:   radare2-extras"
+echo "PKGNAME:   radare2-extras-yara2"
 echo "VERSION:   0.9.9-git"
 echo "LANGS:     c"
-echo "OPTIONAL:  libyara"
+echo "REQUIRED:  libyara"
+echo "PKG-CONFIG:  r_core"
 	exit 0
 	;;
 --cache-file) 
@@ -256,7 +257,7 @@ parse_options $1
 shift
 done
 
-ENVWORDS="MANDIR INFODIR LIBDIR INCLUDEDIR LOCALSTATEDIR SYSCONFDIR DATADIR LIBEXECDIR SBINDIR BINDIR EPREFIX PREFIX SPREFIX TARGET HOST BUILD INSTALL INSTALL_LIB INSTALL_MAN INSTALL_PROGRAM INSTALL_PROGRAM_STRIP INSTALL_DIR INSTALL_SCRIPT INSTALL_DATA HOST_OS HOST_CPU BUILD_OS BUILD_CPU TARGET_OS TARGET_CPU PKGNAME VPATH VERSION CONTACT CONTACT_NAME CONTACT_MAIL CC CFLAGS CPPFLAGS LDFLAGS HAVE_LANG_C HAVE_LIB_YARA"
+ENVWORDS="MANDIR INFODIR LIBDIR INCLUDEDIR LOCALSTATEDIR SYSCONFDIR DATADIR LIBEXECDIR SBINDIR BINDIR EPREFIX PREFIX SPREFIX TARGET HOST BUILD INSTALL INSTALL_LIB INSTALL_MAN INSTALL_PROGRAM INSTALL_PROGRAM_STRIP INSTALL_DIR INSTALL_SCRIPT INSTALL_DATA HOST_OS HOST_CPU BUILD_OS BUILD_CPU TARGET_OS TARGET_CPU PKGNAME VPATH VERSION CONTACT CONTACT_NAME CONTACT_MAIL CC CFLAGS CPPFLAGS LDFLAGS HAVE_LANG_C HAVE_LIB_YARA R2_CFLAGS R2_LDFLAGS HAVE_PKGCFG_R_CORE"
 
 create_environ
 
@@ -300,8 +301,22 @@ if [ $? = 0 ]; then
 	echo yes
 else
 	eval ${VAR}=0
-	echo no  ; fi }
-check_library HAVE_LIB_YARA yara 0 
+	echo no 
+  echo "this library is required."
+  do_remove
+  exit 1 ; fi }
+check_library HAVE_LIB_YARA yara 1 
+printf 'checking pkg-config flags for r_core... '
+tmp=`pkg-config --cflags r_core 2>/dev/null`
+if [ '!' $? = 0 ]; then echo no ; HAVE_PKGCFG_R_CORE=0; 
+echo 'This package is required'
+exit 1
+else 
+R2_CFLAGS=$tmp; 
+tmp=`pkg-config --libs r_core 2>/dev/null`
+if [ $? = 0 ]; then 
+echo yes; HAVE_PKGCFG_R_CORE=1; 
+R2_LDFLAGS=$tmp; fi; fi
 SEDFLAGS=" -e '"
 COUNT=0
 for A in ${ENVWORDS} ; do
@@ -314,7 +329,7 @@ for A in ${ENVWORDS} ; do
 	SEDFLAGS="${SEDFLAGS}s,@${A}@,${VAR},g;"
 done
 SEDFLAGS="${SEDFLAGS}'"
-for A in . ./config-user.mk  ; do # SUBDIRS
+for A in .  ; do # SUBDIRS
 if [ -f "${VPATH}/${A}.acr" ]; then
   SD_TARGET=${A}
  else

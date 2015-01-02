@@ -1,0 +1,12 @@
+PKGNAME radare2-extras-yara2
+VERSION 0.9.9-git
+CONTACT jvoisin ; julien.voisin@dustri.org
+
+REPORT PREFIX ;
+
+LANG_C!
+
+CHKLIB! yara
+PKGCFG! R2_CFLAGS R2_LDFLAGS r_core
+
+SUBDIRS . ;

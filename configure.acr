@@ -2,18 +2,9 @@ PKGNAME radare2-extras
 VERSION 0.9.9-git
 CONTACT pancake ; pancake@nopcode.org
 
-LANG_C!
-
-ARG_ENABLE CPARSE cparse build with cparse support ;
-ARG_DISABLE DEBUGGER debugger disable native debugger features ;
-
-(( -ldl -dynamic ... ))
-USE_DL
-
-CHECK_ENDIAN
-
-ARG_WITH USE_RPATH rpath use rpath to build ;
-
 REPORT PREFIX ;
 
-SUBDIRS ./config-user.mk ;
+LANG_C!
+CHKLIB yara
+
+SUBDIRS . ./config-user.mk ;

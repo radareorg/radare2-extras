@@ -1,0 +1,56 @@
+PWD=$(shell pwd)
+VERSION=@VERSION@
+DESTDIR=@DESTDIR@
+PREFIX=@PREFIX@
+HOST_OS=@HOST_OS@
+LIBDIR=@LIBDIR@
+
+#LIBYARA_CFLAGS=@LIBYARA_CFLAGS@
+#LIBYARA_LDFLAGS=@LIBYARA_LDFLAGS@
+LIBYARA_CFLAGS=
+LIBYARA_LDFLAGS=-lyara
+R2_CFLAGS=@R2_CFLAGS@
+R2_LDFLAGS=@R2_LDFLAGS@
+
+CFLAGS+=${R2_CFLAGS} ${LIBYARA_CFLAGS}
+LDFLAGS+=${R2_LDFLAGS} ${LIBYARA_LDFLAGS}
+CFLAGS+=-I. -fPIC
+LDFLAGS+=-shared
+
+ifeq ($(HOST_OS),windows)
+SOEXT=dll
+else
+ifeq ($(HOST_OS),darwin)
+SOEXT=dylib
+else
+SOEXT=so
+endif
+endif
+
+MOD=core_yara2
+
+THEDIR=$(DESTDIR)/$(LIBDIR)/radare2-extras/$(VERSION)/
+
+all: $(MOD).$(SOEXT)
+
+$(MOD).$(SOEXT): ${MOD}.o
+	${CC} ${CFLAGS} ${LDFLAGS} ${MOD}.o -o ${MOD}.${SOEXT}
+
+clean:
+	rm -f ${MOD}.o ${MOD}.${SOEXT}
+
+mrproper: clean
+	rm -f Makefile
+
+install:
+	mkdir -p ${DESTDIR}${LIBDIR}/radare2-extras/${VERSION}/
+	${INSTALL_LIB} ${MOD}.${SOEXT} $(THEDIR)/${MOD}.${SOEXT}
+	cd ${THEDIR} ; ln -fs ${VERSION} last
+
+symstall:
+	mkdir -p ${DESTDIR}${LIBDIR}/radare2-extras/${VERSION}/
+	ln -fs ${PWD}/${MOD}.${SOEXT} $(THEDIR)/$(MOD).$(SOEXT)
+	cd ${THEDIR} ; ln -fs ${VERSION} last
+
+uninstall:
+	rm -f ${THEDIR}/$(MOD).$(SOEXT)
