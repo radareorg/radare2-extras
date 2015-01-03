@@ -48,7 +48,7 @@ symstall:
 	ln -fs ${PWD}/${MOD}.${EXT_SO} $(THEDIR)/$(MOD).$(EXT_SO)
 	cd ${THEDIR} ; ln -fs ${VERSION} last
 	rm -rf $(THEDIR)/yara
-	ln -fs $(PWD)/../yara $(THEDIR)/yara
+	ln -fs $(PWD)/../files $(THEDIR)/yara
 
 uninstall:
 	rm -f ${THEDIR}/$(MOD).$(EXT_SO)
