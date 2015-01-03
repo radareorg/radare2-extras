@@ -386,11 +386,11 @@ static int r_cmd_yara_process(const RCore* core, const char* input) {
 
 static int r_cmd_yara_call(void *user, const char *input) {
 	const RCore* core = (RCore*) user;
-	if (strncmp (input, "yara", 4))
+	if (strncmp (input, "yara2", 5))
 		return R_FALSE;
-	else if (strncmp (input, "yara ", 5))
+	else if (strncmp (input, "yara2 ", 6))
 		return r_cmd_yara_help (core);
-	const char *args = input+4;
+	const char *args = input+5;
 	if (r_yr_initialize == NULL)
 		if (!r_cmd_yara_init (core))
 			return R_TRUE;
@@ -486,7 +486,7 @@ static int r_cmd_yara_deinit(){
 }
 
 RCorePlugin r_core_plugin_yara = {
-	.name = "yara",
+	.name = "yara2",
 	.desc = "YARA integration",
 	.license = "LGPL",
 	.call = r_cmd_yara_call,

@@ -5,6 +5,7 @@ CONTACT pancake ; pancake@nopcode.org
 REPORT PREFIX ;
 
 LANG_C!
+PKGCFG R2_CFLAGS R2_LDFLAGS r_core
 CHKLIB yara
 
-SUBDIRS . ./config-user.mk ;
+SUBDIRS . ./options.mk ;
