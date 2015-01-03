@@ -46,11 +46,16 @@ install:
 	mkdir -p ${DESTDIR}${LIBDIR}/radare2-extras/${VERSION}/
 	${INSTALL_LIB} ${MOD}.${SOEXT} $(THEDIR)/${MOD}.${SOEXT}
 	cd ${THEDIR} ; ln -fs ${VERSION} last
+	rm -rf $(THEDIR)/yara
+	mkdir -p $(THEDIR)/yara
+	cp -f ../files/* $(THEDIR)/yara
 
 symstall:
-	mkdir -p ${DESTDIR}${LIBDIR}/radare2-extras/${VERSION}/
+	mkdir -p $(THEDIR)
 	ln -fs ${PWD}/${MOD}.${SOEXT} $(THEDIR)/$(MOD).$(SOEXT)
 	cd ${THEDIR} ; ln -fs ${VERSION} last
+	rm -f $(THEDIR)/yara
+	ln -fs $(PWD)/../yara $(THEDIR)/yara
 
 uninstall:
 	rm -f ${THEDIR}/$(MOD).$(SOEXT)
