@@ -29,7 +29,7 @@ install:
 
 symstall:
 	mkdir -p $(THEDIR)
-	cp -f *.$(EXT_SO) $(THEDIR)
+	for a in *.$(EXT_SO) ; do ln -fs $(PWD)/$$a $(THEDIR)/$$a ; done
 
 uninstall:
 	for a in *.$(EXT_SO) ; do rm -f $(THEDIR)/$$a ; done

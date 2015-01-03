@@ -11,7 +11,6 @@ This snippet will open /bin/ls and disassemble 10 instructions at entrypoint:
 	print "Entrypoint: %s"%c.cmd_str("? entry0").split(" ")[1]
 	print c.cmd_str("pd 10 @ entry0")
 
-
 To run it:
 
 	$ python test.py
@@ -31,3 +30,15 @@ To run it:
 	  |   0x000018b6                  56  push esi
 	  |   0x000018b7          6840f80408  push dword 0x804f840
 	  `=< 0x000018bc          e843fbffff  call 0x1404
+
+The same program can be written using the r2pipe bindings:
+
+	# install api
+	$ sys/python-r2pipe.sh
+
+	$ cat pipe.py
+	import r2pipe
+	r = r2pipe("/bin/ls")
+	print "Entrypoint: %s"%c.cmd("? entry0").split(" ")[1]
+	print r.cmd("pd 10 @ entry0")
+
