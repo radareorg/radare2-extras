@@ -4,6 +4,7 @@ DESTDIR=
 PREFIX=@PREFIX@
 HOST_OS=@HOST_OS@
 LIBDIR=@LIBDIR@
+INSTALL_LIB=@INSTALL_LIB@
 
 #LIBYARA_CFLAGS=@LIBYARA_CFLAGS@
 #LIBYARA_LDFLAGS=@LIBYARA_LDFLAGS@
@@ -54,7 +55,7 @@ symstall:
 	mkdir -p $(THEDIR)
 	ln -fs ${PWD}/${MOD}.${SOEXT} $(THEDIR)/$(MOD).$(SOEXT)
 	cd ${THEDIR} ; ln -fs ${VERSION} last
-	rm -f $(THEDIR)/yara
+	rm -rf $(THEDIR)/yara
 	ln -fs $(PWD)/../yara $(THEDIR)/yara
 
 uninstall:
