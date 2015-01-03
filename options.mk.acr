@@ -1,2 +1,21 @@
 # TEST
 PREFIX=@PREFIX@
+VERSION=@VERSION@
+LIBDIR=@LIBDIR@
+INSTALL_LIB=@INSTALL_LIB@
+
+R2_CFLAGS=@R2_CFLAGS@
+R2_LDFLAGS=@R2_LDFLAGS@
+
+#CFLAGS+=$(R2_CFLAGS)
+#LDFLAGS+=$(R2_LDFLAGS)
+
+ifeq ($(HOST_OS),windows)
+EXT_SO=dll
+else
+ifeq ($(HOST_OS),darwin)
+EXT_SO=dylib
+else
+EXT_SO=so
+endif
+endif

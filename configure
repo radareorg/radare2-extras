@@ -290,6 +290,8 @@ exit 1 ; fi
 printf 'checking pkg-config flags for r_core... '
 tmp=`pkg-config --cflags r_core 2>/dev/null`
 if [ '!' $? = 0 ]; then echo no ; HAVE_PKGCFG_R_CORE=0; 
+echo 'This package is required'
+exit 1
 else 
 R2_CFLAGS=$tmp; 
 tmp=`pkg-config --libs r_core 2>/dev/null`

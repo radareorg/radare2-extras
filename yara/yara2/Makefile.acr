@@ -18,34 +18,26 @@ LDFLAGS+=${R2_LDFLAGS} ${LIBYARA_LDFLAGS}
 CFLAGS+=-I. -fPIC
 LDFLAGS+=-shared
 
-ifeq ($(HOST_OS),windows)
-SOEXT=dll
-else
-ifeq ($(HOST_OS),darwin)
-SOEXT=dylib
-else
-SOEXT=so
-endif
-endif
+include ../../options.mk
 
 MOD=core_yara2
 
 THEDIR=$(DESTDIR)/$(LIBDIR)/radare2-extras/$(VERSION)/
 
-all: $(MOD).$(SOEXT)
+all: $(MOD).$(EXT_SO)
 
-$(MOD).$(SOEXT): ${MOD}.o
-	${CC} ${CFLAGS} ${LDFLAGS} ${MOD}.o -o ${MOD}.${SOEXT}
+$(MOD).$(EXT_SO): ${MOD}.o
+	${CC} ${CFLAGS} ${LDFLAGS} ${MOD}.o -o ${MOD}.${EXT_SO}
 
 clean:
-	rm -f ${MOD}.o ${MOD}.${SOEXT}
+	rm -f ${MOD}.o ${MOD}.${EXT_SO}
 
 mrproper: clean
 	rm -f Makefile
 
 install:
 	mkdir -p ${DESTDIR}${LIBDIR}/radare2-extras/${VERSION}/
-	${INSTALL_LIB} ${MOD}.${SOEXT} $(THEDIR)/${MOD}.${SOEXT}
+	${INSTALL_LIB} ${MOD}.${EXT_SO} $(THEDIR)/${MOD}.${EXT_SO}
 	cd ${THEDIR} ; ln -fs ${VERSION} last
 	rm -rf $(THEDIR)/yara
 	mkdir -p $(THEDIR)/yara
@@ -53,10 +45,10 @@ install:
 
 symstall:
 	mkdir -p $(THEDIR)
-	ln -fs ${PWD}/${MOD}.${SOEXT} $(THEDIR)/$(MOD).$(SOEXT)
+	ln -fs ${PWD}/${MOD}.${EXT_SO} $(THEDIR)/$(MOD).$(EXT_SO)
 	cd ${THEDIR} ; ln -fs ${VERSION} last
 	rm -rf $(THEDIR)/yara
 	ln -fs $(PWD)/../yara $(THEDIR)/yara
 
 uninstall:
-	rm -f ${THEDIR}/$(MOD).$(SOEXT)
+	rm -f ${THEDIR}/$(MOD).$(EXT_SO)

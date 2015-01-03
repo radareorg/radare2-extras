@@ -23,8 +23,8 @@ static int disassemble(struct r_asm_t *a, struct r_asm_aop_t *aop, ut8 *buf, ut6
 	dp.operands = operands;
 	dp.iaddr = &iaddr;
 	dp.instr = bof;
-	PPC_Disassemble(&dp, a->big_endian);
-	snprintf(aop->buf_asm, R_ASM_BUFSIZE, "%s %s", opcode, operands);
+	PPC_Disassemble (&dp, a->big_endian);
+	snprintf (aop->buf_asm, R_ASM_BUFSIZE, "%s %s", opcode, operands);
 	aop->inst_len = 4;
 
 	return aop->inst_len;
@@ -33,7 +33,7 @@ static int disassemble(struct r_asm_t *a, struct r_asm_aop_t *aop, ut8 *buf, ut6
 struct r_asm_handle_t r_asm_plugin_ppc_disasm = {
 	.name = "ppc_disasm",
 	.arch = "ppc",
-	.bits = (int[]){ 32, 0 },
+	.bits = 32,
 	.desc = "PPC_disasm disassembly plugin",
 	.init = NULL,
 	.fini = NULL,

@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2010 pancake<nopcode.org> */
+/* radare - LGPL - Copyright 2010-2015 - pancake */
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -9,15 +9,16 @@
 #include <r_asm.h>
 #include "../arch/arm/arm.h"
 
-static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, ut64 len) {
+static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	int *p = (int*)buf; // TODO : endian
 	op->buf_asm[0]='\0';
-	op->inst_len = armthumb_disassemble (op->buf_asm, (ut32)a->pc, *p);
-	if (!op->inst_len)
+	op->size = armthumb_disassemble (op->buf_asm, (ut32)a->pc, *p);
+	if (!op->size)
 		strncpy (op->buf_asm, " (data)", R_ASM_BUFSIZE);
-	return op->inst_len;
+	return op->size;
 }
 
+#if 0
 static int assemble(RAsm *a, RAsmOp *op, const char *buf) {
 	int opcode = armass_assemble (buf, a->pc, R_TRUE);
 	if (opcode==-1)
@@ -25,16 +26,17 @@ static int assemble(RAsm *a, RAsmOp *op, const char *buf) {
 	r_mem_copyendian (op->buf, (void *)&opcode, 2, a->big_endian);
 	return armthumb_length (opcode);
 }
+#endif
 
 RAsmPlugin r_asm_plugin_armthumb = {
 	.name = "armthumb",
 	.arch = "armthumb",
-	.bits = (int[]){ 16, 0 },
+	.bits = 16,
 	.desc = "ARM THUMB disassembly plugin",
 	.init = NULL,
 	.fini = NULL,
 	.disassemble = &disassemble,
-	.assemble = &assemble 
+//	.assemble = &assemble 
 };
 
 #ifndef CORELIB
