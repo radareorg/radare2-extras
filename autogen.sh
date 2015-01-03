@@ -5,7 +5,11 @@
 #  git clone https://github.com/radare/acr
 #
 # -- pancake
-acr -p
+files=`find . -name configure.acr`
+for a in ${files}; do
+	echo "[+] $a"
+	( cd `dirname $a` ; acr -p )
+done
 if [ -n "$1" ]; then
 	echo "./configure $@"
 	./configure $@
