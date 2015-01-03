@@ -427,10 +427,10 @@ void x86im_process_mem_op( __in core_opdata *opd,
     char mem_reg = 0;
     int n;
     unsigned char modrm_mod,
-                  modrm_reg,
+                  //UNUSED modrm_reg,
                   modrm_rm,
                   sib_scale,
-                  sib_index,
+                  //UNUSED sib_index,
                   sib_base;
 
     X86IM_IO_IF_SET( io, X86IM_IO_IF_MEM_OP|X86IM_IO_IF_EXP_OP );
@@ -465,7 +465,7 @@ void x86im_process_mem_op( __in core_opdata *opd,
             n = ( i[0] & 0xC7 );
 
             modrm_mod  = X86IM_IO_GET_MODRM_FLD_MOD( io->modrm );
-            modrm_reg  = X86IM_IO_GET_MODRM_FLD_REG( io->modrm );
+            //modrm_reg  = X86IM_IO_GET_MODRM_FLD_REG( io->modrm );
             modrm_rm   = X86IM_IO_GET_MODRM_FLD_RM( io->modrm );
 
             if ( io->def_adsz == 2 )
@@ -606,7 +606,7 @@ void x86im_process_mem_op( __in core_opdata *opd,
                 if ( X86IM_IO_IF_HAS_SIB( io ) )
                 {
                     sib_scale = X86IM_IO_GET_SIB_FLD_SCALE( io->sib );
-                    sib_index = X86IM_IO_GET_SIB_FLD_INDEX( io->sib );
+                    //sib_index = X86IM_IO_GET_SIB_FLD_INDEX( io->sib );
                     sib_base  = X86IM_IO_GET_SIB_FLD_BASE( io->sib );
 
                     n = x86im_process_reg_op( opd,
