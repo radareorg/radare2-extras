@@ -13,22 +13,8 @@ all:
 	( cd $$a ; ./configure --prefix=$(PREFIX) ; $(MAKE) ) ; \
 	done
 
-clean:
-	for a in $(DIRS) ; do \
-	( cd $$a ; $(MAKE) clean ) ; \
-	done
-
-mrproper:
-	for a in $(DIRS) ; do ( cd $$a ; $(MAKE) mrproper ) ; done
-
-install:
-	for a in $(DIRS) ; do ( cd $$a ; $(MAKE) install ) ; done
-
-symstall:
-	for a in $(DIRS) ; do ( cd $$a ; $(MAKE) symstall ) ; done
-
-uninstall deinstall:
-	for a in $(DIRS) ; do ( cd $$a ; $(MAKE) uninstall ) ; done
+clean mrproper install symstall uninstall deinstall:
+	for a in $(DIRS) ; do ( cd $$a ; $(MAKE) $@ ) ; done
 
 dist:
 	@echo TODO

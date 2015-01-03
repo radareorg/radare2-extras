@@ -402,7 +402,7 @@ static int r_cmd_yara_call(void *user, const char *input) {
 }
 
 static int r_cmd_yara_load_default_rules(const RCore* core) {
-#define YARA_PATH R2_PREFIX "/share/radare2/" R2_VERSION "/yara/"
+#define YARA_PATH R2_PREFIX "/share/radare2-extras/" R2_VERSION "/yara/"
 	RListIter* iter = NULL;
 	char* filename, *complete_path;
 	char* rules;
