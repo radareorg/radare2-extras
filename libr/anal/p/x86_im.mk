@@ -2,7 +2,7 @@ OBJ_X86=anal_x86_im.o
 OBJ_X86+=../arch/x86/x86im/x86im.o ../arch/x86/x86im/x86im_fmt.o
 
 STATIC_OBJ+=${OBJ_X86}
-TARGET_X86=anal_x86.${EXT_SO}
+TARGET_X86=anal_x86_im.${EXT_SO}
 
 ALL_TARGETS+=${TARGET_X86}
 CFLAGS+=-D__X86IM_USE_FMT__

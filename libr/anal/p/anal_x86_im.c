@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2009-2013 - nibble */
+/* radare - LGPL - Copyright 2009-2015 - pancake, nibble */
 
 #include <string.h>
 
@@ -1086,7 +1086,7 @@ static int set_reg_profile(RAnal *anal) {
 }
 
 RAnalPlugin r_anal_plugin_x86_im = {
-	.name = "x86.im86",
+	.name = "x86.im",
 	.desc = "X86 analysis plugin (x86im backend)",
 	.license = "LGPL3",
 	.arch = R_SYS_ARCH_X86,

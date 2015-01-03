@@ -7,6 +7,7 @@ ifeq ($(HAVE_LIB_YARA),1)
 DIRS+=yara/yara2
 DIRS+=yara/yara3
 DIRS+=libr/asm/p
+DIRS+=libr/anal/p
 endif
 
 all:
