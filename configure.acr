@@ -9,7 +9,21 @@ LANG_C!
 (( mandatory ))
 PKGCFG! R2_CFLAGS R2_LDFLAGS r_core
 
-(( optional ))
+(( ---- optional ---- ))
+
+(( ewf ))
+CHKLIB ewf
+PKGCFG EWF_CFLAGS EWF_LDFLAGS libewf
+IF HAVE_PKGCFG_LIBEWF {
+        HAVE_LIB_EWF = 1 ;
+}{
+        HAVE_LIB_EWF = 0 ;
+}
+IFNOT HAVE_EWF { HAVE_LIB_EWF = 0 ; }
+
+(( yara2 ))
 CHKLIB yara
+(( yara3 ))
+PKGCFG YARA_CFLAGS YARA_LDFLAGS yara
 
 SUBDIRS . ./options.mk ;
