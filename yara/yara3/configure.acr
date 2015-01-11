@@ -1,0 +1,13 @@
+PKGNAME radare2-extras-yara3
+VERSION 0.9.9-git
+CONTACT jfrankowski ; judy.frankowski@gmail.com
+
+REPORT PREFIX ;
+
+LANG_C!
+
+CHKLIB! yara
+PKGCFG! YR_CFLAGS YR_LDFLAGS yara
+PKGCFG! R2_CFLAGS R2_LDFLAGS r_core
+
+SUBDIRS . ;

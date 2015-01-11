@@ -1,19 +1,19 @@
 PWD=$(shell pwd)
-VERSION=0.9.9-git
+VERSION=@VERSION@
 DESTDIR=
-PREFIX=/usr
-HOST_OS=linux
-LIBDIR=/usr/lib
-INSTALL_LIB=/usr/bin/install -m 755 -c
+PREFIX=@PREFIX@
+HOST_OS=@HOST_OS@
+LIBDIR=@LIBDIR@
+INSTALL_LIB=@INSTALL_LIB@
 
 #LIBYARA_CFLAGS=@LIBYARA_CFLAGS@
 #LIBYARA_LDFLAGS=@LIBYARA_LDFLAGS@
 LIBYARA_CFLAGS=
 LIBYARA_LDFLAGS=-lyara
-R2_CFLAGS=-I/usr/include/libr
-R2_LDFLAGS=-lr_core -lr_config -lr_cons -lr_io -lr_util -lr_flags -lr_asm -lr_db -lr_debug -lr_hash -lr_bin -lr_lang -lr_io -lr_anal -lr_parse -lr_bp -lr_egg -lr_reg -lr_search -lr_syscall -lr_diff -lr_socket -lr_fs -lr_magic
-YR_CFLAGS=
-YR_LDFLAGS=-lyara
+R2_CFLAGS=@R2_CFLAGS@
+R2_LDFLAGS=@R2_LDFLAGS@
+YR_CFLAGS=@YR_CFLAGS@
+YR_LDFLAGS=@YR_LDFLAGS@
 
 CFLAGS+=${R2_CFLAGS} ${LIBYARA_CFLAGS} ${YR_CFLAGS}
 LDFLAGS+=${R2_LDFLAGS} ${LIBYARA_LDFLAGS} ${YR_LDFLAGS}

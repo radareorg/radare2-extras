@@ -521,9 +521,9 @@ static int r_cmd_yara_deinit(){
 	return R_TRUE;
 }
 
-RCorePlugin r_core_plugin_yara = {
-	.name = "yara",
-	.desc = "YARA integration",
+RCorePlugin r_core_plugin_yara2 = {
+	.name = "yara2",
+	.desc = "YARA 2.x plugin for r2",
 	.license = "LGPL",
 	.call = r_cmd_yara_call,
 	.init = NULL, // init is performed in call if needed
@@ -533,6 +533,6 @@ RCorePlugin r_core_plugin_yara = {
 #ifndef CORELIB
 RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_CORE,
-	.data = &r_core_plugin_yara,
+	.data = &r_core_plugin_yara2,
 };
 #endif

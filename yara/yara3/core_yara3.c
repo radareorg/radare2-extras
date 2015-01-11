@@ -1,59 +1,21 @@
-/* radare - LGPLv3 - Copyright 2014 jvoisin <julien.voisin@dustri.org> */
+/* radare - LGPLv3 - Copyright 2014-2015 - pancake, jvoisin, jfrankowski */
 
 #include <dirent.h>
-
 #include <r_core.h>
 #include <r_lib.h>
-
-#include "yara.h"
+#include <yara.h>
 
 #undef R_API
 #define R_API static
 #undef R_IPI
 #define R_IPI static
 
-static int loaded_version;
-
-static void* libyara;
-
-static void (*r_yr_initialize)(void);
-static int (*r_yr_compiler_add_file)(
-    YR_COMPILER* compiler,
-    FILE* rules_file,
-    const char* namespace_);
-static int (*r_yr_compiler_add_string)(
-    YR_COMPILER* compiler,
-    const char* rules_string,
-    const char* namespace_);
-static void (*r_yr_finalize)(void);
-static int (*r_yr_compiler_create)( YR_COMPILER** compiler);
-static void (*r_yr_compiler_destroy)( YR_COMPILER* compiler);
-static int (*r_yr_rules_destroy) (YR_RULES* rules);
-static char* (*r_yr_compiler_get_error_message)
-    (YR_COMPILER* compiler, char* buf, int buff_size);
-
-static int (*r_yr_compiler_push_file_name)(
-    YR_COMPILER* compiler,
-    const char* file_name);
-static int (*r_yr_compiler_get_rules)(
-    YR_COMPILER* compiler,
-    YR_RULES** rules);
-static int (*r_yr_rules_scan_mem)(
-    YR_RULES* rules,
-    uint8_t* buffer,
-    size_t buffer_size,
-    YR_CALLBACK_FUNC callback,
-    void* user_data,
-    int fast_scan_mode,
-    int timeout);
-
-// version 3
-static void (*r_yr_compiler_set_callback)(YR_COMPILER* compiler, YR_COMPILER_CALLBACK_FUNC callback);
+static int loaded_version = 3;
 
 // R_TRUE if the plugin has been initialized.
 static int initialized = R_FALSE;
 
-static int callback(int message, YR_RULE* rule, void* data);
+static int callback(int message, void* rule, void* data);
 static int r_cmd_yara_add (const RCore* core, const char* input);
 static int r_cmd_yara_add_file (const char* rules_path);
 static int r_cmd_yara_call(void *user, const char *input);
@@ -72,15 +34,16 @@ static const char* yara_rule_template = "rule RULE_NAME {\n\tstrings:\n\n\tcondi
  */
 static RList* rules_list;
 
-static int callback (int message, YR_RULE* rule, void* data) {
-    if (message == CALLBACK_MSG_RULE_MATCHING)
-        r_cons_printf ("%s\n", rule->identifier);
-    return CALLBACK_CONTINUE;
+static int callback (int message, void *msg_data, void *user_data) {
+	YR_RULE* rule = msg_data;
+	if (message == CALLBACK_MSG_RULE_MATCHING)
+		r_cons_printf ("%s\n", rule->identifier);
+	return CALLBACK_CONTINUE;
 }
 
 static void compiler_callback(int error_level, const char* file_name,
 		int line_number, const char* message) {
-	eprintf("file: %s line_number: %d.\n%s", file_name, line_number, message);
+	eprintf ("file: %s line_number: %d.\n%s", file_name, line_number, message);
 	return;
 }
 
@@ -110,7 +73,7 @@ static int r_cmd_yara_scan(const RCore* core) {
 	}
 
 	r_list_foreach (rules_list, rules_it, rules) {
-		r_yr_rules_scan_mem (rules, to_scan, to_scan_size, callback, NULL, 0, 0);
+		yr_rules_scan_mem (rules, to_scan, to_scan_size, 0, callback, NULL, 0);
 	}
 
 	free (to_scan);
@@ -205,7 +168,7 @@ static int r_cmd_yara_list () {
 static int r_cmd_yara_clear () {
 	/* Clears all loaded rules */
 	r_list_free (rules_list);
-	rules_list = r_list_newf((RListFree) r_yr_rules_destroy);
+	rules_list = r_list_newf((RListFree) yr_rules_destroy);
 	eprintf ("Rules cleared.\n");
 
 	return R_TRUE;
@@ -224,10 +187,10 @@ static int r_cmd_yara_add(const RCore* core, const char* input) {
 		}
 	}
 
-	if (r_yr_compiler_create (&compiler) != ERROR_SUCCESS) {
+	if (yr_compiler_create (&compiler) != ERROR_SUCCESS) {
 		char buf[64];
 		eprintf ("Error: %s\n",
-		r_yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
+		yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
 
 		return R_FALSE;
 	}
@@ -243,11 +206,11 @@ static int r_cmd_yara_add(const RCore* core, const char* input) {
 			goto err_exit;
 		}
 
-		result = r_yr_compiler_add_string (compiler, modified_template, NULL);
+		result = yr_compiler_add_string (compiler, modified_template, NULL);
 		if( result > 0 ) {
 			char buf[64];
 			eprintf ("Error: %s\n",
-			r_yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
+			yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
 
 			continue_edit = r_cons_yesno('y', "Do you want to continue editing the rule? [y]/n\n");
 			if (!continue_edit) {
@@ -260,13 +223,13 @@ static int r_cmd_yara_add(const RCore* core, const char* input) {
 	} while (result > 0);
 
 	free(modified_template);
-	r_yr_compiler_destroy (compiler);
+	yr_compiler_destroy (compiler);
 	r_cons_printf ("Rule successfully added.\n");
 
 	return R_TRUE;
 
 err_exit:
-	if (compiler) r_yr_compiler_destroy (compiler);
+	if (compiler) yr_compiler_destroy (compiler);
 	if (modified_template) free (modified_template);
 	if (old_template) free (old_template);
 	return R_FALSE;
@@ -278,7 +241,7 @@ static int r_cmd_yara_add_file(const char* rules_path) {
 	FILE* rules_file = NULL;
 	int result;
 
-	if (!rules_path){
+	if (!rules_path) {
 		eprintf ("Please tell me what am I supposed to load\n");
 		return R_FALSE;
 	}
@@ -289,59 +252,61 @@ static int r_cmd_yara_add_file(const char* rules_path) {
 		return R_FALSE;
 	}
 
-	if (r_yr_compiler_create (&compiler) != ERROR_SUCCESS) {
+	if (yr_compiler_create (&compiler) != ERROR_SUCCESS) {
 		char buf[64];
 		eprintf ("Error: %s\n",
-		r_yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
+		yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
 
 		goto err_exit;
 	}
 
+#if 0
 	if (loaded_version == 2) {
-		if (r_yr_compiler_push_file_name (compiler, rules_path) != ERROR_SUCCESS) {
+		if (yr_compiler_push_file_name (compiler, rules_path) != ERROR_SUCCESS) {
 			char buf[64];
 			eprintf ("Error: %s : %s\n",
-			r_yr_compiler_get_error_message (compiler, buf, sizeof (buf)),
+			yr_compiler_get_error_message (compiler, buf, sizeof (buf)),
 				rules_path);
 
 			goto err_exit;
 		}
 	}
+#endif
 
-	result = r_yr_compiler_add_file (compiler, rules_file, NULL);
+	result = yr_compiler_add_file (compiler, rules_file, NULL, rules_path);
 	fclose (rules_file);
 	rules_file = NULL;
 	if (result > 0) {
 		char buf[64];
 		eprintf ("Error: %s : %s\n",
-		r_yr_compiler_get_error_message (compiler, buf, sizeof (buf)),
+		yr_compiler_get_error_message (compiler, buf, sizeof (buf)),
 			rules_path);
 
 		goto err_exit;
 	}
 
-	if (r_yr_compiler_get_rules (compiler, &rules) != ERROR_SUCCESS) {
+	if (yr_compiler_get_rules (compiler, &rules) != ERROR_SUCCESS) {
 		char buf[64];
 		eprintf ("Error: %s\n",
-		r_yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
+		yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
 
 		goto err_exit;
 	}
 
 	r_list_append(rules_list, rules);
 
-	r_yr_compiler_destroy (compiler);
+	yr_compiler_destroy (compiler);
 	return R_TRUE;
 
 err_exit:
-	if (compiler) r_yr_compiler_destroy (compiler);
+	if (compiler) yr_compiler_destroy (compiler);
 	if (rules_file) fclose (rules_file);
 	return R_FALSE;
 }
 
 static int r_cmd_yara_help(const RCore* core) {
 	const char * help_message[] = {
-		"Usage: yara", "", " Yara plugin",
+		"Usage: yara3", "", " Yara plugin",
 		"add", " [file]", "Add yara rules from file, or open $EDITOR with yara rule template",
 		"clear", "", "Clear all rules",
 		"help", "", "Show this help",
@@ -379,9 +344,9 @@ static int r_cmd_yara_process(const RCore* core, const char* input) {
 
 static int r_cmd_yara_call(void *user, const char *input) {
 	const RCore* core = (RCore*) user;
-	if (strncmp (input, "yara", 4))
+	if (strncmp (input, "yara3", 5))
 		return R_FALSE;
-	else if (strncmp (input, "yara ", 5))
+	else if (strncmp (input, "yara3 ", 6))
 		return r_cmd_yara_help (core);
 	const char *args = input+4;
 	if (! initialized)
@@ -403,15 +368,15 @@ static int r_cmd_yara_load_default_rules (const RCore* core) {
 	char* rules = NULL;
 	RList* list = r_sys_dir (YARA_PATH);
 
-	if (r_yr_compiler_create (&compiler) != ERROR_SUCCESS) {
+	if (yr_compiler_create (&compiler) != ERROR_SUCCESS) {
 		char buf[64];
 		eprintf ("Error: %s\n",
-		r_yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
+		yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
 
 		goto err_exit;
 	}
 
-	r_yr_compiler_set_callback(compiler, compiler_callback);
+	yr_compiler_set_callback(compiler, compiler_callback);
 
 	r_list_foreach (list, iter, filename) {
 		if (filename[0] != '.') { // skip '.', '..' and hidden files
@@ -421,10 +386,10 @@ static int r_cmd_yara_load_default_rules (const RCore* core) {
 			free (complete_path);
 			complete_path = NULL;
 
-			if (r_yr_compiler_add_string (compiler, rules, NULL) > 0) {
+			if (yr_compiler_add_string (compiler, rules, NULL) > 0) {
 				char buf[64];
 				eprintf ("Error: %s\n",
-				r_yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
+				yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
 			}
 
 			free (rules);
@@ -433,88 +398,44 @@ static int r_cmd_yara_load_default_rules (const RCore* core) {
 	}
 	r_list_free (list);
 
-	if (r_yr_compiler_get_rules (compiler, &yr_rules) != ERROR_SUCCESS) {
+	if (yr_compiler_get_rules (compiler, &yr_rules) != ERROR_SUCCESS) {
 		char buf[64];
 		eprintf ("Error: %s\n",
-		r_yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
+		yr_compiler_get_error_message (compiler, buf, sizeof (buf)));
 
 		goto err_exit;
 	}
 
 	r_list_append(rules_list, yr_rules);
 
-	r_yr_compiler_destroy (compiler);
+	yr_compiler_destroy (compiler);
 	return R_TRUE;
 
 err_exit:
-	if (compiler) r_yr_compiler_destroy (compiler);
+	if (compiler) yr_compiler_destroy (compiler);
 	if (list) r_list_free (list);
 	if (rules) free (rules);
 	return R_FALSE;
 }
 
 static int r_cmd_yara_init(const RCore* core) {
-	libyara = r_lib_dl_open ("libyara."R_LIB_EXT);
-	if (!libyara) {
-		eprintf ("Cannot find libyara\n");
-		return R_FALSE;
-	}
-#define CHECKSYM(x)\
-	r_##x = r_lib_dl_sym (libyara, #x);
-#define LOADSYM(x) { \
-	CHECKSYM(x);\
-	if (!r_##x) { \
-		eprintf ("dlsym: cannot find r_"#x);\
-		return R_FALSE;\
-	} \
-}
-	CHECKSYM (yr_initialize);
-	if (!r_yr_initialize) {
-		eprintf ("Cannot find yr_initialize in libyara (<2.1 ?)\n");
-		return R_FALSE;
-	}
-	LOADSYM (yr_compiler_add_file);
-	LOADSYM (yr_compiler_add_string);
-	LOADSYM (yr_compiler_create);
-	LOADSYM (yr_compiler_destroy);
-	LOADSYM (yr_compiler_get_error_message)
-	LOADSYM (yr_compiler_get_rules);
-	/*LOADSYM (yr_compiler_push_file_name);*/
-	LOADSYM (yr_finalize);
-	LOADSYM (yr_rules_scan_mem);
-	LOADSYM (yr_rules_destroy);
-
-	CHECKSYM (yr_compiler_push_file_name);
-	if (!r_yr_compiler_push_file_name) {
-		loaded_version = 3;
-		LOADSYM (yr_compiler_set_callback);
-	} else {
-		loaded_version = 2;
-	}
-
-	rules_list = r_list_newf((RListFree) r_yr_rules_destroy);
-
-	r_yr_initialize ();
-
+	rules_list = r_list_newf((RListFree) yr_rules_destroy);
+	yr_initialize ();
 	r_cmd_yara_load_default_rules (core);
-
 	initialized = R_TRUE;
-
 	return R_TRUE;
 }
 
 static int r_cmd_yara_deinit(){
 	if (initialized) {
 		r_list_free (rules_list);
-		r_yr_finalize();
+		yr_finalize();
 		initialized = R_FALSE;
-		r_lib_dl_close (libyara);
 	}
-
 	return R_TRUE;
 }
 
-RCorePlugin r_core_plugin_yara = {
+RCorePlugin r_core_plugin_yara3 = {
 	.name = "yara3",
 	.desc = "YARA integration",
 	.license = "LGPL",
@@ -526,6 +447,6 @@ RCorePlugin r_core_plugin_yara = {
 #ifndef CORELIB
 RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_CORE,
-	.data = &r_core_plugin_yara,
+	.data = &r_core_plugin_yara3,
 };
 #endif
