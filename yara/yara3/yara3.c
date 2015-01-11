@@ -5,42 +5,14 @@
 #include <r_core.h>
 #include <r_lib.h>
 
-#include "r_yara.h"
+#include "yara.h"
 
 #undef R_API
 #define R_API static
 #undef R_IPI
 #define R_IPI static
 
-/*
- * YR_RULE->tag is a special structure holding the rule's tags.
- * It is a concatenated list of string with a finishing NULL byte.
- * See example below:
- * tagNULLtag2NULLtag3NULLNULL
- */
-
-// defines taken from yara3 source
-#define yr_rule_tags_foreach(rule, tag_name) \
-	for (tag_name = rule->tags; \
-		tag_name != NULL && *tag_name != '\0'; \
-		tag_name += strlen(tag_name) + 1)
-
-
-#define yr_rule_metas_foreach(rule, meta) \
-	for (meta = rule->metas; !META_IS_NULL(meta); meta++)
-
-
-#define yr_rule_strings_foreach(rule, string) \
-	for (string = rule->strings; !STRING_IS_NULL(string); string++)
-
-
-#define yr_string_matches_foreach(string, match) \
-	for (match = STRING_MATCHES(string).head; match != NULL; match = match->next)
-
-
-#define yr_rules_foreach(rules, rule) \
-	for (rule = rules->rules_list_head; !RULE_IS_NULL(rule); rule++)
-
+static int loaded_version;
 
 static void* libyara;
 
@@ -75,6 +47,9 @@ static int (*r_yr_rules_scan_mem)(
     int fast_scan_mode,
     int timeout);
 
+// version 3
+static void (*r_yr_compiler_set_callback)(YR_COMPILER* compiler, YR_COMPILER_CALLBACK_FUNC callback);
+
 // R_TRUE if the plugin has been initialized.
 static int initialized = R_FALSE;
 
@@ -101,6 +76,12 @@ static int callback (int message, YR_RULE* rule, void* data) {
     if (message == CALLBACK_MSG_RULE_MATCHING)
         r_cons_printf ("%s\n", rule->identifier);
     return CALLBACK_CONTINUE;
+}
+
+static void compiler_callback(int error_level, const char* file_name,
+		int line_number, const char* message) {
+	eprintf("file: %s line_number: %d.\n%s", file_name, line_number, message);
+	return;
 }
 
 static int r_cmd_yara_scan(const RCore* core) {
@@ -316,13 +297,15 @@ static int r_cmd_yara_add_file(const char* rules_path) {
 		goto err_exit;
 	}
 
-	if (r_yr_compiler_push_file_name (compiler, rules_path) != ERROR_SUCCESS) {
-		char buf[64];
-		eprintf ("Error: %s : %s\n",
-		r_yr_compiler_get_error_message (compiler, buf, sizeof (buf)),
-			rules_path);
+	if (loaded_version == 2) {
+		if (r_yr_compiler_push_file_name (compiler, rules_path) != ERROR_SUCCESS) {
+			char buf[64];
+			eprintf ("Error: %s : %s\n",
+			r_yr_compiler_get_error_message (compiler, buf, sizeof (buf)),
+				rules_path);
 
-		goto err_exit;
+			goto err_exit;
+		}
 	}
 
 	result = r_yr_compiler_add_file (compiler, rules_file, NULL);
@@ -412,7 +395,7 @@ static int r_cmd_yara_call(void *user, const char *input) {
 }
 
 static int r_cmd_yara_load_default_rules (const RCore* core) {
-#define YARA_PATH R2_PREFIX "/lib/radare2-extras/" R2_VERSION "/yara/"
+#define YARA_PATH R2_PREFIX "/share/radare2/" R2_VERSION "/yara/"
 	RListIter* iter = NULL;
 	YR_COMPILER* compiler = NULL;
 	YR_RULES* yr_rules;
@@ -427,6 +410,8 @@ static int r_cmd_yara_load_default_rules (const RCore* core) {
 
 		goto err_exit;
 	}
+
+	r_yr_compiler_set_callback(compiler, compiler_callback);
 
 	r_list_foreach (list, iter, filename) {
 		if (filename[0] != '.') { // skip '.', '..' and hidden files
@@ -494,10 +479,18 @@ static int r_cmd_yara_init(const RCore* core) {
 	LOADSYM (yr_compiler_destroy);
 	LOADSYM (yr_compiler_get_error_message)
 	LOADSYM (yr_compiler_get_rules);
-	LOADSYM (yr_compiler_push_file_name);
+	/*LOADSYM (yr_compiler_push_file_name);*/
 	LOADSYM (yr_finalize);
 	LOADSYM (yr_rules_scan_mem);
 	LOADSYM (yr_rules_destroy);
+
+	CHECKSYM (yr_compiler_push_file_name);
+	if (!r_yr_compiler_push_file_name) {
+		loaded_version = 3;
+		LOADSYM (yr_compiler_set_callback);
+	} else {
+		loaded_version = 2;
+	}
 
 	rules_list = r_list_newf((RListFree) r_yr_rules_destroy);
 
@@ -522,7 +515,7 @@ static int r_cmd_yara_deinit(){
 }
 
 RCorePlugin r_core_plugin_yara = {
-	.name = "yara",
+	.name = "yara3",
 	.desc = "YARA integration",
 	.license = "LGPL",
 	.call = r_cmd_yara_call,
