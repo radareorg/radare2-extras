@@ -34,4 +34,12 @@ Directories
 	Contains binary un-upx code and vm code.
 
 Building
-========
+--------
+
+Just type `make`.
+
+Installation
+------------
+
+Running `make install`. will put those shared libraries in your
+HOME's directory.
