@@ -31,10 +31,7 @@ Directories
 
 * bin/
 
-	baleful: Contains binary un-upx code.
-	
-        vm.code: Contains the VM code.
-       
+	Contains binary un-upx code and vm code.
 
 Building
 ========
