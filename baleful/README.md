@@ -4,9 +4,9 @@ This repository contains a baleful plugins for radare2.
 
 Baleful was a challenge relased in picoctf.
 
-* The asm plugin its completed.
+* The asm plugin is completed.
 
-* The anal plugin its it developed status.
+* The anal plugin is in developed status.
 
 Related Documentation
 ==============
@@ -32,9 +32,8 @@ Directories
 * bin/
 
 	baleful: Contains binary un-upx code.
-
-        vm.code: Contains only vm code.
-
+        vm.code: Contains the VM code.
+       
 
 Building
 ========
