@@ -25,7 +25,7 @@ int reg_read(RAnalEsil *esil, const char *regname, ut64 *num) {
 	return 0;
 }
 
-static void initPTS()
+/*static void initPTS()
 {
 	int fdm, fds, rc;
 	char * name;
@@ -55,6 +55,7 @@ static void initPTS()
 		
 	
 }
+
 void printCommand() {
 	if (ptsHandle)
 	{
@@ -75,7 +76,7 @@ void printOutput(char * s) {
 	
 	}
 }
-
+*/
 static int esil_trap(RAnalEsil *esil) {
 	ut64 valor;
 	ut64 valor1;
@@ -85,12 +86,10 @@ static int esil_trap(RAnalEsil *esil) {
 	char *dst = r_anal_esil_pop (esil);
 	char buff[255];	
 	
-	if (!ptsHandle)
-	{
+	/*if (!ptsHandle) {
 		eprintf("Iniciando pts\n");
 		initPTS();
-		
-	}
+	}*/
 		
 	/*f=open("/dev/pts/10", O_RDWR);
 	if (!f)
@@ -103,7 +102,7 @@ static int esil_trap(RAnalEsil *esil) {
 		sprintf(buff,"%c%c",(ut8)v,0);
 		eprintf("emulando api:%s\n",buff);
 		//printOutput(&buff);
-		printOutput(buff);
+		//printOutput(buff);
 		//write (ptsHandle, buff, 2);
 
 	}
