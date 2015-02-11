@@ -3,4 +3,5 @@
 *.o
 
 # Make dependencies files
-*.d
+# Conflicts with .d for dlang
+#*.d
