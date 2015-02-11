@@ -25,18 +25,14 @@
 		tag_name != NULL && *tag_name != '\0'; \
 		tag_name += strlen(tag_name) + 1)
 
-
 #define yr_rule_metas_foreach(rule, meta) \
 	for (meta = rule->metas; !META_IS_NULL(meta); meta++)
-
 
 #define yr_rule_strings_foreach(rule, string) \
 	for (string = rule->strings; !STRING_IS_NULL(string); string++)
 
-
 #define yr_string_matches_foreach(string, match) \
 	for (match = STRING_MATCHES(string).head; match != NULL; match = match->next)
-
 
 #define yr_rules_foreach(rules, rule) \
 	for (rule = rules->rules_list_head; !RULE_IS_NULL(rule); rule++)
@@ -358,7 +354,7 @@ err_exit:
 
 static int r_cmd_yara_help(const RCore* core) {
 	const char * help_message[] = {
-		"Usage: yara", "", " Yara plugin",
+		"Usage: yara2", "", " Yara V2 plugin",
 		"add", " [file]", "Add yara rules from file, or open $EDITOR with yara rule template",
 		"clear", "", "Clear all rules",
 		"help", "", "Show this help",
@@ -396,9 +392,9 @@ static int r_cmd_yara_process(const RCore* core, const char* input) {
 
 static int r_cmd_yara_call(void *user, const char *input) {
 	const RCore* core = (RCore*) user;
-	if (strncmp (input, "yara", 4))
+	if (strncmp (input, "yara2", 5))
 		return R_FALSE;
-	else if (strncmp (input, "yara ", 5))
+	else if (strncmp (input, "yara2 ", 6))
 		return r_cmd_yara_help (core);
 	const char *args = input+4;
 	if (! initialized)
