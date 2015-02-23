@@ -396,7 +396,7 @@ static int r_cmd_yara_call(void *user, const char *input) {
 		return R_FALSE;
 	else if (strncmp (input, "yara2 ", 6))
 		return r_cmd_yara_help (core);
-	const char *args = input+4;
+	const char *args = input+5;
 	if (! initialized)
 		if (!r_cmd_yara_init (core))
 			return R_FALSE;
