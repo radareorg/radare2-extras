@@ -42,7 +42,7 @@ static int callback (int message, void *msg_data, void *user_data) {
 }
 
 static void compiler_callback(int error_level, const char* file_name,
-		int line_number, const char* message) {
+		int line_number, const char* message, void* user_data) {
 	eprintf ("file: %s line_number: %d.\n%s", file_name, line_number, message);
 	return;
 }
@@ -361,7 +361,7 @@ static int r_cmd_yara_call(void *user, const char *input) {
 }
 
 static int r_cmd_yara_load_default_rules (const RCore* core) {
-#define YARA_PATH R2_PREFIX "/share/radare2/" R2_VERSION "/yara3/"
+#define YARA_PATH R2_PREFIX "/lib/radare2-extras/" R2_VERSION "/rules-yara3/"
 	RListIter* iter = NULL;
 	YR_COMPILER* compiler = NULL;
 	YR_RULES* yr_rules;
@@ -377,7 +377,7 @@ static int r_cmd_yara_load_default_rules (const RCore* core) {
 		goto err_exit;
 	}
 
-	yr_compiler_set_callback(compiler, compiler_callback);
+	yr_compiler_set_callback(compiler, compiler_callback, NULL);
 
 	r_list_foreach (list, iter, filename) {
 		if (filename[0] != '.') { // skip '.', '..' and hidden files

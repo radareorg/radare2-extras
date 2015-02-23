@@ -43,14 +43,14 @@ install:
 	cd ${THEDIR} ; ln -fs ${VERSION} last
 	rm -rf $(THEDIR)/yara
 	mkdir -p $(THEDIR)/yara
-	cp -f ../files/* $(THEDIR)/yara
+	cp -f ../rules-yara3/* $(THEDIR)/rules-yara3
 
 symstall:
 	mkdir -p $(THEDIR)
 	ln -fs ${PWD}/${MOD}.${EXT_SO} $(THEDIR)/$(MOD).$(EXT_SO)
 	cd ${THEDIR} ; ln -fs ${VERSION} last
 	rm -rf $(THEDIR)/yara
-	ln -fs $(PWD)/../files $(THEDIR)/yara
+	ln -fs $(PWD)/../rules-yara3 $(THEDIR)/rules-yara3
 
 uninstall:
 	rm -f ${THEDIR}/$(MOD).$(EXT_SO)
