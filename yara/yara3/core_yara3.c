@@ -343,12 +343,13 @@ static int r_cmd_yara_process(const RCore* core, const char* input) {
 }
 
 static int r_cmd_yara_call(void *user, const char *input) {
+	const char *args;
 	const RCore* core = (RCore*) user;
 	if (strncmp (input, "yara3", 5))
 		return R_FALSE;
 	else if (strncmp (input, "yara3 ", 6))
 		return r_cmd_yara_help (core);
-	const char *args = input+4;
+	args = input+5;
 	if (! initialized)
 		if (!r_cmd_yara_init (core))
 			return R_FALSE;
