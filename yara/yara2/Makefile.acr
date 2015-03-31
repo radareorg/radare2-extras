@@ -18,7 +18,9 @@ LDFLAGS+=${R2_LDFLAGS} ${LIBYARA_LDFLAGS}
 CFLAGS+=-I. -fPIC
 LDFLAGS+=-shared
 
+ifneq ("$(wildcard ../../options.mk)","")
 include ../../options.mk
+endif
 
 MOD=core_yara2
 
