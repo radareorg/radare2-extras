@@ -2,6 +2,8 @@ VERSION=@VERSION@
 HAVE_LIB_YARA=@HAVE_LIB_YARA@
 PREFIX=@PREFIX@
 DESTDIR=@DESTDIR@
+TAR=tar -cvf
+CZ=xz -f
 
 DIRS=
 ifeq ($(HAVE_LIB_YARA),1)
@@ -56,6 +58,11 @@ clean mrproper install symstall uninstall deinstall:
 	for a in $(DIRS) ; do ( cd $$a ; $(MAKE) $@ ) ; done
 
 dist:
-	@echo TODO
+	DIR=`basename $$PWD` ; \
+	FILES=`git ls-files | sed -e s,^,radare2-extras-${VERSION}/,` ; \
+	cd .. && mv $${DIR} radare2-extras-${VERSION} && \
+	${TAR} radare2-extras-${VERSION}.tar $${FILES} ; \
+	${CZ} radare2-extras-${VERSION}.tar ; \
+	mv radare2-extras-${VERSION} $${DIR}
 
 .PHONY: dist all
