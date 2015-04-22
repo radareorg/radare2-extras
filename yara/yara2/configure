@@ -306,14 +306,16 @@ else
   do_remove
   exit 1 ; fi }
 check_library HAVE_LIB_YARA yara 1 
+[ -z "${PKGCONFIG}" ] && PKGCONFIG=pkg-config
+echo 'Using PKGCONFIG: '${PKGCONFIG}
 printf 'checking pkg-config flags for r_core... '
-tmp=`pkg-config --cflags r_core 2>/dev/null`
-if [ '!' $? = 0 ]; then echo no ; HAVE_PKGCFG_R_CORE=0; 
+tmp=`${PKGCONFIG} --cflags r_core 2>/dev/null`
+if [ $? != 0 ]; then echo no ; HAVE_PKGCFG_R_CORE=0; 
 echo 'This package is required'
 exit 1
 else 
 R2_CFLAGS=$tmp; 
-tmp=`pkg-config --libs r_core 2>/dev/null`
+tmp=`${PKGCONFIG} --libs r_core 2>/dev/null`
 if [ $? = 0 ]; then 
 echo yes; HAVE_PKGCFG_R_CORE=1; 
 R2_LDFLAGS=$tmp; fi; fi

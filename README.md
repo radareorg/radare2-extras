@@ -27,6 +27,31 @@ repository to be as concise as possible, and reduce the
 amount of unnecessary plugins to shrink the install size and
 keep it usable for 99% of users.
 
+Building
+========
+To build radare2-extras, just follow the common gnu-configure steps:
+
+	./configure --prefix=/usr
+	make baleful
+	make baleful-install
+
+To install yara3 and the r2 plugin:
+
+	./configure --prefix=/usr
+	make install-yara3
+	make yara3
+	make yara3-install
+
+Note the `symstall` instead of `install` will symlink the plugins
+instead of copying them. This way you can just avoid installing
+every time you build. This installation method is prefered for
+developers.
+
+Each module may have it's own configure script, this way
+packagers can create plugin-specific packages like this:
+
+	radare2-extras-yara -> yara plugin
+
 Directories
 ===========
 
@@ -36,7 +61,18 @@ Directories
 
 * libr/asm/p
 
-	Contains assembler/disassembler plugins
+	Contains assembler/disassembler plugins:
+
+	* m68k
+	* armthumb
+	* psosvm
+	* ppc
+
+* libr/bin/p
+
+	Bin-related plugins:
+
+	* dlang demangler
 
 * libr/anal/p
 
@@ -51,24 +87,6 @@ Directories
 
 	very work-in-progress core cmd plugins
 	for historical reasons, but will be removed soon or late.
-
-Building
-========
-To build radare2-extras, just follow the common gnu-configure steps:
-
-	./configure --prefix=/usr
-	make
-	sudo make symstall
-
-Note the `symstall` instead of `install` will symlink the plugins
-instead of copying them. This way you can just avoid installing
-every time you build. This installation method is prefered for
-developers.
-
-Each module may have it's own configure script, this way
-packagers can create plugin-specific packages like this:
-
-	radare2-extras-yara -> yara plugin
 
 RFC
 ===

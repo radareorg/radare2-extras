@@ -13,13 +13,14 @@ PKGCFG! R2_CFLAGS R2_LDFLAGS r_core
 
 (( ewf ))
 CHKLIB ewf
-PKGCFG EWF_CFLAGS EWF_LDFLAGS libewf
+PKGCFG EWF_CFLAGS WANT_EWF_LDFLAGS libewf
+ARG_WITHOUT WANT_EWF ewf build without libewf ;
 IF HAVE_PKGCFG_LIBEWF {
-        HAVE_LIB_EWF = 1 ;
+	HAVE_LIB_EWF = 1 ;
 }{
         HAVE_LIB_EWF = 0 ;
 }
-IFNOT HAVE_EWF { HAVE_LIB_EWF = 0 ; }
+IFNOT WANT_EWF { HAVE_LIB_EWF = 0 ; }
 
 (( yara2 ))
 CHKLIB yara

@@ -55,10 +55,12 @@ static const char* ops_ls2[] = {
 static const char* ops_rev[] = {"rev", "rev16", "rev??", "revsh"};
 static const char* ops_xt[] = {"sxth", "sxtb", "uxth", "uxtb"};
 
+#if UNUSED
 static inline unsigned int ror (unsigned int value, int shift) {
 	shift &= 31;
 	return (value >> shift) | (value << (32 - shift));
 }
+#endif
 
 static char tmpbuf[4*16+1];
 static const char* compute_reg_list (unsigned list) {

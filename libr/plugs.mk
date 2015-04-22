@@ -10,6 +10,7 @@ CFLAGS+=-Wall -shared -fPIC ${LDFLAGS_LIB}
 CFLAGS+=-DLIL_ENDIAN=1
 LDFLAGS+=-L../../util -L../../lib
 LDFLAGS+=${LINK} -lr_util
+DESTDIR?=
 
 CURDIR=
 
@@ -21,7 +22,7 @@ include $(ARCHS)
 
 all: ${ALL_TARGETS}
 
-THEDIR=$(LIBDIR)/radare2-extras/$(VERSION)
+THEDIR=$(DESTDIR)$(LIBDIR)/radare2-extras/$(VERSION)
 
 install:
 	mkdir -p $(THEDIR)

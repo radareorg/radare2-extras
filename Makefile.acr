@@ -1,6 +1,7 @@
 VERSION=@VERSION@
 HAVE_LIB_YARA=@HAVE_LIB_YARA@
 PREFIX=@PREFIX@
+DESTDIR=@DESTDIR@
 
 DIRS=
 ifeq ($(HAVE_LIB_YARA),1)
@@ -9,6 +10,42 @@ DIRS+=yara/yara3
 DIRS+=libr/asm/p
 DIRS+=libr/anal/p
 endif
+
+help:
+	@echo "Usage make [target]   .. Targets:"
+	@echo "  baleful            - build baleful r2 plugin"
+	@echo "  asm                - build armthumb, ppc, psosvm, x86bea, m68k plugins"
+	@echo "  dlang              - support DLang demangler (RBin)"
+	@echo "  yara{2,3}          - build yara2 or yara3 r2 plugin"
+	@echo "  (target)-install   - install given plugin"
+	@echo "  (target)-clean     - clean given plugin"
+	@echo "  install-yara{2,3}  - install Yara 2 or 3 from Git"
+
+baleful:
+	$(MAKE) -C baleful
+asm:
+	$(MAKE) -C libr/asm/p
+asm-install:
+	$(MAKE) -C libr/asm/p install DESTDIR=$(DESTDIR)
+asm-clean:
+	$(MAKE) -C libr/asm/p clean
+dlang:
+	$(MAKE) -C libr/bin/p
+dlang-install:
+	$(MAKE) -C libr/bin/p install DESTDIR=$(DESTDIR)
+yara2 yara3:
+	cd yara/$@ ; ./configure --prefix=$(PREFIX)
+	$(MAKE) -C yara/$@
+yara2-clean:
+	$(MAKE) -C yara/yara2 clean
+yara3-clean:
+	$(MAKE) -C yara/yara3 clean
+baleful-install:
+	$(MAKE) -C baleful install DESTDIR=$(DESTDIR)
+yara2-install:
+	$(MAKE) -C yara/yara2 install DESTDIR=$(DESTDIR)
+yara3-install:
+	$(MAKE) -C yara/yara3 install DESTDIR=$(DESTDIR)
 
 all:
 	for a in $(DIRS) ; do \
@@ -20,3 +57,5 @@ clean mrproper install symstall uninstall deinstall:
 
 dist:
 	@echo TODO
+
+.PHONY: dist all

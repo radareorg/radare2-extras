@@ -1,4 +1,4 @@
-/* radare - GPL3 - Copyright 2009 nibble<.ds@gmail.com> */
+/* radare - GPL3 - Copyright 2009,2015 nibble, pancake */
 
 #include <stdio.h>
 #include <string.h>
@@ -11,8 +11,7 @@
 #include "m68k/m68k_disasm/m68k_disasm.h"
 
 
-static int disassemble(struct r_asm_t *a, struct r_asm_aop_t *aop, ut8 *buf, ut64 len)
-{
+static int disassemble(RAsm *a, RAsmOp *aop, const ut8 *buf, int len) {
 	m68k_word bof[4];
 	m68k_word iaddr = (m68k_word)a->pc;
 	char opcode[256];
@@ -27,15 +26,15 @@ static int disassemble(struct r_asm_t *a, struct r_asm_aop_t *aop, ut8 *buf, ut6
 	dp.instr = bof;
 	M68k_Disassemble(&dp);
 	snprintf(aop->buf_asm, R_ASM_BUFSIZE, "%s %s", opcode, operands);
-	aop->inst_len = 4;
+	aop->size = 4;
 
-	return aop->inst_len;
+	return aop->size;
 }
 
-struct r_asm_handle_t r_asm_plugin_m68k = {
+struct r_asm_plugin_t r_asm_plugin_m68k = {
 	.name = "m68k",
 	.arch = "m68k",
-	.bits = (int[]){ 32, 0 },
+	.bits = 32,
 	.desc = "M68K disassembly plugin",
 	.init = NULL,
 	.fini = NULL,

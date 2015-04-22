@@ -17,6 +17,7 @@ control_c() {
   exit 1
 }
 trap control_c 2
+WANT_EWF=1
 split_host() {
 S="$"
 while : ; do
@@ -145,6 +146,10 @@ System types:
 EOF2
 
 printf "
+Optional Features:
+  --without-ewf          build without libewf 
+"
+printf "
 Some influential environment variables:
   CC          C compiler command
   CFLAGS      C compiler flags
@@ -197,6 +202,7 @@ echo "VERSION:   0.9.9-git"
 echo "LANGS:     c"
 echo "OPTIONAL:  libewf"
 echo "PKG-CONFIG:  r_core libewf yara"
+echo "FLAGS:     --without-ewf"
 	exit 0
 	;;
 --cache-file) 
@@ -240,6 +246,7 @@ echo "PKG-CONFIG:  r_core libewf yara"
 --mandir)
 	MANDIR="$value"; ;;
 
+"--without-ewf") WANT_EWF="0"; ;;
 *) if [ "$value" ]; then eval "`echo $flag2=$value`" ; 
 else echo ; echo "WARNING: Unknown flag '$flag'." >&2 ; echo ; fi ;;
 esac
@@ -257,7 +264,7 @@ parse_options $1
 shift
 done
 
-ENVWORDS="MANDIR INFODIR LIBDIR INCLUDEDIR LOCALSTATEDIR SYSCONFDIR DATADIR LIBEXECDIR SBINDIR BINDIR EPREFIX PREFIX SPREFIX TARGET HOST BUILD INSTALL INSTALL_LIB INSTALL_MAN INSTALL_PROGRAM INSTALL_PROGRAM_STRIP INSTALL_DIR INSTALL_SCRIPT INSTALL_DATA HOST_OS HOST_CPU BUILD_OS BUILD_CPU TARGET_OS TARGET_CPU PKGNAME VPATH VERSION CONTACT CONTACT_NAME CONTACT_MAIL CC CFLAGS CPPFLAGS LDFLAGS HAVE_LANG_C R2_CFLAGS R2_LDFLAGS HAVE_PKGCFG_R_CORE HAVE_LIB_EWF EWF_CFLAGS EWF_LDFLAGS HAVE_PKGCFG_LIBEWF HAVE_LIB_YARA YARA_CFLAGS YARA_LDFLAGS HAVE_PKGCFG_YARA"
+ENVWORDS="MANDIR INFODIR LIBDIR INCLUDEDIR LOCALSTATEDIR SYSCONFDIR DATADIR LIBEXECDIR SBINDIR BINDIR EPREFIX PREFIX SPREFIX TARGET HOST BUILD INSTALL INSTALL_LIB INSTALL_MAN INSTALL_PROGRAM INSTALL_PROGRAM_STRIP INSTALL_DIR INSTALL_SCRIPT INSTALL_DATA HOST_OS HOST_CPU BUILD_OS BUILD_CPU TARGET_OS TARGET_CPU PKGNAME VPATH VERSION CONTACT CONTACT_NAME CONTACT_MAIL CC CFLAGS CPPFLAGS LDFLAGS HAVE_LANG_C R2_CFLAGS R2_LDFLAGS HAVE_PKGCFG_R_CORE HAVE_LIB_EWF EWF_CFLAGS WANT_EWF_LDFLAGS HAVE_PKGCFG_LIBEWF WANT_EWF HAVE_LIB_YARA YARA_CFLAGS YARA_LDFLAGS HAVE_PKGCFG_YARA"
 
 create_environ
 
@@ -287,14 +294,16 @@ if [ $? = 0 ]; then echo ${CC}; else
 do_remove
 echo "ERROR: ${CC} cannot create executables" >&2 ;
 exit 1 ; fi
+[ -z "${PKGCONFIG}" ] && PKGCONFIG=pkg-config
+echo 'Using PKGCONFIG: '${PKGCONFIG}
 printf 'checking pkg-config flags for r_core... '
-tmp=`pkg-config --cflags r_core 2>/dev/null`
-if [ '!' $? = 0 ]; then echo no ; HAVE_PKGCFG_R_CORE=0; 
+tmp=`${PKGCONFIG} --cflags r_core 2>/dev/null`
+if [ $? != 0 ]; then echo no ; HAVE_PKGCFG_R_CORE=0; 
 echo 'This package is required'
 exit 1
 else 
 R2_CFLAGS=$tmp; 
-tmp=`pkg-config --libs r_core 2>/dev/null`
+tmp=`${PKGCONFIG} --libs r_core 2>/dev/null`
 if [ $? = 0 ]; then 
 echo yes; HAVE_PKGCFG_R_CORE=1; 
 R2_LDFLAGS=$tmp; fi; fi
@@ -314,28 +323,32 @@ else
 	eval ${VAR}=0
 	echo no  ; fi }
 check_library HAVE_LIB_EWF ewf 0 
+[ -z "${PKGCONFIG}" ] && PKGCONFIG=pkg-config
+echo 'Using PKGCONFIG: '${PKGCONFIG}
 printf 'checking pkg-config flags for libewf... '
-tmp=`pkg-config --cflags libewf 2>/dev/null`
-if [ '!' $? = 0 ]; then echo no ; HAVE_PKGCFG_LIBEWF=0; 
+tmp=`${PKGCONFIG} --cflags libewf 2>/dev/null`
+if [ $? != 0 ]; then echo no ; HAVE_PKGCFG_LIBEWF=0; 
 else 
 EWF_CFLAGS=$tmp; 
-tmp=`pkg-config --libs libewf 2>/dev/null`
+tmp=`${PKGCONFIG} --libs libewf 2>/dev/null`
 if [ $? = 0 ]; then 
 echo yes; HAVE_PKGCFG_LIBEWF=1; 
-EWF_LDFLAGS=$tmp; fi; fi
+WANT_EWF_LDFLAGS=$tmp; fi; fi
 if [ "$HAVE_PKGCFG_LIBEWF" = "1" ]; then
 HAVE_LIB_EWF="1"
 else
 HAVE_LIB_EWF="0"; fi
-if [ "$HAVE_EWF" = "0" ]; then
+if [ "$WANT_EWF" = "0" ]; then
 HAVE_LIB_EWF="0"; fi
 check_library HAVE_LIB_YARA yara 0 
+[ -z "${PKGCONFIG}" ] && PKGCONFIG=pkg-config
+echo 'Using PKGCONFIG: '${PKGCONFIG}
 printf 'checking pkg-config flags for yara... '
-tmp=`pkg-config --cflags yara 2>/dev/null`
-if [ '!' $? = 0 ]; then echo no ; HAVE_PKGCFG_YARA=0; 
+tmp=`${PKGCONFIG} --cflags yara 2>/dev/null`
+if [ $? != 0 ]; then echo no ; HAVE_PKGCFG_YARA=0; 
 else 
 YARA_CFLAGS=$tmp; 
-tmp=`pkg-config --libs yara 2>/dev/null`
+tmp=`${PKGCONFIG} --libs yara 2>/dev/null`
 if [ $? = 0 ]; then 
 echo yes; HAVE_PKGCFG_YARA=1; 
 YARA_LDFLAGS=$tmp; fi; fi
