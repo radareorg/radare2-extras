@@ -65,4 +65,7 @@ dist:
 	${CZ} radare2-extras-${VERSION}.tar ; \
 	mv radare2-extras-${VERSION} $${DIR}
 
+w32dist:
+	@echo TODO: w32dist
+
 .PHONY: dist all

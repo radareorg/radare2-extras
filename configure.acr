@@ -9,8 +9,10 @@ LANG_C!
 (( mandatory ))
 PKGCFG! R2_CFLAGS R2_LDFLAGS r_core
 
-(( ---- optional ---- ))
 
+ARG_WITH USEROSTYPE=auto ostype Choose OS type ( gnulinux windows darwin haiku ) ;
+
+(( ---- optional ---- ))
 (( ewf ))
 CHKLIB ewf
 PKGCFG EWF_CFLAGS WANT_EWF_LDFLAGS libewf

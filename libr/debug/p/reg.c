@@ -1,3 +1,5 @@
+#include <r_debug.h>
+
 static const char *r_debug_native_reg_profile(RDebug *dbg) {
 #if __WINDOWS__
 	if (dbg->bits & R_SYS_BITS_64) {

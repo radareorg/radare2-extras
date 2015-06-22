@@ -77,7 +77,7 @@
 
 /* ----------------------------- */
 
-int drx_set(drxt *drx, int n, ut64 addr, int len, int rwx, int global) {
+int w32_drx_set(drxt *drx, int n, ut64 addr, int len, int rwx, int global) {
 	ut32 control = drx[DR_CONTROL];
 	if (n < 0 || n >= DR_NADDR) {
 		eprintf ("Invalid DRX index (0-%d)\n", DR_NADDR-1);
@@ -117,7 +117,7 @@ int drx_set(drxt *drx, int n, ut64 addr, int len, int rwx, int global) {
 	return R_TRUE;
 }
 
-ut64 drx_get(drxt *drx, int n, int *rwx, int *len, int *global, int *enabled) {
+ut64 w32_drx_get(drxt *drx, int n, int *rwx, int *len, int *global, int *enabled) {
 	int ret = I386_DR_GET_RW_LEN (drx[DR_CONTROL], n);
 	if (global) *global = I386_DR_IS_LOCAL_ENABLED (drx[7], n);
 	if (len) {
@@ -134,7 +134,7 @@ ut64 drx_get(drxt *drx, int n, int *rwx, int *len, int *global, int *enabled) {
 	return (ut64)drx[n];
 }
 
-int drx_next(drxt *drx) {
+int w32_drx_next(drxt *drx) {
 	int i;
 	for(i=0; i<4; i++)
 		if (!drx[i])
@@ -142,14 +142,14 @@ int drx_next(drxt *drx) {
 	return -1;
 }
 
-void drx_list(drxt *drx) {
+void w32_drx_list(drxt *drx) {
 	ut64 addr;
 	int i, rwx, len, g, en;
 	for (i=0; i<8; i++) {
 		if (i==4 || i == 5) 
 			continue;
 		rwx = len = g = en = 0;
-		addr = drx_get (drx, i, &rwx, &len, &g, &en);
+		addr = w32_drx_get (drx, i, &rwx, &len, &g, &en);
 		printf ("%c dr%d %c%c 0x%08"PFMT64x" %d\n",
 			en?'*':'-', i, g?'G':'L',
 			(rwx==DR_RW_READ)?'r':
@@ -160,11 +160,11 @@ void drx_list(drxt *drx) {
 	}
 }
 
-void drx_init(drxt *r) {
+void w32_drx_init(drxt *r) {
 	memset (r, 0, sizeof (drxt)*(DRXN+1));
 }
 
-void drx_enable(drxt *r, int n, int enabled) {
+void w32_drx_enable(drxt *r, int n, int enabled) {
 	if (enabled) I386_DR_ENABLE (r[DR_CONTROL], n);
 	else I386_DR_DISABLE (r[DR_CONTROL], n);
 }
@@ -172,11 +172,11 @@ void drx_enable(drxt *r, int n, int enabled) {
 #if MAIN
 int main() {
 	drxt regs[DRXN+1];
-	drx_init (regs);
-	drx_set (regs, 1, 0x8048123, 1, DR_RW_EXECUTE, 0);
-	drx_set (regs, 0, 0x8048123, 4, DR_RW_READ, 1);
-	//drx_enable (regs, 0, R_TRUE);
-//	drx_enable (regs, 0, R_FALSE);
-	drx_list (regs);
+	w32_drx_init (regs);
+	w32_drx_set (regs, 1, 0x8048123, 1, DR_RW_EXECUTE, 0);
+	w32_drx_set (regs, 0, 0x8048123, 4, DR_RW_READ, 1);
+	//w32_drx_enable (regs, 0, R_TRUE);
+//	w32_drx_enable (regs, 0, R_FALSE);
+	w32_drx_list (regs);
 }
 #endif
