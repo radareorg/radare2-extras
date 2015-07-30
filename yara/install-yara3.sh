@@ -20,6 +20,6 @@ cd yara3.git || exit 1
 # last commit in git
 git pull
 sh bootstrap.sh
-./configure --prefix=${PREFIX} || exit 1
+../configure --prefix=${PREFIX} || exit 1
 ${MAKE} -j8 || exit 1
 ${SUDO} ${MAKE} install
