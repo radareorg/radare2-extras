@@ -41,6 +41,7 @@ mrproper: clean
 
 install:
 	mkdir -p ${DESTDIR}${LIBDIR}/radare2-extras/${VERSION}/
+	cd ${DESTDIR}${LIBDIR}/radare2-extras/ ; ln -fs ${VERSION} last
 	${INSTALL_LIB} ${MOD}.${EXT_SO} $(THEDIR)/${MOD}.${EXT_SO}
 	cd ${THEDIR} ; ln -fs ${VERSION} last
 	rm -rf $(THEDIR)/yara
