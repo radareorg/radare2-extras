@@ -15,8 +15,10 @@ endif
 
 help:
 	@echo "Usage make [target]   .. Targets:"
+	@echo "  all                - build everything"
 	@echo "  baleful            - build baleful r2 plugin"
 	@echo "  asm                - build armthumb, ppc, psosvm, x86bea, m68k plugins"
+	@echo "  anal               - build analysis plugins (RAnal)"
 	@echo "  dlang              - support DLang demangler (RBin)"
 	@echo "  yara{2,3}          - build yara2 or yara3 r2 plugin"
 	@echo "  (target)-install   - install given plugin"
@@ -25,6 +27,8 @@ help:
 
 baleful:
 	$(MAKE) -C baleful
+anal:
+	$(MAKE) -C libr/anal/p
 asm:
 	$(MAKE) -C libr/asm/p
 asm-install:
