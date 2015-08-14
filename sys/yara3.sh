@@ -13,5 +13,6 @@ if [ "`id -u`" = 0 ]; then
 	${SUDO} make install || exit 1
 else
 	echo "[yara3] installing at home"
+	mkdir -p ~/.config/radare2/plugins
 	cp -f core_yara3.dylib ~/.config/radare2/plugins
 fi
