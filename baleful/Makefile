@@ -1,5 +1,8 @@
 include ../options.mk
 
+R2_CFLAGS+=-fPIC
+R2_LDFLAGS+=-shared
+
 all: asm/asm_baleful.$(EXT_SO) anal/anal_baleful.$(EXT_SO)
 
 asm/asm_baleful.$(EXT_SO):
