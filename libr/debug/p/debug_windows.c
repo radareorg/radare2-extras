@@ -8,13 +8,13 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/param.h>
-#include "drx.c" // x86 specific
-#include "reg.c" // x86 specific
+#include "x86/drx.c" // x86 specific
+#include "x86/reg.c" // x86 specific
+#if __WINDOWS__
 #include <windows.h>
 #include <psapi.h>
 #include <tlhelp32.h>
 
-#if __WINDOWS__
 #define MAXBT 128
 #define R_DEBUG_REG_T CONTEXT
 struct r_debug_desc_plugin_t r_debug_desc_plugin_native_windows;
@@ -585,16 +585,14 @@ static int r_debug_native_map_protect(RDebug *dbg, ut64 addr, int size, int perm
 	return VirtualProtectEx((dbg->process_handle), (LPVOID)(UINT)addr, size, perms, &old);
 }
 static int r_debug_native_step(RDebug *dbg) {
-	int ret = R_FALSE;
 	int pid = dbg->pid;
 	/* set TRAP flag */
 	CONTEXT regs __attribute__((aligned(16)));
-	r_debug_native_reg_read(dbg, R_REG_TYPE_GPR, (ut8 *)&regs, sizeof(regs));
+	r_debug_native_reg_read (dbg, R_REG_TYPE_GPR, (ut8 *)&regs, sizeof(regs));
 	regs.EFlags |= 0x100;
-	r_debug_native_reg_write(dbg, R_REG_TYPE_GPR, (ut8 *)&regs, sizeof(regs));
-	r_debug_native_continue(dbg, pid, dbg->tid, dbg->signum);
-	ret = R_TRUE;
-	return ret;
+	r_debug_native_reg_write (dbg, R_REG_TYPE_GPR, (ut8 *)&regs, sizeof(regs));
+	r_debug_native_continue (dbg, pid, dbg->tid, dbg->signum);
+	return R_TRUE;
 }
 static int r_debug_native_attach(RDebug *dbg, int pid) {
 	int ret = -1;
