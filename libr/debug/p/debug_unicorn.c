@@ -311,7 +311,7 @@ static int r_debug_unicorn_step(RDebug *dbg) {
 	uc_hook_add (uh, &uh_code, UC_HOOK_CODE, _code, NULL, addr, addr+1); //(void*)(size_t)1, 0);
 	//uc_hook_add (uh, &uh_code, UC_HOOK_BLOCK, _block, NULL, (void*)(size_t)1, 0);
 	uc_hook_add (uh, &uh_insn, UC_HOOK_INSN, _insn_out, NULL, UC_X86_INS_OUT);
-	err = uc_emu_start (uh, addr, addr_end, 0, 0);
+	err = uc_emu_start (uh, addr, addr_end, 0, 1);
 	eprintf ("[UNICORN] Step Instruction\n");
 	return R_TRUE;
 }
