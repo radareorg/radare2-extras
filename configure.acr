@@ -24,6 +24,8 @@ IF HAVE_PKGCFG_LIBEWF {
 }
 IFNOT WANT_EWF { HAVE_LIB_EWF = 0 ; }
 
+PKGCFG UC_CFLAGS UC_LDFLAGS unicorn
+
 (( yara2 ))
 CHKLIB yara
 (( yara3 ))

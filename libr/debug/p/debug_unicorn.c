@@ -13,11 +13,9 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/param.h>
-#include <unicorn.h>
+#include <unicorn/unicorn.h>
 
-#define HAVE_UNICORN 1
-
-#if HAVE_UNICORN
+#if HAVE_PKGCFG_UNICORN
 
 static uch uh = 0;
 
@@ -451,6 +449,7 @@ struct r_lib_struct_t radare_plugin = {
 	.data = &r_debug_plugin_unicorn
 };
 #else
+#warning Cannot find unicorn library
 struct r_debug_plugin_t r_debug_plugin_unicorn = {
 	.name = "unicorn",
 };
