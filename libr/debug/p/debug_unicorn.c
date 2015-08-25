@@ -412,10 +412,10 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 struct r_debug_plugin_t r_debug_plugin_unicorn = {
 	.name = "unicorn",
 	.license = "GPL",
-
 	.bits = R_SYS_BITS_32 | R_SYS_BITS_64,
 	.arch = R_ASM_ARCH_X86, // TODO: Supports more!
 	.canstep = 1,
+	.keepio = 1,
 
 	.init = &r_debug_unicorn_init,
 	.step = &r_debug_unicorn_step,
