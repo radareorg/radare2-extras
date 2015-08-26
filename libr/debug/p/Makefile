@@ -1,6 +1,6 @@
 MODS=r_debug r_reg r_util
-LDFLAGS+=$(shell pkg-config --libs ${MODS})
-CFLAGS+=$(shell pkg-config --cflags ${MODS})
+LDFLAGS+=$(shell pkg-config --libs ${MODS}) -g
+CFLAGS+=$(shell pkg-config --cflags ${MODS}) -g
 W32OBJ=debug_windows.o
 include unicorn.mk
 

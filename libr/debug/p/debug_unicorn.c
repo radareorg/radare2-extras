@@ -18,30 +18,7 @@
 #include <sys/param.h>
 #include <unicorn/unicorn.h>
 
-#if 0
-
-  radare2-       /\'.         _,,
-    -unicorn     |.\ \      .'_/
-            _.-- |(\\ \   .'_.'
-        _.-'   \_\\ \\_),/ _/
-      _).'  .:::::::.___  .'
-      //   ' ./::::::\\o\(
-     //     //::/   '"(   \ 
-    //_    //::(       '.  '.
-   /_'/   /||:::\        '.  \
-   '//    '\\:::':\_    -<_' _'-
-   / |     '\::/|::::.._   _  )(
-   | |       \:| \:(    '.(_'._)
-   | |        \(  \::.    '-)
-   \ \  .          '""""---.
-    \ \ \    .        _.-...)
-     \ \/\.  \:.___.-'..:::/
-      \ |\\:..\:::::'.::::/
-       '  '.:::::'..:::"'
-             '":::""'
-#endif
-
-const char *logo = \
+static const char *logo = \
 "  radare2-       /\\'.         _,,\n"
 "    -unicorn     |.\\ \\      .'_/\n"
 "            _.-- |(\\\\ \\   .'_.'\n"
@@ -62,7 +39,7 @@ const char *logo = \
 "       '  '.:::::'..:::\"'\n"
 "             '\":::\"\"'\n";
 
-#define JUST_FIRST_BLOCK 1
+#define JUST_FIRST_BLOCK 0
 
 #if HAVE_PKGCFG_UNICORN
 
@@ -73,22 +50,25 @@ const char *rainbow[COLORS] = {
 	Color_GREEN, Color_YELLOW, Color_CYAN,
 	Color_RED, Color_WHITE
 };
+// color=r_num_rand(COLORS); if (color>=COLORS) color=0;  
+
 #define rainbow_printf(x,y...) \
-	fprintf(stderr,"%s" x Color_RESET,msgcolor, ##y); \
-	color=r_num_rand(COLORS); if (color>=COLORS) color=0;  \
-	msgcolor = rainbow[color]; 
 
 static int message(const char *fmt, ...) {
 	char str[1024], *p;
 	va_list ap;
 	*str = 0;
 	p = str;
+	va_start (ap, fmt);
 	vsnprintf (str, sizeof (str), fmt, ap);
-
+	color = 0;
 	while (*p) {
-		rainbow_printf ("%c", *p);
+		fprintf(stderr,"%s%c", msgcolor, *p);
+		if (++color>=COLORS) color = 0;
+		msgcolor = rainbow[color]; 
 		p++;
 	}
+fprintf (stderr, "%s", Color_RESET);
 	va_end (ap);
 	return 0;
 }
@@ -231,7 +211,8 @@ static RList *r_debug_unicorn_map_get(RDebug *dbg) {
 		if (m) {
 			r_list_append (list, m);
 		}
-if (JUST_FIRST_BLOCK) break;
+		if (JUST_FIRST_BLOCK)
+			break;
 		i++;
 	}
 	return list;
@@ -386,16 +367,30 @@ static void _insn_out(uch handle, uint32_t port, int size, uint32_t value, void 
 	uc_emu_stop (handle);
 }
 
+static bool _mem_invalid(uch handle, uc_mem_type type,
+		uint64_t address, int size, int64_t value, void *user_data) {
+	const char *typestr = "";
+	if (type == UC_MEM_READ) {
+		typestr = "read";
+	} else if (type == UC_MEM_WRITE) {
+		typestr = "write";
+	}
+	message ("[UNICORN] Invalid %s of %d bytes at 0x%"PFMT64x"\n",
+		typestr, size, address);
+	uc_emu_stop (handle);
+}
+
 static int r_debug_unicorn_step(RDebug *dbg) {
 	uc_err err;
 	ut64 addr = 0;
 	ut64 addr_end = 4;
 	static uch uh_interrupt = 0;
+	static uch uh_invalid = 0;
 	static uch uh_code = 0;
 	static uch uh_insn = 0;
 
 	uc_reg_read (uh, UC_X86_REG_RIP, &addr);
-	addr_end = addr + 64;
+	addr_end = addr + 32;
 
 	message ("EMU From 0x%llx To 0x%llx\n", addr, addr_end);
 	if (uh_interrupt) {
@@ -407,14 +402,18 @@ static int r_debug_unicorn_step(RDebug *dbg) {
 	if (uh_insn) {
 		uc_hook_del (uh, &uh_insn);
 	}
+	if (uh_invalid) {
+		uc_hook_del (uh, &uh_invalid);
+	}
 	uc_hook_add (uh, &uh_interrupt, UC_HOOK_INTR, _interrupt, NULL);
 	//uc_hook_add (uh, &uh_code, UC_HOOK_CODE, _code, NULL, addr, addr+1); //(void*)(size_t)1, 0);
 	uc_hook_add (uh, &uh_code, UC_HOOK_BLOCK, _block, NULL, (void*)(size_t)1, 0);
 	{
 		uint8_t mem[8];
-		uc_mem_read (uh, addr, mem, 4);
-		message ("[EIP] = %02x %02x %02x %02x\n", mem[0], mem[1], mem[2], mem[3]);
+		uc_err err = uc_mem_read (uh, addr, mem, 4);
+		message ("[EIP] = %d = %02x %02x %02x %02x\n", err, mem[0], mem[1], mem[2], mem[3]);
 	}
+	uc_hook_add (uh, &uh_invalid, UC_HOOK_MEM_INVALID, _mem_invalid, NULL);
 	uc_hook_add (uh, &uh_insn, UC_HOOK_INSN, _insn_out, NULL, UC_X86_INS_OUT);
 	err = uc_emu_start (uh, addr, addr_end, 0, 1);
 	message ("[UNICORN] Step Instruction At 0x%08"PFMT64x"\n", addr);
@@ -423,6 +422,7 @@ static int r_debug_unicorn_step(RDebug *dbg) {
 		uc_reg_read (uh, UC_X86_REG_RIP, &rip);
 		message ("NEW PC 0x%08"PFMT64x"\n", rip);
 	}
+	//err = uc_emu_stop (uh);
 	return R_TRUE;
 }
 
@@ -465,15 +465,18 @@ static int r_debug_unicorn_wait(RDebug *dbg, int pid) {
 static int r_debug_unicorn_init(RDebug *dbg) {
 	RListIter *iter;
 	RIOSection *sect;
+	int bits = (dbg->bits & R_SYS_BITS_64) ? 64: 32;
 	uc_err err;
 	if (uh) {
 		// run detach to allow reinit
 		return R_TRUE;
 	}
-	err = uc_open (UC_ARCH_X86,
+	err = uc_open (UC_ARCH_X86, UC_MODE_64, &uh);
+#if 0
 		(dbg->bits & R_SYS_BITS_64) ? UC_MODE_64: UC_MODE_32,
 		&uh);
-	message ("[UNICORN] Using arch %d bits %d\n", "x86", dbg->arch, dbg->bits*8);
+#endif
+	message ("[UNICORN] Using arch %s bits %d\n", "x86", bits);
 	if (err) {
 		message ("[UNICORN] Cannot initialize Unicorn engine\n");
 		return R_FALSE;
@@ -486,20 +489,43 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		message ("[UNICORN] dr rip=entry0  # set program counter to the entrypoint\n");
 	}
 	r_list_foreach (dbg->iob.io->sections, iter, sect) {
-		ut32 vsz = sect->vsize * 2;
-		ut8 *buf = malloc (vsz);
+		ut64 mapbase = sect->vaddr >> 12 << 12;
+		int bufdelta = sect->vaddr - mapbase;
+		ut32 vsz = 64 * 1024;
+		ut8 *buf;
 		int i;
-		if (!buf) continue;
 		if (sect->vaddr < lastvaddr) 
 			continue;
+		if (sect->rwx != 5)
+			continue;
+		if (!strstr(sect->name, "text"))
+			continue;
+		buf = calloc (vsz+bufdelta+1024, 1);
+		if (!buf) continue;
+		message ("[UNICORN] BASE 0x%08"PFMT64x"\n", mapbase);
 		dbg->iob.io->raw = 0;
-		dbg->iob.read_at (dbg->iob.io, sect->vaddr, buf, sect->vsize/2);
+		message ("DELTA = %d SIZE = %d\n", bufdelta, 
+			R_MIN (sect->vsize, (vsz - bufdelta)));
+		dbg->iob.read_at (dbg->iob.io, sect->vaddr, buf + bufdelta,
+			R_MIN (sect->vsize, (vsz - bufdelta)));
 		message ("[UNICORN] Segment 0x%08"PFMT64x" 0x%08"PFMT64x" Size %d\n",
-			sect->vaddr, sect->vaddr+vsz, vsz);
-		uc_mem_map (uh, sect->vaddr, vsz);
-		uc_mem_write (uh, sect->vaddr, buf, vsz);
+			sect->vaddr, sect->vaddr + vsz, vsz);
+		err = uc_mem_map (uh, mapbase, vsz); //sect->vaddr, vsz);
+		if (err) {
+			message("[UNICORN] muc_mem_map failed to allocated %d\n", vsz);
+		}
+		//err = uc_mem_write (uh, sect->vaddr, buf, vsz);
+		err = uc_mem_write (uh, mapbase, buf, vsz);
+		if (err) {
+			message("[UNICORN] muc_mem_write failed %d\n", err);
+		}
+		eprintf ("%02x %02x\n", buf[0], buf[1]);
+		eprintf ("WRT = %d\n", err);
+
+		err = uc_mem_read (uh, mapbase, buf, vsz); //sect->vsize+bufdelta);
+		eprintf ("RAD = %d\n", err);
 		lastvaddr = sect->vaddr + sect->vsize;
-if (JUST_FIRST_BLOCK) break;
+		if (JUST_FIRST_BLOCK) break;
 //break;
 #if 0
 		// test
@@ -510,8 +536,9 @@ if (JUST_FIRST_BLOCK) break;
 #endif
 	}
 
-	message ("[UNICORN] Set Program Counter 0x%08"PFMT64x"\n", dbg->iob.io->off);
-	if (dbg->bits & R_SYS_BITS_64) {
+	message ("[UNICORN] Set Program Counter 0x%08"PFMT64x"\n",
+		dbg->iob.io->off);
+	if (bits == 64) {
 		err = uc_reg_write (uh, UC_X86_REG_RIP, &dbg->iob.io->off);
 	} else {
 		err = uc_reg_write (uh, UC_X86_REG_EIP, &dbg->iob.io->off);
@@ -519,6 +546,21 @@ if (JUST_FIRST_BLOCK) break;
 	if (err) {
 		message ("[UNICORN] Cannot Set PC\n");
 		return R_FALSE;
+	}
+
+	/* stack */
+	{
+		int stacksize = 64 * 1024;
+		ut64 stackaddr = 0x7000000;
+		message ("[UNICORN] Define 64 KB stack at 0x%08"PFMT64x"\n", stackaddr);
+		uc_mem_map (uh, stackaddr, stacksize);
+		if (bits == 64) {
+			ut64 rsp = stackaddr + (stacksize/2);
+			err = uc_reg_write (uh, UC_X86_REG_RSP, &rsp);
+		} else {
+			ut32 esp = stackaddr + (stacksize/2);
+			err = uc_reg_write (uh, UC_X86_REG_ESP, &esp);
+		}
 	}
 	return R_TRUE;
 }
