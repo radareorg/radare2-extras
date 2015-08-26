@@ -18,19 +18,64 @@
 #include <sys/param.h>
 #include <unicorn/unicorn.h>
 
+#if 0
+
+  radare2-       /\'.         _,,
+    -unicorn     |.\ \      .'_/
+            _.-- |(\\ \   .'_.'
+        _.-'   \_\\ \\_),/ _/
+      _).'  .:::::::.___  .'
+      //   ' ./::::::\\o\(
+     //     //::/   '"(   \ 
+    //_    //::(       '.  '.
+   /_'/   /||:::\        '.  \
+   '//    '\\:::':\_    -<_' _'-
+   / |     '\::/|::::.._   _  )(
+   | |       \:| \:(    '.(_'._)
+   | |        \(  \::.    '-)
+   \ \  .          '""""---.
+    \ \ \    .        _.-...)
+     \ \/\.  \:.___.-'..:::/
+      \ |\\:..\:::::'.::::/
+       '  '.:::::'..:::"'
+             '":::""'
+#endif
+
+const char *logo = \
+"  radare2-       /\\'.         _,,\n"
+"    -unicorn     |.\\ \\      .'_/\n"
+"            _.-- |(\\\\ \\   .'_.'\n"
+"        _.-'   \\_\\\\ \\\\_),/ _/\n"
+"      _).'  .:::::::.___  .'\n"
+"      //   ' ./::::::\\\\o\\(\n"
+"     //     //::/   '\"(   \\\n"
+"    //_    //::(       '.  '.\n"
+"   /_'/   /||:::\\        '.  \\\n"
+"   '//    '\\\\:::':\\_    -<_' _'-\n"
+"   / |     '\\::/|::::.._   _  )(\n"
+"   | |       \\:| \\:(    '.(_'._)\n"
+"   | |        \\(  \\::.    '-) \n"
+"   \\ \\  .          '\"\"\"\"---.\n"
+"    \\ \\ \\    .        _.-...)\n"
+"     \\ \\/\\.  \\:.___.-'..:::/\n"
+"      \\ |\\\\:..\\:::::'.::::/\n"
+"       '  '.:::::'..:::\"'\n"
+"             '\":::\"\"'\n";
+
 #define JUST_FIRST_BLOCK 1
 
 #if HAVE_PKGCFG_UNICORN
 
 int color = 0;
 const char *msgcolor = Color_RED;
-const char *rainbow[] = {
+#define COLORS 5
+const char *rainbow[COLORS] = {
 	Color_GREEN, Color_YELLOW, Color_CYAN,
-	Color_RED
+	Color_RED, Color_WHITE
 };
 #define rainbow_printf(x,y...) \
 	fprintf(stderr,"%s" x Color_RESET,msgcolor, ##y); \
-	color=r_num_rand(4); if (color>3) color=0;  \
+	color=r_num_rand(COLORS); if (color>=COLORS) color=0;  \
 	msgcolor = rainbow[color]; 
 
 static int message(const char *fmt, ...) {
@@ -189,7 +234,6 @@ static RList *r_debug_unicorn_map_get(RDebug *dbg) {
 if (JUST_FIRST_BLOCK) break;
 		i++;
 	}
-	message ("TODO: unicorn: map-get\n");
 	return list;
 }
 
@@ -273,7 +317,7 @@ static int r_debug_unicorn_reg_read(RDebug *dbg, int type, ut8 *buf, int size) {
 		uc_reg_read (uh, UC_X86_REG_R8, r8);
 		uc_reg_read (uh, UC_X86_REG_R9, r9);
 		uc_reg_read (uh, UC_X86_REG_R10, r10);
-		message ("TODO: unicorn- reg read 0x%"PFMT64x"\n", *rip);
+		//message ("TODO: unicorn- reg read 0x%"PFMT64x"\n", *rip);
 		return size;
 	}
 	return 0;
@@ -429,7 +473,7 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 	err = uc_open (UC_ARCH_X86,
 		(dbg->bits & R_SYS_BITS_64) ? UC_MODE_64: UC_MODE_32,
 		&uh);
-	message ("[UNICORN] Using arch %s bits %d\n", "x86", dbg->bits*8);
+	message ("[UNICORN] Using arch %d bits %d\n", "x86", dbg->arch, dbg->bits*8);
 	if (err) {
 		message ("[UNICORN] Cannot initialize Unicorn engine\n");
 		return R_FALSE;
@@ -437,10 +481,9 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 	ut64 lastvaddr = 0LL;
 	int n_sect = r_list_length (dbg->iob.io->sections);
 	if (n_sect == 0) {
-		message ("[UNICORN] ============= [UNICORN]\n");
-		message ("  dpa            # reatach to initialize the unicorn\n");
-		message ("  dr rip=entry0  # set program counter to the entrypoint\n");
-		message ("[UNICORN] ============= [UNICORN]\n");
+		message (logo);
+		message ("[UNICORN] dpa            # reatach to initialize the unicorn\n");
+		message ("[UNICORN] dr rip=entry0  # set program counter to the entrypoint\n");
 	}
 	r_list_foreach (dbg->iob.io->sections, iter, sect) {
 		ut32 vsz = sect->vsize * 2;
