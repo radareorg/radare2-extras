@@ -1,6 +1,8 @@
 /* radare - LGPL - Copyright 2015 - pancake */
 
 // r2 -e dbg.backend=unicorn -e cfg.debug=1 /bin/ls
+// r2 -D unicorn /bin/ls
+// > dpa
 // > dr rip=$$
 // > ds
 // > dr=
@@ -8,6 +10,7 @@
 #include <r_userconf.h>
 #include <r_debug.h>
 #include <r_asm.h>
+#include <r_cons.h>
 #include <r_reg.h>
 #include <r_lib.h>
 #include <signal.h>
@@ -15,7 +18,35 @@
 #include <sys/param.h>
 #include <unicorn/unicorn.h>
 
+#define JUST_FIRST_BLOCK 1
+
 #if HAVE_PKGCFG_UNICORN
+
+int color = 0;
+const char *msgcolor = Color_RED;
+const char *rainbow[] = {
+	Color_GREEN, Color_YELLOW, Color_CYAN,
+	Color_RED
+};
+#define rainbow_printf(x,y...) \
+	fprintf(stderr,"%s" x Color_RESET,msgcolor, ##y); \
+	color=r_num_rand(4); if (color>3) color=0;  \
+	msgcolor = rainbow[color]; 
+
+static int message(const char *fmt, ...) {
+	char str[1024], *p;
+	va_list ap;
+	*str = 0;
+	p = str;
+	vsnprintf (str, sizeof (str), fmt, ap);
+
+	while (*p) {
+		rainbow_printf ("%c", *p);
+		p++;
+	}
+	va_end (ap);
+	return 0;
+}
 
 static uch uh = 0;
 
@@ -129,7 +160,7 @@ static RList *r_debug_unicorn_threads(RDebug *dbg, int pid) {
 }
 
 static RList *r_debug_unicorn_tids(int pid) {
-	eprintf ("TODO: Threads: \n");
+	message ("TODO: Threads: \n");
 	return NULL;
 }
 
@@ -140,8 +171,26 @@ static RList *r_debug_unicorn_pids(int pid) {
 }
 
 static RList *r_debug_unicorn_map_get(RDebug *dbg) {
-	eprintf ("TODO: unicorn: map-get\n");
-	return NULL;
+	RDebugMap *m;
+	RList *list;
+	RListIter *iter;
+	RIOSection *sect;
+	int i = 0;
+	list = r_list_new ();
+	//list->free = r_debug_map_free;
+	r_list_foreach (dbg->iob.io->sections, iter, sect) {
+		m = r_debug_map_new (sect->name,
+			sect->vaddr,
+			sect->vaddr + sect->vsize, 
+			sect->rwx, 0); 
+		if (m) {
+			r_list_append (list, m);
+		}
+if (JUST_FIRST_BLOCK) break;
+		i++;
+	}
+	message ("TODO: unicorn: map-get\n");
+	return list;
 }
 
 static RDebugInfo* r_debug_unicorn_info(RDebug *dbg, const char *arg) {
@@ -172,9 +221,16 @@ static int r_debug_unicorn_map_dealloc(RDebug *dbg, ut64 addr, int size) {
 	return 0;
 }
 
+static int r_debug_unicorn_detach(int pid) {
+	uc_close (&uh);
+	uh = 0;
+	return 0;
+}
+
 static int r_debug_unicorn_kill(RDebug *dbg, int pid, int tid, int sig) {
 	// TODO: implement thread support signaling here
-	eprintf("TODO: r_debug_unicorn_kill\n");
+	message ("TODO: r_debug_unicorn_kill\n");
+	(void)r_debug_unicorn_detach(pid);
 	return R_FALSE;
 }
 
@@ -217,7 +273,7 @@ static int r_debug_unicorn_reg_read(RDebug *dbg, int type, ut8 *buf, int size) {
 		uc_reg_read (uh, UC_X86_REG_R8, r8);
 		uc_reg_read (uh, UC_X86_REG_R9, r9);
 		uc_reg_read (uh, UC_X86_REG_R10, r10);
-		eprintf ("TODO: unicorn- reg read 0x%"PFMT64x"\n", *rip);
+		message ("TODO: unicorn- reg read 0x%"PFMT64x"\n", *rip);
 		return size;
 	}
 	return 0;
@@ -242,7 +298,7 @@ static int r_debug_unicorn_reg_write(RDebug *dbg, int type, const ut8* buf, int 
 		uint64_t u = *rip;
 		err = uc_reg_write (uh, UC_X86_REG_RIP, &u);
 		if (err) {
-			eprintf ("ERROR\n");
+			message ("ERROR\n");
 		}
 		uc_reg_write (uh, UC_X86_REG_RAX, rax);
 		uc_reg_write (uh, UC_X86_REG_RCX, rcx);
@@ -261,28 +317,28 @@ static int r_debug_unicorn_reg_write(RDebug *dbg, int type, const ut8* buf, int 
 }
 
 static int r_debug_unicorn_map_protect(RDebug *dbg, ut64 addr, int size, int perms) {
-	eprintf ("Unicorn map protect\n");
+	message ("Unicorn map protect\n");
 	return 0;
 }
 
 void _interrupt(uch handle, uint32_t intno, void *user_data) {
-	eprintf ("[UNICORN] Interrupt 0x%x userdata %p\n", intno, user_data);
+	message ("[UNICORN] Interrupt 0x%x userdata %p\n", intno, user_data);
 	if (intno == 6) {
 		uc_emu_stop (handle);
 	}
 }
 
 static void _code(uch handle, uint64_t address, uint32_t size, void *user_data) {
-	eprintf ("[UNICORN] Begin Code\n");
+	message ("[UNICORN] Begin Code\n");
 	uc_emu_stop (handle);
 }
 
 static void _block(uch handle, uint64_t address, uint32_t size, void *user_data) {
-	eprintf ("[UNICORN] Begin Block\n");
+	message ("[UNICORN] Begin Block\n");
 }
 
 static void _insn_out(uch handle, uint32_t port, int size, uint32_t value, void *user_data) {
-	eprintf ("[UNICORN] Step Out\n");
+	message ("[UNICORN] Step Out\n");
 	uc_emu_stop (handle);
 }
 
@@ -297,7 +353,7 @@ static int r_debug_unicorn_step(RDebug *dbg) {
 	uc_reg_read (uh, UC_X86_REG_RIP, &addr);
 	addr_end = addr + 64;
 
-	eprintf ("EMU From 0x%llx To 0x%llx\n", addr, addr_end);
+	message ("EMU From 0x%llx To 0x%llx\n", addr, addr_end);
 	if (uh_interrupt) {
 		uc_hook_del (uh, &uh_interrupt);
 	}
@@ -308,11 +364,21 @@ static int r_debug_unicorn_step(RDebug *dbg) {
 		uc_hook_del (uh, &uh_insn);
 	}
 	uc_hook_add (uh, &uh_interrupt, UC_HOOK_INTR, _interrupt, NULL);
-	uc_hook_add (uh, &uh_code, UC_HOOK_CODE, _code, NULL, addr, addr+1); //(void*)(size_t)1, 0);
-	//uc_hook_add (uh, &uh_code, UC_HOOK_BLOCK, _block, NULL, (void*)(size_t)1, 0);
+	//uc_hook_add (uh, &uh_code, UC_HOOK_CODE, _code, NULL, addr, addr+1); //(void*)(size_t)1, 0);
+	uc_hook_add (uh, &uh_code, UC_HOOK_BLOCK, _block, NULL, (void*)(size_t)1, 0);
+	{
+		uint8_t mem[8];
+		uc_mem_read (uh, addr, mem, 4);
+		message ("[EIP] = %02x %02x %02x %02x\n", mem[0], mem[1], mem[2], mem[3]);
+	}
 	uc_hook_add (uh, &uh_insn, UC_HOOK_INSN, _insn_out, NULL, UC_X86_INS_OUT);
 	err = uc_emu_start (uh, addr, addr_end, 0, 1);
-	eprintf ("[UNICORN] Step Instruction\n");
+	message ("[UNICORN] Step Instruction At 0x%08"PFMT64x"\n", addr);
+	{
+		uint64_t rip;
+		uc_reg_read (uh, UC_X86_REG_RIP, &rip);
+		message ("NEW PC 0x%08"PFMT64x"\n", rip);
+	}
 	return R_TRUE;
 }
 
@@ -329,22 +395,17 @@ static int r_debug_unicorn_attach(RDebug *dbg, int pid) {
 	ret = first_thread(pid);
 	return ret;
 #endif
-	if (!uh) {
+	//if (!uh) {
+		r_debug_unicorn_detach (pid);
 		r_debug_unicorn_init (dbg);
-	}
+	//}
 	return 'U' + 'N' + 'I' + 'C' + 'O' + 'R' + 'N';
-}
-
-static int r_debug_unicorn_detach(int pid) {
-	uc_close (&uh);
-	uh = 0;
-	return 0;
 }
 
 static int r_debug_unicorn_continue_syscall(RDebug *dbg, int pid, int num) {
 	// uc_hook_intr() syscall/sysenter
 	// XXX: num is ignored
-	eprintf ("TODO: continue syscall not implemented yet\n");
+	message ("TODO: continue syscall not implemented yet\n");
 	return -1;
 }
 
@@ -368,25 +429,35 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 	err = uc_open (UC_ARCH_X86,
 		(dbg->bits & R_SYS_BITS_64) ? UC_MODE_64: UC_MODE_32,
 		&uh);
-	eprintf ("[UNICORN] Using arch %s bits %d\n", "x86", dbg->bits*8);
+	message ("[UNICORN] Using arch %s bits %d\n", "x86", dbg->bits*8);
 	if (err) {
-		eprintf ("[UNICORN] Cannot initialize Unicorn engine\n");
+		message ("[UNICORN] Cannot initialize Unicorn engine\n");
 		return R_FALSE;
 	}
 	ut64 lastvaddr = 0LL;
+	int n_sect = r_list_length (dbg->iob.io->sections);
+	if (n_sect == 0) {
+		message ("[UNICORN] ============= [UNICORN]\n");
+		message ("  dpa            # reatach to initialize the unicorn\n");
+		message ("  dr rip=entry0  # set program counter to the entrypoint\n");
+		message ("[UNICORN] ============= [UNICORN]\n");
+	}
 	r_list_foreach (dbg->iob.io->sections, iter, sect) {
-		ut32 vsz = (sect->vsize>>2<<(2+1)) ;
+		ut32 vsz = sect->vsize * 2;
 		ut8 *buf = malloc (vsz);
 		int i;
 		if (!buf) continue;
 		if (sect->vaddr < lastvaddr) 
 			continue;
-		dbg->iob.read_at (dbg->iob.io, sect->vaddr, buf, vsz);
-		eprintf ("[UNICORN] Segment 0x%08"PFMT64x" 0x%08"PFMT64x" Size %d\n",
+		dbg->iob.io->raw = 0;
+		dbg->iob.read_at (dbg->iob.io, sect->vaddr, buf, sect->vsize/2);
+		message ("[UNICORN] Segment 0x%08"PFMT64x" 0x%08"PFMT64x" Size %d\n",
 			sect->vaddr, sect->vaddr+vsz, vsz);
 		uc_mem_map (uh, sect->vaddr, vsz);
 		uc_mem_write (uh, sect->vaddr, buf, vsz);
 		lastvaddr = sect->vaddr + sect->vsize;
+if (JUST_FIRST_BLOCK) break;
+//break;
 #if 0
 		// test
 		dbg->iob.read_at (dbg->iob.io, 0x100001058, buf, vsz);
@@ -396,14 +467,14 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 #endif
 	}
 
-	eprintf ("[UNICORN] Set Program Counter 0x%08"PFMT64x"\n", dbg->iob.io->off);
+	message ("[UNICORN] Set Program Counter 0x%08"PFMT64x"\n", dbg->iob.io->off);
 	if (dbg->bits & R_SYS_BITS_64) {
 		err = uc_reg_write (uh, UC_X86_REG_RIP, &dbg->iob.io->off);
 	} else {
 		err = uc_reg_write (uh, UC_X86_REG_EIP, &dbg->iob.io->off);
 	}
 	if (err) {
-		eprintf ("[UNICORN] Cannot Set PC\n");
+		message ("[UNICORN] Cannot Set PC\n");
 		return R_FALSE;
 	}
 	return R_TRUE;
