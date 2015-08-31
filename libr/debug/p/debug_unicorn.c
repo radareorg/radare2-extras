@@ -19,25 +19,26 @@
 #include <unicorn/unicorn.h>
 
 static const char *logo = \
-"  radare2-       /\\'.         _,,\n"
-"    -unicorn     |.\\ \\      .'_/\n"
-"            _.-- |(\\\\ \\   .'_.'\n"
-"        _.-'   \\_\\\\ \\\\_),/ _/\n"
-"      _).'  .:::::::.___  .'\n"
-"      //   ' ./::::::\\\\o\\(\n"
-"     //     //::/   '\"(   \\\n"
-"    //_    //::(       '.  '.\n"
-"   /_'/   /||:::\\        '.  \\\n"
-"   '//    '\\\\:::':\\_    -<_' _'-\n"
-"   / |     '\\::/|::::.._   _  )(\n"
-"   | |       \\:| \\:(    '.(_'._)\n"
-"   | |        \\(  \\::.    '-) \n"
-"   \\ \\  .          '\"\"\"\"---.\n"
-"    \\ \\ \\    .        _.-...)\n"
-"     \\ \\/\\.  \\:.___.-'..:::/\n"
-"      \\ |\\\\:..\\:::::'.::::/\n"
-"       '  '.:::::'..:::\"'\n"
-"             '\":::\"\"'\n";
+"                 /\\'.         _,.\n" \
+"                 |:\\ \\.     .'_/\n" \
+"            _.-  |(\\\\ \\   .'_.'\n" \
+"        _.-'  ,__\\\\ \\\\_),/ _/\n" \
+"      _:.'  .:::::::.___  ,'\n" \
+"      //   ' ./::::::\\\\<o\\(\n" \
+"     //     /|::/   `\\\\\"(  \\\n" \
+"    ;/_    / ::(       `.  `.\n" \
+"   /_'/   | ::::\\        `.  \\\n" \
+"   '//    '\\ :::':\\_    _, ` _'-\n" \
+"   / |     '\\.:/|::::.._ `-__ )/\n" \
+"   | |       \\;| \\:(    '.(_ \\_)\n" \
+"   | |        \\(  \\::.    '-)\n" \
+"   \\ \\  ,          '\"\"\"\"---.\n" \
+"    \\ \\ \\    ,        _.-...)\n" \
+"     \\ \\/\\.  \\:,___.-'..:::/\n" \
+"      \\ |\\:,.\\:::::'.::::/\n" \
+"       `  `:;::::'.::;::'\n" \
+"             '\\\":;:\"\"'\n" \
+;
 
 #define JUST_FIRST_BLOCK 0
 
@@ -61,14 +62,18 @@ static int message(const char *fmt, ...) {
 	p = str;
 	va_start (ap, fmt);
 	vsnprintf (str, sizeof (str), fmt, ap);
-	color = 0;
+fprintf (stderr, Color_BMAGENTA"%s"Color_RESET, p);
+	if (++color>=COLORS) color = 0;
+	msgcolor = rainbow[color]; 
+#if 0
 	while (*p) {
 		fprintf(stderr,"%s%c", msgcolor, *p);
 		if (++color>=COLORS) color = 0;
 		msgcolor = rainbow[color]; 
 		p++;
 	}
-fprintf (stderr, "%s", Color_RESET);
+	fprintf (stderr, "%s", Color_RESET);
+#endif
 	va_end (ap);
 	return 0;
 }
@@ -190,7 +195,7 @@ static RList *r_debug_unicorn_tids(int pid) {
 }
 
 static RList *r_debug_unicorn_pids(int pid) {
-	RList *list = r_list_new();
+	RList *list = r_list_new ();
 	r_list_append (list, r_debug_pid_new ("???", pid, 's', 0));
 	return list;
 }
@@ -232,10 +237,21 @@ static RDebugInfo* r_debug_unicorn_info(RDebug *dbg, const char *arg) {
 }
 
 static RDebugMap * r_debug_unicorn_map_alloc(RDebug *dbg, ut64 addr, int size) {
-	// XXX: segfaults if its not power of 2
-	// many overflows may happen
-	uc_mem_map (uh, addr, size);
-	return NULL;
+	RDebugMap *map;
+	uc_err err = uc_mem_map (uh, addr, size, UC_PROT_WRITE | UC_PROT_READ);
+	if (err) {
+		message ("[UNICORN] Cannot allocated map\n");
+		return NULL;
+	}
+	map = R_NEW0 (RDebugMap);
+	map->name = r_str_newf ("unimap%d", r_list_length (dbg->maps));
+	map->addr = addr;
+	map->addr_end = addr +size;
+	map->size = size;
+	map->file = NULL;
+	map->perm = 6; // rw
+	map->user = 1;
+	return map;
 }
 
 static int r_debug_desc_native_open(const char *path) {
@@ -323,7 +339,7 @@ static int r_debug_unicorn_reg_write(RDebug *dbg, int type, const ut8* buf, int 
 		uint64_t u = *rip;
 		err = uc_reg_write (uh, UC_X86_REG_RIP, &u);
 		if (err) {
-			message ("ERROR\n");
+			message ("[UNICORN] RIP reg_write ERROR\n");
 		}
 		uc_reg_write (uh, UC_X86_REG_RAX, rax);
 		uc_reg_write (uh, UC_X86_REG_RCX, rcx);
@@ -378,6 +394,7 @@ static bool _mem_invalid(uch handle, uc_mem_type type,
 	message ("[UNICORN] Invalid %s of %d bytes at 0x%"PFMT64x"\n",
 		typestr, size, address);
 	uc_emu_stop (handle);
+	return false;
 }
 
 static int r_debug_unicorn_step(RDebug *dbg) {
@@ -464,6 +481,7 @@ static int r_debug_unicorn_wait(RDebug *dbg, int pid) {
 
 static int r_debug_unicorn_init(RDebug *dbg) {
 	RListIter *iter;
+	int code_is_mapped;
 	RIOSection *sect;
 	int bits = (dbg->bits & R_SYS_BITS_64) ? 64: 32;
 	uc_err err;
@@ -471,12 +489,20 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		// run detach to allow reinit
 		return R_TRUE;
 	}
-	err = uc_open (UC_ARCH_X86, UC_MODE_64, &uh);
-#if 0
-		(dbg->bits & R_SYS_BITS_64) ? UC_MODE_64: UC_MODE_32,
-		&uh);
-#endif
-	message ("[UNICORN] Using arch %s bits %d\n", "x86", bits);
+	// TODO: add support for ARM, MIPS, ...
+	switch (dbg->arch) {
+	case R_SYS_ARCH_X86:
+		err = uc_open (UC_ARCH_X86, bits==64? UC_MODE_64: UC_MODE_32, &uh);
+		break;
+	case R_SYS_ARCH_ARM:
+		err = uc_open (UC_ARCH_ARM, bits==64? UC_MODE_64: UC_MODE_32, &uh);
+		break;
+	default:
+		err = 1;
+		message ("[UNICORN] Unsupported architecture\n");
+	}
+	message ("[UNICORN] Using arch %s bits %d\n",
+		r_sys_arch_str (dbg->arch), bits);
 	if (err) {
 		message ("[UNICORN] Cannot initialize Unicorn engine\n");
 		return R_FALSE;
@@ -488,6 +514,8 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		message ("[UNICORN] dpa            # reatach to initialize the unicorn\n");
 		message ("[UNICORN] dr rip=entry0  # set program counter to the entrypoint\n");
 	}
+	code_is_mapped = 0;
+
 	r_list_foreach (dbg->iob.io->sections, iter, sect) {
 		ut64 mapbase = sect->vaddr >> 12 << 12;
 		int bufdelta = sect->vaddr - mapbase;
@@ -496,21 +524,22 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		int i;
 		if (sect->vaddr < lastvaddr) 
 			continue;
-		if (sect->rwx != 5)
+		if (!(sect->rwx & 1))
 			continue;
-		if (!strstr(sect->name, "text"))
+		if (!strstr (sect->name, "text"))
 			continue;
 		buf = calloc (vsz+bufdelta+1024, 1);
 		if (!buf) continue;
 		message ("[UNICORN] BASE 0x%08"PFMT64x"\n", mapbase);
 		dbg->iob.io->raw = 0;
-		message ("DELTA = %d SIZE = %d\n", bufdelta, 
-			R_MIN (sect->vsize, (vsz - bufdelta)));
+		//message ("DELTA = %d SIZE = %d\n", bufdelta, 
+			//R_MIN (sect->vsize, (vsz - bufdelta)));
 		dbg->iob.read_at (dbg->iob.io, sect->vaddr, buf + bufdelta,
 			R_MIN (sect->vsize, (vsz - bufdelta)));
 		message ("[UNICORN] Segment 0x%08"PFMT64x" 0x%08"PFMT64x" Size %d\n",
 			sect->vaddr, sect->vaddr + vsz, vsz);
-		err = uc_mem_map (uh, mapbase, vsz); //sect->vaddr, vsz);
+		// TODO: UC_PROT_EXEC here
+		err = uc_mem_map (uh, mapbase, vsz, UC_PROT_READ | UC_PROT_WRITE);
 		if (err) {
 			message("[UNICORN] muc_mem_map failed to allocated %d\n", vsz);
 		}
@@ -519,12 +548,13 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		if (err) {
 			message("[UNICORN] muc_mem_write failed %d\n", err);
 		}
-		eprintf ("%02x %02x\n", buf[0], buf[1]);
-		eprintf ("WRT = %d\n", err);
+		//eprintf ("%02x %02x\n", buf[0], buf[1]);
+		//eprintf ("WRT = %d\n", err);
 
 		err = uc_mem_read (uh, mapbase, buf, vsz); //sect->vsize+bufdelta);
-		eprintf ("RAD = %d\n", err);
+		//eprintf ("RAD = %d\n", err);
 		lastvaddr = sect->vaddr + sect->vsize;
+		code_is_mapped = 1;
 		if (JUST_FIRST_BLOCK) break;
 //break;
 #if 0
@@ -534,6 +564,9 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		uc_mem_write (uh, 0x100001058, buf, vsz);
 		free (buf);
 #endif
+	}
+	if (!code_is_mapped) {
+		message("[UNICORN] No code mapped into the Unicorn. Use `dpa` to attach and transfer\n");
 	}
 
 	message ("[UNICORN] Set Program Counter 0x%08"PFMT64x"\n",
@@ -550,10 +583,14 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 
 	/* stack */
 	{
-		int stacksize = 64 * 1024;
+		uc_err err;
+		ut32 stacksize = 8 * 4096;
 		ut64 stackaddr = 0x7000000;
 		message ("[UNICORN] Define 64 KB stack at 0x%08"PFMT64x"\n", stackaddr);
-		uc_mem_map (uh, stackaddr, stacksize);
+		err = uc_mem_map (uh, stackaddr, stacksize, UC_PROT_WRITE | UC_PROT_READ);
+		if (err) {
+			eprintf ("Cannot allocate stack %d\n", err);
+		}
 		if (bits == 64) {
 			ut64 rsp = stackaddr + (stacksize/2);
 			err = uc_reg_write (uh, UC_X86_REG_RSP, &rsp);
