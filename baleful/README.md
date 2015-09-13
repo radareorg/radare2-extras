@@ -17,11 +17,11 @@ Related Documentation
 * http://lolcathost.org/b/BalefulRadare_ES_parte_1de2.pdf
 	
 	Spanish writeup and plugin implementation
+
 Quick example
 ==============
 For a correct VM execution its needed setup the register "r_data" to allocated memory for internal data manipulation.
 Here its a example how to configure and execute the virtual code until a specific address:
-
 r2 -a baleful -e io.cache=true bin/vm.cifrada.code
 [0x00000000] o malloc://0x1024 0x100000;e asm.bits=32;dr r_data=0x100000;s 0x1000;dr pc=0x1000;aesu 0x1843
 
