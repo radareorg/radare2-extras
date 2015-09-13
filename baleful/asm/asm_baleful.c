@@ -23,7 +23,7 @@ int asm_baleful_getregs(const ut8 *buf, char * b, char * oper, int type) {
 		switch(*c) {
 		case 1:
 			r1  = buf + 3;
-			imm = (ut32*)buf + 4;
+			imm = (ut32*)(buf + 4);
 			snprintf(b, 64,  "r_%02x = r_%02x %s 0x%04x",*r0,*r1,oper,*imm);
 			//snprintf(b, 64,  "%s",oper);
 			size=8;
@@ -31,28 +31,28 @@ int asm_baleful_getregs(const ut8 *buf, char * b, char * oper, int type) {
 		case 2:
 			imm  = (ut32*)(buf + 3);
 			r1   = buf + 4;
-			snprintf(b, 64,  "r_%02x = 0x%04x %s r_%02x",*r0,*imm,oper,*r1);		
+			snprintf(b, 64,  "r_%02x = 0x%04x %s r_%02x",*r0,*imm,oper,*r1);
 			//snprintf(b, 64,  "%s",oper);
 			size=8;
 			break;
 		case 4:
 			imm  = (ut32*)(buf + 3);
 			imm1 = (ut32*)(buf + 7);
-			snprintf(b, 64,  "r_%02x = 0x%04x %s 0x%04x",*r0,*imm,oper,*imm1);	
+			snprintf(b, 64,  "r_%02x = 0x%04x %s 0x%04x",*r0,*imm,oper,*imm1);
 			//snprintf(b, 64,  "%s",oper);
 			size=11;
 			break;
 		case 0:
 			r1  = buf + 3;
 			r2  = buf + 4;
-			snprintf(b, 64,  "r_%02x = r_%02x %s r_%02x",*r0,*r1,oper,*r2);	
+			snprintf(b, 64,  "r_%02x = r_%02x %s r_%02x",*r0,*r1,oper,*r2);
 			//snprintf(b, 64,  "%s",oper);
 			size=5;
 			break;
 		default:
 			r1  = buf + 3;
 			r2  = buf + 4;
-			snprintf(b, 64,  "r_%02x = r_%02x %s r_%02x",*r0,*r1,oper,*r2);		
+			snprintf(b, 64,  "r_%02x = r_%02x %s r_%02x",*r0,*r1,oper,*r2);
 			//snprintf(b, 64,  "%s",oper);
 			size=5;
 			break;
@@ -71,32 +71,32 @@ int asm_baleful_getregs(const ut8 *buf, char * b, char * oper, int type) {
 			break;
 		case 2:
 			r1   = buf + 5;
-			snprintf(b, 64,  "r_%02x = 0x%04x %s r_%02x",*r0,*imm,oper,*r1);		
+			snprintf(b, 64,  "r_%02x = 0x%04x %s r_%02x",*r0,*imm,oper,*r1);
 			//snprintf(b, 64,  "%s",oper);
 			size=9;
 			break;
 		case 4:
 			imm  = (ut32*)(buf + 4);
 			imm1 = (ut32*)(buf + 8);
-			snprintf(b, 64,  "r_%02x = 0x%04x %s 0x%04x",*r0,*imm,oper,*imm1);	
+			snprintf(b, 64,  "r_%02x = 0x%04x %s 0x%04x",*r0,*imm,oper,*imm1);
 			//snprintf(b, 64,  "%s",oper);
 			size=12;
 			break;
 		case 0:
 			r1  = buf + 4;
 			r2  = buf + 5;
-			snprintf(b, 64,  "r_%02x = r_%02x %s r_%02x",*r0,*r1,oper,*r2);	
+			snprintf(b, 64,  "r_%02x = r_%02x %s r_%02x",*r0,*r1,oper,*r2);
 			//snprintf(b, 64,  "%s",oper);
 			size=6;
 			break;
 		default:
 			r1  = buf + 4;
 			r2  = buf + 5;
-			snprintf(b, 64,  "r_%02x = r_%02x %s r_%02x",*r0,*r1,oper,*r2);		
+			snprintf(b, 64,  "r_%02x = r_%02x %s r_%02x",*r0,*r1,oper,*r2);
 			//snprintf(b, 64,  "%s",oper);
 			size=6;
 			break;
-		}		
+		}
 		break;
 	case 2: // 7 7 10 4
 		switch(*c) {
@@ -110,32 +110,32 @@ int asm_baleful_getregs(const ut8 *buf, char * b, char * oper, int type) {
 		case 2:
 			imm  = (ut32*)(buf + 2);
 			r1   = buf + 6;
-			snprintf(b, 64,  "0x%04x %s r_%02x",*imm,oper,*r1);		
+			snprintf(b, 64,  "0x%04x %s r_%02x",*imm,oper,*r1);
 			//snprintf(b, 64,  "%s",oper);
 			size=7;
 			break;
 		case 4:
 			imm  = (ut32*)(buf + 2);
 			imm1 = (ut32*)(buf + 6);
-			snprintf(b, 64,  "0x%04x %s 0x%04x",*imm,oper,*imm1);	
+			snprintf(b, 64,  "0x%04x %s 0x%04x",*imm,oper,*imm1);
 			//snprintf(b, 64,  "%s",oper);
 			size=10;
 			break;
 		case 0:
 			r1  = buf + 2;
 			r2  = buf + 3;
-			snprintf (b, 64, "r_%02x %s r_%02x",*r1,oper,*r2);	
+			snprintf (b, 64, "r_%02x %s r_%02x",*r1,oper,*r2);
 			//snprintf(b, 64,  "%s",oper);
 			size=4;
 			break;
 		default:
 			r1  = buf + 2;
 			r2  = buf + 3;
-			snprintf(b, 64,  "r_%02x %s r_%02x",*r1,oper,*r2);		
+			snprintf(b, 64,  "r_%02x %s r_%02x",*r1,oper,*r2);
 			//snprintf(b, 64,  "%s",oper);
 			size=4;
 			break;
-		}	
+		}
 		break;
 	case 3:// 7 4
 		switch(*c) {
@@ -166,19 +166,19 @@ int asm_baleful_getregs(const ut8 *buf, char * b, char * oper, int type) {
 		switch(*c) {
 		case 1:
 			imm = (ut32*)(buf + 2);
-			snprintf(b, 64, "%s 0x%04x",oper,*imm);			  							
+			snprintf(b, 64, "%s 0x%04x",oper,*imm);
 			//snprintf(b, 64,  "%s",oper);
 			size=6;
 			break;
 		case 0:
 			r0  = buf + 2;
-			snprintf(b, 64, "%s r_%02x",oper,*r0);			  							
+			snprintf(b, 64, "%s r_%02x",oper,*r0);
 			//snprintf(b, 64,  "%s",oper);
 			size=3;
 			break;
 		default:
 			r0  = buf + 2;
-			snprintf(b, 64, "%s r_%02x",oper,*r0);			  							
+			snprintf(b, 64, "%s r_%02x",oper,*r0);
 			//snprintf(b, 64,  "%s",oper);
 			size=3;
 			break;
@@ -186,16 +186,21 @@ int asm_baleful_getregs(const ut8 *buf, char * b, char * oper, int type) {
 		break;
 	case 5: //5
 		imm  = (ut32*)(buf + 1);
-		snprintf(b, 64, "%s 0x%04x",oper,*imm);			  							
+		snprintf(b, 64, "%s 0x%04x",oper,*imm);
 		//snprintf(b, 64,  "%s",oper);
-		size=5;		
+		size=5;
 		break;
 	case 6://2
 		r0  = buf + 1;
-		snprintf(b, 64, "%s r_%02x",oper,*r0);			  							
+		snprintf(b, 64, "%s r_%02x",oper,*r0);
 		//snprintf(b, 64,  "%s",oper);
-		size=2;		
+		size=2;
 		break;
+	case 7://2
+		r0  = buf + 1;
+		snprintf(b, 64, "%s 0x%02x",oper,*r0);
+		//snprintf(b, 64,  "%s",oper);
+		size=2;
 		break;
 	}
 	return size;
@@ -214,22 +219,22 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 		break;
 	case 3://8 8 11 5
 		op->size = asm_baleful_getregs(buf,op->buf_asm,"-",0);
-		break;     
+		break;
 	case 4://8 8 11 5
 		op->size = asm_baleful_getregs(buf,op->buf_asm,"*",0);
-		break;  
+		break;
 	case 6://8 8 11 5
 		op->size = asm_baleful_getregs(buf,op->buf_asm,"^",0);
-		break; 
+		break;
 	case 9://8 8 11 5
 		op->size = asm_baleful_getregs(buf,op->buf_asm,"&",0);
-		break; 
+		break;
 	case 10://8 8 11 5
 		op->size = asm_baleful_getregs(buf,op->buf_asm,"|",0);
-		break; 
+		break;
 	case 12://8 8 11 5
 		op->size = asm_baleful_getregs(buf,op->buf_asm,"<<",0);
-		break; 
+		break;
 	case 13://8 8 11 5
 		op->size = asm_baleful_getregs(buf,op->buf_asm,">>",0);
 		break;
@@ -278,7 +283,7 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 		r1 = buf + 2;
 		snprintf (op->buf_asm, R_ASM_BUFSIZE, "mov r_%02x,[r_%02x]",*r,*r1);
 		break;
-	case 28: //3                                                  
+	case 28: //3
 		r  = buf + 1;
 		r1 = buf + 2;
 		op->size = 3;
@@ -287,7 +292,7 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	case 11: //3
 		op->size = 3;
 		snprintf (op->buf_asm, R_ASM_BUFSIZE, "regX= regY==0");
-		break;	
+		break;
 	case 7: //3
 		op->size = 3;
 		snprintf (op->buf_asm, R_ASM_BUFSIZE, "regX= NEG regY");
@@ -306,15 +311,15 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 		op->size = asm_baleful_getregs(buf,op->buf_asm,"pop",6);
 		break;
 	case 32: // 2
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"apicall",6);
+		op->size = asm_baleful_getregs(buf,op->buf_asm,"apicall",7);
 		break;
 	case 1:
 		op->size = 1;
-		strcpy (op->buf_asm, "ret");			  							  
+		strcpy (op->buf_asm, "ret");
 		break;
 	case 0:
 		op->size = 1;
-		strcpy (op->buf_asm, "nop");			  							  
+		strcpy (op->buf_asm, "nop");
 		break;
 	case 29:
 		op->size = 1;
@@ -337,12 +342,13 @@ RAsmPlugin r_asm_plugin_baleful = {
 	.init = NULL,
 	.fini = NULL,
 	.disassemble = &disassemble,
-	//.assemble =null// &assemble 
+	//.assemble =null// &assemble
 };
 
 #ifndef CORELIB
 struct r_lib_struct_t radare_plugin = {
 	.type = R_LIB_TYPE_ASM,
 	.data = &r_asm_plugin_baleful
+
 };
 #endif
