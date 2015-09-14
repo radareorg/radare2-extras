@@ -38,11 +38,11 @@ Or you can just to the same with r2:
 
 Links
 -----
-http://www.opensource.apple.com/source/xnu/xnu-2422.1.72/tools/lldbmacros/kdp.py
-https://books.google.es/books?id=K8vUkpOXhN4C&pg=PA602&lpg=PA602&dq=kdp+protocol&source=bl&ots=OLkmQZXw1C&sig=biw-q5ZOqLKLPpviI3PP7KSjTKQ&hl=en&sa=X&ved=0CDUQ6AEwA2oVChMIxbOE5KzjxgIVgj0UCh3h3ggd#v=onepage&q=kdp%20protocol&f=false
-http://www.opensource.apple.com/source/gdb/gdb-213/src/gdb-next/kdp-protocol.h?txt
-https://reverse.put.as/2009/03/05/mac-os-x-kernel-debugging-with-vmware/
-https://github.com/saelo/ios-kern-utils/blob/master/lib/kernel/base.c
-https://reverse.put.as/wp-content/uploads/2011/06/SysScan-Singapore-Targeting_The_IOS_Kernel.pdf
-https://www.theiphonewiki.com/wiki/Kernel_ASLR
-https://github.com/stefanesser/serialKDPproxy
+* http://www.opensource.apple.com/source/xnu/xnu-2422.1.72/tools/lldbmacros/kdp.py
+* https://books.google.es/books?id=K8vUkpOXhN4C&pg=PA602&lpg=PA602&dq=kdp+protocol&source=bl&ots=OLkmQZXw1C&sig=biw-q5ZOqLKLPpviI3PP7KSjTKQ&hl=en&sa=X&ved=0CDUQ6AEwA2oVChMIxbOE5KzjxgIVgj0UCh3h3ggd#v=onepage&q=kdp%20protocol&f=false
+* http://www.opensource.apple.com/source/gdb/gdb-213/src/gdb-next/kdp-protocol.h?txt
+* https://reverse.put.as/2009/03/05/mac-os-x-kernel-debugging-with-vmware/
+* https://github.com/saelo/ios-kern-utils/blob/master/lib/kernel/base.c
+* https://reverse.put.as/wp-content/uploads/2011/06/SysScan-Singapore-Targeting_The_IOS_Kernel.pdf
+* https://www.theiphonewiki.com/wiki/Kernel_ASLR
+* https://github.com/stefanesser/serialKDPproxy

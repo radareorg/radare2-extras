@@ -78,7 +78,7 @@ fprintf (stderr, Color_BMAGENTA"%s"Color_RESET, p);
 	return 0;
 }
 
-static uch uh = 0;
+static uc_engine *uh = NULL;
 
 static int r_debug_unicorn_init(RDebug *dbg);
 
@@ -263,8 +263,8 @@ static int r_debug_unicorn_map_dealloc(RDebug *dbg, ut64 addr, int size) {
 }
 
 static int r_debug_unicorn_detach(int pid) {
-	uc_close (&uh);
-	uh = 0;
+	uc_close (uh);
+	uh = NULL;
 	return 0;
 }
 
@@ -362,28 +362,28 @@ static int r_debug_unicorn_map_protect(RDebug *dbg, ut64 addr, int size, int per
 	return 0;
 }
 
-void _interrupt(uch handle, uint32_t intno, void *user_data) {
+void _interrupt(uc_engine *handle, uint32_t intno, void *user_data) {
 	message ("[UNICORN] Interrupt 0x%x userdata %p\n", intno, user_data);
 	if (intno == 6) {
 		uc_emu_stop (handle);
 	}
 }
 
-static void _code(uch handle, uint64_t address, uint32_t size, void *user_data) {
+static void _code(uc_engine *handle, uint64_t address, uint32_t size, void *user_data) {
 	message ("[UNICORN] Begin Code\n");
 	uc_emu_stop (handle);
 }
 
-static void _block(uch handle, uint64_t address, uint32_t size, void *user_data) {
+static void _block(uc_engine *handle, uint64_t address, uint32_t size, void *user_data) {
 	message ("[UNICORN] Begin Block\n");
 }
 
-static void _insn_out(uch handle, uint32_t port, int size, uint32_t value, void *user_data) {
+static void _insn_out(uc_engine *handle, uint32_t port, int size, uint32_t value, void *user_data) {
 	message ("[UNICORN] Step Out\n");
 	uc_emu_stop (handle);
 }
 
-static bool _mem_invalid(uch handle, uc_mem_type type,
+static bool _mem_invalid(uc_engine *handle, uc_mem_type type,
 		uint64_t address, int size, int64_t value, void *user_data) {
 	const char *typestr = "";
 	if (type == UC_MEM_READ) {
@@ -401,26 +401,26 @@ static int r_debug_unicorn_step(RDebug *dbg) {
 	uc_err err;
 	ut64 addr = 0;
 	ut64 addr_end = 4;
-	static uch uh_interrupt = 0;
-	static uch uh_invalid = 0;
-	static uch uh_code = 0;
-	static uch uh_insn = 0;
+	static uc_hook uh_interrupt = 0;
+	static uc_hook uh_invalid = 0;
+	static uc_hook uh_code = 0;
+	static uc_hook uh_insn = 0;
 
 	uc_reg_read (uh, UC_X86_REG_RIP, &addr);
 	addr_end = addr + 32;
 
 	message ("EMU From 0x%llx To 0x%llx\n", addr, addr_end);
 	if (uh_interrupt) {
-		uc_hook_del (uh, &uh_interrupt);
+		uc_hook_del (uh, uh_interrupt);
 	}
 	if (uh_code) {
-		uc_hook_del (uh, &uh_code);
+		uc_hook_del (uh, uh_code);
 	}
 	if (uh_insn) {
-		uc_hook_del (uh, &uh_insn);
+		uc_hook_del (uh, uh_insn);
 	}
 	if (uh_invalid) {
-		uc_hook_del (uh, &uh_invalid);
+		uc_hook_del (uh, uh_invalid);
 	}
 	uc_hook_add (uh, &uh_interrupt, UC_HOOK_INTR, _interrupt, NULL);
 	//uc_hook_add (uh, &uh_code, UC_HOOK_CODE, _code, NULL, addr, addr+1); //(void*)(size_t)1, 0);
