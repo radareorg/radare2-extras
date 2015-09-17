@@ -428,12 +428,12 @@ static int baleful_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 		case 22: // 7 7 10 4 AND
 			op->type = R_ANAL_OP_TYPE_AND;
 			op->size = getp(buf,p0,p1,p2,p3,2);
-			r_strbuf_setf(&op->esil,"0,sf,=,%s,%s,<,sf,=,0,zf,=,%s,%s,&,0,==,%%z,zf,=,0,gf,=",p2,p1,p2,p1);
+			r_strbuf_setf(&op->esil,"0,sf,=,%s,%s,<,sf,=,0,zf,=,%s,%s,&,0,==,$z,zf,=,0,gf,=",p2,p1,p2,p1);
 			break;
 		case 23: // 7 7 10 4 CMP
 			op->type = R_ANAL_OP_TYPE_SUB;
 			op->size = getp(buf,p0,p1,p2,p3,2);
-			r_strbuf_setf(&op->esil,"0,sf,=,%s,%s,<,sf,=,0,zf,=,%s,%s,==,%%z,zf,=,0,gf,=,%s,%s,>,gf,=",p2,p1,p2,p1,p2,p1);
+			r_strbuf_setf(&op->esil,"0,sf,=,%s,%s,<,sf,=,0,zf,=,%s,%s,==,$z,zf,=,0,gf,=,%s,%s,>,gf,=",p2,p1,p2,p1,p2,p1);
 			//"0,sf,=,%s,%s,<,sf,="      //SF
 			//"0,zf,=,%s,%s,==,%%z,zf,=" //ZF
 			//"0,gf,=,%s,%s,>,gf,="      //GF
@@ -454,7 +454,7 @@ static int baleful_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 			imm = (ut32 *)(buf + 1);
 			op->type = R_ANAL_OP_TYPE_CALL;
 			op->size = getp(buf,p0,p1,p2,p3,5);
-			r_strbuf_setf(&op->esil,"%04x,pc,+,stk,=[4],4,stk,+=,%s,pc,=",op->size,p1);
+			r_strbuf_setf(&op->esil,"%04x,$$,+,stk,=[4],4,stk,+=,%s,pc,=",op->size,p1);
 			break;
 		case 1:  //          RET
 			op->type = R_ANAL_OP_TYPE_RET;
