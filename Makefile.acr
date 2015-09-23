@@ -53,6 +53,8 @@ baleful-install:
 	$(MAKE) -C baleful install DESTDIR=$(DESTDIR)
 debug-install unicorn-install:
 	$(MAKE) -C libr/debug/p install DESTDIR=$(DESTDIR)
+debug-uninstall unicorn-uninstall:
+	$(MAKE) -C libr/debug/p uninstall DESTDIR=$(DESTDIR)
 yara2-install:
 	$(MAKE) -C yara/yara2 install DESTDIR=$(DESTDIR)
 yara3-install:

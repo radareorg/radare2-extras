@@ -24,5 +24,8 @@ install:
 	mkdir -p ~/.config/radare2/plugins/
 	cp debug_unicorn.${EXT_SO} ~/.config/radare2/plugins/
 
+uninstall:
+	rm ~/.config/radare2/plugins/debug_unicorn.${EXT_SO} 
+
 clean:
 	rm *.$(EXT_SO) *.o

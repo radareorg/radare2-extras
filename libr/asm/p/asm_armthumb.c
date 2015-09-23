@@ -29,8 +29,8 @@ static int assemble(RAsm *a, RAsmOp *op, const char *buf) {
 #endif
 
 RAsmPlugin r_asm_plugin_armthumb = {
-	.name = "armthumb",
-	.arch = "armthumb",
+	.name = "arm.thumb",
+	.arch = "arm",
 	.bits = 16,
 	.desc = "ARM THUMB disassembly plugin",
 	.init = NULL,
@@ -42,6 +42,7 @@ RAsmPlugin r_asm_plugin_armthumb = {
 #ifndef CORELIB
 struct r_lib_struct_t radare_plugin = {
 	.type = R_LIB_TYPE_ASM,
-	.data = &r_asm_plugin_armthumb
+	.data = &r_asm_plugin_armthumb,
+	.version = R2_VERSION
 };
 #endif
