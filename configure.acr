@@ -15,7 +15,7 @@ ARG_WITH USEROSTYPE=auto ostype Choose OS type ( gnulinux windows darwin haiku )
 (( ---- optional ---- ))
 (( ewf ))
 CHKLIB ewf
-PKGCFG EWF_CFLAGS WANT_EWF_LDFLAGS libewf
+PKGCFG EWF_CFLAGS EWF_LDFLAGS libewf
 ARG_WITHOUT WANT_EWF ewf build without libewf ;
 IF HAVE_PKGCFG_LIBEWF {
 	HAVE_LIB_EWF = 1 ;

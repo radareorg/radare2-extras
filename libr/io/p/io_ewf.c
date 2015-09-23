@@ -172,7 +172,8 @@ RIOPlugin r_io_plugin_ewf = {
 #ifndef CORELIB
 struct r_lib_struct_t radare_plugin = {
 	.type = R_LIB_TYPE_IO,
-	.data = &r_io_plugin_ewf
+	.data = &r_io_plugin_ewf,
+	.version = R2_VERSION
 };
 #endif
 #else
