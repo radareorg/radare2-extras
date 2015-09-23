@@ -46,6 +46,7 @@ struct r_asm_handle_t r_asm_plugin_x86_bea = {
 #ifndef CORELIB
 struct r_lib_struct_t radare_plugin = {
 	.type = R_LIB_TYPE_ASM,
-	.data = &r_asm_plugin_x86_bea
+	.data = &r_asm_plugin_x86_bea,
+	.version = R2_VERSION
 };
 #endif

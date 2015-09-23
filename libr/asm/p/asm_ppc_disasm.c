@@ -30,10 +30,10 @@ static int disassemble(RAsm *a, RAsmOp *aop, const ut8 *buf, int len) {
 }
 
 RAsmPlugin r_asm_plugin_ppc_disasm = {
-	.name = "ppc_disasm",
+	.name = "ppc.disasm",
 	.arch = "ppc",
 	.bits = 32,
-	.desc = "PPC_disasm disassembly plugin",
+	.desc = "Tiny PowerPC disassembly plugin",
 	.init = NULL,
 	.fini = NULL,
 	.disassemble = &disassemble,
@@ -43,6 +43,7 @@ RAsmPlugin r_asm_plugin_ppc_disasm = {
 #ifndef CORELIB
 struct r_lib_struct_t radare_plugin = {
 	.type = R_LIB_TYPE_ASM,
-	.data = &r_asm_plugin_ppc_disasm
+	.data = &r_asm_plugin_ppc_disasm,
+	.version = R2_VERSION
 };
 #endif
