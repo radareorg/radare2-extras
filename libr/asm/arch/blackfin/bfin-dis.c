@@ -4668,7 +4668,7 @@ _print_insn_bfin (bfd_vma pc, disassemble_info *outf)
     {
       if (parallel)
 	{
-	  OUTS (outf, "illegal");
+	  OUTS (outf, "invalid");
 	  return 0;
 	}
       OUTS (outf, "mnop");
@@ -4750,7 +4750,7 @@ _print_insn_bfin (bfd_vma pc, disassemble_info *outf)
     rv = decode_pseudodbg_assert_0 (iw0, iw1, outf);
 
   if (rv == 0)
-    OUTS (outf, "illegal");
+    OUTS (outf, "invalid");
 
   return rv;
 }
@@ -4799,8 +4799,10 @@ print_insn_bfin (bfd_vma pc, disassemble_info *outf)
       parallel = 0;
     }
 
+#if 0
   if (!comment)
     OUTS (outf, ";");
+#endif
 
   if (count == 0)
     return 2;
