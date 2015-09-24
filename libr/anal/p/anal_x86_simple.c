@@ -531,6 +531,7 @@ struct r_anal_plugin_t r_anal_plugin_x86_simple = {
 #ifndef CORELIB
 struct r_lib_struct_t radare_plugin = {
 	.type = R_LIB_TYPE_ANAL,
-	.data = &r_anal_plugin_x86_simple
+	.data = &r_anal_plugin_x86_simple,
+	.version = R2_VERSION
 };
 #endif

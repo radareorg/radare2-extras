@@ -1105,6 +1105,7 @@ RAnalPlugin r_anal_plugin_x86_im = {
 #ifndef CORELIB
 struct r_lib_struct_t radare_plugin = {
 	.type = R_LIB_TYPE_ANAL,
-	.data = &r_anal_plugin_x86_im
+	.data = &r_anal_plugin_x86_im,
+	.version = R2_VERSION
 };
 #endif
