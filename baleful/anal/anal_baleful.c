@@ -306,6 +306,7 @@ static int baleful_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 	op->delay = 0;
 	op->jump = op->fail = -1;
 	op->ptr = op->val = -1;
+	op->addr = addr;
 	op->refptr = 0;
 	r_strbuf_init (&op->esil);
 	switch (buf[0]) {
@@ -390,36 +391,49 @@ static int baleful_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 			imm  = (ut32 *)(buf + 1);
 			op->type = R_ANAL_OP_TYPE_JMP;
 			op->size = getp(buf,p0,p1,p2,p3,5);
+			op->jump = r_num_get (NULL, p1);
 			r_strbuf_setf(&op->esil,"%s,pc,=",p1);
 			break;
 		case 16: //5         JZ
 			op->type = R_ANAL_OP_TYPE_CJMP;
 			op->size = getp(buf,p0,p1,p2,p3,5);
+			op->jump = r_num_get (NULL, p1);
+			op->fail = addr + op->size;
 			r_strbuf_setf(&op->esil, "zf,?{,%s,pc,=,}",p1);
 			break;
 		case 21: //5         JNZ
 			op->type = R_ANAL_OP_TYPE_CJMP;
 			op->size = getp(buf,p0,p1,p2,p3,5);
+			op->jump = r_num_get (NULL, p1);
+			op->fail = addr + op->size;
 			r_strbuf_setf(&op->esil, "zf,!,?{,%s,pc,=,}",p1);
 			break;
 		case 17: //5         JS
 			op->type = R_ANAL_OP_TYPE_CJMP;
 			op->size = getp(buf,p0,p1,p2,p3,5);
+			op->jump = r_num_get (NULL, p1);
+			op->fail = addr + op->size;
 			r_strbuf_setf(&op->esil, "sf,?{,%s,pc,=,}",p1);
 			break;
 		case 20: //5         JNS
 			op->type = R_ANAL_OP_TYPE_CJMP;
 			op->size = getp(buf,p0,p1,p2,p3,5);
+			op->jump = r_num_get (NULL, p1);
+			op->fail = addr + op->size;
 			r_strbuf_setf(&op->esil, "sf,!,?{,%s,pc,=,}",p1);
 			break;
 		case 19: //5         JG
 			op->type = R_ANAL_OP_TYPE_CJMP;
 			op->size = getp(buf,p0,p1,p2,p3,5);
+			op->jump = r_num_get (NULL, p1);
+			op->fail = addr + op->size;
 			r_strbuf_setf(&op->esil, "gf,?{,%s,pc,=,}",p1);
 			break;
 		case 18: //5         JBE
 			op->type = R_ANAL_OP_TYPE_CJMP;
 			op->size = getp(buf,p0,p1,p2,p3,5);
+			op->jump = r_num_get (NULL, p1);
+			op->fail = addr + op->size;
 			r_strbuf_setf(&op->esil, "gf,!,?{,%s,pc,=,}",p1);
 			break;
 			////////////////////////////////   EFLAGS WRITER  ///////////////////////////////////////////////////////////
@@ -454,6 +468,8 @@ static int baleful_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 			imm = (ut32 *)(buf + 1);
 			op->type = R_ANAL_OP_TYPE_CALL;
 			op->size = getp(buf,p0,p1,p2,p3,5);
+			op->jump = r_num_get (NULL, p1);
+			op->fail = addr + op->size;
 			r_strbuf_setf(&op->esil,"%04x,$$,+,stk,=[4],4,stk,+=,%s,pc,=",op->size,p1);
 			break;
 		case 1:  //          RET
@@ -477,12 +493,12 @@ static int baleful_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 			///////////////////////////////////////////////////////////////////////////////////////////////////////////
 		case 32: //          SYSCALL
 			p = buf + 1;
-			op->type = R_ANAL_OP_TYPE_CALL;
+			op->type = R_ANAL_OP_TYPE_SWI;
 			op->size = 2;
 			r_strbuf_setf (&op->esil, "0x%02x,$",*p);
 			break;
 		case 29://           VMEND
-			op->type = R_ANAL_OP_TYPE_NOP;
+			op->type = R_ANAL_OP_TYPE_TRAP;
 			op->size = 1;
 			r_strbuf_setf (&op->esil, "end virtual");
 			break;
