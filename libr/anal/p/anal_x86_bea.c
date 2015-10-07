@@ -395,6 +395,7 @@ static int aop(RAnal *anal, RAnalOp *aop, ut64 addr, const ut8 *data, int len) {
 RAnalPlugin r_anal_plugin_x86_bea = {
 	.name = "x86_bea",
 	.desc = "X86 analysis plugin (Bea engine)",
+	.license = "LGPL",
 	.op = &aop
 };
 
