@@ -1,4 +1,4 @@
-/* radare - GPL3 - Copyright 2009 nibble<.ds@gmail.com> */
+/* radare - GPL3 - Copyright 2009-2015 - pancake, nibble */
 
 #include <stdio.h>
 #include <string.h>
@@ -9,13 +9,12 @@
 #include <r_asm.h>
 
 #include "x86/bea/BeaEngine.h"
-#include "fastcall_x86.h"
+//#include "fastcall_x86.h"
 
-static int disassemble(struct r_asm_t *a, struct r_asm_aop_t *aop, ut8 *buf, ut64 len)
-{
+static int disassemble(RAsm *a, RAsmOp *aop, const ut8 *buf, int len) {
 	static DISASM disasm_obj;
 
-	memset(&disasm_obj, '\0', sizeof(DISASM));
+	memset (&disasm_obj, '\0', sizeof (DISASM));
 	disasm_obj.EIP = (long long)buf;
 	disasm_obj.VirtualAddr = a->pc;
 	disasm_obj.Archi = ((a->bits == 64) ? 64 : 0);
@@ -24,23 +23,18 @@ static int disassemble(struct r_asm_t *a, struct r_asm_aop_t *aop, ut8 *buf, ut6
 		disasm_obj.Options = 0x400;
 	else disasm_obj.Options = 0;
 
-	aop->inst_len = Disasm(&disasm_obj);
+	aop->size = Disasm (&disasm_obj);
+	snprintf (aop->buf_asm, R_ASM_BUFSIZE, disasm_obj.CompleteInstr);
 
-	snprintf(aop->buf_asm, R_ASM_BUFSIZE, disasm_obj.CompleteInstr);
-
-	return aop->inst_len;
+	return aop->size;
 }
 
-struct r_asm_handle_t r_asm_plugin_x86_bea = {
+static RAsmPlugin r_asm_plugin_x86_bea = {
 	.name = "x86.bea",
-	.desc = "X86 disassembly plugin (bea engine)",
+	.desc = "x86 BeaEngine disassembler plugin",
 	.arch = "x86",
-	.bits = (int[]){ 32, 64, 0 }, /* also 16 ? */
-	.init = NULL,
-	.fini = NULL,
-	.disassemble = &disassemble,
-	.assemble = NULL,
-	.fastcall = fastcall,
+	.bits = 16 | 32 | 64,
+	.disassemble = &disassemble
 };
 
 #ifndef CORELIB

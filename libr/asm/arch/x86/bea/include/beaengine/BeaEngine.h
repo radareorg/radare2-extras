@@ -1,9 +1,12 @@
-/*  Header for BeaEngine 4.x    */
 #ifndef _BEA_ENGINE_
 #define _BEA_ENGINE_
+#if  defined(__cplusplus) && defined(__BORLANDC__)
+namespace BeaEngine {
+#endif
 
-#include "Includes/export.h"
-#include "Includes/basic_types.h"
+#include <beaengine/macros.h>
+#include <beaengine/export.h>
+#include <beaengine/basic_types.h>
 
 #if !defined(BEA_ENGINE_STATIC)
 	#if defined(BUILD_BEA_ENGINE_DLL)
@@ -17,6 +20,17 @@
 
 
 #define INSTRUCT_LENGTH 64
+
+#pragma pack(1)
+typedef struct {
+   UInt8 L;
+   UInt8 vvvv;
+   UInt8 mmmmm;
+   UInt8 pp;
+   UInt8 state;
+   UInt8 opcode;
+} VEX_Struct  ;
+#pragma pack()
 
 #pragma pack(1)
 typedef struct {
@@ -72,7 +86,7 @@ typedef struct {
    Int32 BaseRegister;
    Int32 IndexRegister;
    Int32 Scale;
-   Int64 Displacement;
+   Int64 Displacement; 
 } MEMORYTYPE ;
 #pragma pack()
 
@@ -80,7 +94,7 @@ typedef struct {
 #pragma pack(1)
 typedef struct  {
    Int32 Category;
-   Int32 Opcode; 
+   Int32 Opcode;
    char Mnemonic[24];
    Int32 BranchType;
    EFLStruct Flags;
@@ -93,7 +107,7 @@ typedef struct  {
 #pragma pack(1)
 typedef struct  {
    char ArgMnemonic[24];
-   Uint64 ArgType;
+   UInt64 ArgType;
    Int32 ArgSize;
    Int32 ArgPosition;
    UInt32 AccessMode;
@@ -102,8 +116,52 @@ typedef struct  {
 } ARGTYPE;
 #pragma pack()
 
+/* reserved structure used for thread-safety */
+/* unusable by customer */
+#pragma pack(1)
+typedef struct {
+   UIntPtr EIP_;
+   UInt64 EIP_VA;
+   UIntPtr EIP_REAL;
+   Int32 OriginalOperandSize;
+   Int32 OperandSize;
+   Int32 MemDecoration;
+   Int32 AddressSize;
+   Int32 MOD_;
+   Int32 RM_;
+   Int32 INDEX_;
+   Int32 SCALE_;
+   Int32 BASE_;
+   Int32 MMX_;
+   Int32 SSE_;
+   Int32 CR_;
+   Int32 DR_;
+   Int32 SEG_;
+   Int32 REGOPCODE;
+   UInt32 DECALAGE_EIP;
+   Int32 FORMATNUMBER;
+   Int32 SYNTAX_;
+   UInt64 EndOfBlock;
+   Int32 RelativeAddress;
+   UInt32 Architecture;
+   Int32 ImmediatSize;
+   Int32 NB_PREFIX;
+   Int32 PrefRepe;
+   Int32 PrefRepne;
+   UInt32 SEGMENTREGS;
+   UInt32 SEGMENTFS;
+   Int32 third_arg;
+   Int32 TAB_;
+   Int32 ERROR_OPCODE;
+   REX_Struct REX;
+   Int32 OutOfBlock;
+   VEX_Struct VEX;
+   Int32 AVX_;
+   Int32 MPX_;
+} InternalDatas;
+#pragma pack()
 
-
+/* ************** main structure ************ */
 #pragma pack(1)
 typedef struct _Disasm {
    UIntPtr EIP;
@@ -118,9 +176,12 @@ typedef struct _Disasm {
    ARGTYPE Argument3;
    ARGTYPE Argument4;
    PREFIXINFO Prefix;
-   UInt32 Reserved_[44];
+   InternalDatas Reserved_;
 } DISASM, *PDISASM, *LPDISASM;
 #pragma pack()
+
+/* #UD exception */
+#define UD_   2
 
 #define ESReg 1
 #define DSReg 2
@@ -159,7 +220,6 @@ enum INSTRUCTION_TYPE
   AVX_INSTRUCTION               = (int)0x100000000,
   AVX2_INSTRUCTION               = (int)0x200000000,
   MPX_INSTRUCTION               = (int)0x400000000,
-
     DATA_TRANSFER = 0x1,
     ARITHMETIC_INSTRUCTION,
     LOGICAL_INSTRUCTION,
@@ -316,4 +376,8 @@ extern "C"
 BEA_API int __bea_callspec__ Disasm (LPDISASM pDisAsm);
 BEA_API const__ char* __bea_callspec__ BeaEngineVersion (void);
 BEA_API const__ char* __bea_callspec__ BeaEngineRevision (void);
+#if  defined(__cplusplus) && defined(__BORLANDC__)
+};
+using namespace BeaEngine;
+#endif
 #endif

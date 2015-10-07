@@ -1,30 +1,29 @@
-//
-// BeaEngine 3.0 - x86 & x86-64 disassembler library
-//
-// Copyright 2006-2009, BeatriX
-// File coded by BeatriX
-//
-// This file is part of BeaEngine.
-//
-//    BeaEngine is free software: you can redistribute it and/or modify
-//    it under the terms of the GNU Lesser General Public License as published by
-//    the Free Software Foundation, either version 3 of the License, or
-//    (at your option) any later version.
-//
-//    BeaEngine is distributed in the hope that it will be useful,
-//    but WITHOUT ANY WARRANTY; without even the implied warranty of
-//    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//    GNU Lesser General Public License for more details.
-//
-//    You should have received a copy of the GNU Lesser General Public License
-//    along with BeaEngine.  If not, see <http://www.gnu.org/licenses/>.
+/*
+ * BeaEngine 4 - x86 & x86-64 disassembler library
+ *
+ * Copyright 2006-2010, BeatriX
+ * File coded by BeatriX
+ *
+ * This file is part of BeaEngine.
+ *
+ *    BeaEngine is free software: you can redistribute it and/or modify
+ *    it under the terms of the GNU Lesser General Public License as published by
+ *    the Free Software Foundation, either version 3 of the License, or
+ *    (at your option) any later version.
+ *
+ *    BeaEngine is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ *    You should have received a copy of the GNU Lesser General Public License
+ *    along with BeaEngine.  If not, see <http://www.gnu.org/licenses/>. */
 
-//#ifndef __UNIX__
-//#include <windows.h>
-//#endif
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include "BeaEngine.h"
+
+#include "beaengine/BeaEngine.h"
 #include "Includes/protos.h"
 #include "Includes/internal_datas.h"
 #include "Includes/instr_set/Data_opcode.h"
@@ -44,11 +43,15 @@
 #include "Includes/instr_set/opcodes_Grp14.c"
 #include "Includes/instr_set/opcodes_Grp15.c"
 #include "Includes/instr_set/opcodes_Grp16.c"
+#include "Includes/instr_set/opcodes_Grp17.c"
 #include "Includes/instr_set/opcodes_FPU.c"
 #include "Includes/instr_set/opcodes_MMX.c"
 #include "Includes/instr_set/opcodes_SSE.c"
+#include "Includes/instr_set/opcodes_AES.c"
+#include "Includes/instr_set/opcodes_CLMUL.c"
 #include "Includes/instr_set/opcodes_prefixes.c"
 #include "Includes/Routines_ModRM.c"
 #include "Includes/Routines_Disasm.c"
+#include "Includes/BeaEngineVersion.c"
 
 void BeaEngine(void){return;}

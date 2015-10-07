@@ -6,6 +6,6 @@ ARCHS+=psosvm.mk
 # doesnt build yet
 ARCHS+=m68k.mk
 ARCHS+=blackfin.mk
-#ARCHS+=x86_bea.mk
+ARCHS+=x86_bea.mk
 include ../../plugs.mk
 

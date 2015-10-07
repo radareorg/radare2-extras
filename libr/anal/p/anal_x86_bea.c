@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2009 - nibble<.ds@gmail.com> */
+/* radare - LGPL - Copyright 2009-2015 - pancake, nibble */
 
 #include <stdio.h>
 #include <string.h>
@@ -8,9 +8,9 @@
 #include <r_util.h>
 #include <r_anal.h>
 
-#include "x86/bea/BeaEngine.h"
+#include "BeaEngine.h"
 
-static int aop(RAnalysis *anal, RAnalysisAop *aop, ut64 addr, const ut8 *data, int len) {
+static int aop(RAnal *anal, RAnalOp *aop, ut64 addr, const ut8 *data, int len) {
 	DISASM disasm_obj;
 
 	if (data == NULL)
@@ -22,13 +22,13 @@ static int aop(RAnalysis *anal, RAnalysisAop *aop, ut64 addr, const ut8 *data, i
 	disasm_obj.Archi = ((anal->bits == 64) ? 64 : 0);
 	disasm_obj.SecurityBlock = 128;
 
-	memset(aop, 0, sizeof(aop));
+	memset(aop, 0, sizeof(RAnalOp));
 	aop->addr = addr;
 	aop->jump = -1;
 	aop->fail = -1;
-	aop->length = Disasm(&disasm_obj);
+	aop->size = Disasm(&disasm_obj);
 
-	if (aop->length < 1)
+	if (aop->size < 1)
 		return 0;
 
 	switch (disasm_obj.Instruction.BranchType) {
@@ -40,7 +40,7 @@ static int aop(RAnalysis *anal, RAnalysisAop *aop, ut64 addr, const ut8 *data, i
 	case JP:
 	case JL:
 	case JG:
-	case JB:
+	//case JB:
 	case JNO:
 	case JNC:
 	case JNE:
@@ -49,11 +49,11 @@ static int aop(RAnalysis *anal, RAnalysisAop *aop, ut64 addr, const ut8 *data, i
 	case JNP:
 	case JNL:
 	case JNG:
-	case JNB:
+	//case JNB:
 	case JECXZ:
 		aop->type = R_ANAL_OP_TYPE_CJMP;
 		aop->jump = disasm_obj.Instruction.AddrValue;
-		aop->fail = disasm_obj.Instruction.AddrValue + aop->length;
+		aop->fail = disasm_obj.Instruction.AddrValue + aop->size;
 		break;
 	case JmpType:
 		aop->type = R_ANAL_OP_TYPE_JMP;
@@ -62,14 +62,14 @@ static int aop(RAnalysis *anal, RAnalysisAop *aop, ut64 addr, const ut8 *data, i
 	case CallType:
 		aop->type = R_ANAL_OP_TYPE_CALL;
 		aop->jump = disasm_obj.Instruction.AddrValue;
-		aop->fail = disasm_obj.Instruction.AddrValue + aop->length;
+		aop->fail = disasm_obj.Instruction.AddrValue + aop->size;
 		break;
 	case RetType:
 		aop->type = R_ANAL_OP_TYPE_RET;
 		break;
 	}
 
-	return aop->length;
+	return aop->size;
 
 #if 0
 	ARGTYPE *argptr = NULL;
@@ -392,12 +392,10 @@ static int aop(RAnalysis *anal, RAnalysisAop *aop, ut64 addr, const ut8 *data, i
 
 }
 
-struct r_anal_handle_t r_anal_plugin_x86_bea = {
+RAnalPlugin r_anal_plugin_x86_bea = {
 	.name = "x86_bea",
 	.desc = "X86 analysis plugin (Bea engine)",
-	.init = NULL,
-	.fini = NULL,
-	.aop = &aop
+	.op = &aop
 };
 
 #ifndef CORELIB
