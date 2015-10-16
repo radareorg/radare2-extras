@@ -639,7 +639,8 @@ struct r_debug_plugin_t r_debug_plugin_unicorn = {
 
 struct r_lib_struct_t radare_plugin = {
 	.type = R_LIB_TYPE_DBG,
-	.data = &r_debug_plugin_unicorn
+	.data = &r_debug_plugin_unicorn,
+	.version = R2_VERSION
 };
 #else
 #warning Cannot find unicorn library
