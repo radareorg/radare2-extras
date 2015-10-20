@@ -6,9 +6,9 @@
 #include <r_asm.h>
 #include <r_anal.h>
 
-static ut64 c_addr = UT64_MAX;
-const int c_size = 128;
-static bool c_data[c_size];
+static ut64 bcl_addr = UT64_MAX;
+const int bcl_size = 128;
+static bool bcl_data[bcl_size];
 
 static int findpair(ut64 addr, const ut8 *buf, int len, int base) {
 	int i, j;
@@ -16,20 +16,20 @@ static int findpair(ut64 addr, const ut8 *buf, int len, int base) {
 		if ((buf[i]&3)!=base) {
 			continue;
 		}
-		if (c_addr != UT64_MAX) {
-			if (addr < c_addr || addr >= c_addr + c_size) {
-				c_addr = UT64_MAX;
+		if (bcl_addr != UT64_MAX) {
+			if (addr < bcl_addr || addr >= bcl_addr + bcl_size) {
+				bcl_addr = UT64_MAX;
 			}
 		}
-		if (c_addr == UT64_MAX) {
-			c_addr = addr;
-			for (j=0; j<c_size; j++) c_data[j] = false;
+		if (bcl_addr == UT64_MAX) {
+			bcl_addr = addr;
+			for (j=0; j<bcl_size; j++) bcl_data[j] = false;
 		} else {
-			if (c_data[ (addr - c_addr) -i ]) {
+			if (bcl_data[ (addr - bcl_addr) -i ]) {
 			// XXX fix	continue;
 			}
 		}
-		c_data[ (addr - c_addr)-i] = true;
+		bcl_data[ (addr - bcl_addr)-i] = true;
 		return i;
 	}
 	return 0;
