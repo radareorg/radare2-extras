@@ -7,8 +7,8 @@
 #include <r_anal.h>
 
 static ut64 bcl_addr = UT64_MAX;
-const int bcl_size = 128;
-static bool bcl_data[bcl_size];
+#define BCL_SIZE 128
+static bool bcl_data[BCL_SIZE];
 
 static int findpair(ut64 addr, const ut8 *buf, int len, int base) {
 	int i, j;
@@ -17,13 +17,13 @@ static int findpair(ut64 addr, const ut8 *buf, int len, int base) {
 			continue;
 		}
 		if (bcl_addr != UT64_MAX) {
-			if (addr < bcl_addr || addr >= bcl_addr + bcl_size) {
+			if (addr < bcl_addr || addr >= bcl_addr + BCL_SIZE) {
 				bcl_addr = UT64_MAX;
 			}
 		}
 		if (bcl_addr == UT64_MAX) {
 			bcl_addr = addr;
-			for (j=0; j<bcl_size; j++) bcl_data[j] = false;
+			for (j=0; j<BCL_SIZE; j++) bcl_data[j] = false;
 		} else {
 			if (bcl_data[ (addr - bcl_addr) -i ]) {
 			// XXX fix	continue;
