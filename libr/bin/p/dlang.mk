@@ -3,10 +3,11 @@ OBJ_DLANG+=dmangle.o
 
 STATIC_OBJ+=${OBJ_DLANG}
 TARGET_DLANG=bin_dlang.${EXT_SO}
+CFLAGS+=-I../format
 
 ALL_TARGETS+=${TARGET_DLANG}
 #LDFLAGS+= -lphobos2 -lpthread
-LDFLAGS+=-lphobos2-ldc
+DLANG_LDFLAGS+=-lphobos2-ldc
 
 #DMD=dmd -fPIC
 DMD=ldc2 -relocation-model=pic
@@ -15,5 +16,5 @@ dmangle.o:
 	$(DMD) -c ../arch/dlang/dmangle.d
 
 ${TARGET_DLANG}: ${OBJ_DLANG}
-	${CC} $(call libname,bin_dlang) ${LDFLAGS} \
+	${CC} $(call libname,bin_dlang) ${LDFLAGS} $(DLANG_LDFLAGS) \
 		${CFLAGS} -o bin_dlang.${EXT_SO} ${OBJ_DLANG}
