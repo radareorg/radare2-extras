@@ -7,5 +7,6 @@ ARCHS+=psosvm.mk
 ARCHS+=m68k.mk
 ARCHS+=blackfin.mk
 ARCHS+=x86_bea.mk
+ARCHS+=msil.mk
 include ../../plugs.mk
 
