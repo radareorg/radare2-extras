@@ -490,19 +490,15 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		return R_TRUE;
 	}
 	// TODO: add support for ARM, MIPS, ...
-	switch (dbg->arch) {
-	case R_SYS_ARCH_X86:
+	if (!strcmp (dbg->arch, "x86")) {
 		err = uc_open (UC_ARCH_X86, bits==64? UC_MODE_64: UC_MODE_32, &uh);
-		break;
-	case R_SYS_ARCH_ARM:
+	} else if (!strcmp (dbg->arch, "arm")) {
 		err = uc_open (UC_ARCH_ARM, bits==64? UC_MODE_64: UC_MODE_32, &uh);
-		break;
-	default:
+	} else {
 		err = 1;
 		message ("[UNICORN] Unsupported architecture\n");
 	}
-	message ("[UNICORN] Using arch %s bits %d\n",
-		r_sys_arch_str (dbg->arch), bits);
+	message ("[UNICORN] Using arch %s bits %d\n", dbg->arch, bits);
 	if (err) {
 		message ("[UNICORN] Cannot initialize Unicorn engine\n");
 		return R_FALSE;
@@ -606,7 +602,7 @@ struct r_debug_plugin_t r_debug_plugin_unicorn = {
 	.name = "unicorn",
 	.license = "GPL",
 	.bits = R_SYS_BITS_32 | R_SYS_BITS_64,
-	.arch = R_ASM_ARCH_X86, // TODO: Supports more!
+	.arch = "x86",
 	.canstep = 1,
 	.keepio = 1,
 
