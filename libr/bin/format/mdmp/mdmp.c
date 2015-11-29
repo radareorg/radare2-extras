@@ -235,12 +235,12 @@ int r_bin_mdmp_init_directory(struct r_bin_mdmp_obj *obj, PMINIDUMP_DIRECTORY di
 			p = obj->b->buf + dir->Location.Rva;
 			j = ((PMINIDUMP_MODULE_LIST)p)->NumberOfModules;
 			for (i = 0; i < j; i++) {
-				p = (void *)(&((PMINIDUMP_MODULE_LIST)p)->Modules[i]);
-				if (p - (void *)obj->b->buf + sizeof(MINIDUMP_MODULE) > obj->b->length) {
+				m = (void *)(&((PMINIDUMP_MODULE_LIST)p)->Modules[i]);
+				if (m - (void *)obj->b->buf + sizeof(MINIDUMP_MODULE) > obj->b->length) {
 					eprintf("Warning in r_bin_mdmp_init_directory: length too short, not enough space for all MINIDUMP_MODULE\n");
 					break;
 				}
-				r_list_append(obj->modules, p);
+				r_list_append(obj->modules, m);
 			};
 		};
 		break;
@@ -267,12 +267,12 @@ int r_bin_mdmp_init_directory(struct r_bin_mdmp_obj *obj, PMINIDUMP_DIRECTORY di
 			p = obj->b->buf + dir->Location.Rva;
 			j = ((PMINIDUMP_MEMORY64_LIST)p)->NumberOfMemoryRanges;
 			for (i = 0; i < j; i++) {
-				p = (void *)(&((PMINIDUMP_MEMORY64_LIST)p)->MemoryRanges[i]);
-				if (p - (void *)obj->b->buf + sizeof(MINIDUMP_MEMORY_DESCRIPTOR64) > obj->b->length) {
+				m = (void *)(&((PMINIDUMP_MEMORY64_LIST)p)->MemoryRanges[i]);
+				if (m - (void *)obj->b->buf + sizeof(MINIDUMP_MEMORY_DESCRIPTOR64) > obj->b->length) {
 					eprintf("Warning in r_bin_mdmp_init_directory: length too short, not enough space for all MINIDUMP_MEMORY_DESCRIPTOR64\n");
 					break;
 				}
-				r_list_append(obj->memory64, p);
+				r_list_append(obj->memory64, m);
 			};
 		};
 		break;
@@ -365,7 +365,7 @@ int r_bin_mdmp_init_directory(struct r_bin_mdmp_obj *obj, PMINIDUMP_DIRECTORY di
 }
 
 PMINIDUMP_STRING r_bin_mdmp_locate_string(struct r_bin_mdmp_obj *obj, RVA Rva) {
-	if (Rva < obj->b->length)
+	if (Rva >= obj->b->length)
 		return NULL;
 	return (PMINIDUMP_STRING)(obj->b->buf + Rva);
 }

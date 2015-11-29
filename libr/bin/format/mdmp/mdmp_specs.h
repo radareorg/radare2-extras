@@ -218,7 +218,7 @@ typedef struct MINIDUMP_EXCEPTION_STREAM {
 } MINIDUMP_EXCEPTION_STREAM, *PMINIDUMP_EXCEPTION_STREAM;
 
 
-typedef struct _MINIDUMP_MODULE {
+typedef struct __attribute__((__packed__)) _MINIDUMP_MODULE {
 	ut64 BaseOfImage;
 	ut32 SizeOfImage;
 	ut32 CheckSum;
@@ -231,7 +231,7 @@ typedef struct _MINIDUMP_MODULE {
 	ut64 Reserved1;
 } MINIDUMP_MODULE, *PMINIDUMP_MODULE;
 
-typedef struct _MINIDUMP_MODULE_LIST {
+typedef struct __attribute__((__packed__)) _MINIDUMP_MODULE_LIST {
 	ut32 NumberOfModules;
 	MINIDUMP_MODULE Modules [ 0 ];
 } MINIDUMP_MODULE_LIST, *PMINIDUMP_MODULE_LIST;
