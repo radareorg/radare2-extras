@@ -64,6 +64,7 @@ static RList *sections(RBinFile *arch) {
 	struct r_bin_mdmp_obj *obj = arch->o->bin_obj;
 	PMINIDUMP_MODULE module;
 	PMINIDUMP_STRING str;
+	int i, j;
 
 	if (!(ret = r_list_newf(free)))
 		return NULL;
@@ -74,7 +75,9 @@ static RList *sections(RBinFile *arch) {
 			break;
 		}
 		if ((str = r_bin_mdmp_locate_string(obj, module->ModuleNameRva))) {
-			//strncpy(ptr->name, (char *)str->Buffer, R_MIN(str->Length, R_BIN_SIZEOF_STRINGS));
+			// FIX ME: HACK, need proper UTF-16 decoding
+			for (i = 0, j = R_MIN(str->Length, R_BIN_SIZEOF_STRINGS); i < j; i++)
+				ptr->name[i] = str->Buffer[i];
 		}
 		ptr->size = module->SizeOfImage;
 		ptr->vsize = module->SizeOfImage;
