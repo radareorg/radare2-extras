@@ -27,7 +27,7 @@ How to build and install
 
 First you need to have *unicorn* installed from git:
 
-	$ r2pm -i unicorn-deps
+	$ r2pm -i unicorn-lib
 	$ r2pm -i unicorn
 
 or
