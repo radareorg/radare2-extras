@@ -339,8 +339,6 @@ RAsmPlugin r_asm_plugin_baleful = {
 	.license = "LGPL3",
 	.bits = 32,
 	.desc = "Baleful",
-	.init = NULL,
-	.fini = NULL,
 	.disassemble = &disassemble,
 	//.assemble =null// &assemble
 };

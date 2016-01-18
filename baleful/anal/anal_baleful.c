@@ -391,50 +391,50 @@ static int baleful_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 			imm  = (ut32 *)(buf + 1);
 			op->type = R_ANAL_OP_TYPE_JMP;
 			op->size = getp(buf,p0,p1,p2,p3,5);
-			op->jump = r_num_get (NULL, p1);
+			op->jump = r_num_get (NULL, (const char *)p1);
 			r_strbuf_setf(&op->esil,"%s,pc,=",p1);
 			break;
 		case 16: //5         JZ
 			op->type = R_ANAL_OP_TYPE_CJMP;
 			op->size = getp(buf,p0,p1,p2,p3,5);
-			op->jump = r_num_get (NULL, p1);
+			op->jump = r_num_get (NULL, (const char *)p1);
 			op->fail = addr + op->size;
 			r_strbuf_setf(&op->esil, "zf,?{,%s,pc,=,}",p1);
 			break;
 		case 21: //5         JNZ
 			op->type = R_ANAL_OP_TYPE_CJMP;
 			op->size = getp(buf,p0,p1,p2,p3,5);
-			op->jump = r_num_get (NULL, p1);
+			op->jump = r_num_get (NULL, (const char *)p1);
 			op->fail = addr + op->size;
 			r_strbuf_setf(&op->esil, "zf,!,?{,%s,pc,=,}",p1);
 			break;
 		case 17: //5         JS
 			op->type = R_ANAL_OP_TYPE_CJMP;
 			op->size = getp(buf,p0,p1,p2,p3,5);
-			op->jump = r_num_get (NULL, p1);
+			op->jump = r_num_get (NULL, (const char *)p1);
 			op->fail = addr + op->size;
 			r_strbuf_setf(&op->esil, "sf,?{,%s,pc,=,}",p1);
 			break;
 		case 20: //5         JNS
 			op->type = R_ANAL_OP_TYPE_CJMP;
 			op->size = getp(buf,p0,p1,p2,p3,5);
-			op->jump = r_num_get (NULL, p1);
+			op->jump = r_num_get (NULL, (const char *)p1);
 			op->fail = addr + op->size;
 			r_strbuf_setf(&op->esil, "sf,!,?{,%s,pc,=,}",p1);
 			break;
 		case 19: //5         JG
 			op->type = R_ANAL_OP_TYPE_CJMP;
 			op->size = getp(buf,p0,p1,p2,p3,5);
-			op->jump = r_num_get (NULL, p1);
+			op->jump = r_num_get (NULL, (const char *)p1);
 			op->fail = addr + op->size;
 			r_strbuf_setf(&op->esil, "gf,?{,%s,pc,=,}",p1);
 			break;
 		case 18: //5         JBE
 			op->type = R_ANAL_OP_TYPE_CJMP;
-			op->size = getp(buf,p0,p1,p2,p3,5);
-			op->jump = r_num_get (NULL, p1);
+			op->size = getp (buf, p0, p1, p2, p3, 5);
+			op->jump = r_num_get (NULL, (const char *)p1);
 			op->fail = addr + op->size;
-			r_strbuf_setf(&op->esil, "gf,!,?{,%s,pc,=,}",p1);
+			r_strbuf_setf (&op->esil, "gf,!,?{,%s,pc,=,}",p1);
 			break;
 			////////////////////////////////   EFLAGS WRITER  ///////////////////////////////////////////////////////////
 			// http://www.read.seas.harvard.edu/~kohler/class/aosref/i386/appc.htm
@@ -468,7 +468,7 @@ static int baleful_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 			imm = (ut32 *)(buf + 1);
 			op->type = R_ANAL_OP_TYPE_CALL;
 			op->size = getp(buf,p0,p1,p2,p3,5);
-			op->jump = r_num_get (NULL, p1);
+			op->jump = r_num_get (NULL, (const char *)p1);
 			op->fail = addr + op->size;
 			r_strbuf_setf(&op->esil,"%04x,$$,+,stk,=[4],4,stk,+=,%s,pc,=",op->size,p1);
 			break;
@@ -544,8 +544,8 @@ static int esil_baleful_intr (RAnalEsil *esil, int intr) {
 
 static int set_reg_profile(RAnal *anal) {
 	const char *p = \
-			"=pc    pc\n"
-			"=sp    stk\n"
+			"=PC    pc\n"
+			"=SP    stk\n"
 			"gpr    pc      .32 0   0\n"
 			"gpr    stk     .32 4   0\n"
 			"gpr    zf      .32 8   0\n"
@@ -622,7 +622,7 @@ struct r_anal_plugin_t r_anal_plugin_baleful = {
 	.desc = "baleful code analysis plugin",
 	.license = "LGPL3",
 	/*add to r_tuypes.h R_SYS_ARCH_BALEFUL = 0x10000000*/
-	.arch =0x10000000,
+	.arch = "baleful",
 	.bits = 32,
 	.esil_init = esil_baleful_init,
 	.esil_fini = esil_baleful_fini,
