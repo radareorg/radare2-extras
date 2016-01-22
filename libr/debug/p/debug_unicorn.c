@@ -537,6 +537,10 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 	code_is_mapped = 0;
 
 	r_list_foreach (dbg->iob.io->sections, iter, sect) {
+		int perms = 0;
+		if (sect->rwx & R_IO_READ) perms |= UC_PROT_READ;
+		if (sect->rwx & R_IO_WRITE) perms |= UC_PROT_WRITE;
+		if (sect->rwx & R_IO_EXEC) perms |= UC_PROT_EXEC;
 		ut64 mapbase = sect->vaddr >> 12 << 12;
 		int bufdelta = sect->vaddr - mapbase;
 		ut32 vsz = 64 * 1024;
@@ -559,7 +563,7 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		message ("[UNICORN] Segment 0x%08"PFMT64x" 0x%08"PFMT64x" Size %d\n",
 			sect->vaddr, sect->vaddr + vsz, vsz);
 		// TODO: UC_PROT_EXEC here
-		err = uc_mem_map (uh, mapbase, vsz, UC_PROT_READ | UC_PROT_WRITE);
+		err = uc_mem_map (uh, mapbase, vsz, perms);
 		if (err) {
 			message("[UNICORN] muc_mem_map failed to allocated %d\n", vsz);
 		}
