@@ -386,10 +386,34 @@ static void _insn_out(uc_engine *handle, uint32_t port, int size, uint32_t value
 static bool _mem_invalid(uc_engine *handle, uc_mem_type type,
 		uint64_t address, int size, int64_t value, void *user_data) {
 	const char *typestr = "";
-	if (type == UC_MEM_READ) {
-		typestr = "read";
-	} else if (type == UC_MEM_WRITE) {
-		typestr = "write";
+	switch(type) {
+	case UC_MEM_READ:
+			typestr = "read";
+			break;
+	case UC_MEM_WRITE:
+			typestr = "write";
+			break;
+	case UC_MEM_FETCH:
+			typestr = "fetch";
+			break;
+	case UC_MEM_READ_UNMAPPED:
+			typestr = "unmapped read";
+			break;
+	case UC_MEM_WRITE_UNMAPPED:
+			typestr = "unmapped write";
+			break;
+	case UC_MEM_FETCH_UNMAPPED:
+			typestr = "unmapped fetch";
+			break;
+	case UC_MEM_WRITE_PROT:
+			typestr = "write protected write";
+			break;
+	case UC_MEM_READ_PROT:
+			typestr = "read protected read";
+			break;
+	case UC_MEM_FETCH_PROT:
+			typestr = "non-executable fetch";
+			break;
 	}
 	message ("[UNICORN] Invalid %s of %d bytes at 0x%"PFMT64x"\n",
 		typestr, size, address);
