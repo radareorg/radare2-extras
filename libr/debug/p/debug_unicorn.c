@@ -562,7 +562,6 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 			R_MIN (sect->vsize, (vsz - bufdelta)));
 		message ("[UNICORN] Segment 0x%08"PFMT64x" 0x%08"PFMT64x" Size %d\n",
 			sect->vaddr, sect->vaddr + vsz, vsz);
-		// TODO: UC_PROT_EXEC here
 		err = uc_mem_map (uh, mapbase, vsz, perms);
 		if (err) {
 			message("[UNICORN] muc_mem_map failed to allocated %d\n", vsz);
