@@ -12,7 +12,6 @@ CFLAGS+=-DHAVE_PKGCFG_UNICORN=${HAVE_PKGCFG_UNICORN}
 CFLAGS+=${UC_CFLAGS}
 
 ${TARGET_UNICORN}: ${OBJ_UNICORN}
-	${CC} $(call libname,debug_unicorn) ${CFLAGS} \
+	${CC} ${OBJ_UNICORN} $(call libname,debug_unicorn) ${CFLAGS} \
 		${UC_CFLAGS} ${UC_LDFLAGS} \
-		${R2_CFLAGS} ${R2_LDFLAGS} \
-		${OBJ_UNICORN}
+		${R2_CFLAGS} ${R2_LDFLAGS}
