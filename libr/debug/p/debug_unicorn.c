@@ -89,13 +89,13 @@ static int r_debug_handle_signals(RDebug *dbg) {
 static const char *r_debug_unicorn_reg_profile(RDebug *dbg) {
 	if (dbg->bits & R_SYS_BITS_64) {
 		return strdup (
-			"=pc	rip\n"
-			"=sp	rsp\n"
-			"=bp	rbp\n"
-			"=a0	rax\n"
-			"=a1	rbx\n"
-			"=a2	rcx\n"
-			"=a3	rdi\n"
+			"=PC	rip\n"
+			"=SP	rsp\n"
+			"=BP	rbp\n"
+			"=A0	rax\n"
+			"=A1	rbx\n"
+			"=A2	rcx\n"
+			"=A3	rdi\n"
 			"gpr	rip	8	0x000	0\n"
 			"gpr	rax	8	0x008	0\n"
 			"gpr	rcx	8	0x010	0\n"
@@ -140,13 +140,13 @@ static const char *r_debug_unicorn_reg_profile(RDebug *dbg) {
 			);
 	} else {
 		return strdup(
-			"=pc	eip\n"
-			"=sp	esp\n"
-			"=bp	ebp\n"
-			"=a0	eax\n"
-			"=a1	ebx\n"
-			"=a2	ecx\n"
-			"=a3	edi\n"
+			"=PC	eip\n"
+			"=SP	esp\n"
+			"=BP	ebp\n"
+			"=A0	eax\n"
+			"=A1	ebx\n"
+			"=A2	ecx\n"
+			"=A3	edi\n"
 			"drx	dr0	.32	4	0\n"
 			"drx	dr1	.32	8	0\n"
 			"drx	dr2	.32	12	0\n"
