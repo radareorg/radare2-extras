@@ -51,7 +51,7 @@ const char *rainbow[COLORS] = {
 	Color_GREEN, Color_YELLOW, Color_CYAN,
 	Color_RED, Color_WHITE
 };
-// color=r_num_rand(COLORS); if (color>=COLORS) color=0;  
+// color=r_num_rand(COLORS); if (color>=COLORS) color=0;
 
 #define rainbow_printf(x,y...) \
 
@@ -64,12 +64,12 @@ static int message(const char *fmt, ...) {
 	vsnprintf (str, sizeof (str), fmt, ap);
 fprintf (stderr, Color_BMAGENTA"%s"Color_RESET, p);
 	if (++color>=COLORS) color = 0;
-	msgcolor = rainbow[color]; 
+	msgcolor = rainbow[color];
 #if 0
 	while (*p) {
 		fprintf(stderr,"%s%c", msgcolor, *p);
 		if (++color>=COLORS) color = 0;
-		msgcolor = rainbow[color]; 
+		msgcolor = rainbow[color];
 		p++;
 	}
 	fprintf (stderr, "%s", Color_RESET);
@@ -211,8 +211,8 @@ static RList *r_debug_unicorn_map_get(RDebug *dbg) {
 	r_list_foreach (dbg->iob.io->sections, iter, sect) {
 		m = r_debug_map_new (sect->name,
 			sect->vaddr,
-			sect->vaddr + sect->vsize, 
-			sect->rwx, 0); 
+			sect->vaddr + sect->vsize,
+			sect->rwx, 0);
 		if (m) {
 			r_list_append (list, m);
 		}
@@ -546,7 +546,7 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		ut32 vsz = 64 * 1024;
 		ut8 *buf;
 		int i;
-		if (sect->vaddr < lastvaddr) 
+		if (sect->vaddr < lastvaddr)
 			continue;
 		if (!(sect->rwx & 1))
 			continue;
@@ -556,25 +556,26 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		if (!buf) continue;
 		message ("[UNICORN] BASE 0x%08"PFMT64x"\n", mapbase);
 		dbg->iob.io->raw = 0;
-		//message ("DELTA = %d SIZE = %d\n", bufdelta, 
+		//message ("DELTA = %d SIZE = %d\n", bufdelta,
 			//R_MIN (sect->vsize, (vsz - bufdelta)));
 		dbg->iob.read_at (dbg->iob.io, sect->vaddr, buf + bufdelta,
 			R_MIN (sect->vsize, (vsz - bufdelta)));
 		message ("[UNICORN] Segment 0x%08"PFMT64x" 0x%08"PFMT64x" Size %d\n",
 			sect->vaddr, sect->vaddr + vsz, vsz);
-		err = uc_mem_map (uh, mapbase, vsz, perms);
+		err = uc_mem_map_ptr (uh, mapbase, vsz, perms, buf);
 		if (err) {
-			message("[UNICORN] muc_mem_map failed to allocated %d\n", vsz);
+			message("[UNICORN] muc_mem_map_ptr failed to allocated %d\n", vsz);
 		}
 		//err = uc_mem_write (uh, sect->vaddr, buf, vsz);
+		/*
 		err = uc_mem_write (uh, mapbase, buf, vsz);
 		if (err) {
 			message("[UNICORN] muc_mem_write failed %d\n", err);
-		}
+		}*/
 		//eprintf ("%02x %02x\n", buf[0], buf[1]);
 		//eprintf ("WRT = %d\n", err);
 
-		err = uc_mem_read (uh, mapbase, buf, vsz); //sect->vsize+bufdelta);
+		//err = uc_mem_read (uh, mapbase, buf, vsz); //sect->vsize+bufdelta);
 		//eprintf ("RAD = %d\n", err);
 		lastvaddr = sect->vaddr + sect->vsize;
 		code_is_mapped = 1;
