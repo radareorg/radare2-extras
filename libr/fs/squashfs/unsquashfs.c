@@ -30,6 +30,10 @@
 #include "compressor.h"
 #include "xattr.h"
 
+#ifndef HAVE_MAIN
+#define HAVE_MAIN 1
+#endif
+
 #if __linux__
 #include <sys/sysinfo.h>
 #endif
@@ -40,6 +44,7 @@ struct queue *to_reader, *to_deflate, *to_writer, *from_writer;
 pthread_t *thread, *deflator_thread;
 pthread_mutex_t	fragment_mutex;
 
+// TODO: make all this stuff static
 /* user options that control parallelisation */
 int processors = -1;
 
@@ -51,7 +56,7 @@ int bytes = 0, swap, file_count = 0, dir_count = 0, sym_count = 0,
 	dev_count = 0, fifo_count = 0;
 char *inode_table = NULL, *directory_table = NULL;
 struct hash_table_entry *inode_table_hash[65536], *directory_table_hash[65536];
-int fd;
+int fd = -1;
 unsigned int *uid_table, *guid_table;
 unsigned int cached_frag = SQUASHFS_INVALID_FRAG;
 char *fragment_data;
@@ -550,11 +555,14 @@ int read_fs_bytes(int fd, long long byte, int bytes, void *buff)
 
 	if(lseek(fd, off, SEEK_SET) == -1) {
 		ERROR("Lseek failed because %s\n", strerror(errno));
+fprintf (stderr, "ERROR SEEK\n");
 		return FALSE;
 	}
 
+fprintf (stderr, "gonna read %d\n", fd);
 	for(count = 0; count < bytes; count += res) {
 		res = read(fd, buff + count, bytes - count);
+fprintf (stderr, "RES %d\n", res);
 		if(res < 1) {
 			if(res == 0) {
 				ERROR("Read on filesystem failed because "
@@ -672,17 +680,18 @@ void uncompress_inode_table(long long start, long long end)
 		if(size - bytes < SQUASHFS_METADATA_SIZE) {
 			inode_table = realloc(inode_table, size +=
 				SQUASHFS_METADATA_SIZE);
-			if(inode_table == NULL)
-				EXIT_UNSQUASH("Out of memory in "
-					"uncompress_inode_table");
+			if(inode_table == NULL) {
+				fprintf (stderr, "Out of memory in uncompress_inode_table");
+				return;
+			}
 		}
 		TRACE("uncompress_inode_table: reading block 0x%llx\n", start);
 		add_entry(inode_table_hash, start, bytes);
 		res = read_block(fd, start, &start, inode_table + bytes);
 		if(res == 0) {
 			free(inode_table);
-			EXIT_UNSQUASH("uncompress_inode_table: failed to read "
-				"block \n");
+//			EXIT_UNSQUASH("uncompress_inode_table: failed to read " "block \n");
+			return;
 		}
 		bytes += res;
 	}
@@ -1014,8 +1023,7 @@ void uncompress_directory_table(long long start, long long end)
 }
 
 
-int squashfs_readdir(struct dir *dir, char **name, unsigned int *start_block,
-unsigned int *offset, unsigned int *type)
+int squashfs_readdir(struct dir *dir, char **name, unsigned int *start_block, unsigned int *offset, unsigned int *type)
 {
 	if(dir->cur_entry == dir->dir_count)
 		return FALSE;
@@ -1970,6 +1978,8 @@ void progress_bar(long long current, long long max, int columns)
 	printf("MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the"\
 		"\n");\
 	printf("GNU General Public License for more details.\n");
+
+#if HAVE_MAIN
 int main(int argc, char *argv[])
 {
 	char *dest = "squashfs-root";
@@ -2209,8 +2219,10 @@ options:
 	if(no_xattrs)
 		sBlk.s.xattr_id_table_start = SQUASHFS_INVALID_BLK;
 
-	if(read_xattrs_from_disk(fd, &sBlk.s) == 0)
-		EXIT_UNSQUASH("failed to read the xattr table\n");
+	if(read_xattrs_from_disk(fd, &sBlk.s) == 0) {
+		//EXIT_UNSQUASH("failed to read the xattr table\n");
+		return 1;
+	}
 
 	if(path) {
 		paths = init_subdir();
@@ -2252,3 +2264,4 @@ options:
 
 	return 0;
 }
+#endif
