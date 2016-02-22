@@ -446,16 +446,16 @@ static int r_debug_unicorn_step(RDebug *dbg) {
 	if (uh_invalid) {
 		uc_hook_del (uh, uh_invalid);
 	}
-	uc_hook_add (uh, &uh_interrupt, UC_HOOK_INTR, _interrupt, NULL);
+	uc_hook_add (uh, &uh_interrupt, UC_HOOK_INTR, _interrupt, NULL, 1, 0);
 	//uc_hook_add (uh, &uh_code, UC_HOOK_CODE, _code, NULL, addr, addr+1); //(void*)(size_t)1, 0);
-	uc_hook_add (uh, &uh_code, UC_HOOK_BLOCK, _block, NULL, (void*)(size_t)1, 0);
+	uc_hook_add (uh, &uh_code, UC_HOOK_BLOCK, _block, NULL, 1, 0);
 	{
 		uint8_t mem[8];
 		uc_err err = uc_mem_read (uh, addr, mem, 4);
 		message ("[EIP] = %d = %02x %02x %02x %02x\n", err, mem[0], mem[1], mem[2], mem[3]);
 	}
-	uc_hook_add (uh, &uh_invalid, UC_HOOK_MEM_INVALID, _mem_invalid, NULL);
-	uc_hook_add (uh, &uh_insn, UC_HOOK_INSN, _insn_out, NULL, UC_X86_INS_OUT);
+	uc_hook_add (uh, &uh_invalid, UC_HOOK_MEM_INVALID, _mem_invalid, NULL, 1, 0);
+	uc_hook_add (uh, &uh_insn, UC_HOOK_INSN, _insn_out, NULL, 1, 0, UC_X86_INS_OUT);
 	err = uc_emu_start (uh, addr, addr_end, 0, 1);
 	message ("[UNICORN] Step Instruction At 0x%08"PFMT64x"\n", addr);
 	{
