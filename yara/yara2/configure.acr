@@ -1,5 +1,5 @@
 PKGNAME radare2-extras-yara2
-VERSION 0.9.9-git
+VERSION 0.10.2-git
 CONTACT jvoisin ; julien.voisin@dustri.org
 
 REPORT PREFIX ;
