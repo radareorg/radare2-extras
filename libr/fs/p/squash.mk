@@ -16,6 +16,7 @@ CFLAGS+=-I. -I/usr/local/include
 LDFLAGS+=-llzma
 LDFLAGS+=-lz
 CFLAGS+=-D HAVE_MAIN=0
+CFLAGS+=-D XATTR_SUPPORT=1
 
 STATIC_OBJ+=${OBJ_SQUASH}
 TARGET_SQUASH=fs_squash.${EXT_SO}

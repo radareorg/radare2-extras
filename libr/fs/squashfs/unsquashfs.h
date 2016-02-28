@@ -81,9 +81,10 @@
 		do { \
 			pthread_mutex_lock(&screen_mutex); \
 			fprintf(stderr, "FATAL ERROR aborting: "s, ## args); \
-			pthread_mutex_unlock(&screen_mutex);\
-			exit(1); \
+			pthread_mutex_unlock(&screen_mutex); \
 		} while(0)
+
+//exit(1); 
 
 #define CALCULATE_HASH(start)	(start & 0xffff)
 

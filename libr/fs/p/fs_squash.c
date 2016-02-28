@@ -8,8 +8,9 @@
 #include "../squashfs/xattr.h"
 
 extern int fd;
-int read_super(char *source);
-int squashfs_readdir(struct dir *d, char **name, unsigned int *start_block, unsigned int *offset, unsigned int *type);
+extern int read_super(char *source);
+extern int squashfs_readdir(struct dir *d, char **name, unsigned int *start_block, unsigned int *offset, unsigned int *type);
+extern int squashfs_closedir(struct dir *d);
 //struct dir *squashfs_opendir_4(unsigned int block_start, unsigned int offset, struct inode **i);
 
 static RFSFile* fs_squash_open(RFSRoot *root, const char *path) {
@@ -53,12 +54,15 @@ struct super_block sBlk;
 
 	list = r_list_new ();
 // TODO: choose version
-	if(read_xattrs_from_disk(fd, &sBlk.s) == 0)
-		EXIT_UNSQUASH("failed to read the xattr table\n");
-	start_block = SQUASHFS_INODE_BLK(sBlk.s.root_inode);
-	offset = SQUASHFS_INODE_OFFSET(sBlk.s.root_inode);
+#if 0
+	if (read_xattrs_from_disk (fd, &sBlk.s) == 0)
+		EXIT_UNSQUASH ("failed to read the xattr table\n");
+#endif
+	start_block = SQUASHFS_INODE_BLK (sBlk.s.root_inode);
+	offset = SQUASHFS_INODE_OFFSET (sBlk.s.root_inode);
 
-	d = squashfs_opendir_4(start_block, offset, &i);
+eprintf ("-->\n");
+	d = squashfs_opendir_4 (start_block, offset, &i);
 	if (!d) return NULL;
 	while (squashfs_readdir (d, &name, &start_block, &offset, &type)) {
 		RFSFile *fsf = r_fs_file_new (NULL, name);
@@ -74,21 +78,25 @@ eprintf ("-> %s\n", name);
 }
 
 static int fs_squash_mount(RFSRoot *root) {
-	const char *path = NULL;
+	char *path = NULL;
 	if (root && root->iob.io && root->iob.io->desc) {
-		path = root->iob.io->desc->uri;
+		path = strdup (root->iob.io->desc->uri);
 	}
 	fd = open (path, 0);
+fprintf (stderr, "fd = %d\n", fd);
 	if (read_super (path) == 0) {
 		eprintf ("Error reading super block\n");
 		return false;
 	}
 	root->ptr = NULL; // XXX: TODO
+	free (path);
 	return true;
 }
 
 static void fs_squash_umount(RFSRoot *root) {
-	root->ptr = NULL;
+	if (root) {
+		root->ptr = NULL;
+	}
 }
 
 struct r_fs_plugin_t r_fs_plugin_squash = {

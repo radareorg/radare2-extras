@@ -76,6 +76,7 @@ extern struct xattr_list *get_xattr(int, unsigned int *);
 #else
 static inline int get_xattrs(int fd, struct squashfs_super_block *sBlk)
 {
+return 0;
 	if(sBlk->xattr_id_table_start != SQUASHFS_INVALID_BLK) {
 		fprintf(stderr, "Xattrs in filesystem! These are not "
 			"supported on this version of Squashfs\n");
@@ -115,6 +116,7 @@ static inline void write_xattr(char *pathname, unsigned int xattr)
 
 static inline int read_xattrs_from_disk(int fd, struct squashfs_super_block *sBlk)
 {
+return 0;
 	if(sBlk->xattr_id_table_start != SQUASHFS_INVALID_BLK) {
 		fprintf(stderr, "Xattrs in filesystem! These are not "
 			"supported on this version of Squashfs\n");

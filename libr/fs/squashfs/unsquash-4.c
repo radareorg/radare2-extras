@@ -100,8 +100,9 @@ struct inode *read_inode_4(unsigned int start_block, unsigned int offset)
 
 	TRACE("read_inode: reading inode [%d:%d]\n", start_block,  offset);
 
-	if(bytes == -1) {
-		//	EXIT_UNSQUASH("read_inode: inode table block %lld not found\n", start); 		
+	if (bytes == -1) {
+		fprintf (stderr, "read_inode: inode table block %lld not found\n", start);
+		fprintf (stderr, "::: bytes -1 offset = %lld\n", offset);
 		return NULL;
 	}
 
@@ -238,7 +239,8 @@ struct inode *read_inode_4(unsigned int start_block, unsigned int offset)
 			break;
 		}
 		default:
-			//EXIT_UNSQUASH("Unknown inode type %d in read_inode!\n", header.base.inode_type);
+			fprintf(stderr, "Unknown inode type %d in read_inode!\n", header.base.inode_type);
+fprintf (stderr, "bytes -1\n");
 			return NULL;
 	}
 	return &i;

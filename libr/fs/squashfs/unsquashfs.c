@@ -203,6 +203,7 @@ void insert_hash_table(struct cache *cache, struct cache_entry *entry)
 {
 	int hash = CALCULATE_HASH(entry->block);
 
+fprintf (stderr, "insert hashtable\n");
 	entry->hash_next = cache->hash_table[hash];
 	cache->hash_table[hash] = entry;
 	entry->hash_prev = NULL;
@@ -404,9 +405,7 @@ void cache_block_wait(struct cache_entry *entry)
 	pthread_mutex_unlock(&entry->cache->mutex);
 }
 
-
-void cache_block_put(struct cache_entry *entry)
-{
+void cache_block_put(struct cache_entry *entry) {
 	/*
 	 * finished with this cache entry, once the usage count reaches zero it
  	 * can be reused and is put onto the free list.  As it remains
@@ -432,9 +431,7 @@ void cache_block_put(struct cache_entry *entry)
 	pthread_mutex_unlock(&entry->cache->mutex);
 }
 
-
-char *modestr(char *str, int mode)
-{
+char *modestr(char *str, int mode) {
 	int i;
 
 	strcpy(str, "----------");
@@ -446,7 +443,6 @@ char *modestr(char *str, int mode)
 
 	return str;
 }
-
 
 #define TOTALCHARS  25
 int print_filename(char *pathname, struct inode *inode)
@@ -511,11 +507,8 @@ int print_filename(char *pathname, struct inode *inode)
 		
 	return 1;
 }
-	
 
-void add_entry(struct hash_table_entry *hash_table[], long long start,
-	int bytes)
-{
+void add_entry(struct hash_table_entry *hash_table[], long long start, int bytes) {
 	int hash = CALCULATE_HASH(start);
 	struct hash_table_entry *hash_table_entry;
 
@@ -529,40 +522,33 @@ void add_entry(struct hash_table_entry *hash_table[], long long start,
 	hash_table[hash] = hash_table_entry;
 }
 
-
-int lookup_entry(struct hash_table_entry *hash_table[], long long start)
-{
+int lookup_entry(struct hash_table_entry *hash_table[], long long start) {
 	int hash = CALCULATE_HASH(start);
-	struct hash_table_entry *hash_table_entry;
+	struct hash_table_entry *hte;
 
-	for(hash_table_entry = hash_table[hash]; hash_table_entry;
-				hash_table_entry = hash_table_entry->next)
-
-		if(hash_table_entry->start == start)
-			return hash_table_entry->bytes;
-
+	for (hte = hash_table[hash]; hte; hte = hte->next) {
+		if (hte->start == start)
+			return hte->bytes;
+	}
 	return -1;
 }
-
 
 int read_fs_bytes(int fd, long long byte, int bytes, void *buff)
 {
 	off_t off = byte;
 	int res, count;
 
+fprintf(stderr, "read fs bytes from fd %d\n", fd);
 	TRACE("read_bytes: reading from position 0x%llx, bytes %d\n", byte,
 		bytes);
 
 	if(lseek(fd, off, SEEK_SET) == -1) {
 		ERROR("Lseek failed because %s\n", strerror(errno));
-fprintf (stderr, "ERROR SEEK\n");
 		return FALSE;
 	}
 
-fprintf (stderr, "gonna read %d\n", fd);
 	for(count = 0; count < bytes; count += res) {
 		res = read(fd, buff + count, bytes - count);
-fprintf (stderr, "RES %d\n", res);
 		if(res < 1) {
 			if(res == 0) {
 				ERROR("Read on filesystem failed because "
@@ -701,9 +687,10 @@ void uncompress_inode_table(long long start, long long end)
 int set_attributes(char *pathname, int mode, uid_t uid, gid_t guid, time_t time,
 	unsigned int xattr, unsigned int set_mode)
 {
+#if 0
 	struct utimbuf times = { time, time };
 
-	write_xattr(pathname, xattr);
+	//write_xattr(pathname, xattr);
 
 	if(utime(pathname, &times) == -1) {
 		ERROR("set_attributes: failed to set time on %s, because %s\n",
@@ -726,7 +713,7 @@ int set_attributes(char *pathname, int mode, uid_t uid, gid_t guid, time_t time,
 			pathname, strerror(errno));
 		return FALSE;
 	}
-
+#endif
 	return TRUE;
 }
 
@@ -921,7 +908,7 @@ int create_inode(char *pathname, struct inode *i)
 				break;
 			}
 
-			write_xattr(pathname, i->xattr);
+			//write_xattr(pathname, i->xattr);
 	
 			if(root_process) {
 				if(lchown(pathname, i->uid, i->gid) == -1)
@@ -1741,7 +1728,6 @@ void *writer(void *arg)
 		}
 		free(file->pathname);
 		free(file);
-
 	}
 }
 
@@ -1753,7 +1739,7 @@ void *deflator(void *arg)
 {
 	char tmp[block_size];
 
-	while(1) {
+	while (1) {
 		struct cache_entry *entry = queue_get(to_deflate);
 		int error, res;
 
@@ -2219,10 +2205,12 @@ options:
 	if(no_xattrs)
 		sBlk.s.xattr_id_table_start = SQUASHFS_INVALID_BLK;
 
+#if 0
 	if(read_xattrs_from_disk(fd, &sBlk.s) == 0) {
 		//EXIT_UNSQUASH("failed to read the xattr table\n");
 		return 1;
 	}
+#endif
 
 	if(path) {
 		paths = init_subdir();
