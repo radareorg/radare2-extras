@@ -1,5 +1,5 @@
 PKGNAME radare2-extras
-VERSION 0.10.2-git
+VERSION 0.10.1
 CONTACT pancake ; pancake@nopcode.org
 
 REPORT PREFIX ;
@@ -8,7 +8,6 @@ LANG_C!
 
 (( mandatory ))
 PKGCFG! R2_CFLAGS R2_LDFLAGS r_core
-
 
 ARG_WITH USEROSTYPE=auto ostype Choose OS type ( gnulinux windows darwin haiku ) ;
 
