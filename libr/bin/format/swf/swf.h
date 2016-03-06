@@ -7,12 +7,12 @@
 #include "swf_specs.h"
 
 typedef struct __attribute__((__packed__)) {
-    ut8 signature[3];
-    ut8 version;
-    ut32 file_size;
-    ut8 rect_size;
-    ut16 frame_rate;
-    ut16 frame_count;
+	ut8 signature[3];
+	ut8 version;
+	ut32 file_size;
+	ut8 rect_size;
+	ut16 frame_rate;
+	ut16 frame_count;
 } swf_hdr;
 
 char* get_swf_file_type(char compression, char flashVersion);

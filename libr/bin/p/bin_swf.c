@@ -14,121 +14,98 @@ static char compression;
 static char flashVersion;
 
 static void * load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb){
-    check_bytes(buf, sz);
-    compression = buf[0];
-    flashVersion = buf[3];
-    return R_NOTNULL;
+	check_bytes (buf, sz);
+	compression = buf[0];
+	flashVersion = buf[3];
+	return R_NOTNULL;
 }
 
 static int check(RBinFile *arch) {
-    const ut8 *bytes = arch ? r_buf_buffer (arch->buf) : NULL;
-    ut64 sz = arch ? r_buf_size (arch->buf): 0;
-    return check_bytes (bytes, sz);
+	const ut8 *bytes = arch ? r_buf_buffer (arch->buf) : NULL;
+	ut64 sz = arch ? r_buf_size (arch->buf): 0;
+	return check_bytes (bytes, sz);
 }
 
 static int check_bytes(const ut8 *buf, ut64 length) {
-    if (!buf || length < 4) return R_FALSE;
+	if (!buf || length < 4) return R_FALSE;
 
-    if ((*buf == ISWF_MAGIC_0_0 || *buf == ISWF_MAGIC_0_1 ||
-                *buf == ISWF_MAGIC_0_2) && (!memcmp (buf+1, ISWF_MAGIC, 2)))
-        return R_TRUE;
+	if ((*buf == ISWF_MAGIC_0_0 || *buf == ISWF_MAGIC_0_1 ||
+			*buf == ISWF_MAGIC_0_2) && (!memcmp (buf+1, ISWF_MAGIC, 2)))
+		return true;
 
-    return R_FALSE;
+	return false;
 }
 
 static RBinInfo* info(RBinFile *arch) {
-    RBinInfo *ret = NULL;
+	RBinInfo *ret = NULL;
 
-    if(!(ret = R_NEW(RBinInfo)))
-        return NULL;
+	if(!(ret = R_NEW0 (RBinInfo)))
+		return NULL;
 
-    ret->file = strdup(arch->file);
-    ret->bclass = strdup("SWF");
-    ret->rclass = strdup("swf");
+	ret->file = strdup (arch->file);
+	ret->bclass = strdup ("SWF");
+	ret->rclass = strdup ("swf");
 
-    ret->type = get_swf_file_type(compression, flashVersion);
+	ret->type = get_swf_file_type (compression, flashVersion);
 
-    ret->machine = strdup("i386");
-    ret->os = strdup("any");
-    ret->arch = strdup("x86");
-    ret->bits = 32;
-    ret->has_va = R_FALSE;
-    ret->dbg_info = 0;
-    ret->has_nx = R_FALSE;
+	ret->machine = strdup ("i386");
+	ret->os = strdup ("any");
+	ret->arch = strdup ("x86");
+	ret->bits = 32;
+	ret->has_va = false;
+	ret->dbg_info = 0;
+	ret->has_nx = false;
 
-    return ret;
+	return ret;
 }
 
 static RList* sections(RBinFile *arch) {
-    RList *ret = NULL;
+	RList *ret = NULL;
 
-    if (!(ret = r_list_new()))
-        return NULL;
+	if (!(ret = r_list_new()))
+		return NULL;
 
-    r_bin_swf_get_sections(ret, arch);
+	r_bin_swf_get_sections(ret, arch);
 
-    return ret;
+	return ret;
 }
 
 static RList* entries(RBinFile *arch) { 
-    RList *ret = NULL;
-    RBinAddr *ptr = NULL;
+	RList *ret = NULL;
+	RBinAddr *ptr = NULL;
 
-    if (!(ret = r_list_new()))
-        return NULL;
-    if (!(ptr = R_NEW0 (RBinAddr)))
-        return ret;
+	if (!(ret = r_list_new()))
+		return NULL;
+	if (!(ptr = R_NEW0 (RBinAddr)))
+		return ret;
 
-    swf_hdr header;
-    header = r_bin_swf_get_header(arch);
+	swf_hdr header;
+	header = r_bin_swf_get_header(arch);
 
-    ptr->paddr = header.rect_size + SWF_HDR_MIN_SIZE;
-    ptr->vaddr = header.rect_size + SWF_HDR_MIN_SIZE;
+	ptr->paddr = header.rect_size + SWF_HDR_MIN_SIZE;
+	ptr->vaddr = header.rect_size + SWF_HDR_MIN_SIZE;
 
-    r_list_append(ret, ptr);
+	r_list_append(ret, ptr);
 
-    return ret;
+	return ret;
 }
 
 struct r_bin_plugin_t r_bin_plugin_swf = {
-    .name = "swf",
-    .desc = "SWF",
-    .license = "LGPL3",
-    .init = NULL,
-    .fini = NULL,
-    .get_sdb = NULL,
-    .load = NULL,
-    .load_bytes = &load_bytes,
-    .size = NULL,
-    .destroy = NULL,
-    .check = &check,
-    .check_bytes = &check_bytes,
-    .baddr = NULL,
-    .boffset = NULL,
-    .binsym = NULL,
-    .entries = &entries,
-    .sections = &sections,
-    .symbols = NULL,
-    .imports = NULL,
-    .strings = NULL,
-    .info = &info,
-    .fields = NULL,
-    .libs = NULL,
-    .relocs = NULL,
-    .classes = NULL,
-    .mem = NULL,
-    .demangle_type = NULL,
-    .dbginfo = NULL,
-    .write = NULL,
-    .get_offset = NULL,
-    .get_vaddr = NULL,
-    .create = NULL
+	.name = "swf",
+	.desc = "SWF",
+	.license = "LGPL3",
+	.load_bytes = &load_bytes,
+	.check = &check,
+	.check_bytes = &check_bytes,
+	.entries = &entries,
+	.sections = &sections,
+	.info = &info,
 };
 
 #ifndef CORELIB
 struct r_lib_struct_t radare_plugin = {
-    .type = R_LIB_TYPE_BIN,
-    .data = &r_bin_plugin_swf,
-    .version = R2_VERSION
+	.type = R_LIB_TYPE_BIN,
+	.data = &r_bin_plugin_swf,
+	.version = R2_VERSION
 };
 #endif
