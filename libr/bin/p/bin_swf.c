@@ -4,8 +4,8 @@
 #include <r_util.h>
 #include <r_lib.h>
 #include <r_bin.h>
-#include "swf/swf_specs.h"
-#include "swf/swf.h"
+#include "../format/swf/swf_specs.h"
+#include "../format/swf/swf.h"
 
 static int check(RBinFile *arch);
 static int check_bytes(const ut8 *buf, ut64 length);
@@ -50,7 +50,7 @@ static RBinInfo* info(RBinFile *arch) {
 
 	ret->machine = strdup ("i386");
 	ret->os = strdup ("any");
-	ret->arch = strdup ("x86");
+	ret->arch = strdup ("swf");
 	ret->bits = 32;
 	ret->has_va = false;
 	ret->dbg_info = 0;
@@ -82,8 +82,13 @@ static RList* entries(RBinFile *arch) {
 	swf_hdr header;
 	header = r_bin_swf_get_header(arch);
 
-	ptr->paddr = header.rect_size + SWF_HDR_MIN_SIZE;
-	ptr->vaddr = header.rect_size + SWF_HDR_MIN_SIZE;
+	if (compression == ISWF_MAGIC_0_0) {
+		ptr->paddr = header.rect_size + SWF_HDR_MIN_SIZE;
+		ptr->vaddr = header.rect_size + SWF_HDR_MIN_SIZE;
+	} else {
+		ptr->paddr = 0x08;
+		ptr->vaddr = 0x08;
+	}
 
 	r_list_append(ret, ptr);
 
