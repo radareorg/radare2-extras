@@ -1,6 +1,7 @@
 /* radare - LGPL3 - 2016 - xarkes */
 
 #include "swf.h"
+#include "../../asm/arch/swf/swfdis.h"
 
 char* get_swf_file_type(char compression, char flashVersion) {
 	char* type = malloc(sizeof(SWF_FILE_TYPE) + sizeof(SWF_FILE_TYPE_ZLIB));
@@ -174,8 +175,8 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 			if (!(new = R_NEW0 (RBinSection)))
 				return false;
 
-			// TODO Use tagCode to name the section
-			snprintf(new->name, R_BIN_SIZEOF_STRINGS, "Tag%d", section);
+			swf_tag_t tag = r_asm_swf_gettag (tagCode);
+			sprintf(new->name, "%s", tag.name);
 			new->paddr = start;
 			new->vaddr = start;
 
