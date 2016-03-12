@@ -1,7 +1,8 @@
 /* radare - LGPL3 - 2016 - xarkes */
 
 #include "swf.h"
-#include "../../asm/arch/swf/swfdis.h"
+#include "swfdis.h"
+#include "swf_op_names.h"
 
 char* get_swf_file_type(char compression, char flashVersion) {
 	char* type = malloc(sizeof(SWF_FILE_TYPE) + sizeof(SWF_FILE_TYPE_ZLIB));
@@ -183,7 +184,16 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 			new->size = end-start;
 			new->vsize = end-start;
 
-			new->srwx = R_BIN_SCN_READABLE;
+			switch (tagCode) {
+			case TAG_DOACTION:
+			case TAG_DOINITACTION:
+				new->srwx = R_BIN_SCN_READABLE | R_BIN_SCN_EXECUTABLE;
+				new->has_strings = true;
+				break;
+			default:
+				new->srwx = R_BIN_SCN_READABLE;
+				break;
+			}
 			r_list_append (list, new);
 
 			/* Read next tag info */
