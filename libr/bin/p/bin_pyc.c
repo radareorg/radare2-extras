@@ -1,15 +1,15 @@
 /* radare - LGPL3 - Copyright 2016 - Matthieu (c0riolis) Tardy */
 
 #include <r_bin.h>
-#include "pyc.h"
+#include "pyc_magic.h"
 
-static ut32 magic;
+static struct pyc_version version;
 
 static int check_bytes(const ut8 *buf, ut64 length) {
 	if (!buf || length < 8) // magic + timestamp
 		return false;
-	memcpy (&magic, buf, sizeof (magic));
-	return check_magic (magic);
+	version = get_pyc_version (*(ut32*)buf);
+	return version.magic != -1;
 }
 
 static int check(RBinFile *arch) {
@@ -28,10 +28,12 @@ static RBinInfo *info(RBinFile *arch) {
 	if (!ret)
 		return NULL;
 	ret->file = strdup (arch->file);
-	ret->type = get_pyc_file_type (magic);
+	ret->type = r_str_newf ("Python %s%s byte-compiled file", version.version,
+				version.unicode ? " Unicode" : "");
 	ret->bclass = strdup ("Python byte-compiled file");
 	ret->rclass = strdup ("pyc");
-	ret->machine = get_pyc_file_machine (magic);
+	ret->machine = r_str_newf ("Python %s VM (rev %s)", version.version,
+				version.revision);
 	ret->os = strdup ("any");
 	ret->bits = 32;
 	return ret;
