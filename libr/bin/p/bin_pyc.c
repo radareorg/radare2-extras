@@ -2,6 +2,7 @@
 
 #include <r_bin.h>
 #include "pyc_magic.h"
+#include "pyc.h"
 
 static struct pyc_version version;
 
@@ -39,6 +40,18 @@ static RBinInfo *info(RBinFile *arch) {
 	return ret;
 }
 
+static RList *entries(RBinFile *arch) {
+	RList *entries = r_list_new ();
+	RBinAddr *addr = R_NEW0 (RBinAddr);
+	ut64 entrypoint = pyc_get_entrypoint (version.magic);
+	if (!entries || !addr)
+		return NULL;
+	addr->paddr = entrypoint;
+	addr->vaddr = entrypoint;
+	r_list_append (entries, addr);
+	return entries;
+}
+
 RBinPlugin r_bin_plugin_pyc = {
 	.name = "pyc",
 	.desc = "Python byte-compiled file plugin",
@@ -47,6 +60,7 @@ RBinPlugin r_bin_plugin_pyc = {
 	.load_bytes = &load_bytes,
 	.check = &check,
 	.check_bytes = &check_bytes,
+	.entries = &entries,
 };
 
 #ifndef CORELIB
