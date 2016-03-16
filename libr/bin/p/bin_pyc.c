@@ -40,6 +40,14 @@ static RBinInfo *info(RBinFile *arch) {
 	return ret;
 }
 
+static RList *sections(RBinFile *arch) {
+	RList *sections = r_list_new ();
+	if (!sections)
+		return NULL;
+	pyc_get_sections (sections, arch->buf, version.magic);
+	return sections;
+}
+
 static RList *entries(RBinFile *arch) {
 	RList *entries = r_list_new ();
 	RBinAddr *addr = R_NEW0 (RBinAddr);
@@ -48,6 +56,7 @@ static RList *entries(RBinFile *arch) {
 		return NULL;
 	addr->paddr = entrypoint;
 	addr->vaddr = entrypoint;
+	r_buf_seek (arch->buf, entrypoint, R_IO_SEEK_CUR);
 	r_list_append (entries, addr);
 	return entries;
 }
@@ -61,6 +70,7 @@ RBinPlugin r_bin_plugin_pyc = {
 	.check = &check,
 	.check_bytes = &check_bytes,
 	.entries = &entries,
+	.sections = &sections,
 };
 
 #ifndef CORELIB

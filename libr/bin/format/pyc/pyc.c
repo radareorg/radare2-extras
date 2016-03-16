@@ -1,6 +1,11 @@
 /* radare - LGPL3 - Copyright 2016 - Matthieu (c0riolis) Tardy */
 
 #include "pyc.h"
+#include "marshal.h"
+
+bool pyc_get_sections(RList *sections, RBuffer *buf, ut32 magic) {
+	return get_sections_from_code_objects (buf, sections);
+}
 
 ut64 pyc_get_entrypoint(ut32 magic) {
 	switch (magic) {
