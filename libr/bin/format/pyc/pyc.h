@@ -4,10 +4,11 @@
 #define PYC_H
 
 #include <r_types.h>
-#include "pyc_specs.h"
+#include <r_util.h>
+#include <r_bin.h>
+#include "pyc_magic.h"
 
-char *get_pyc_file_type(enum pyc_magic magic);
-char *get_pyc_file_machine(enum pyc_magic magic);
-bool check_magic(enum pyc_magic magic);
+bool pyc_get_sections(RList *sections, RBuffer *buf, ut32 magic);
+ut64 pyc_get_entrypoint(ut32 magic);
 
 #endif

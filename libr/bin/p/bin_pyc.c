@@ -1,15 +1,16 @@
 /* radare - LGPL3 - Copyright 2016 - Matthieu (c0riolis) Tardy */
 
 #include <r_bin.h>
+#include "pyc_magic.h"
 #include "pyc.h"
 
-static ut32 magic;
+static struct pyc_version version;
 
 static int check_bytes(const ut8 *buf, ut64 length) {
 	if (!buf || length < 8) // magic + timestamp
 		return false;
-	memcpy (&magic, buf, sizeof (magic));
-	return check_magic (magic);
+	version = get_pyc_version (*(ut32*)buf);
+	return version.magic != -1;
 }
 
 static int check(RBinFile *arch) {
@@ -28,13 +29,36 @@ static RBinInfo *info(RBinFile *arch) {
 	if (!ret)
 		return NULL;
 	ret->file = strdup (arch->file);
-	ret->type = get_pyc_file_type (magic);
+	ret->type = r_str_newf ("Python %s%s byte-compiled file", version.version,
+				version.unicode ? " Unicode" : "");
 	ret->bclass = strdup ("Python byte-compiled file");
 	ret->rclass = strdup ("pyc");
-	ret->machine = get_pyc_file_machine (magic);
+	ret->machine = r_str_newf ("Python %s VM (rev %s)", version.version,
+				version.revision);
 	ret->os = strdup ("any");
 	ret->bits = 32;
 	return ret;
+}
+
+static RList *sections(RBinFile *arch) {
+	RList *sections = r_list_new ();
+	if (!sections)
+		return NULL;
+	pyc_get_sections (sections, arch->buf, version.magic);
+	return sections;
+}
+
+static RList *entries(RBinFile *arch) {
+	RList *entries = r_list_new ();
+	RBinAddr *addr = R_NEW0 (RBinAddr);
+	ut64 entrypoint = pyc_get_entrypoint (version.magic);
+	if (!entries || !addr)
+		return NULL;
+	addr->paddr = entrypoint;
+	addr->vaddr = entrypoint;
+	r_buf_seek (arch->buf, entrypoint, R_IO_SEEK_CUR);
+	r_list_append (entries, addr);
+	return entries;
 }
 
 RBinPlugin r_bin_plugin_pyc = {
@@ -45,6 +69,8 @@ RBinPlugin r_bin_plugin_pyc = {
 	.load_bytes = &load_bytes,
 	.check = &check,
 	.check_bytes = &check_bytes,
+	.entries = &entries,
+	.sections = &sections,
 };
 
 #ifndef CORELIB
