@@ -13,5 +13,5 @@ ALL_TARGETS+=${TARGET_PYC}
 
 
 ${TARGET_PYC}: ${OBJ_PYC}
-	${CC} ${CFLAGS} -o ${TARGET_PYC} ${OBJ_PYC}
+	${CC} ${CFLAGS} -o ${TARGET_PYC} ${OBJ_PYC} $(R2_CFLAGS) $(R2_LDFLAGS) -lr_util
 
