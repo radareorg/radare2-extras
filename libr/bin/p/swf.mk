@@ -10,5 +10,6 @@ CFLAGS+=-I../format/swf
 CFLAGS+=-I../../asm/arch/swf/
 
 ${TARGET_SWF}: ${OBJ_SWF}
-	${CC} ${CFLAGS} -o ${TARGET_SWF} ${OBJ_SWF}
+	${CC} ${CFLAGS} -o ${TARGET_SWF} ${OBJ_SWF} \
+		$(R2_CFLAGS) $(R2_LDFLAGS) -lr_util
 
