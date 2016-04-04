@@ -1,0 +1,21 @@
+{
+  "name": "ramoji2",
+  "version": "0.1.0",
+  "description": "emoji shell for radare2",
+  "main": "index.js",
+  "author": {
+    "name": "pancake",
+    "email": "pancake@nopcode.org"
+  },
+  "license": "LGPL-3.0",
+  "bugs": {
+    "url": "https://github.com/radare/radare2-extras/issues"
+  },
+  "homepage": "http://www.radare.org",
+  "dependencies": {
+    "colors": "*",
+    "sprintf": "*",
+    "readline": "*",
+    "r2pipe": "*"
+  }
+}
