@@ -15,7 +15,7 @@ $(LIB): $(OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $(LIB)
 
 install:
-	cp -f mycpu.dylib $(R2_PLUGIN_PATH)
+	cp -f $(LIB) $(R2_PLUGIN_PATH)
 
 uninstall:
-	rm -f $(R2_PLUGIN_PATH)/mycpu.dylib
+	rm -f $(R2_PLUGIN_PATH)/$(LIB)
