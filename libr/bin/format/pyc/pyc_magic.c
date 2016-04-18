@@ -148,8 +148,8 @@ static struct pyc_version versions[] = {
 
 struct pyc_version get_pyc_version(ut32 magic) {
 	struct pyc_version fail = {-1, 0, 0, false};
-
-	for (ut32 i = 0; i < sizeof (versions) / sizeof (*versions); ++i)
+	ut32 i;
+	for (i = 0; i < sizeof (versions) / sizeof (*versions); ++i)
 		if (versions[i].magic == magic)
 			return versions[i];
 	return fail;

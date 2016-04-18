@@ -102,6 +102,7 @@ static pyc_object *get_string_object(RBuffer *buffer) {
 
 static pyc_object *get_tuple_object_generic(RBuffer *buffer, ut32 size) {
 	pyc_object *ret = R_NEW0 (pyc_object);
+	ut32 i;
 	if (!ret)
 		return NULL;
 	ret->type = TYPE_TUPLE;
@@ -110,7 +111,7 @@ static pyc_object *get_tuple_object_generic(RBuffer *buffer, ut32 size) {
 		free (ret);
 		return NULL;
 	}
-	for (ut32 i = 0; i < size; ++i) {
+	for (i = 0; i < size; ++i) {
 		pyc_object *tmp = get_object (buffer);
 		if (!tmp) {
 			r_list_free (ret->data);
