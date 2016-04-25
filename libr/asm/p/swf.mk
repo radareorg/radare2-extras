@@ -8,5 +8,5 @@ ALL_TARGETS+=${TARGET_SWF}
 CFLAGS+=-I../arch/swf
 
 ${TARGET_SWF}: ${OBJ_SWF}
-	${CC} ${CFLAGS} -o ${TARGET_SWF} ${OBJ_SWF}
+	${CC} ${CFLAGS} $(LDFLAGS) -o ${TARGET_SWF} ${OBJ_SWF} -lr_util
 
