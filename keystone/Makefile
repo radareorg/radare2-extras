@@ -6,7 +6,7 @@ PLUGINS=arm x86 mips sparc ppc hexagon sysz
 
 LIBS=$(addsuffix _ks.$(SO_EXT),$(addprefix asm_,${PLUGINS}))
 
-.PHONY: all clean install uninstall
+.PHONY: all clean install uninstall mrproper test
 
 all: $(PLUGINS)
 
@@ -35,6 +35,9 @@ install:
 
 uninstall:
 	rm -f $(PLUGDIR)/*_ks.*
+
+test:
+	sh suite.sh
 
 clean:
 	rm -f *.$(SO_EXT)

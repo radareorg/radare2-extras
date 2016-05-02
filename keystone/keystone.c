@@ -1,16 +1,26 @@
 /* radare2-keystone - GPL - Copyright 2016 - pancake */
 
+static void *oldcur = NULL;
+static ks_engine *ks = NULL;
+static int oldbit = 0;
+
 static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch, ks_mode mode) {
 	ks_err err = KS_ERR_ARCH;
-	ks_engine *ks;
+//	ks_engine *ks;
 	size_t count;
 	size_t size;
+	bool must_init;
 	ut8 *insn;
 
 	if (!ks_arch_supported (arch)) {
 		return -1;
 	}
 
+	must_init = !oldcur || (a->cur != oldcur || oldbit != a->bits);
+	oldcur = a->cur;
+	oldbit = a->bits;
+
+	if (must_init) 
 	err = ks_open (arch, mode, &ks);
 	if (err) {
 		eprintf ("Cannot initialize keystone\n");

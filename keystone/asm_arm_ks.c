@@ -7,23 +7,19 @@
 #include "keystone.c"
 
 static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
-	ks_arch arch;
+	ks_arch arch = KS_ARCH_ARM;
 	ks_mode mode;
 	switch (a->bits) {
 	case 16:
 		mode = KS_MODE_THUMB;
 		break;
 	case 32:
-		mode = KS_MODE_32;
+		mode = KS_MODE_ARM;
 		break;
 	case 64:
 		mode = KS_MODE_64;
-		break;
-	}
-	if (a->bits == 64) {
 		arch = KS_ARCH_ARM64;
-	} else {
-		arch = KS_ARCH_ARM;
+		break;
 	}
 	if (a->big_endian) {
 		mode = (ks_mode)((int)mode | KS_MODE_BIG_ENDIAN);
