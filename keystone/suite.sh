@@ -5,8 +5,8 @@
 # author: pancake@nopcode.org
 #
 ks() {
-	printf "Assembling: $3... "
-	B=`rasm2 -a $1 -b $2 "$3" 2>/dev/null`
+	printf "Assembling: %s... " "$3"
+	B=`rasm2 -a $1 -b $2 "$3" 2> /dev/null`
 	if [ "$B" = "$4" ]; then
 		echo "\033[32mOK\033[0m"
 	else
@@ -27,3 +27,6 @@ ks mips 32 "addi t0, t0, 3" 03000821
 ks arm' -e' 32 "bl 0x300" eb0000be
 ks arm' -e' 32 "bpkt" ea000000
 ks mips' -e' 32 "addi t0, t0, 3" 21080003
+
+ks sysz 32 "lnr %r12, %r7" 11c7
+# ks ppc 32 "addis r0, r29, 0x3d83" 11c7

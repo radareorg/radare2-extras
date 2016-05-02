@@ -17,7 +17,7 @@ static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 RAsmPlugin r_asm_plugin_hexagon_ks = {
 	.name = "hexagon.ks",
 	.desc = "Hexagon keystone assembler",
-	.license = "BSD",
+	.license = "GPL",
 	.arch = "hexagon",
 	.bits = 32,
 	.assemble = &assemble,

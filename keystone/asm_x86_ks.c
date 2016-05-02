@@ -25,7 +25,7 @@ static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 RAsmPlugin r_asm_plugin_x86_ks = {
 	.name = "x86.ks",
 	.desc = "x86 keystone assembler",
-	.license = "BSD",
+	.license = "GPL",
 	.arch = "x86",
 	.bits = 16|32|64,
 	.assemble = &assemble,

@@ -6,7 +6,6 @@ static int oldbit = 0;
 
 static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch, ks_mode mode) {
 	ks_err err = KS_ERR_ARCH;
-//	ks_engine *ks;
 	size_t count;
 	size_t size;
 	bool must_init;
@@ -20,13 +19,21 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 	oldcur = a->cur;
 	oldbit = a->bits;
 
-	if (must_init) 
-	err = ks_open (arch, mode, &ks);
-	if (err) {
-		eprintf ("Cannot initialize keystone\n");
-		return -1;
+	if (must_init) {
+		if (ks) {
+			ks_close (ks);
+			ks = NULL;
+		}
+		err = ks_open (arch, mode, &ks);
+		if (err || !ks) {
+			eprintf ("Cannot initialize keystone\n");
+			return -1;
+		}
 	}
 
+	if (!ks) {
+		return -1;
+	}
 	if (a->syntax == R_ASM_SYNTAX_ATT) {
 		ks_option (ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_ATT);
 	} else {
@@ -40,6 +47,5 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 	}
 	memcpy (ao->buf, insn, size);
 	ks_free (insn);
-	ks_close (ks);
 	return size;
 }

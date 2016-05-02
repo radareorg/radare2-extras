@@ -17,7 +17,7 @@ static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 RAsmPlugin r_asm_plugin_sysz_ks = {
 	.name = "sysz.ks",
 	.desc = "SystemZ keystone assembler (S390X)",
-	.license = "BSD",
+	.license = "GPL",
 	.arch = "sysz",
 	.bits = 32,
 	.assemble = &assemble,

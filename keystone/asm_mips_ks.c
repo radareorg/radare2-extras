@@ -28,7 +28,7 @@ static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 RAsmPlugin r_asm_plugin_mips_ks = {
 	.name = "mips.ks",
 	.desc = "MIPS keystone assembler",
-	.license = "BSD",
+	.license = "GPL",
 	.arch = "mips",
 	.bits = 16|32|64,
 	.assemble = &assemble,

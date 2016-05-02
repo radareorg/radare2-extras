@@ -25,7 +25,7 @@ static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 RAsmPlugin r_asm_plugin_sparc_ks = {
 	.name = "sparc.ks",
 	.desc = "sparc keystone assembler",
-	.license = "BSD",
+	.license = "GPL",
 	.arch = "sparc",
 	.bits = 32|64,
 	.assemble = &assemble,

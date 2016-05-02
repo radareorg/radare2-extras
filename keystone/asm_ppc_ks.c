@@ -4,8 +4,8 @@
 #include <r_lib.h>
 #include <keystone/keystone.h>
 #include <keystone/ppc.h>
-
 #include "keystone.c"
+
 static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 	ks_mode mode = (ks_mode)0;
 	switch (a->bits) {
@@ -25,7 +25,7 @@ static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 RAsmPlugin r_asm_plugin_ppc_ks = {
 	.name = "ppc.ks",
 	.desc = "powerpc keystone assembler",
-	.license = "BSD",
+	.license = "GPL",
 	.arch = "ppc",
 	.bits = 32|64,
 	.assemble = &assemble,

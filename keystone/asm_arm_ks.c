@@ -30,7 +30,7 @@ static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 RAsmPlugin r_asm_plugin_arm_ks = {
 	.name = "arm.ks",
 	.desc = "ARM keystone assembler",
-	.license = "BSD",
+	.license = "GPL",
 	.arch = "arm",
 	.bits = 16|32|64,
 	.assemble = &assemble,
