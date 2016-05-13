@@ -42,10 +42,12 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 	int rc = ks_asm (ks, str, a->pc, &insn, &size, &count);
 	if (rc) {
 		eprintf ("%s\n", ks_strerror ((ks_err)ks_errno (ks)));
-		ks_close (ks);
-		return -1;
+		size = -1;
+		goto beach;
 	}
 	memcpy (ao->buf, insn, size);
+beach:
 	ks_free (insn);
+	ks_close (ks);
 	return size;
 }
