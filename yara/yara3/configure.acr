@@ -1,5 +1,5 @@
 PKGNAME radare2-extras-yara3
-VERSION 0.10.2-git
+VERSION 0.10.3-git
 CONTACT jfrankowski ; judy.frankowski@gmail.com
 
 REPORT PREFIX ;
