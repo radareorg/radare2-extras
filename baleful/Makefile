@@ -19,4 +19,4 @@ install:
 	cp -f asm/asm_baleful.$(EXT_SO) anal/anal_baleful.$(EXT_SO) $(R2PM_PLUGDIR)
 
 uninstall:
-	rm -f ~/.config/radare2/plugins/*baleful*
+	rm -f ${R2PM_PLUGDIR}/*baleful*
