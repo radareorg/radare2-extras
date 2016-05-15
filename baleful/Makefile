@@ -1,5 +1,6 @@
 include ../options.mk
 
+R2PM_PLUGDIR=~/.config/radare2/plugins
 R2_CFLAGS+=-fPIC
 R2_LDFLAGS+=-shared
 
@@ -15,8 +16,7 @@ clean:
 	rm -f */*.$(EXT_SO)
 
 install:
-	cp -f asm/asm_baleful.$(EXT_SO) anal/anal_baleful.$(EXT_SO) \
-		~/.config/radare2/plugins
+	cp -f asm/asm_baleful.$(EXT_SO) anal/anal_baleful.$(EXT_SO) $(R2PM_PLUGDIR)
 
 uninstall:
 	rm -f ~/.config/radare2/plugins/*baleful*
