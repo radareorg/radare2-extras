@@ -13,10 +13,10 @@ all:
 	$(CC_COR) -o core_bcl.$(LIBEXT) core_bcl.c
 
 install:
-	cp -f *.$(LIBEXT) ~/.config/radare2/plugins
+	cp -f *.$(LIBEXT) $(R2PM_PLUGDIR)
 
 uninstall:
-	for a in *.$(LIBEXT) ; do rm -f ~/.config/radare2/plugins/$$a ; done
+	for a in *.$(LIBEXT) ; do rm -f $(R2PM_PLUGDIR)/$$a ; done
 
 clean:
 	rm -f *.$(LIBEXT)
