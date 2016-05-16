@@ -8,4 +8,4 @@ ARCHS+=squash.mk
 include ../../plugs.mk
 
 user-install:
-	cp *.$(EXT_SO) ~/.config/radare2/plugins
+	cp *.$(LIBEXT) ~/.config/radare2/plugins

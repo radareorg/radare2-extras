@@ -12,7 +12,7 @@ clean:
 
 bea-install:
 	mkdir -p $(HOMEDEST)
-	cp -f asm/p/asm_x86_bea.$(EXT_SO) $(HOMEDEST)
-	cp -f anal/p/anal_x86_bea.$(EXT_SO) $(HOMEDEST)
+	cp -f asm/p/asm_x86_bea.$(LIBEXT) $(HOMEDEST)
+	cp -f anal/p/anal_x86_bea.$(LIBEXT) $(HOMEDEST)
 	
 include ../options.mk

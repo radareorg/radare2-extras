@@ -26,20 +26,20 @@ MOD=core_yara2
 
 THEDIR=$(DESTDIR)/$(LIBDIR)/radare2-extras/$(VERSION)/
 
-all: $(MOD).$(EXT_SO)
+all: $(MOD).$(LIBEXT)
 
-$(MOD).$(EXT_SO): ${MOD}.o
-	${CC} ${CFLAGS} ${LDFLAGS} ${MOD}.o -o ${MOD}.${EXT_SO}
+$(MOD).$(LIBEXT): ${MOD}.o
+	${CC} ${CFLAGS} ${LDFLAGS} ${MOD}.o -o ${MOD}.${LIBEXT}
 
 clean:
-	rm -f ${MOD}.o ${MOD}.${EXT_SO}
+	rm -f ${MOD}.o ${MOD}.${LIBEXT}
 
 mrproper: clean
 	rm -f Makefile
 
 install:
 	mkdir -p ${DESTDIR}${LIBDIR}/radare2-extras/${VERSION}/
-	${INSTALL_LIB} ${MOD}.${EXT_SO} $(THEDIR)/${MOD}.${EXT_SO}
+	${INSTALL_LIB} ${MOD}.${LIBEXT} $(THEDIR)/${MOD}.${LIBEXT}
 	cd ${THEDIR} ; ln -fs ${VERSION} last
 	rm -rf $(THEDIR)/yara
 	mkdir -p $(THEDIR)/yara
@@ -47,10 +47,10 @@ install:
 
 symstall:
 	mkdir -p $(THEDIR)
-	ln -fs ${PWD}/${MOD}.${EXT_SO} $(THEDIR)/$(MOD).$(EXT_SO)
+	ln -fs ${PWD}/${MOD}.${LIBEXT} $(THEDIR)/$(MOD).$(LIBEXT)
 	cd ${THEDIR} ; ln -fs ${VERSION} last
 	rm -rf $(THEDIR)/yara
 	ln -fs $(PWD)/../rules-yara2 $(THEDIR)/rules-yara2
 
 uninstall:
-	rm -f ${THEDIR}/$(MOD).$(EXT_SO)
+	rm -f ${THEDIR}/$(MOD).$(LIBEXT)

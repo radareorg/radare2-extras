@@ -1,7 +1,7 @@
 bea:
-	cd p ; $(MAKE) anal_x86_bea.$(EXT_SO)
+	cd p ; $(MAKE) anal_x86_bea.$(LIBEXT)
 
 clean:
-	rm -f p/anal_x86_bea.$(EXT_SO)
+	rm -f p/anal_x86_bea.$(LIBEXT)
 
 include ../../options.mk

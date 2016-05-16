@@ -9,23 +9,23 @@ CFLAGS+=-fPIC
 include ../../../options.mk
 
 
-all: debug_windows.$(EXT_SO) debug_unicorn.$(EXT_SO)
+all: debug_windows.$(LIBEXT) debug_unicorn.$(LIBEXT)
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $(LIBS) -c $< -o $@
 
-debug_windows.$(EXT_SO): $(W32OBJ)
-	$(CC) -shared -fPIC $(CFLAGS) -o debug_windows.$(EXT_SO) $(W32OBJ) $(LDFLAGS)
+debug_windows.$(LIBEXT): $(W32OBJ)
+	$(CC) -shared -fPIC $(CFLAGS) -o debug_windows.$(LIBEXT) $(W32OBJ) $(LDFLAGS)
 
-debug_unicorn.$(EXT_SO): $(UNICORN_OBJ)
-	$(CC) -shared -fPIC $(CFLAGS) -o debug_unicorn.$(EXT_SO) $(UNICORN_LDFLAGS) $(LDFLAGS)
+debug_unicorn.$(LIBEXT): $(UNICORN_OBJ)
+	$(CC) -shared -fPIC $(CFLAGS) -o debug_unicorn.$(LIBEXT) $(UNICORN_LDFLAGS) $(LDFLAGS)
 
 install:
 	mkdir -p ~/.config/radare2/plugins/
-	cp debug_unicorn.${EXT_SO} ~/.config/radare2/plugins/
+	cp debug_unicorn.${LIBEXT} ~/.config/radare2/plugins/
 
 uninstall:
-	rm ~/.config/radare2/plugins/debug_unicorn.${EXT_SO} 
+	rm ~/.config/radare2/plugins/debug_unicorn.${LIBEXT} 
 
 clean:
-	rm *.$(EXT_SO) *.o
+	rm *.$(LIBEXT) *.o

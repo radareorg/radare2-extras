@@ -1,9 +1,9 @@
 OBJ_UNICORN=debug_unicorn.o
 
-libname=-shared -o $1.${EXT_SO}
+libname=-shared -o $1.${LIBEXT}
 
 STATIC_OBJ+=${OBJ_UNICORN}
-TARGET_UNICORN=debug_unicorn.${EXT_SO}
+TARGET_UNICORN=debug_unicorn.${LIBEXT}
 
 ALL_TARGETS+=${TARGET_UNICORN}
 

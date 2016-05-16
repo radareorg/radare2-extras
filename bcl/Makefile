@@ -7,16 +7,16 @@ CC_BIN=$(CC) $(CFLAGS) $(LDFLAGS) $(shell pkg-config --libs r_bin)
 CC_COR=$(CC) $(CFLAGS) $(LDFLAGS) $(shell pkg-config --libs r_core)
 
 all:
-	$(CC_ASM) -o asm_bcl.$(EXT_SO) asm_bcl.c
-	$(CC_ANA) -o anal_bcl.$(EXT_SO) anal_bcl.c
-	$(CC_BIN) -o bin_bcl.$(EXT_SO) bin_bcl.c
-	$(CC_COR) -o core_bcl.$(EXT_SO) core_bcl.c
+	$(CC_ASM) -o asm_bcl.$(LIBEXT) asm_bcl.c
+	$(CC_ANA) -o anal_bcl.$(LIBEXT) anal_bcl.c
+	$(CC_BIN) -o bin_bcl.$(LIBEXT) bin_bcl.c
+	$(CC_COR) -o core_bcl.$(LIBEXT) core_bcl.c
 
 install:
-	cp -f *.$(EXT_SO) ~/.config/radare2/plugins
+	cp -f *.$(LIBEXT) ~/.config/radare2/plugins
 
 uninstall:
-	for a in *.$(EXT_SO) ; do rm -f ~/.config/radare2/plugins/$$a ; done
+	for a in *.$(LIBEXT) ; do rm -f ~/.config/radare2/plugins/$$a ; done
 
 clean:
-	rm -f *.$(EXT_SO)
+	rm -f *.$(LIBEXT)
