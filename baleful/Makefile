@@ -1,6 +1,5 @@
 include ../options.mk
 
-R2PM_PLUGDIR=~/.config/radare2/plugins
 R2_CFLAGS+=-fPIC
 R2_LDFLAGS+=-shared
 
