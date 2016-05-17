@@ -441,7 +441,7 @@ RCorePlugin r_core_plugin_yara3 = {
 	.desc = "YARA V3 integration",
 	.license = "LGPL",
 	.call = r_cmd_yara_call,
-	.init = NULL, // init is performed in call if needed
+	.init = r_cmd_yara_init,
 	.deinit = r_cmd_yara_deinit
 };
 

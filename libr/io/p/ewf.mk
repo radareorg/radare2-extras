@@ -1,7 +1,7 @@
 OBJ_EWF=io_ewf.o
 
 STATIC_OBJ+=${OBJ_EWF}
-TARGET_EWF=io_ewf.${EXT_SO}
+TARGET_EWF=io_ewf.${LIBEXT}
 ALL_TARGETS+=${TARGET_EWF}
 
 ifeq (${HAVE_LIB_EWF},1)

@@ -1,7 +1,7 @@
 OBJ_HARET=io_haret.o
 
 STATIC_OBJ+=${OBJ_HARET}
-TARGET_HARET=io_haret.${EXT_SO}
+TARGET_HARET=io_haret.${LIBEXT}
 ALL_TARGETS+=${TARGET_HARET}
 
 ifeq (${WITHPIC},0)

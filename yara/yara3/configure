@@ -100,7 +100,7 @@ done
 : ${INSTALL_PROGRAM_STRIP:=${INSTALL} -m 755 -s}
 : ${INSTALL_MAN:=${INSTALL} -m 444}
 : ${INSTALL_LIB:=${INSTALL} -m 755 -c}
- PKGNAME='radare2-extras-yara3' ; VERSION='0.10.2-git' ; CONTACT_MAIL="judy.frankowski@gmail.com" ; CONTACT_NAME="jfrankowski" ; CONTACT="jfrankowski <judy.frankowski@gmail.com>" ;
+ PKGNAME='radare2-extras-yara3' ; VERSION='0.10.3-git' ; CONTACT_MAIL="judy.frankowski@gmail.com" ; CONTACT_NAME="jfrankowski" ; CONTACT="jfrankowski <judy.frankowski@gmail.com>" ;
 }
                 
 show_usage() {

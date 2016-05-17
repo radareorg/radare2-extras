@@ -1,7 +1,7 @@
 OBJ_KDP=io_kdp.o
 
 STATIC_OBJ+=${OBJ_KDP}
-TARGET_KDP=io_kdp.${EXT_SO}
+TARGET_KDP=io_kdp.${LIBEXT}
 ALL_TARGETS+=${TARGET_KDP}
 
 ifeq (${WITHPIC},0)

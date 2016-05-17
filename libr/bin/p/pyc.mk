@@ -5,7 +5,7 @@ OBJ_PYC+=../format/pyc/pyc_magic.o \
 
 
 STATIC_OBJ+=${OBJ_PYC}
-TARGET_PYC=bin_pyc.${EXT_SO}
+TARGET_PYC=bin_pyc.${LIBEXT}
 CFLAGS+=-I../format/pyc/
 
 

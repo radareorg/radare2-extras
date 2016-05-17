@@ -5,3 +5,8 @@
 # Make dependencies files
 # Conflicts with .d for dlang
 #*.d
+
+*.swp
+*.swo
+*.un~
+

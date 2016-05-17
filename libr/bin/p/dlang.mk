@@ -2,7 +2,7 @@ OBJ_DLANG=bin_dlang.o
 OBJ_DLANG+=dmangle.o
 
 STATIC_OBJ+=${OBJ_DLANG}
-TARGET_DLANG=bin_dlang.${EXT_SO}
+TARGET_DLANG=bin_dlang.${LIBEXT}
 CFLAGS+=-I../format
 
 ALL_TARGETS+=${TARGET_DLANG}
@@ -17,4 +17,4 @@ dmangle.o:
 
 ${TARGET_DLANG}: ${OBJ_DLANG}
 	${CC} $(call libname,bin_dlang) ${LDFLAGS} $(DLANG_LDFLAGS) \
-		${CFLAGS} -o bin_dlang.${EXT_SO} ${OBJ_DLANG}
+		${CFLAGS} -o bin_dlang.${LIBEXT} ${OBJ_DLANG}
