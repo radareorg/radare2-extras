@@ -72,7 +72,7 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 		case SWFACTION_PUSH: {
 			ut16 len;
 			ut8 pushtype;
-			len = r_mem_get_num (buf+1, 2);
+			len = r_mem_get_num (buf+1, 2, 0);
 
 			ut8 i = 3; // Buffer index
 			ut8 l = 0; // String index
@@ -87,13 +87,13 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 
 				switch (pushtype) {
 				case 0: { /* String */
-					char* str = (char*) (buf+i);
+					char* str = (char*) (buf + i);
 					i += strlen (str);
 					sprintf (name, "str: \"%s\"", str);
 					break;
 				}
 				case 1: { /* Floating point */
-					float f = r_mem_get_num (buf+i, 4);
+					float f = r_mem_get_num (buf + i, 4, 0);
 					i += 4;
 					sprintf (name, "float: %lf", f);
 					break;
@@ -119,13 +119,13 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 					break;
 				}
 				case 6: { /* Double */
-					double d = r_mem_get_num (buf+i, 8);
+					double d = r_mem_get_num (buf + i, 8, 0);
 					sprintf (name, "double:%f", d);
 					i += 8;
 					break;
 				}
 				case 7: { /* Integer */
-					int integer = r_mem_get_num (buf+i, 4);
+					int integer = r_mem_get_num (buf + i, 4, 0);
 					sprintf (name, "int:0x%x", integer);
 					i += 4;
 					break;
@@ -136,7 +136,7 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 					break;
 				}
 				case 9: { /* Constant16 */
-					ut16 c = r_mem_get_num (buf+i, 2);
+					ut16 c = r_mem_get_num (buf + i, 2, 0);
 					sprintf (name, "const:%u", c);
 					i += 2;
 					break;
@@ -155,7 +155,7 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 			break;
 		}
 		case SWFACTION_GOTOFRAME: {
-			ut16 frame = r_mem_get_num (buf + 1, 2);
+			ut16 frame = r_mem_get_num (buf + 1, 2, 0);
 			sprintf (buf_asm, "%s %u", op.name, frame);
 			dlen = 3;
 			break;
@@ -168,7 +168,7 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 		}
 		case SWFACTION_JUMP:
 		case SWFACTION_BRANCHIFTRUE: {
-			short offset = r_mem_get_num (buf + 1, 2);
+			short offset = r_mem_get_num (buf + 1, 2, 0);
 			sprintf (buf_asm, "%s %d", op.name, offset);
 			break;
 		}
@@ -195,7 +195,7 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 			ut8 biasFlag = buf[7];
 			ut8 playFlag = buf[8];
 			if (biasFlag == 1) {
-				ut16 bias = r_mem_get_num (buf + 9, 2);
+				ut16 bias = r_mem_get_num (buf + 9, 2, 0);
 				dlen += 2;
 			}
 			sprintf (buf_asm, "%s %u %u", op.name, biasFlag, playFlag);
@@ -208,28 +208,28 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 			break;
 		}
 		case SWFACTION_CONSTANTPOOL: {
-			ut16 size = r_mem_get_num (buf + 1, 2);
-			ut16 count = r_mem_get_num (buf + 3, 2);
+			ut16 size = r_mem_get_num (buf + 1, 2, 0);
+			ut16 count = r_mem_get_num (buf + 3, 2, 0);
 			sprintf (buf_asm, "%s (nb: %u, size: %u)", op.name, count, size);
 			dlen = 5;
 			break;
 		}
 		case SWFACTION_WITH: {
-			ut16 size = r_mem_get_num (buf + 1, 2);
+			ut16 size = r_mem_get_num (buf + 1, 2, 0);
 			sprintf (buf_asm, "%s %u", op.name, size);
 			dlen = 3;
 			break;
 		}
 		case SWFACTION_DEFINEFUNCTION: {
 			char* name = (char*) buf+1;
-			ut16 nbParams = r_mem_get_num (buf+2, 2);
+			ut16 nbParams = r_mem_get_num (buf+2, 2, 0);
 			ut32 size = 0;
 			ut16 i;
 			for (i = 0; i < nbParams; i++) {
 				char* param = (char*) buf+3+i;
 				size += strlen(param);
 			}
-			ut16 codeSize = r_mem_get_num (buf+4+i, 2);
+			ut16 codeSize = r_mem_get_num (buf+4+i, 2, 0);
 			break;
 		}
 		case SWFACTION_STOREREGISTER: {
