@@ -13,12 +13,12 @@ LDFLAGS+=${LINK} -lr_util
 DESTDIR?=
 
 ifeq ($(HOST_OS),darwin)
-LIBEXT=dylib
+LIBEXT?=dylib
 else
   ifeq ($(HOST_OS),windows)
-    LIBEXT=dll
+    LIBEXT?=dll
   else
-    LIBEXT=so
+    LIBEXT?=so
   endif
 endif
 
