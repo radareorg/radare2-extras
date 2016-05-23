@@ -9,5 +9,6 @@ ARCHS+=blackfin.mk
 ARCHS+=x86_bea.mk
 ARCHS+=msil.mk
 ARCHS+=swf.mk
+ARCHS+=vc4.mk
 include ../../plugs.mk
 
