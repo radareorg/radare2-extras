@@ -13,7 +13,7 @@ static bool bcl_data[BCL_SIZE];
 static int findpair(ut64 addr, const ut8 *buf, int len, int base) {
 	int i, j;
 	for (i = 1; i<len; i++) {
-		if ((buf[i]&3)!=base) {
+		if ((buf[i] & 3) != base) {
 			continue;
 		}
 		if (bcl_addr != UT64_MAX) {
@@ -23,9 +23,11 @@ static int findpair(ut64 addr, const ut8 *buf, int len, int base) {
 		}
 		if (bcl_addr == UT64_MAX) {
 			bcl_addr = addr;
-			for (j=0; j<BCL_SIZE; j++) bcl_data[j] = false;
+			for (j = 0; j < BCL_SIZE; j++) {
+				bcl_data[j] = false;
+			}
 		} else {
-			if (bcl_data[ (addr - bcl_addr) -i ]) {
+			if (bcl_data[ (addr - bcl_addr) - i]) {
 			// XXX fix	continue;
 			}
 		}
@@ -76,12 +78,12 @@ static int bcl_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len) 
 
 static int set_reg_profile(RAnal *anal) {
 	const char *p = \
-		"=pc	pc\n"
-		"=sp	sp\n"
-		"=a0	A\n"
-		"=a1	C\n"
-		"=a2	G\n"
-		"=a3	T\n"
+		"=PC	pc\n"
+		"=SP	sp\n"
+		"=A0	A\n"
+		"=A1	C\n"
+		"=A2	G\n"
+		"=A3	T\n"
 		"gpr	pc	.64	0	0\n"
 		"gpr	sp	.64	8	0\n"
 		"gpr	A	.8	16	0\n"
@@ -95,7 +97,7 @@ struct r_anal_plugin_t r_anal_plugin_bcl = {
 	.name = "bcl",
 	.desc = "Base Call DNA Illumina records",
 	.license = "BSD",
-	.arch = R_SYS_ARCH_BF, // XXX
+	.arch = "bcl",
 	.bits = 8,
 	.esil = true,
 	.op = &bcl_op,

@@ -1,4 +1,4 @@
-/* radare2 - LGPL - Copyright 2015 - pancake */
+/* radare2 - LGPL - Copyright 2015-2016 - pancake */
 
 #include <r_types.h>
 #include <r_util.h>
@@ -7,10 +7,10 @@
 
 static int check_bytes(const ut8 *buf, ut64 length) {
 	if (buf && length >= 4) {
-		ut32 *clusters = (ut32*)buf;
-		if (*clusters + 4 == length) {
-			if (!clusters[1])
-				return true;
+		ut32 cls = r_mem_get_num (buf, 4);
+		ut32 cls2 = r_mem_get_num (buf + 4, 4);
+		if (cls + 4 == length && !cls2) {
+			return true;
 		}
 	}
 	return false;
@@ -54,7 +54,7 @@ static ut64 findEntry(RBuffer *buf, int n) {
 	int i;
 	for (i=4;i<buf->length; i++) {
 		if (buf->buf[i] != 0) {
-			if (n==0) {
+			if (n == 0) {
 				return i;
 			}
 			n--;
@@ -68,20 +68,21 @@ static ut64 findEntry(RBuffer *buf, int n) {
 }
 
 static RList* entries(RBinFile *arch) {
-	RList* ret;
+	RList* ret = r_list_newf (free);
 	RBinAddr *ptr = NULL;
-
-	if (!(ret = r_list_new ()))
-		return NULL;
-	ret->free = free;
-	if ((ptr = R_NEW0 (RBinAddr))) {
-		ut64 entry = findEntry(arch->buf, 2);
-		if (!entry) entry = findEntry(arch->buf, 1);
-		if (!entry) entry = findEntry(arch->buf, 0);
-		if (!entry) entry = 4;
-		ptr->paddr = entry;
-		ptr->vaddr = entry;
-		r_list_append (ret, ptr);
+	if (ret) {
+		if ((ptr = R_NEW0 (RBinAddr))) {
+			ut64 entry = findEntry (arch->buf, 2);
+			if (!entry) entry = findEntry (arch->buf, 1);
+			if (!entry) entry = findEntry (arch->buf, 0);
+			if (!entry) entry = 4;
+			ptr->paddr = entry;
+			ptr->vaddr = entry;
+			r_list_append (ret, ptr);
+		} else {
+			r_list_free (ret);
+			ret = NULL;
+		}
 	}
 	return ret;
 }
@@ -90,20 +91,21 @@ static RList* sections(RBinFile *arch) {
 	RList *ret = NULL;
 	RBinSection *ptr = NULL;
 	ut64 textsize, datasize, symssize, spszsize, pcszsize;
-	int big_endian = arch->o->info->big_endian;
-	ut64 entry0 = findEntry(arch->buf, 0);
-	ut64 entry1 = findEntry(arch->buf, 1);
-	ut64 entry2 = findEntry(arch->buf, 2);
+	ut64 entry0 = findEntry (arch->buf, 0);
+	ut64 entry1 = findEntry (arch->buf, 1);
+	ut64 entry2 = findEntry (arch->buf, 2);
 
-	if (!(ret = r_list_new ()))
+	if (!(ret = r_list_newf (free))) {
 		return NULL;
-	ret->free = free;
-
+	}
 	// add text segment
-	textsize = r_mem_get_num (arch->buf->buf+4, 4, big_endian);
-	if (!(ptr = R_NEW0 (RBinSection)))
+	textsize = r_mem_get_num (arch->buf->buf + 4, 4);
+	if (!(ptr = R_NEW0 (RBinSection))) {
 		return ret;
-	if (!entry1) entry1 = arch->buf->length;
+	}
+	if (!entry1) {
+		entry1 = arch->buf->length;
+	}
 	strncpy (ptr->name, "init", R_BIN_SIZEOF_STRINGS);
 	ptr->size = entry1-entry0;
 	ptr->vsize = entry1-entry0;
@@ -155,36 +157,36 @@ static RList* libs(RBinFile *arch) {
 }
 
 static RBinInfo* info(RBinFile *arch) {
-	RBinInfo *ret = NULL;
-	if ((ret = R_NEW0 (RBinInfo)) == NULL)
-		return NULL;
-	ret->file = strdup (arch->file);
-	ret->bclass = strdup ("dna");
-	ret->rclass = strdup ("bcl");
-	ret->os = strdup ("Illumina DNA Sequences");
-	ret->arch = strdup ("bcl");
-	ret->machine = strdup (ret->arch);
-	ret->subsystem = strdup ("bcl");
-	ret->type = strdup ("DATA (ATCG streams)");
-	ret->bits = 8;
-	ret->has_va = true;
-	ret->big_endian = 0;
-	ret->dbg_info = 0;
-	ret->dbg_info = 0;
+	RBinInfo *ret = R_NEW0 (RBinInfo);
+	if (ret) {
+		ret->file = strdup (arch->file);
+		ret->bclass = strdup ("dna");
+		ret->rclass = strdup ("bcl");
+		ret->os = strdup ("Illumina DNA Sequences");
+		ret->arch = strdup ("bcl");
+		ret->machine = strdup (ret->arch);
+		ret->subsystem = strdup ("bcl");
+		ret->type = strdup ("DATA (ATCG streams)");
+		ret->bits = 8;
+		ret->has_va = true;
+		ret->big_endian = false;
+		ret->dbg_info = 0;
+	}
 	return ret;
 }
 
 static int size(RBinFile *arch) {
 	ut64 text, data, syms, spsz;
 	int big_endian;
-	if (!arch->o->info)
+	if (!arch->o->info) {
 		arch->o->info = info (arch);
+	}
 	big_endian = arch->o->info->big_endian;
 	// TODO: reuse section list
-	text = r_mem_get_num (arch->buf->buf+4, 4, big_endian);
-	data = r_mem_get_num (arch->buf->buf+8, 4, big_endian);
-	syms = r_mem_get_num (arch->buf->buf+16, 4, big_endian);
-	spsz = r_mem_get_num (arch->buf->buf+24, 4, big_endian);
+	text = r_mem_get_num (arch->buf->buf + 4, 4);
+	data = r_mem_get_num (arch->buf->buf + 8, 4);
+	syms = r_mem_get_num (arch->buf->buf + 16, 4);
+	spsz = r_mem_get_num (arch->buf->buf + 24, 4);
 	return text+data+syms+spsz+(6*4);
 }
 
