@@ -12,6 +12,16 @@ LDFLAGS+=-L../../util -L../../lib
 LDFLAGS+=${LINK} -lr_util
 DESTDIR?=
 
+ifeq ($(HOST_OS),darwin)
+LIBEXT=dylib
+else
+  ifeq ($(HOST_OS),windows)
+    LIBEXT=dll
+  else
+    LIBEXT=so
+  endif
+endif
+
 CURDIR=
 
 foo: all
