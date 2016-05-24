@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2015 - pancake */
+/* radare - LGPL - Copyright 2015-2016 - pancake */
 
 #include <r_types.h>
 #include <r_util.h>
@@ -9,13 +9,13 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	const char *bases = "ACGT";
 	if (a->pc == 0) {
 		ut32 *clusters = (ut32*)buf;
-		sprintf (op->buf_asm, "clusters %d\n", *clusters);
+		snprintf (op->buf_asm, sizeof (op->buf_asm), "clusters %d\n", *clusters);
 		return op->size = 4;
 	}
 	if (*buf != 0) {
 		char base = bases[*buf & 3];
 		int qual = *buf >> 2;
-		sprintf (op->buf_asm, "%c  ; %d", base, qual);
+		snprintf (op->buf_asm, sizeof (op->buf_asm), "%c ; %d", base, qual);
 		op->size = 1;
 		return 1;
 	}
@@ -25,10 +25,10 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 
 static int assemble(RAsm *a, RAsmOp *op, const char *buf) {
 	bool qmode = false;
-	int count = 0;
-	int base = 0;
 	int quality = 0;
 	int outsz = 128;
+	int count = 0;
+	int base = 0;
 	char *out = (char *)op->buf;
 	for (; *buf; buf++) {
 		switch (*buf) {
