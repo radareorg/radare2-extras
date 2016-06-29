@@ -1,0 +1,76 @@
+os:
+  - linux
+compiler:
+  - gcc
+env:
+  - TESTS=armthumb
+  - TESTS=baleful
+  - TESTS=bcl
+  - TESTS=blackfin
+  - TESTS=blessr2
+  - TESTS=bokken
+  - TESTS=bpf
+  - TESTS=dlang
+  - TESTS=duktape
+  - TESTS=io-ewf
+  - TESTS=keystone
+  - TESTS=mdmp
+  - TESTS=microblaze
+  - TESTS=msil
+  - TESTS=ppcdisasm
+  - TESTS=psosvm
+  - TESTS=pyc
+  - TESTS=python
+  - TESTS=r2pipe-cs
+  - TESTS=r2pipe-go
+  - TESTS=r2pipe-js
+  - TESTS=r2pipe-py
+  - TESTS=r2pipe-rb
+  - TESTS=r2pipe-vala
+  - TESTS=radare2
+  - TESTS=radeco
+  - TESTS=retdec
+  - TESTS=swf
+  - TESTS=swig
+  - TESTS=syms2elf
+  - TESTS=tcc
+  - TESTS=unicorn
+  - TESTS=unicorn-lib
+  - TESTS=vala
+  - TESTS=valabind
+  - TESTS=vapi
+  - TESTS=vc4
+  - TESTS=winapi
+  - TESTS=www-enyo
+  - TESTS=www-m
+  - TESTS=www-p
+  - TESTS=www-t
+  - TESTS=x86bea
+  - TESTS=yara2
+  - TESTS=yara2-lib
+  - TESTS=yara3
+  - TESTS=yara3-lib  
+sudo:
+  - false
+language:
+  - c
+cache:
+  - ccache
+  - apt
+
+before_script:
+  - git clone https://github.com/radare/radare2 && cd radare2
+  - ./configure --prefix=`pwd`/install > /dev/null
+  - make -s -j2 > /dev/null
+  - make install > /dev/null
+  - export PATH=${TRAVIS_BUILD_DIR}/radare2/install/bin:${PATH}
+  - export LD_LIBRARY_PATH=${TRAVIS_BUILD_DIR}/radare2/install/lib:${LD_LIBRARY_PATH}
+  - export LIBR_INCLUDE=${TRAVIS_BUILD_DIR}/radare2/libr/include
+  - export LIBR_UTIL=${TRAVIS_BUILD_DIR}/radare2/libr/util
+  - export PKG_CONFIG_PATH=${TRAVIS_BUILD_DIR}/radare2/pkgcfg
+  - cd ..
+
+script:
+  - ./configure --prefix=`pwd`/radare2/install
+  - r2pm -i $TESTS
+
