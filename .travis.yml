@@ -38,7 +38,7 @@ env:
   - TESTS="r2pm -i radare2"
   - TESTS="r2pm -i radeco"
   - TESTS="r2pm -i retdec"
-  - TESTS="r2pm -i swf"
+  - TESTS="r2pm -i swf && cd radare2-regressions && make swf && cd .."
   - TESTS="r2pm -i swig"
   - TESTS="r2pm -i syms2elf"
   - TESTS="r2pm -i tcc"
