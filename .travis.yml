@@ -2,6 +2,12 @@ os:
   - linux
 compiler:
   - gcc
+
+addons:
+  apt:
+    packages:
+      - g++
+
 env:
   - TESTS="r2pm -i armthumb"
   - TESTS="r2pm -i baleful"
