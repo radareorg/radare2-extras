@@ -8,6 +8,7 @@ addons:
     packages:
       - g++
       - llvm-dev
+      - libatomic-ops-dev
 
 env:
   - TESTS="r2pm -i armthumb"
