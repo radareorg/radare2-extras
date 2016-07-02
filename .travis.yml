@@ -1,7 +1,7 @@
 os:
   - linux
 compiler:
-  - gcc
+  - clang
 
 addons:
   apt:
