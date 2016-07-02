@@ -49,7 +49,7 @@ env:
   - TESTS=yara2
   - TESTS=yara2-lib
   - TESTS=yara3
-  - TESTS=yara3-lib  
+  - TESTS=yara3-lib
 sudo:
   - false
 language:
@@ -72,5 +72,6 @@ before_script:
 
 script:
   - ./configure --prefix=`pwd`/radare2/install
+  - r2pm init
   - r2pm -i $TESTS
 
