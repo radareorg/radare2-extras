@@ -1,5 +1,6 @@
 ARCHS=
 
+ARCHS+=agc.mk
 ARCHS+=armthumb.mk 
 ARCHS+=ppc_disasm.mk
 ARCHS+=psosvm.mk
