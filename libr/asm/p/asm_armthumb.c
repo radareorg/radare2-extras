@@ -20,7 +20,7 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 
 #if 0
 static int assemble(RAsm *a, RAsmOp *op, const char *buf) {
-	int opcode = armass_assemble (buf, a->pc, R_TRUE);
+	int opcode = armass_assemble (buf, a->pc, true);
 	if (opcode==-1)
 		return -1;
 	r_mem_copyendian (op->buf, (void *)&opcode, 2, a->big_endian);

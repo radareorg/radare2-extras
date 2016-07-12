@@ -88,7 +88,7 @@ static RIODesc *haret__open(struct r_io_t *io, const char *pathname, int rw, int
 			return NULL;
 		}
 		*port++ = 0;
-		if ((s = r_socket_new (R_FALSE)) == NULL) {
+		if ((s = r_socket_new (false)) == NULL) {
 			eprintf ("Cannot create new socket\n");
 			return NULL;
 		}

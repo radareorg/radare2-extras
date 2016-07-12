@@ -54,10 +54,10 @@ R_API int r_vm_reg_del(RVm *vm, const char *name) {
 		struct r_vm_reg_t *r = list_entry(pos, struct r_vm_reg_t, list);
 		if (!strcmp(name, r->name)) {
 			list_del(&r->list);
-			return R_FALSE;
+			return false;
 		}
 	}
-	return R_TRUE;
+	return true;
 }
 
 R_API int r_vm_reg_set(RVm *vm, const char *name, ut64 value) {
@@ -72,10 +72,10 @@ R_API int r_vm_reg_set(RVm *vm, const char *name, ut64 value) {
 				r_vm_eval(vm, r->set);
 				vm->rec = NULL;
 			}
-			return R_TRUE;
+			return true;
 		}
 	}
-	return R_FALSE;
+	return false;
 }
 
 R_API int r_vm_reg_alias_list(RVm *vm) {
@@ -133,7 +133,7 @@ R_API int r_vm_cmd_eval(RVm *vm, const char *cmd) {
 			r_vm_cmd_reg (vm, cmd+2);
 		cmd = next;
 	} while (next);
-	return R_TRUE;
+	return true;
 }
 
 R_API int r_vm_cmd_reg(RVm *vm, const char *_str) {

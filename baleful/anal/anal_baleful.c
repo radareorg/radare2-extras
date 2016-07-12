@@ -520,7 +520,7 @@ char texto[] ="packers_and_vms_and_xors_oh_my\n";
 static int esil_baleful_intr (RAnalEsil *esil, int intr) {
 	ut64 valor1;
 	if (!esil)
-		return R_FALSE;
+		return false;
 	if (intr==0) {
 		reg_read(esil,"r_00",&valor1);
 		eprintf("%c\n",(ut32)valor1);
@@ -539,7 +539,7 @@ static int esil_baleful_intr (RAnalEsil *esil, int intr) {
 	}
 	else
 		eprintf ("INTERRUPT 0x%02x \n", intr);
-	return R_TRUE;
+	return true;
 }
 
 static int set_reg_profile(RAnal *anal) {
@@ -598,7 +598,7 @@ static int set_reg_profile(RAnal *anal) {
 }
 static int esil_baleful_init (RAnalEsil *esil) {
 	if (!esil)
-		return R_FALSE;
+		return false;
 	/*
 	   internalMemory=malloc(4096);
 	   if (!internalMemory) {
@@ -609,13 +609,13 @@ static int esil_baleful_init (RAnalEsil *esil) {
 	 *((ut32 *)internalMemory)=0xdeadbeef;
 	 eprintf("leido :%08x\n",*((ut32 *)internalMemory));
 	 */
-	return R_TRUE;
+	return true;
 }
 
 static int esil_baleful_fini (RAnalEsil *esil) {
 	//	if (internalMemory)
 	//		free(internalMemory);
-	return R_TRUE;
+	return true;
 }
 struct r_anal_plugin_t r_anal_plugin_baleful = {
 	.name = "baleful",
@@ -627,7 +627,7 @@ struct r_anal_plugin_t r_anal_plugin_baleful = {
 	.esil_init = esil_baleful_init,
 	.esil_fini = esil_baleful_fini,
 	.esil_intr = esil_baleful_intr,
-	.esil = R_TRUE,
+	.esil = true,
 	.op = &baleful_op,
 	.set_reg_profile = set_reg_profile,
 };

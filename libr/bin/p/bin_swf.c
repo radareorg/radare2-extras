@@ -27,7 +27,7 @@ static int check(RBinFile *arch) {
 }
 
 static int check_bytes(const ut8 *buf, ut64 length) {
-	if (!buf || length < 4) return R_FALSE;
+	if (!buf || length < 4) return false;
 
 	if ((*buf == ISWF_MAGIC_0_0 || *buf == ISWF_MAGIC_0_1 ||
 			*buf == ISWF_MAGIC_0_2) && (!memcmp (buf+1, ISWF_MAGIC, 2)))

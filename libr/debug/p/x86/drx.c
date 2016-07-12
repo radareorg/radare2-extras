@@ -81,7 +81,7 @@ int w32_drx_set(drxt *drx, int n, ut64 addr, int len, int rwx, int global) {
 	ut32 control = drx[DR_CONTROL];
 	if (n < 0 || n >= DR_NADDR) {
 		eprintf ("Invalid DRX index (0-%d)\n", DR_NADDR-1);
-		return R_FALSE;
+		return false;
 	}
 	switch (rwx) {
 		case 1: rwx=0; break;
@@ -97,7 +97,7 @@ int w32_drx_set(drxt *drx, int n, ut64 addr, int len, int rwx, int global) {
 	case 8: len = 2<<2; break; // AMD64 only
 	default:
 		eprintf ("Invalid DRX length (%d) must be 1, 2, 4, 8 bytes\n", len);
-		return R_FALSE;
+		return false;
 	}
 	I386_DR_SET_RW_LEN (control, n, len|rwx);
 	if (global) {
@@ -114,7 +114,7 @@ int w32_drx_set(drxt *drx, int n, ut64 addr, int len, int rwx, int global) {
 //eprintf ("CONTROL = %x\n", control);
 
 
-	return R_TRUE;
+	return true;
 }
 
 ut64 w32_drx_get(drxt *drx, int n, int *rwx, int *len, int *global, int *enabled) {
@@ -175,8 +175,8 @@ int main() {
 	w32_drx_init (regs);
 	w32_drx_set (regs, 1, 0x8048123, 1, DR_RW_EXECUTE, 0);
 	w32_drx_set (regs, 0, 0x8048123, 4, DR_RW_READ, 1);
-	//w32_drx_enable (regs, 0, R_TRUE);
-//	w32_drx_enable (regs, 0, R_FALSE);
+	//w32_drx_enable (regs, 0, true);
+//	w32_drx_enable (regs, 0, false);
 	w32_drx_list (regs);
 }
 #endif
