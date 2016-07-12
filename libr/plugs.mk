@@ -26,17 +26,17 @@ THEDIR=$(DESTDIR)$(LIBDIR)/radare2-extras/$(VERSION)
 
 install:
 	mkdir -p $(THEDIR)
-	cp -f *.$(EXT_SO) $(THEDIR)
+	cp -f *.$(LIBEXT) $(THEDIR)
 
 symstall:
 	mkdir -p $(THEDIR)
-	for a in *.$(EXT_SO) ; do ln -fs $(PWD)/$$a $(THEDIR)/$$a ; done
+	for a in *.$(LIBEXT) ; do ln -fs $(PWD)/$$a $(THEDIR)/$$a ; done
 
 uninstall:
-	for a in *.$(EXT_SO) ; do rm -f $(THEDIR)/$$a ; done
+	for a in *.$(LIBEXT) ; do rm -f $(THEDIR)/$$a ; done
 
 clean:
-	-rm -f *.${EXT_SO} *.o ${STATIC_OBJ}
+	-rm -f *.${LIBEXT} *.o ${STATIC_OBJ}
 
 mrproper: clean
 	-rm -f *.d ../arch/*/*/*.d

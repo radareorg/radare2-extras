@@ -1,5 +1,5 @@
 PWD=$(shell pwd)
-VERSION=@VERSION@
+R2VERSION=@R2VERSION@
 DESTDIR=
 PREFIX=@PREFIX@
 HOST_OS=@HOST_OS@
@@ -26,34 +26,29 @@ endif
 
 MOD=core_yara3
 
-THEDIR=$(DESTDIR)/$(LIBDIR)/radare2-extras/$(VERSION)/
+all: $(MOD).$(LIBEXT)
 
-all: $(MOD).$(EXT_SO)
-
-$(MOD).$(EXT_SO): ${MOD}.o
-	${CC} ${MOD}.o ${CFLAGS} ${LDFLAGS} -o ${MOD}.${EXT_SO}
+$(MOD).$(LIBEXT): ${MOD}.o
+	${CC} ${MOD}.o ${CFLAGS} ${LDFLAGS} -o ${MOD}.${LIBEXT}
 
 clean:
-	rm -f ${MOD}.o ${MOD}.${EXT_SO}
+	rm -f ${MOD}.o ${MOD}.${LIBEXT}
 
 mrproper: clean
 	rm -f Makefile
 
 install:
-	mkdir -p ${DESTDIR}${LIBDIR}/radare2-extras/${VERSION}/
-	cd ${DESTDIR}${LIBDIR}/radare2-extras/ ; ln -fs ${VERSION} last
-	${INSTALL_LIB} ${MOD}.${EXT_SO} $(THEDIR)/${MOD}.${EXT_SO}
-	cd ${THEDIR} ; ln -fs ${VERSION} last
-	rm -rf $(THEDIR)/yara
-	mkdir -p $(THEDIR)/yara
-	cp -f ../rules-yara3/* $(THEDIR)/rules-yara3
+	${INSTALL_LIB} ${MOD}.${LIBEXT} $(R2PM_PLUGDIR)/${MOD}.${LIBEXT}
+	rm -rf $(R2PM_PLUGDIR)/yara
+	mkdir -p $(R2PM_PLUGDIR)/yara
+	cp -rf ../rules-yara3/ $(R2PM_PLUGDIR)/
 
 symstall:
-	mkdir -p $(THEDIR)
-	ln -fs ${PWD}/${MOD}.${EXT_SO} $(THEDIR)/$(MOD).$(EXT_SO)
-	cd ${THEDIR} ; ln -fs ${VERSION} last
-	rm -rf $(THEDIR)/yara
-	ln -fs $(PWD)/../rules-yara3 $(THEDIR)/rules-yara3
+	ln -fs ${PWD}/${MOD}.${LIBEXT} $(R2PM_PLUGDIR)/$(MOD).$(LIBEXT)
+	rm -rf $(R2PM_PLUGDIR)/yara
+	ln -fs $(PWD)/../rules-yara3 $(R2PM_PLUGDIR)/rules-yara3
 
 uninstall:
-	rm -f ${THEDIR}/$(MOD).$(EXT_SO)
+	rm -f ${R2PM_PLUGDIR}/$(MOD).$(LIBEXT)
+	rm -rf ${R2PM_PLUGDIR}/rules-yara3
+	rm -rf ${R2PM_PLUGDIR}/yara

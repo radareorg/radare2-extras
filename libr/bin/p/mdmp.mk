@@ -2,10 +2,10 @@ OBJ_MDMP=bin_mdmp.o
 OBJ_MDMP+=../format/mdmp/mdmp.o
 
 STATIC_OBJ+=${OBJ_MDMP}
-TARGET_MDMP=bin_mdmp.${EXT_SO}
+TARGET_MDMP=bin_mdmp.${LIBEXT}
 CFLAGS+=-I../format/
 
-libname=-shared -o $1.${EXT_SO}
+libname=-shared -o $1.${LIBEXT}
 
 #LINK+=-L../../db -lr_db $(SHLR)/sdb/src/libsdb.a
 #ifeq (${WITHPIC},1)

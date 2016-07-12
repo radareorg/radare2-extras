@@ -1,10 +1,13 @@
 bea:
-	cd p ; $(MAKE) bin_dlang.$(EXT_SO)
+	cd p ; $(MAKE) bin_dlang.$(LIBEXT)
 
 mdmp:
-	cd p ; $(MAKE) bin_mdmp.$(EXT_SO)
+	cd p ; $(MAKE) bin_mdmp.$(LIBEXT)
+
+pyc:
+	cd p ; $(MAKE) bin_pyc.$(LIBEXT)
 
 clean:
-	rm -f p/*.$(EXT_SO)
+	rm -f p/*.$(LIBEXT)
 
 include ../../options.mk

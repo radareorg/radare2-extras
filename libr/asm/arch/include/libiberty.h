@@ -39,6 +39,9 @@
 extern "C" {
 #endif
 
+#undef xmalloc
+#define xmalloc malloc
+
 #include "ansidecl.h"
 
 /* Get a definition for size_t.  */

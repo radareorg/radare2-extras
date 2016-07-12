@@ -21,12 +21,13 @@ EWF_LDFLAGS=@EWF_LDFLAGS@
 #CFLAGS+=$(R2_CFLAGS)
 #LDFLAGS+=$(R2_LDFLAGS)
 
-ifeq ($(HOST_OS),windows)
-EXT_SO=dll
-else
 ifeq ($(HOST_OS),darwin)
-EXT_SO=dylib
+LIBEXT?=dylib
 else
-EXT_SO=so
+  ifeq ($(HOST_OS),windows)
+    LIBEXT?=dll
+  else
+    LIBEXT?=so
+  endif
 endif
-endif
+

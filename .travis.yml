@@ -1,0 +1,86 @@
+os:
+  - linux
+compiler:
+  - clang
+
+addons:
+  apt:
+    packages:
+      - g++
+      - llvm-dev
+      - libatomic-ops-dev
+
+env:
+  - TESTS="r2pm -i armthumb"
+  - TESTS="r2pm -i baleful"
+  - TESTS="r2pm -i bcl"
+  - TESTS="r2pm -i blackfin"
+  - TESTS="r2pm -i blessr2"
+  - TESTS="r2pm -i bokken"
+  - TESTS="r2pm -i bpf"
+  - TESTS="r2pm -i dlang"
+  - TESTS="r2pm -i duktape"
+  - TESTS="r2pm -i io-ewf"
+  - TESTS="r2pm -i keystone-lib && r2pm -i keystone && cd radare2-regressions && make keystone && cd .."
+  - TESTS="r2pm -i mdmp"
+  - TESTS="r2pm -i microblaze"
+  - TESTS="r2pm -i msil"
+  - TESTS="r2pm -i ppcdisasm"
+  - TESTS="r2pm -i psosvm"
+  - TESTS="r2pm -i pyc"
+  - TESTS="r2pm -i python"
+  - TESTS="r2pm -i r2pipe-cs"
+  - TESTS="r2pm -i r2pipe-go"
+  - TESTS="r2pm -i r2pipe-js"
+  - TESTS="r2pm -i r2pipe-py"
+  - TESTS="r2pm -i r2pipe-rb"
+  - TESTS="r2pm -i r2pipe-vala"
+  - TESTS="r2pm -i radare2"
+  - TESTS="r2pm -i radeco"
+  - TESTS="r2pm -i retdec"
+  - TESTS="r2pm -i swf && cd radare2-regressions && make swf && cd .."
+  - TESTS="r2pm -i swig"
+  - TESTS="r2pm -i syms2elf"
+  - TESTS="r2pm -i tcc"
+  - TESTS="r2pm -i unicorn"
+  - TESTS="r2pm -i unicorn-lib"
+  - TESTS="r2pm -i vala"
+  - TESTS="r2pm -i valabind"
+  - TESTS="r2pm -i vapi"
+  - TESTS="r2pm -i vc4"
+  - TESTS="r2pm -i winapi"
+  - TESTS="r2pm -i www-enyo"
+  - TESTS="r2pm -i www-m"
+  - TESTS="r2pm -i www-p"
+  - TESTS="r2pm -i www-t"
+  - TESTS="r2pm -i x86bea"
+  - TESTS="r2pm -i yara2"
+  - TESTS="r2pm -i yara2-lib"
+  - TESTS="r2pm -i yara3"
+  - TESTS="r2pm -i yara3-lib"
+sudo:
+  - false
+language:
+  - c
+cache:
+  - ccache
+  - apt
+
+before_script:
+  - git clone https://github.com/radare/radare2-regressions
+  - git clone https://github.com/radare/radare2 && cd radare2
+  - ./configure --prefix=`pwd`/install > /dev/null
+  - make -s -j2 > /dev/null
+  - make install > /dev/null
+  - export PATH=${TRAVIS_BUILD_DIR}/radare2/install/bin:${PATH}
+  - export LD_LIBRARY_PATH=${TRAVIS_BUILD_DIR}/radare2/install/lib:${LD_LIBRARY_PATH}
+  - export LIBR_INCLUDE=${TRAVIS_BUILD_DIR}/radare2/libr/include
+  - export LIBR_UTIL=${TRAVIS_BUILD_DIR}/radare2/libr/util
+  - export PKG_CONFIG_PATH=${TRAVIS_BUILD_DIR}/radare2/pkgcfg
+  - cd ..
+
+script:
+  - ./configure --prefix=`pwd`/radare2/install
+  - r2pm init
+  - eval $TESTS
+
