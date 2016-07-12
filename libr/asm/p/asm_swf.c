@@ -11,9 +11,6 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	RBinObject *obj = NULL;
 	RBin *bin = a->binb.bin;
 
-	RBinPlugin *plugin = bin && bin->cur && bin->cur->o ?
-		bin->cur->o->plugin : NULL;
-
 	obj = bin->cur->o;
 
 	int dlen = r_asm_swf_disass (obj, op->buf_asm, buf, len, a->pc);
