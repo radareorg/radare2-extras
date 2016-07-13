@@ -9,6 +9,10 @@ addons:
       - g++
       - llvm-dev
       - libatomic-ops-dev
+      - libewf
+      - mono-xbuild
+      - curl
+      - tcc
 
 env:
   - TESTS="r2pm -i armthumb"
@@ -42,8 +46,7 @@ env:
   - TESTS="r2pm -i swig"
   - TESTS="r2pm -i syms2elf"
   - TESTS="r2pm -i tcc"
-  - TESTS="r2pm -i unicorn"
-  - TESTS="r2pm -i unicorn-lib"
+  - TESTS="r2pm -i unicorn-lib && r2pm -i unicorn"
   - TESTS="r2pm -i vala"
   - TESTS="r2pm -i valabind"
   - TESTS="r2pm -i vapi"
@@ -54,10 +57,8 @@ env:
   - TESTS="r2pm -i www-p"
   - TESTS="r2pm -i www-t"
   - TESTS="r2pm -i x86bea"
-  - TESTS="r2pm -i yara2"
-  - TESTS="r2pm -i yara2-lib"
-  - TESTS="r2pm -i yara3"
-  - TESTS="r2pm -i yara3-lib"
+  - TESTS="r2pm -i yara2-lib && r2pm -i yara2"
+  - TESTS="r2pm -i yara3-lib && r2pm -i yara3"
 sudo:
   - false
 language:
@@ -77,6 +78,8 @@ before_script:
   - export LIBR_INCLUDE=${TRAVIS_BUILD_DIR}/radare2/libr/include
   - export LIBR_UTIL=${TRAVIS_BUILD_DIR}/radare2/libr/util
   - export PKG_CONFIG_PATH=${TRAVIS_BUILD_DIR}/radare2/pkgcfg
+  - export GOPATH=${TRAVIS_BUILD_DIR}/radare2/
+  - curl -sSf https://static.rust-lang.org/rustup.sh | sh
   - cd ..
 
 script:
