@@ -9,7 +9,6 @@ addons:
       - g++
       - llvm-dev
       - libatomic-ops-dev
-      - libewf
       - mono-xbuild
       - curl
       - tcc
