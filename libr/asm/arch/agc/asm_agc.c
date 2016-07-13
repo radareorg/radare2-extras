@@ -24,15 +24,58 @@
   Contact:   Onno Hommes
   Reference: http://www.ibiblio.org/apollo
   Mods:      08/31/08 OH. Began.
+             07/12/16 IB. Began refactoring to include in radare2-extras.
 */
 
 #include <stdio.h>
 #include "asm_agc.h"
 
+// address, memory bank, data to decode, flags to distinguish ROM from RAM
+// (in that order)
 static int s_current_z, s_bank, s_value, s_erasable, s_fixed;
 
-void disasm_instruction(bool extra_code, int value, char *buf, int len) {
-    if (extra_code) {
+void prepare_data() {
+    /* 
+     * We need to find out what the logic behind the modifications done by
+     * ShowAddressContents() is. Since that function performs some lookup
+     * on the internal state of the AGC *simulator*, it is very well possible
+     * we can simplify things a fair bit. This would also mean that we might be
+     * able to reduce the decoding work to interpreting the EXTEND instruction
+     * as a prefix, since that's it's only function as far as we know so far.
+     *
+     * However, if the assembling/disassembling doesn't yield the desired
+     * results, we will be in deep trouble already.
+     *
+     * So far, the best thing to do is to document the functionality of the
+     * different static variables employes:
+     * * sCurrentZ: the current address to be disassembled.
+     *   It appears that they are handled differently depending on their value.
+     *   For instance, the bank gets computed using them (duh).
+     * * sBank: the memory bank the address maps to.
+     *   Memory bank addressing was used because of storage shortage for
+     *   adresses, which led to this workaround. Banks have different sizes
+     *   (1K or 256 bytes), thus they get used differently in the code.
+     * * sValue: the memory value at the location denoted by the address.
+     * * sErasable: whether the data we access is in erasable memory.
+     * * sFixed: whether we are reading from ROM.
+     *
+     * But why are we using two variables to denote mutually exclusive flags?
+     *
+     * We can get the current address from the RAsm structure pointer passed
+     * to disassemble(). Thus, we can compute s_bank, s_erasable and s_fixed.
+     *
+     * NOP's seem to be encoded in a position-depend way, but that's all we
+     * need to handle specially.
+     */
+
+}
+
+void disasm_instruction(bool extra_opcode_bit, int value, char *buf, int len) {
+    // the previous instruction was an `EXTEND`. This means we will interpret
+    // not three, but four leading bits of our intruction as an opcode. This
+    // was added to the second-generation AGC, after it became clear that three
+    // bits for an opcode are not enough.
+    if (!extra_opcode_bit) {
         if (value == 040000)
             snprintf(buf, len, "com");
         else if (value == 020001)
@@ -124,7 +167,7 @@ void disasm_instruction(bool extra_code, int value, char *buf, int len) {
         }
     } else {
         if (value == 040001)
-            snprintf(buf, len, "Dcom");
+            snprintf(buf, len, "dcom");
         else if (value == 050017)
             snprintf(buf, len, "resume");
         else if (value == 070000)
