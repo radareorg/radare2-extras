@@ -1,10 +1,13 @@
 #include <r_lib.h>
 #include <r_asm.h>
-// #include "../arch/agc/agc.h"
+#include "../arch/agc/asm_agc.h"
 
 static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
-	// TODO
-	return 0;
+    op->buf_asm[0] = 0;
+    disasm_instruction(a->pc,
+            ((const ut16 *)buf)[0], op->buf_asm, R_ASM_BUFSIZE);
+    op->size = 2;
+    return op->size;
 }
 
 static int assemble(RAsm *a, RAsmOp *op, const char *buf) {
