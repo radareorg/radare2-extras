@@ -27,6 +27,7 @@
              07/12/16 IB. Began refactoring to include in radare2-extras.
 */
 
+#include <stdbool.h>
 #include <stdio.h>
 #include "asm_agc.h"
 
