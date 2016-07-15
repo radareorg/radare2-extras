@@ -325,7 +325,7 @@ static RList *r_debug_native_frames_x86_64(RDebug *dbg, ut64 at) {
 			eprintf("read error at 0x%08"PFMT64x"\n", _rsp);
 			r_list_purge(list);
 			free(list);
-			return R_FALSE;
+			return false;
 		}
 		RDebugFrame *frame = R_NEW(RDebugFrame);
 		frame->addr = ptr;
@@ -431,14 +431,14 @@ static int r_debug_native_map_dealloc(RDebug *dbg, ut64 addr, int size) {
 	}
 	if (!VirtualFreeEx (dbg->process_handle, (LPVOID)(size_t)addr, (SIZE_T)size, MEM_DECOMMIT)) {
 		eprintf("Failed to free memory\n");
-		return R_FALSE;
+		return false;
 	}
-	return R_TRUE;
+	return true;
 }
 static int r_debug_native_kill(RDebug *dbg, int pid, int tid, int sig) {
 	// TODO: implement thread support signaling here
 	eprintf("TODO: r_debug_native_kill\n");
-	return R_FALSE;
+	return false;
 }
 static int r_debug_native_drx(RDebug *dbg, int n, ut64 addr, int sz, int rwx, int g) {
 	drxt regs[8] = { 0 };
@@ -457,7 +457,7 @@ static int r_debug_native_drx(RDebug *dbg, int n, ut64 addr, int sz, int rwx, in
 	regs[7] = r_reg_getv(R, "dr7");
 	if (sz == 0) {
 		w32_drx_list((drxt*)&regs);
-		return R_FALSE;
+		return false;
 	}
 	if (sz<0) { // remove
 		w32_drx_set(regs, n, addr, -1, 0, 0);
@@ -470,33 +470,33 @@ static int r_debug_native_drx(RDebug *dbg, int n, ut64 addr, int sz, int rwx, in
 	r_reg_setv(R, "dr3", regs[3]);
 	r_reg_setv(R, "dr6", regs[6]);
 	r_reg_setv(R, "dr7", regs[7]);
-	return R_TRUE;
+	return true;
 }
 static int drx_add(RDebug *dbg, ut64 addr, int rwx) {
         // TODO
-	return R_FALSE;
+	return false;
 }
 static int drx_del(RDebug *dbg, ut64 addr, int rwx) {
         // TODO
-        return R_FALSE;
+        return false;
 }
 
 static int r_debug_native_bp(RBreakpointItem *bp, int set, void *user) {
 	RDebug *dbg = user;
 	if (!bp)
-		return R_FALSE;
+		return false;
 	if (!bp->hw)
-		return R_FALSE;
+		return false;
 	return set?drx_add(dbg, bp->addr, bp->rwx) :drx_del(dbg, bp->addr, bp->rwx);
 }
 static int r_debug_native_reg_read(RDebug *dbg, int type, ut8 *buf, int size) {
 	eprintf("Estro es de nuestro debugger\n");
-	int showfpu = R_FALSE;
+	int showfpu = false;
 	int pid = dbg->pid;
 	if (size<1)
-		return R_FALSE;
+		return false;
 	if (type<-1) {
-		showfpu = R_TRUE; // hack for debugging
+		showfpu = true; // hack for debugging
 		type = -type;
 	}
 	int tid = dbg->tid;
@@ -506,7 +506,7 @@ static int r_debug_native_reg_read(RDebug *dbg, int type, ut8 *buf, int size) {
 	if (!GetThreadContext(hProcess, &ctx)) {
 		eprintf("GetThreadContext: %x\n", (int)GetLastError());
 		CloseHandle(hProcess);
-		return R_FALSE;
+		return false;
 	}
 	CloseHandle(hProcess);
 	if (type == R_REG_TYPE_FPU || type == R_REG_TYPE_MMX || type == R_REG_TYPE_XMM) {
@@ -553,7 +553,7 @@ static int r_debug_native_reg_write(RDebug *dbg, int type, const ut8* buf, int s
 		memcpy(&ctx, buf, sizeof(CONTEXT));
 		ctx.ContextFlags = CONTEXT_FULL | CONTEXT_DEBUG_REGISTERS;
 		hProcess = tid2handler(pid, tid);
-		ret = SetThreadContext(hProcess, &ctx) ? R_TRUE : R_FALSE;
+		ret = SetThreadContext(hProcess, &ctx) ? true : false;
 		CloseHandle(hProcess);
 		return ret;
 	}
@@ -568,13 +568,13 @@ static int r_debug_native_reg_write(RDebug *dbg, int type, const ut8* buf, int s
 		ctx.ContextFlags = CONTEXT_FULL | CONTEXT_DEBUG_REGISTERS;
 		//	eprintf ("EFLAGS =%x\n", ctx.EFlags);
 		hProcess = tid2handler(pid, tid);
-		ret = SetThreadContext(hProcess, &ctx) ? R_TRUE : R_FALSE;
+		ret = SetThreadContext(hProcess, &ctx) ? true : false;
 		CloseHandle(hProcess);
 		return ret;
 	}
 	else
 		eprintf("TODO: reg_write_non-gpr (%d)\n", type);
-	return R_FALSE;
+	return false;
 }
 static int r_debug_native_map_protect(RDebug *dbg, ut64 addr, int size, int perms) {
 	DWORD old;
@@ -592,7 +592,7 @@ static int r_debug_native_step(RDebug *dbg) {
 	regs.EFlags |= 0x100;
 	r_debug_native_reg_write (dbg, R_REG_TYPE_GPR, (ut8 *)&regs, sizeof(regs));
 	r_debug_native_continue (dbg, pid, dbg->tid, dbg->signum);
-	return R_TRUE;
+	return true;
 }
 static int r_debug_native_attach(RDebug *dbg, int pid) {
 	int ret = -1;
@@ -621,11 +621,11 @@ static int r_debug_native_continue(RDebug *dbg, int pid, int tid, int sig) {
 	if (ContinueDebugEvent(pid, tid, DBG_CONTINUE) == 0) {
 		print_lasterr((char *)__FUNCTION__);
 		eprintf("debug_contp: error\n");
-		return R_FALSE;
+		return false;
 	}
 	return tid;
 }
-static int FirstBreakPoint = R_TRUE;
+static int FirstBreakPoint = true;
 static int r_debug_native_wait(RDebug *dbg, int pid) {
 	DEBUG_EVENT DBGEvent;
 	DWORD DBGCode;
@@ -696,7 +696,7 @@ static int r_debug_native_wait(RDebug *dbg, int pid) {
 				DBGCode = DBG_CONTINUE;
 				if (FirstBreakPoint)
 				{
-					FirstBreakPoint = R_FALSE;
+					FirstBreakPoint = false;
 				}
 				else
 					return R_DBG_REASON_TRAP;
@@ -772,18 +772,18 @@ static int r_debug_native_init(RDebug *dbg) {
 	HANDLE lib;
 
 	/* escalate privs (required for win7/vista) */
-	int ret = R_TRUE;
+	int ret = true;
 	TOKEN_PRIVILEGES tokenPriv;
 	HANDLE hToken = NULL;
 	LUID luidDebug;
 	if (!OpenProcessToken(GetCurrentProcess(),
 				TOKEN_ADJUST_PRIVILEGES, &hToken)) {
-		return R_FALSE;
+		return false;
 	}
 
 	if (!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luidDebug)) {
 		CloseHandle(hToken);
-		return R_FALSE;
+		return false;
 	}
 
 	tokenPriv.PrivilegeCount = 1;
@@ -798,7 +798,7 @@ static int r_debug_native_init(RDebug *dbg) {
 		// XXX if we cant get the token nobody tells?? wtf
 	} else {
 		eprintf("Failed to change token privileges 0x%x\n", (int)GetLastError());
-		ret = R_FALSE;
+		ret = false;
 	}
 	CloseHandle(hToken);
 
@@ -815,7 +815,7 @@ static int r_debug_native_init(RDebug *dbg) {
 	lib = LoadLibrary("psapi.dll");
 	if (lib == NULL) {
 		eprintf("Cannot load psapi.dll!!\n");
-		return R_FALSE;
+		return false;
 	}
 	gmbn = (void(*)(HANDLE, HMODULE, LPTSTR, int))
 		GetProcAddress(lib, "GetModuleBaseNameA");
@@ -830,9 +830,9 @@ static int r_debug_native_init(RDebug *dbg) {
 			"DebugBreakProcess: 0x%p\n"
 			"GetThreadId: 0x%p\n",
 			w32_detach, w32_openthread, w32_dbgbreak, w32_getthreadid);
-		return R_FALSE;
+		return false;
 	}
-	return R_TRUE;
+	return true;
 }
 
 struct r_debug_desc_plugin_t r_debug_desc_plugin_native_windows = {

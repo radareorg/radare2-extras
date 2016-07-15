@@ -272,16 +272,16 @@ static int r_debug_unicorn_kill(RDebug *dbg, int pid, int tid, int sig) {
 	// TODO: implement thread support signaling here
 	message ("TODO: r_debug_unicorn_kill\n");
 	(void)r_debug_unicorn_detach(pid);
-	return R_FALSE;
+	return false;
 }
 
 #if 0
 static int r_debug_unicorn_bp(RBreakpointItem *bp, int set, void *user) {
 	RDebug *dbg = user;
 	if (!bp)
-		return R_FALSE;
+		return false;
 	if (!bp->hw)
-		return R_FALSE;
+		return false;
 	return set?drx_add(dbg, bp->addr, bp->rwx) :drx_del(dbg, bp->addr, bp->rwx);
 }
 #endif
@@ -464,7 +464,7 @@ static int r_debug_unicorn_step(RDebug *dbg) {
 		message ("NEW PC 0x%08"PFMT64x"\n", rip);
 	}
 	//err = uc_emu_stop (uh);
-	return R_TRUE;
+	return true;
 }
 
 static int r_debug_unicorn_attach(RDebug *dbg, int pid) {
@@ -500,7 +500,7 @@ static int r_debug_unicorn_continue(RDebug *dbg, int pid, int tid, int sig) {
 
 static int r_debug_unicorn_wait(RDebug *dbg, int pid) {
 	// no need to wait
-	return R_TRUE;
+	return true;
 }
 
 static int r_debug_unicorn_init(RDebug *dbg) {
@@ -511,7 +511,7 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 	uc_err err;
 	if (uh) {
 		// run detach to allow reinit
-		return R_TRUE;
+		return true;
 	}
 	// TODO: add support for ARM, MIPS, ...
 	if (!strcmp (dbg->arch, "x86")) {
@@ -525,7 +525,7 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 	message ("[UNICORN] Using arch %s bits %d\n", dbg->arch, bits);
 	if (err) {
 		message ("[UNICORN] Cannot initialize Unicorn engine\n");
-		return R_FALSE;
+		return false;
 	}
 	ut64 lastvaddr = 0LL;
 	int n_sect = r_list_length (dbg->iob.io->sections);
@@ -602,7 +602,7 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 	}
 	if (err) {
 		message ("[UNICORN] Cannot Set PC\n");
-		return R_FALSE;
+		return false;
 	}
 
 	/* stack */
@@ -623,7 +623,7 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 			err = uc_reg_write (uh, UC_X86_REG_ESP, &esp);
 		}
 	}
-	return R_TRUE;
+	return true;
 }
 
 struct r_debug_plugin_t r_debug_plugin_unicorn = {

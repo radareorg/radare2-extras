@@ -147,19 +147,19 @@ void r_bin_mdmp_destroy_lists(struct r_bin_mdmp_obj *obj) {
 int r_bin_mdmp_init(struct r_bin_mdmp_obj *obj) {
 	if (obj->b->length < sizeof(MINIDUMP_HEADER)) {
 		eprintf("Error in r_bin_mdmp_init: length too short, not enough space for MINIDUMP_HEADER\n");
-		return R_FALSE;
+		return false;
 	}
 
 	obj->hdr = (PMINIDUMP_HEADER)obj->b->buf;
 
 	if (obj->hdr->NumberOfStreams <= 0) {
 		eprintf("Error in r_bin_mdmp_init: no streams\n");
-		return R_FALSE;
+		return false;
 	}
 
 	if (obj->hdr->StreamDirectoryRva < sizeof(obj->hdr)) {
 		eprintf("Error in r_bin_mdmp_init: invalid StreamDirectoryRva, size %d\n", obj->hdr->StreamDirectoryRva);
-		return R_FALSE;
+		return false;
 	}
 
 	if (obj->hdr->CheckSum != 0) {
@@ -170,9 +170,9 @@ int r_bin_mdmp_init(struct r_bin_mdmp_obj *obj) {
 	sdb_num_set (obj->kv, "mdmp.hdr.Flags", obj->hdr->Flags, 0);
 
 	if (!r_bin_mdmp_init_streams(obj)) {
-		return R_FALSE;
+		return false;
 	}
-	return R_TRUE;
+	return true;
 }
 
 int r_bin_mdmp_init_streams(struct r_bin_mdmp_obj *obj) {
@@ -180,10 +180,10 @@ int r_bin_mdmp_init_streams(struct r_bin_mdmp_obj *obj) {
 	PMINIDUMP_DIRECTORY dir;
 
 	if (obj->streams)
-		return R_TRUE;
+		return true;
 
 	if(!r_bin_mdmp_create_lists(obj))
-		return R_FALSE;
+		return false;
 
 	for (i = 0; i < obj->hdr->NumberOfStreams; i++) {
 		l = obj->hdr->StreamDirectoryRva + i * sizeof(MINIDUMP_DIRECTORY);
@@ -199,22 +199,22 @@ int r_bin_mdmp_init_streams(struct r_bin_mdmp_obj *obj) {
 
 	if (!obj->system_info) {
 		eprintf("Warning in r_bin_mdmp_init_streams: SystemInfoStream not found\n");
-		return R_FALSE;
+		return false;
 	}
 
-	return R_TRUE;
+	return true;
 }
 
 int r_bin_mdmp_directory_check(struct r_bin_mdmp_obj *obj, PMINIDUMP_DIRECTORY dir, size_t size, char *name) {
 	if (size > dir->Location.DataSize) {
 		eprintf("Warning in r_bin_mdmp_directory_check: %s DataSize mismatch\n", name);
-		return R_FALSE;
+		return false;
 	};
 	if (dir->Location.Rva + dir->Location.DataSize > obj->b->length) {
 		eprintf("Warning in r_bin_mdmp_directory_check: length too short, not enough space for %s\n", name);
-		return R_FALSE;
+		return false;
 	}
-	return R_TRUE;
+	return true;
 }
 
 int r_bin_mdmp_init_directory(struct r_bin_mdmp_obj *obj, PMINIDUMP_DIRECTORY dir)
@@ -252,7 +252,7 @@ int r_bin_mdmp_init_directory(struct r_bin_mdmp_obj *obj, PMINIDUMP_DIRECTORY di
 		if (obj->system_info)
 		{
 			eprintf("Warning in r_bin_mdmp_init_directory: another SystemInfoStream encountered, ignored\n");
-			return R_FALSE;
+			return false;
 		}
 		if (r_bin_mdmp_directory_check(obj, dir, sizeof(MINIDUMP_SYSTEM_INFO), "SystemInfoStream"))
 		{
@@ -290,17 +290,17 @@ int r_bin_mdmp_init_directory(struct r_bin_mdmp_obj *obj, PMINIDUMP_DIRECTORY di
 		if (dir->Location.Rva + dir->Location.DataSize > obj->b->length)
 		{
 			eprintf("Warning in r_bin_mdmp_init_directory: length too short, not enough space for MiscInfoStream\n");
-			return R_FALSE;
+			return false;
 		}
 		p = obj->b->buf + dir->Location.Rva;
 		i = ((PMINIDUMP_MISC_INFO)p)->SizeOfInfo;
 		if (i != dir->Location.DataSize) {
 			eprintf("Warning in r_bin_mdmp_init_directory: MINIDUMP_MISC_INFO DataSize size mismatch\n");
-			return R_FALSE;
+			return false;
 		}
 		if(!(m = malloc(sizeof(MINIDUMP_MISC_INFO_N)))) {
 			eprintf("Warning in r_bin_mdmp_init_directory: malloc failed\n");
-			return R_FALSE;
+			return false;
 		}
 		memset(m, 0, sizeof(MINIDUMP_MISC_INFO_N));
 		if (i <= sizeof(MINIDUMP_MISC_INFO_N)) {
@@ -318,7 +318,7 @@ int r_bin_mdmp_init_directory(struct r_bin_mdmp_obj *obj, PMINIDUMP_DIRECTORY di
 			if ((sizeof(MINIDUMP_MEMORY_INFO_LIST) != ((PMINIDUMP_MEMORY_INFO_LIST)p)->SizeOfHeader) || (sizeof(MINIDUMP_MEMORY_INFO) != ((PMINIDUMP_MEMORY_INFO_LIST)p)->SizeOfEntry))
 			{
 				eprintf("Warning in r_bin_mdmp_init_directory: MemoryInfoListStream size mismatch\n");
-				return R_FALSE;
+				return false;
 			};
 			j = ((PMINIDUMP_MEMORY_INFO_LIST)p)->NumberOfEntries;
 			for (i = 0; i < j; i++) {
@@ -338,7 +338,7 @@ int r_bin_mdmp_init_directory(struct r_bin_mdmp_obj *obj, PMINIDUMP_DIRECTORY di
 			if ((sizeof(MINIDUMP_THREAD_INFO_LIST) != ((PMINIDUMP_THREAD_INFO_LIST)p)->SizeOfHeader) || (sizeof(MINIDUMP_THREAD_INFO) != ((PMINIDUMP_THREAD_INFO_LIST)p)->SizeOfEntry))
 			{
 				eprintf("Warning in r_bin_mdmp_init_directory: ThreadInfoListStream size mismatch\n");
-				return R_FALSE;
+				return false;
 			};
 			j = ((PMINIDUMP_THREAD_INFO_LIST)p)->NumberOfEntries;
 			for (i = 0; i < j; i++) {
@@ -361,7 +361,7 @@ int r_bin_mdmp_init_directory(struct r_bin_mdmp_obj *obj, PMINIDUMP_DIRECTORY di
 			:
 		eprintf("Warning in r_bin_mdmp_init_directory: uknown stream %d\n", dir->StreamType);
 	}
-	return R_TRUE;
+	return true;
 }
 
 PMINIDUMP_STRING r_bin_mdmp_locate_string(struct r_bin_mdmp_obj *obj, RVA Rva) {

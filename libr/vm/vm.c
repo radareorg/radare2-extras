@@ -453,7 +453,7 @@ R_API int r_vm_eval(RVm *vm, const char *str) {
 		}
 	} while (next);
 	r_vm_eval_single (vm, ptr);
-	return R_TRUE;
+	return true;
 }
 
 R_API int r_vm_eval_file(struct r_vm_t *vm, const char *str) {
@@ -470,9 +470,9 @@ R_API int r_vm_eval_file(struct r_vm_t *vm, const char *str) {
 			}
 		}
 		fclose (fd);
-		return R_TRUE;
+		return true;
 	}
-	return R_FALSE;
+	return false;
 }
 
 /* XXX: this must go in core, not here! i.. or add&use RIOBind? emulate n opcodes */

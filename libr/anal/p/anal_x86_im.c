@@ -89,7 +89,7 @@ static int anal_jmp(RAnal *anal, RAnalOp *op, x86im_instr_object io) {
 	st64 imm = r_hex_bin_truncate (io.imm, io.imm_size);
 	st64 disp = r_hex_bin_truncate (io.disp, io.disp_size);
 
-	op->eob = R_TRUE;
+	op->eob = true;
 	switch (io.id) {
 	case X86IM_IO_ID_JMP_N_R_S: /* jmp short 0x0ff */ 
 	case X86IM_IO_ID_JMP_N_R:   /* jmp 0x0ff */
@@ -139,7 +139,7 @@ static void anal_cjmp(RAnal *anal, RAnalOp *op, x86im_instr_object io) {
 	st64 imm;
 	imm = r_hex_bin_truncate (io.imm, io.imm_size);
 
-	op->eob = R_TRUE;
+	op->eob = true;
 	switch (io.id) {
 	case X86IM_IO_ID_JCC_S: /* j* 0x0ff */
 	case X86IM_IO_ID_JCC_N: /* j* dword 0x0ff */ 
@@ -208,7 +208,7 @@ static void anal_ret(RAnal *anal, RAnalOp *op, x86im_instr_object io) {
 	st64 imm;
 	imm = r_hex_bin_truncate (io.imm, io.imm_size);
 
-	op->eob = R_TRUE;
+	op->eob = true;
 	op->type = R_ANAL_OP_TYPE_RET;
 	switch (io.id) {
 	case X86IM_IO_ID_RET_N: /* ret */
@@ -226,7 +226,7 @@ static void anal_ret(RAnal *anal, RAnalOp *op, x86im_instr_object io) {
 }
 
 static void anal_hlt(RAnal *anal, RAnalOp *op, x86im_instr_object io) {
-	op->eob = R_TRUE;
+	op->eob = true;
 	op->type = R_ANAL_OP_TYPE_TRAP; // not really..
 }
 
