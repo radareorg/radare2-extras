@@ -19,6 +19,7 @@ RAsmPlugin r_asm_plugin_agc = {
 	.name = "agc",
 	.arch = "agc",
 	.bits = 16,
+    .license = "GPL3"
 	.desc = "AGC (Apollo Guidance Computer) disassembly plugin",
 	.init = NULL,
 	.fini = NULL,
