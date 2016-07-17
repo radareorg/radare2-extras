@@ -64,6 +64,8 @@
  * need to handle specially.
  */
 
+#define SWITCH_MASK 070000
+
 
 void disasm_instruction(unsigned int address, int value, char *buf, int len) {
     static bool extra_opcode_bit = false;
@@ -151,7 +153,7 @@ void disasm_instruction(unsigned int address, int value, char *buf, int len) {
             // zero the `L` register, by exchanging it's content with the 7th register,
             // which is hardwired to zero.
             snprintf(buf, len, "zl");
-        else switch (value & 070000) {
+        else switch (value & SWITCH_MASK) {
             // from now on, we have instructions with operands, so switch based on
             // the first three bits.
             case 000000: // i = 000, o = address of subroutine
@@ -238,7 +240,7 @@ void disasm_instruction(unsigned int address, int value, char *buf, int len) {
         else if (value == 050017) // 
             // resume program from an ISR
             snprintf(buf, len, "resume"); // FIXME: wtf is this here? see manual...
-        else if (value == 070000) // essentially `MP A`
+        else if (value == SWITCH_MASK) // essentially `MP A`
             // square the contents of register `A`
             snprintf(buf, len, "square");
         else if (value == 022007) // essentially `QXCH 7`
