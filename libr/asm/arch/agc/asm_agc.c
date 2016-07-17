@@ -65,6 +65,9 @@
  */
 
 #define SWITCH_MASK 070000
+#define LOWER_WIDE 07777
+#define LOWER 01777
+#define HIGHER 06000
 
 
 void disasm_instruction(unsigned int address, int value, char *buf, int len) {
@@ -159,73 +162,73 @@ void disasm_instruction(unsigned int address, int value, char *buf, int len) {
             case 000000: // i = 000, o = address of subroutine
                 // call a subroutine (this can't be nested, because it stores the
                 // current contents of the `Z` register in the `Q` register).
-                snprintf(buf, len, "tc\t%04o", value & 07777);
+                snprintf(buf, len, "tc\t%04o", value & LOWER_WIDE);
                 break;
             case 010000: // i = 001
                 if (!(value & 06000)) // one of the many space-saving tricks employed
                     // weird compare and jump (10 bit address in erasable memory)
-                    snprintf(buf, len, "ccs\t%04o",value & 01777);
+                    snprintf(buf, len, "ccs\t%04o",value & LOWER);
                 else
                     // jump to a memory location (12 bit address in fixed memory)
-                    snprintf(buf, len, "tcf\t%04o", value & 07777);
+                    snprintf(buf, len, "tcf\t%04o", value & LOWER_WIDE);
                 break;
             case 020000: // i = 010
                 switch (value & 06000) { // lower bits...
                     case 00000:
                         // add the `A`, `L` register pair to a memory location
-                        snprintf(buf, len, "das\t%04o", (value - 1) & 01777);
+                        snprintf(buf, len, "das\t%04o", (value - 1) & LOWER);
                         break;
                     case 02000:
                         // exchange the L register and a memory location
-                        snprintf(buf, len, "lxch\t%04o", value & 01777);
+                        snprintf(buf, len, "lxch\t%04o", value & LOWER);
                         break;
                     case 04000:
                         // increment a memory location
-                        snprintf(buf, len, "incr\t%04o", value & 01777);
+                        snprintf(buf, len, "incr\t%04o", value & LOWER);
                         break;
                     case 06000:
                         // add the `A` register to a memory location
-                        snprintf(buf, len, "ads\t%04o", value & 01777);
+                        snprintf(buf, len, "ads\t%04o", value & LOWER);
                         break;
                 }
                 break;
             case 030000: // i = 011
                 // move a memory location's contents into the `A` register
-                snprintf(buf, len, "ca\t%04o", value & 07777);
+                snprintf(buf, len, "ca\t%04o", value & LOWER_WIDE);
                 break;
             case 040000: // i = 100
                 // move a memory location's complement into the `A` register
-                snprintf(buf, len, "cs\t%04o", value & 07777);
+                snprintf(buf, len, "cs\t%04o", value & LOWER_WIDE);
                 break;
             case 050000: // i = 101
-                switch (value & 060000) { // lower bits again...
+                switch (value & HIGHER) { // lower bits again...
                     case 00000:
                         // adds the contents of a memory location to the next
                         // instruction before it is executed, without altering memory
-                        snprintf(buf, len, "index\t%04o", value & 01777);
+                        snprintf(buf, len, "index\t%04o", value & LOWER);
                         break;
                     case 02000:
                         // exchange double precision int with `A`, `L` register pair
-                        snprintf(buf, len, "dxch\t%04o", (value - 1) & 01777);
+                        snprintf(buf, len, "dxch\t%04o", (value - 1) & LOWER);
                         break;
                     case 04000:
                         // copy the contents of the `A` register to memory, with extra
                         // magic when overflow occured.
-                        snprintf(buf, len, "ts\t%04o", value & 01777);
+                        snprintf(buf, len, "ts\t%04o", value & LOWER);
                         break;
                     case 06000:
                         // exchange an erasable memory location with the `A` register
-                        snprintf(buf, len, "xch\t%04o", value & 01777);
+                        snprintf(buf, len, "xch\t%04o", value & LOWER);
                         break;
                 }
                 break;
             case 060000: // i = 110
                 // add a memory location to the `A` register
-                snprintf(buf, len, "ad\t%04o", value & 07777);
+                snprintf(buf, len, "ad\t%04o", value & LOWER_WIDE);
                 break;
             case 070000: // i = 111
                 // logical and between the `A` register and a memory location
-                snprintf(buf, len, "mask\t%04o", value & 07777);
+                snprintf(buf, len, "mask\t%04o", value & LOWER_WIDE);
                 break;
         }
     } else {
@@ -240,14 +243,14 @@ void disasm_instruction(unsigned int address, int value, char *buf, int len) {
         else if (value == 050017) // 
             // resume program from an ISR
             snprintf(buf, len, "resume"); // FIXME: wtf is this here? see manual...
-        else if (value == SWITCH_MASK) // essentially `MP A`
+        else if (value == 070000) // essentially `MP A`
             // square the contents of register `A`
             snprintf(buf, len, "square");
         else if (value == 022007) // essentially `QXCH 7`
             // zero the `Q` register, by exchanging it's content with the 7th register,
             // which is hardwired to zero.
             snprintf(buf, len, "zq");
-        else switch (value & 070000) {
+        else switch (value & SWITCH_MASK) {
             case 000000: // i = 000
                 switch (value & 07000) { // lower bits
                     case 00000:
@@ -285,62 +288,62 @@ void disasm_instruction(unsigned int address, int value, char *buf, int len) {
                 }
                 break;
             case 010000: // i = 001
-                if (!(value & 06000))
+                if (!(value & HIGHER))
                     // divide register pair `A`, `L` by a memory location,
                     // putting the quotient/remainder in `A`, `L`, respectively
-                    snprintf(buf, len, "dv\t%04o", value & 01777);
+                    snprintf(buf, len, "dv\t%04o", value & LOWER);
                 else
                     // branch to a fixed memory location if `A` equals 0
-                    snprintf(buf, len, "bzf\t%04o", value & 07777);
+                    snprintf(buf, len, "bzf\t%04o", value & LOWER_WIDE);
                 break;
             case 020000: // i = 010
-                switch (value & 06000) {
+                switch (value & HIGHER) {
                     case 00000:
                         // 1's complement difference between two 2's complement values
                         // of which the first is the register `A`
-                        snprintf(buf, len, "msu\t%04o", value & 01777);
+                        snprintf(buf, len, "msu\t%04o", value & LOWER);
                         break;
                     case 02000:
                         // exchange `Q` register with memory location
-                        snprintf(buf, len, "qxch\t%04o", value & 01777);
+                        snprintf(buf, len, "qxch\t%04o", value & LOWER);
                         break;
                     case 04000:
                         // increrement positive and decrement negative values at a
                         // memory location, using 1's complement
-                        snprintf(buf, len, "aug\t%04o", value & 01777);
+                        snprintf(buf, len, "aug\t%04o", value & LOWER);
                         break;
                     case 06000:
                         // other way 'round
-                        snprintf(buf, len, "dim\t%04o", value & 01777);
+                        snprintf(buf, len, "dim\t%04o", value & LOWER);
                         break;
                 }
                 break;
             case 030000: // i = 011
                 // move a pair of registers into `A` and `L`
-                snprintf(buf, len, "dca\t%04o", (value - 1) & 07777);
+                snprintf(buf, len, "dca\t%04o", (value - 1) & LOWER_WIDE);
                 break;
             case 040000: // i = 100
                 // move the complement of a pair of registers into `A` and `L`
-                snprintf(buf, len, "dcs\t%04o", (value - 1) & 07777);
+                snprintf(buf, len, "dcs\t%04o", (value - 1) & LOWER_WIDE);
                 break;
             case 050000: // i = 101
                 // see above
-                snprintf(buf, len, "index\t%04o", value & 07777);
+                snprintf(buf, len, "index\t%04o", value & LOWER_WIDE);
                 // reset bit
                 extra_op_code_bit = true;
                 break;
             case 060000: // i = 110
-                if (!(value & 06000))
+                if (!(value & HIGHER))
                     // subtract a memory location from the `A` register
-                    snprintf(buf, len, "su\t%04o", value & 01777);
+                    snprintf(buf, len, "su\t%04o", value & LOWER);
                 else
                     // branch to a fixed memory location if `A` is equal or less than 0
-                    snprintf(buf, len, "bzmf\t%04o", value & 07777);
+                    snprintf(buf, len, "bzmf\t%04o", value & LOWER_WIDE);
                 break;
             case 070000: // i = 111
                 // multiply two single precision values to form a double precision
                 // value, of which one is the accumulator.
-                snprintf(buf, len, "mp\t%04o", value & 07777);
+                snprintf(buf, len, "mp\t%04o", value & LOWER_WIDE);
                 break;
         }
     }
