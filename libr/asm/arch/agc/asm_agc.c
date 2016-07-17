@@ -258,7 +258,7 @@ void disasm_instruction(unsigned int address, int value, char *buf, int len) {
                         snprintf(buf, len, "read\t%03o", value & 0777);
                         break;
                     case 01000:
-                        // write register `A`into a 9 bit IO channel
+                        // write register `A` into a 9 bit IO channel
                         snprintf(buf, len, "write\t%03o", value & 0777);
                         break;
                     case 02000:
@@ -308,7 +308,7 @@ void disasm_instruction(unsigned int address, int value, char *buf, int len) {
                         snprintf(buf, len, "qxch\t%04o", value & LOWER);
                         break;
                     case 04000:
-                        // increrement positive and decrement negative values at a
+                        // increment positive and decrement negative values at a
                         // memory location, using 1's complement
                         snprintf(buf, len, "aug\t%04o", value & LOWER);
                         break;
