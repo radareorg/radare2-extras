@@ -28,7 +28,7 @@ static int load(RBinFile *arch) {
 	const ut8 *bytes;
 	ut64 sz;
 	if (!arch || !arch->o || !arch->buf)
-		return R_FALSE;
+		return false;
 	bytes = r_buf_buffer (arch->buf);
 	sz = r_buf_size (arch->buf);
 	arch->o->bin_obj = load_bytes (arch, bytes, sz, arch->o->loadaddr, arch->sdb);

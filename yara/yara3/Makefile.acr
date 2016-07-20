@@ -41,7 +41,7 @@ install:
 	${INSTALL_LIB} ${MOD}.${LIBEXT} $(R2PM_PLUGDIR)/${MOD}.${LIBEXT}
 	rm -rf $(R2PM_PLUGDIR)/yara
 	mkdir -p $(R2PM_PLUGDIR)/yara
-	cp -f ../rules-yara3/* $(R2PM_PLUGDIR)/rules-yara3
+	cp -rf ../rules-yara3/ $(R2PM_PLUGDIR)/
 
 symstall:
 	ln -fs ${PWD}/${MOD}.${LIBEXT} $(R2PM_PLUGDIR)/$(MOD).$(LIBEXT)
@@ -50,3 +50,5 @@ symstall:
 
 uninstall:
 	rm -f ${R2PM_PLUGDIR}/$(MOD).$(LIBEXT)
+	rm -rf ${R2PM_PLUGDIR}/rules-yara3
+	rm -rf ${R2PM_PLUGDIR}/yara
