@@ -10,6 +10,7 @@ ARCHS+=x86_bea.mk
 ARCHS+=msil.mk
 ARCHS+=swf.mk
 ARCHS+=vc4.mk
+ARCHS+=mc6809.mk
 
 include ../../plugs.mk
 
