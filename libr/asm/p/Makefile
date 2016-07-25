@@ -1,5 +1,6 @@
 ARCHS=
 
+ARCHS+=x86_tab.mk
 ARCHS+=agc.mk
 ARCHS+=armthumb.mk 
 ARCHS+=ppc_disasm.mk
