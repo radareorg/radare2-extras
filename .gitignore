@@ -16,4 +16,5 @@
 *.swp
 *.swo
 *.un~
-
+/Makefile
+/options.mk
