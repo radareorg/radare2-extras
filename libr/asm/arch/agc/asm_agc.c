@@ -330,7 +330,7 @@ void disasm_instruction(unsigned int address, int value, char *buf, int len) {
                 // see above
                 snprintf(buf, len, "index\t%04o", value & LOWER_WIDE);
                 // reset bit
-                extra_op_code_bit = true;
+                //extra_op_code_bit = true;
                 break;
             case 060000: // i = 110
                 if (!(value & HIGHER))

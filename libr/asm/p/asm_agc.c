@@ -4,8 +4,7 @@
 
 static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
     op->buf_asm[0] = 0;
-    disasm_instruction(a->pc,
-            ((const ut16 *)buf)[0], op->buf_asm, R_ASM_BUFSIZE);
+    disasm_instruction (a->pc, ((const ut16 *)buf)[0], op->buf_asm, R_ASM_BUFSIZE);
     op->size = 2;
     return op->size;
 }
@@ -19,10 +18,8 @@ RAsmPlugin r_asm_plugin_agc = {
 	.name = "agc",
 	.arch = "agc",
 	.bits = 16,
-    .license = "GPL3",
+	.license = "GPL3",
 	.desc = "AGC (Apollo Guidance Computer) disassembly plugin",
-	.init = NULL,
-	.fini = NULL,
 	.disassemble = &disassemble,
 	.assemble = &assemble
 };
