@@ -1,10 +1,11 @@
 include ../options.mk
 
 CFLAGS+=$(shell pkg-config --cflags r_util)
-CC_ASM=$(CC) $(CFLAGS) $(LDFLAGS) $(shell pkg-config --libs r_asm)
-CC_ANA=$(CC) $(CFLAGS) $(LDFLAGS) $(shell pkg-config --libs r_anal)
-CC_BIN=$(CC) $(CFLAGS) $(LDFLAGS) $(shell pkg-config --libs r_bin)
-CC_COR=$(CC) $(CFLAGS) $(LDFLAGS) $(shell pkg-config --libs r_core)
+CC_LIB=$(CC) -shared $(CFLAGS) $(LDFLAGS)
+CC_ASM=$(CC_LIB) $(shell pkg-config --libs r_asm)
+CC_ANA=$(CC_LIB) $(shell pkg-config --libs r_anal)
+CC_BIN=$(CC_LIB) $(shell pkg-config --libs r_bin)
+CC_COR=$(CC_LIB) $(shell pkg-config --libs r_core)
 
 all:
 	$(CC_ASM) -o asm_bcl.$(LIBEXT) asm_bcl.c

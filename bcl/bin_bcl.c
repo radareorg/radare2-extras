@@ -22,7 +22,6 @@ static int check(RBinFile *arch) {
 	return check_bytes (bytes, sz);
 }
 
-
 static Sdb* get_sdb (RBinObject *o) {
 	if (!o) return NULL;
 	//struct r_bin_[NAME]_obj_t *bin = (struct r_bin_r_bin_[NAME]_obj_t *) o->bin_obj;
@@ -175,7 +174,7 @@ static RBinInfo* info(RBinFile *arch) {
 	return ret;
 }
 
-static int size(RBinFile *arch) {
+static ut64 size(RBinFile *arch) {
 	ut64 text, data, syms, spsz;
 	int big_endian;
 	if (!arch->o->info) {
@@ -187,7 +186,7 @@ static int size(RBinFile *arch) {
 	data = r_mem_get_num (arch->buf->buf + 8, 4);
 	syms = r_mem_get_num (arch->buf->buf + 16, 4);
 	spsz = r_mem_get_num (arch->buf->buf + 24, 4);
-	return text+data+syms+spsz+(6*4);
+	return text + data + syms + spsz + (6 * 4);
 }
 
 RBinPlugin r_bin_plugin_bcl = {
