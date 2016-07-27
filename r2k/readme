@@ -1,0 +1,39 @@
+
+1. Build r2k.sys on Windows Using WDK 7600
+----------------------------------------------------
+
+- Install WDK 7600
+  You can get WDK from http://www.microsoft.com/en-us/download/details.aspx?id=11800
+- Open WDK build environment command prompt:
+  "x86 Free Build Environment" or "x64 Free Build Environment" (for release build)
+  "x86 Checked Build Environment" or "x64 Checked Build Environment" (for debug build)
+- cd r2k\source\
+- build -cZg
+- driver is builded into sys folder
+
+2. Build r2k.sys on Windows Using VS2015
+----------------------------------------------------
+- Install VS2015 comunity edition from https://www.visualstudio.com/
+- Install WDK from https://developer.microsoft.com/es-es/windows/hardware/windows-driver-kit
+- Open r2k.sln
+- Select arch and build 
+
+3. Sign driver 
+----------------------------------------------------
+
+- As Administrator, run in "x64 Free Build Environment":
+  makecert -r -n "CN=r2k" -ss TestStore -sr LocalMachine
+- copy "signdriver.bat" into driver directory
+- Run "signdriver.bat"
+
+4. Disable System Security
+----------------------------------------------------
+
+- You'll need to enable loading test-signed kernel mode drivers:
+  Bcdedit.exe -set TESTSIGNING ON
+
+- Also you can disable Integrity checks:
+  bcdedit /set loadoptions DISABLE_INTEGRITY_CHECKS
+  
+
+
