@@ -5,14 +5,14 @@
 static PVOID g_KernelBase = NULL;
 static ULONG g_KernelSize = 0;
 
-unsigned char getPrintChar (unsigned char ch) {
+unsigned char getPrintChar(unsigned char ch) {
 	if (isprint(ch)) {
 		return ch;
 	}
 	return '.';
 }
 
-void DumpBuffer (PCHAR Buffer, int siz) {
+void DumpBuffer(PCHAR Buffer, int siz) {
 	int i;
 	for (i = 0; i + 15 < siz; i += 15) {
 		DbgPrint ("%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\t%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\n",
@@ -28,7 +28,7 @@ void DumpBuffer (PCHAR Buffer, int siz) {
 	}
 }
 
-PVOID GetKernelBase (OUT PULONG pSize) {
+PVOID GetKernelBase(OUT PULONG pSize) {
 	NTSTATUS status = STATUS_SUCCESS;
 	ULONG bytes = 0;
 	PRTL_PROCESS_MODULES pMods = NULL;
@@ -69,7 +69,7 @@ PVOID GetKernelBase (OUT PULONG pSize) {
 	return g_KernelBase;
 }
 
-NTSTATUS OnDriverDeviceControl (IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp) {
+NTSTATUS OnDriverDeviceControl(IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp) {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 	PIO_STACK_LOCATION IrpSp;
 	ULONG ControlCode = 0;
@@ -333,7 +333,7 @@ NTSTATUS OnDriverDeviceControl (IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp) {
 	return Status;
 }
 
-VOID onDriverUnload (IN PDRIVER_OBJECT DriverObject) {
+VOID onDriverUnload(IN PDRIVER_OBJECT DriverObject) {
 	NTSTATUS Status;
 	UNICODE_STRING DosDeviceName;
 	DbgPrint ("[R2K] onDriverUnload \n");
@@ -348,7 +348,7 @@ VOID onDriverUnload (IN PDRIVER_OBJECT DriverObject) {
 	return;
 }
 
-NTSTATUS onDriverClose (IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp) {
+NTSTATUS onDriverClose(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp) {
 	DbgPrint ("[R2K] onDriverClose\n");
 	UNREFERENCED_PARAMETER (DeviceObject);
 	Irp->IoStatus.Status = STATUS_SUCCESS;
@@ -357,7 +357,7 @@ NTSTATUS onDriverClose (IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp) {
 	return (STATUS_SUCCESS);
 }
 
-NTSTATUS onDriverOpen (IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp) {
+NTSTATUS onDriverOpen(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp) {
 	DbgPrint("[R2K] onDriverOpen\n");
 	UNREFERENCED_PARAMETER (DeviceObject);
 	Irp->IoStatus.Status = STATUS_SUCCESS;
@@ -366,7 +366,7 @@ NTSTATUS onDriverOpen (IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp) {
 	return (STATUS_SUCCESS);
 }
 
-NTSTATUS DriverEntry (PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
+NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
 	PDEVICE_OBJECT DeviceObject = NULL;
 	NTSTATUS Status = STATUS_SUCCESS;
 	UNICODE_STRING DeviceName;
