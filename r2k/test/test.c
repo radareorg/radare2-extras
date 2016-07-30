@@ -2,7 +2,6 @@
 #include "windows.h"
 #include "stdio.h"
 #define strDeviceName L"\\\\.\\r2k\\"
-
 typedef struct _PPA {
 	LARGE_INTEGER address;
 	DWORD len;
@@ -36,18 +35,17 @@ typedef struct _RTL_PROCESS_MODULES {
 #define IOCTL_GET_SYSTEM_MODULES CTL_CODE(FILE_DEVICE_UNKNOWN, 0x80a, METHOD_BUFFERED, FILE_READ_ACCESS | FILE_WRITE_ACCESS)
 #define IOCTL_WRITE_KERNEL_MEM CTL_CODE(FILE_DEVICE_UNKNOWN, 0x805, METHOD_BUFFERED, FILE_READ_ACCESS | FILE_WRITE_ACCESS)
 
-BOOL IsDriverPresent(VOID) {
-	BOOL	Ret = FALSE;
-	HANDLE	hFile;
-	hFile = CreateFile(strDeviceName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_DIRECTORY, 0);
+BOOL IsDriverPresent (VOID) {
+	HANDLE hFile;
+	hFile = CreateFile (strDeviceName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_DIRECTORY, 0);
 	if (hFile != INVALID_HANDLE_VALUE) {
-		CloseHandle(hFile);
-		Ret = TRUE;
+		CloseHandle (hFile);
+		return TRUE;
 	}
-	return(Ret);
+	return FALSE;
 }
 
-void GetDriverInfo(VOID) {
+void GetDriverInfo (VOID) {
 	LPVOID lpBuffer = NULL;
 	LPVOID lpBufferReal = NULL;
 	LPVOID lpBufMods = NULL;
@@ -60,49 +58,57 @@ void GetDriverInfo(VOID) {
 	CHAR * buffer;
 	int i;
 	do {
-		#define bufmodsize 1024*1024
-		if (!(lpBufMods = malloc(bufmodsize)))
+#define bufmodsize 1024*1024
+#define bufsize 1024
+#define bufrealsize 1024
+		if (!(lpBufMods = malloc (bufmodsize))) {
 			break;
-		hDevice = CreateFile(strDeviceName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0);
-		if (hDevice == INVALID_HANDLE_VALUE)
+		}
+		hDevice = CreateFile (strDeviceName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0);
+		if (hDevice == INVALID_HANDLE_VALUE) {
 			break;
-		if (!(DeviceIoControl(hDevice, IOCTL_GET_SYSTEM_MODULES, lpBufMods, bufmodsize, lpBufMods, bufmodsize, &bRead, NULL)))
+		}
+		if (!(DeviceIoControl (hDevice, IOCTL_GET_SYSTEM_MODULES, lpBufMods, bufmodsize, lpBufMods, bufmodsize, &bRead, NULL))) {
 			break;
+		}
 		PRTL_PROCESS_MODULES pm = (PRTL_PROCESS_MODULES)lpBufMods;
 		PRTL_PROCESS_MODULE_INFORMATION pMod = pm->Modules;
-		#define bufsize 1024
-		if (!(lpBuffer = malloc(bufsize)))
+		if (!(lpBuffer = malloc (bufsize))) {
 			break;
-		if (!(lpBufWrite = malloc(bufsize)))
+		}
+		if (!(lpBufWrite = malloc (bufsize))) {
 			break;
-		lpBufferReal = VirtualAlloc(NULL, 1, MEM_COMMIT, PAGE_READWRITE);
-		#define bufrealsize 1024
-		if (!(lpBufferReal = malloc(bufrealsize)))
+		}
+		lpBufferReal = VirtualAlloc (NULL, 1, MEM_COMMIT, PAGE_READWRITE);
+		if (!(lpBufferReal = malloc (bufrealsize))) {
 			break;
+		}
 		for (i = 0; i < pm->NumberOfModules; i++) {
 			printf("%p = %-50s ", pMod[i].ImageBase, pMod[i].FullPathName);
 			t = (PPA)lpBuffer;
 			t->address.QuadPart = pMod[i].ImageBase;
 			t->len = 256;
-			if (!(DeviceIoControl(hDevice, IOCTL_READ_KERNEL_MEM, lpBuffer, bufsize, lpBuffer, bufsize, &bRead, NULL)))
-				printf(" [FAIL]\n");
-			else {
-				printf(" [READED]");
+			if (!(DeviceIoControl (hDevice, IOCTL_READ_KERNEL_MEM, lpBuffer, bufsize, lpBuffer, bufsize, &bRead, NULL))) {
+				printf (" [FAIL]\n");
+			} else {
+				printf (" [READED]");
 				PPAWrite = (PPA)lpBufWrite;
 				PPAWrite->address.QuadPart = pMod[i].ImageBase;
 				PPAWrite->len = 256;
-				memcpy(&PPAWrite->buffer, lpBuffer, 256);
-				if (!(DeviceIoControl(hDevice, IOCTL_WRITE_KERNEL_MEM, lpBufWrite, bufsize, lpBufWrite, bufsize, &bRead, NULL)))
-					printf(" [FAIL]");
-				else
-					printf(" [WRITED]");
+				memcpy (&PPAWrite->buffer, lpBuffer, 256);
+				if (!(DeviceIoControl (hDevice, IOCTL_WRITE_KERNEL_MEM, lpBufWrite, bufsize, lpBufWrite, bufsize, &bRead, NULL))) {
+					printf (" [FAIL]");
+				}
+				else {
+					printf (" [WRITTEN]");
+				}
 			}
-			if ((DeviceIoControl(hDevice, IOCTL_GET_PHYSADDR, &pMod[i].ImageBase, sizeof(ULONGLONG), lpBufferReal, bufrealsize, &bRead, NULL))) {
+			if ((DeviceIoControl (hDevice, IOCTL_GET_PHYSADDR, &pMod[i].ImageBase, sizeof(ULONGLONG), lpBufferReal, bufrealsize, &bRead, NULL))) {
 				t = (PPA)lpBufferReal;
 				t->len = 256;
-				if ((DeviceIoControl(hDevice, IOCTL_READ_PHYS_MEM, lpBufferReal, bufrealsize, lpBufferReal, bufrealsize, &bRead, NULL))) {
-					if (!memcmp(lpBufferReal, lpBuffer, 256)) {
-						printf(" *** Verified ***\n");
+				if ((DeviceIoControl (hDevice, IOCTL_READ_PHYS_MEM, lpBufferReal, bufrealsize, lpBufferReal, bufrealsize, &bRead, NULL))) {
+					if (!memcmp (lpBufferReal, lpBuffer, 256)) {
+						printf (" *** Verified ***\n");
 					}
 				}
 			}
@@ -114,51 +120,55 @@ void GetDriverInfo(VOID) {
 		t->address.HighPart = direccion.address.HighPart;
 		t->address.LowPart = direccion.address.LowPart;
 		t->len = 256;
-		if (!(DeviceIoControl(hDevice, IOCTL_READ_KERNEL_MEM, lpBuffer, bufsize, lpBuffer, bufsize, &bRead, NULL)))
+		if (!(DeviceIoControl (hDevice, IOCTL_READ_KERNEL_MEM, lpBuffer, bufsize, lpBuffer, bufsize, &bRead, NULL))) {
 			break;
-		
+		}
 		ULONGLONG addr = direccion.address.QuadPart;
-		if (!(DeviceIoControl(hDevice, IOCTL_GET_PHYSADDR, &addr, sizeof(ULONGLONG), lpBuffer, bufsize, &bRead, NULL)))
+		if (!(DeviceIoControl (hDevice, IOCTL_GET_PHYSADDR, &addr, sizeof(ULONGLONG), lpBuffer, bufsize, &bRead, NULL))) {
 			break;
-		
+		}
 		t = (PPA)lpBuffer;
 		//t->address.HighPart = 0;
 		//t->address.LowPart = 0x02a1d013;
 		t->len = 256;
-		if (!(DeviceIoControl(hDevice, IOCTL_READ_PHYS_MEM, lpBuffer, bufsize, lpBuffer, bufsize, &bRead, NULL)))
+		if (!(DeviceIoControl(hDevice, IOCTL_READ_PHYS_MEM, lpBuffer, bufsize, lpBuffer, bufsize, &bRead, NULL))) {
 			break;
-		
+		}
 		t = (PPA)lpBuffer;
 		t->address.HighPart = 0;
 		t->address.LowPart = 0x02a1d013;
 		t->len = 5;
 		strcpy(&t->buffer, "abcde");
-		if (!(DeviceIoControl(hDevice, IOCTL_WRITE_PHYS_MEM, lpBuffer, bufsize, lpBuffer, bufsize, &bRead, NULL)))
+		if (!(DeviceIoControl (hDevice, IOCTL_WRITE_PHYS_MEM, lpBuffer, bufsize, lpBuffer, bufsize, &bRead, NULL))) {
 			break;
-		printf("[ok] GetDriverInfo: Result = %s \n", lpBuffer);
+		}
+		printf ("[ok] GetDriverInfo: Result = %s \n", lpBuffer);
 		Status = NO_ERROR;
 	} while (FALSE);
 	if (Status != NO_ERROR) {
-		Status = GetLastError();
-		printf("[x] GetDriverInfo: Error %x\n", Status);
+		Status = GetLastError ();
+		printf ("[x] GetDriverInfo: Error %x\n", Status);
 	}
-	if (lpBuffer)
-		free(lpBuffer);
-	if (hDevice != INVALID_HANDLE_VALUE)
-		CloseHandle(hDevice);
+	if (lpBuffer) {
+		free (lpBuffer);
+	}
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle (hDevice);
+	}
 }
 
-int test() {
-	printf("Device name: %S\n", strDeviceName);
-	if (IsDriverPresent() == TRUE) {
-		printf("[ok] IsDriverPresent: Driver locaited.\n");
-		GetDriverInfo();
+int test () {
+	printf ("Device name: %S\n", strDeviceName);
+	if (IsDriverPresent () == TRUE) {
+		printf ("[ok] IsDriverPresent: Driver locaited.\n");
+		GetDriverInfo ();
 	}
-	else
-		printf("[x] !!! Error cant locate driver.\n");
+	else {
+		printf ("[x] !!! Error cant locate driver.\n");
+	}
 }
 
 int main() {
-	test();
+	test ();
 	return 0;
 }
