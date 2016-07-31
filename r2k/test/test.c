@@ -45,7 +45,7 @@ BOOL IsDriverPresent (VOID) {
 	return FALSE;
 }
 
-void GetDriverInfo (VOID) {
+void GetDriverInfo(VOID) {
 	LPVOID lpBuffer = NULL;
 	LPVOID lpBufferReal = NULL;
 	LPVOID lpBufMods = NULL;
@@ -157,7 +157,7 @@ void GetDriverInfo (VOID) {
 	}
 }
 
-int test () {
+int test() {
 	printf ("Device name: %S\n", strDeviceName);
 	if (IsDriverPresent () == TRUE) {
 		printf ("[ok] IsDriverPresent: Driver locaited.\n");
