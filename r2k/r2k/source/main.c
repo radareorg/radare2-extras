@@ -203,7 +203,7 @@ NTSTATUS OnDriverDeviceControl(IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp) {
 				break;
 			}
 		} __except (EXCEPTION_EXECUTE_HANDLER) {
-			Status = GetExceptionCodei ();
+			Status = GetExceptionCode ();
 			DbgPrint ("[R2K] IOCTL_READ_KERNEL_MEM ERROR: exception code 0x%X\n", Status);
 			break;
 		}
@@ -353,7 +353,7 @@ NTSTATUS onDriverClose(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp) {
 	UNREFERENCED_PARAMETER (DeviceObject);
 	Irp->IoStatus.Status = STATUS_SUCCESS;
 	Irp->IoStatus.Information = 0;
-	IoCompleteReques t(Irp, IO_NO_INCREMENT);
+	IoCompleteRequest(Irp, IO_NO_INCREMENT);
 	return (STATUS_SUCCESS);
 }
 
