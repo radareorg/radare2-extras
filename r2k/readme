@@ -14,6 +14,7 @@
 2. Build r2k.sys on Windows Using VS2015
 ----------------------------------------------------
 - Install VS2015 comunity edition from https://www.visualstudio.com/
+- Install SDK https://developer.microsoft.com/es-es/windows/downloads/windows-10-sdk
 - Install WDK from https://developer.microsoft.com/es-es/windows/hardware/windows-driver-kit
 - Open r2k.sln
 - Select arch and build 
