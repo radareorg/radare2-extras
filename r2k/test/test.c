@@ -45,7 +45,7 @@ BOOL IsDriverPresent (VOID) {
 	return FALSE;
 }
 
-void GetDriverInfo(VOID) {
+void GetDriverInfo (VOID) {
 	LPVOID lpBuffer = NULL;
 	LPVOID lpBufferReal = NULL;
 	LPVOID lpBufMods = NULL;
@@ -58,29 +58,29 @@ void GetDriverInfo(VOID) {
 	CHAR * buffer;
 	int i;
 	do {
-#define bufmodsize 1024*1024
-#define bufsize 1024
-#define bufrealsize 1024
-		if (!(lpBufMods = malloc (bufmodsize))) {
+#define BUFMODSIZE 1024*1024
+#define BUFSIZE 1024
+#define BUFREADSIZE 1024
+		if (!(lpBufMods = malloc (BUFMODSIZE))) {
 			break;
 		}
 		hDevice = CreateFile (strDeviceName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0);
 		if (hDevice == INVALID_HANDLE_VALUE) {
 			break;
 		}
-		if (!(DeviceIoControl (hDevice, IOCTL_GET_SYSTEM_MODULES, lpBufMods, bufmodsize, lpBufMods, bufmodsize, &bRead, NULL))) {
+		if (!(DeviceIoControl (hDevice, IOCTL_GET_SYSTEM_MODULES, lpBufMods, BUFMODSIZE, lpBufMods, BUFMODSIZE, &bRead, NULL))) {
 			break;
 		}
 		PRTL_PROCESS_MODULES pm = (PRTL_PROCESS_MODULES)lpBufMods;
 		PRTL_PROCESS_MODULE_INFORMATION pMod = pm->Modules;
-		if (!(lpBuffer = malloc (bufsize))) {
+		if (!(lpBuffer = malloc (BUFSIZE))) {
 			break;
 		}
-		if (!(lpBufWrite = malloc (bufsize))) {
+		if (!(lpBufWrite = malloc (BUFSIZE))) {
 			break;
 		}
 		lpBufferReal = VirtualAlloc (NULL, 1, MEM_COMMIT, PAGE_READWRITE);
-		if (!(lpBufferReal = malloc (bufrealsize))) {
+		if (!(lpBufferReal = malloc (BUFREADSIZE))) {
 			break;
 		}
 		for (i = 0; i < pm->NumberOfModules; i++) {
@@ -88,7 +88,7 @@ void GetDriverInfo(VOID) {
 			t = (PPA)lpBuffer;
 			t->address.QuadPart = pMod[i].ImageBase;
 			t->len = 256;
-			if (!(DeviceIoControl (hDevice, IOCTL_READ_KERNEL_MEM, lpBuffer, bufsize, lpBuffer, bufsize, &bRead, NULL))) {
+			if (!(DeviceIoControl (hDevice, IOCTL_READ_KERNEL_MEM, lpBuffer, BUFSIZE, lpBuffer, BUFSIZE, &bRead, NULL))) {
 				printf (" [FAIL]\n");
 			} else {
 				printf (" [READED]");
@@ -96,17 +96,17 @@ void GetDriverInfo(VOID) {
 				PPAWrite->address.QuadPart = pMod[i].ImageBase;
 				PPAWrite->len = 256;
 				memcpy (&PPAWrite->buffer, lpBuffer, 256);
-				if (!(DeviceIoControl (hDevice, IOCTL_WRITE_KERNEL_MEM, lpBufWrite, bufsize, lpBufWrite, bufsize, &bRead, NULL))) {
+				if (!(DeviceIoControl (hDevice, IOCTL_WRITE_KERNEL_MEM, lpBufWrite, BUFSIZE, lpBufWrite, BUFSIZE, &bRead, NULL))) {
 					printf (" [FAIL]");
 				}
 				else {
 					printf (" [WRITTEN]");
 				}
 			}
-			if ((DeviceIoControl (hDevice, IOCTL_GET_PHYSADDR, &pMod[i].ImageBase, sizeof(ULONGLONG), lpBufferReal, bufrealsize, &bRead, NULL))) {
+			if ((DeviceIoControl (hDevice, IOCTL_GET_PHYSADDR, &pMod[i].ImageBase, sizeof(ULONGLONG), lpBufferReal, BUFREADSIZE, &bRead, NULL))) {
 				t = (PPA)lpBufferReal;
 				t->len = 256;
-				if ((DeviceIoControl (hDevice, IOCTL_READ_PHYS_MEM, lpBufferReal, bufrealsize, lpBufferReal, bufrealsize, &bRead, NULL))) {
+				if ((DeviceIoControl (hDevice, IOCTL_READ_PHYS_MEM, lpBufferReal, BUFREADSIZE, lpBufferReal, BUFREADSIZE, &bRead, NULL))) {
 					if (!memcmp (lpBufferReal, lpBuffer, 256)) {
 						printf (" *** Verified ***\n");
 					}
@@ -120,18 +120,18 @@ void GetDriverInfo(VOID) {
 		t->address.HighPart = direccion.address.HighPart;
 		t->address.LowPart = direccion.address.LowPart;
 		t->len = 256;
-		if (!(DeviceIoControl (hDevice, IOCTL_READ_KERNEL_MEM, lpBuffer, bufsize, lpBuffer, bufsize, &bRead, NULL))) {
+		if (!(DeviceIoControl (hDevice, IOCTL_READ_KERNEL_MEM, lpBuffer, BUFSIZE, lpBuffer, BUFSIZE, &bRead, NULL))) {
 			break;
 		}
 		ULONGLONG addr = direccion.address.QuadPart;
-		if (!(DeviceIoControl (hDevice, IOCTL_GET_PHYSADDR, &addr, sizeof(ULONGLONG), lpBuffer, bufsize, &bRead, NULL))) {
+		if (!(DeviceIoControl (hDevice, IOCTL_GET_PHYSADDR, &addr, sizeof(ULONGLONG), lpBuffer, BUFSIZE, &bRead, NULL))) {
 			break;
 		}
 		t = (PPA)lpBuffer;
 		//t->address.HighPart = 0;
 		//t->address.LowPart = 0x02a1d013;
 		t->len = 256;
-		if (!(DeviceIoControl(hDevice, IOCTL_READ_PHYS_MEM, lpBuffer, bufsize, lpBuffer, bufsize, &bRead, NULL))) {
+		if (!(DeviceIoControl(hDevice, IOCTL_READ_PHYS_MEM, lpBuffer, BUFSIZE, lpBuffer, BUFSIZE, &bRead, NULL))) {
 			break;
 		}
 		t = (PPA)lpBuffer;
@@ -139,7 +139,7 @@ void GetDriverInfo(VOID) {
 		t->address.LowPart = 0x02a1d013;
 		t->len = 5;
 		strcpy(&t->buffer, "abcde");
-		if (!(DeviceIoControl (hDevice, IOCTL_WRITE_PHYS_MEM, lpBuffer, bufsize, lpBuffer, bufsize, &bRead, NULL))) {
+		if (!(DeviceIoControl (hDevice, IOCTL_WRITE_PHYS_MEM, lpBuffer, BUFSIZE, lpBuffer, BUFSIZE, &bRead, NULL))) {
 			break;
 		}
 		printf ("[ok] GetDriverInfo: Result = %s \n", lpBuffer);
