@@ -1,7 +1,6 @@
 .CODE 
 PUBLIC DisableMemoryProtection
 PUBLIC EnableMemoryProtection
-
 DisableMemoryProtection PROC
 	push rax
 	mov  rax, CR0
@@ -10,7 +9,6 @@ DisableMemoryProtection PROC
 	pop  rax
 	ret
 DisableMemoryProtection ENDP
-
 EnableMemoryProtection PROC
 	push rax
 	mov  rax, CR0

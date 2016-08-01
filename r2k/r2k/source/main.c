@@ -37,8 +37,9 @@ PVOID GetKernelBase(OUT PULONG pSize) {
 	ULONG i;
 	// Already found
 	if (g_KernelBase != NULL) {
-		if (pSize)
+		if (pSize) {
 			*pSize = g_KernelSize;
+		}
 		return g_KernelBase;
 	}
 	RtlUnicodeStringInit (&routineName, L"NtOpenFile");
@@ -59,8 +60,9 @@ PVOID GetKernelBase(OUT PULONG pSize) {
 				checkPtr < (PVOID)((PUCHAR)pMod[i].ImageBase + pMod[i].ImageSize)) {
 				g_KernelBase = pMod[i].ImageBase;
 				g_KernelSize = pMod[i].ImageSize;
-				if (pSize)
+				if (pSize) {
 					*pSize = g_KernelSize;
+				}
 			}
 		}
 	}
@@ -159,7 +161,7 @@ NTSTATUS OnDriverDeviceControl(IN PDEVICE_OBJECT DeviceObject,IN PIRP Irp) {
 			DbgPrint ("[R2K] IOCTL_READ_KERNEL_MEM ERROR: exception code 0x%X\n", Status);
 			break;
 		}
-		if (NT_SUCCESS(Status)) {
+		if (NT_SUCCESS (Status)) {
 			dwBytesWritten = len;
 		}
 		break;
