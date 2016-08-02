@@ -1,3 +1,5 @@
+/* radare2 - GPL3 - Copyright 2016 - ibabushkin */
+
 #include <stdbool.h>
 #include <r_lib.h>
 #include <r_asm.h>

@@ -1,10 +1,7 @@
 include ../options.mk
 
-CFLAGS+=$(R2_CFLAGS)
+CFLAGS+=$(R2_CFLAGS) -Wall -shared -fPIC $(LDFLAGS_LIB) -DLIL_ENDIAN=1
 LDLAGS+=$(R2_LDFLAGS)
-
-CFLAGS+=-Wall -shared -fPIC $(LDFLAGS_LIB)
-CFLAGS+=-DLIL_ENDIAN=1
 
 LDFLAGS+=$(LINK) -lr_util
 DESTDIR?=
@@ -14,18 +11,11 @@ CURDIR=
 TARGET_ASM=asm_agc.$(LIBEXT)
 TARGET_ANAL=anal_agc.$(LIBEXT)
 
-OBJ_ASM=
-OBJ_ASM+=asm.o
-OBJ_ASM+=asm_main.o
+OBJ_ASM=asm.o asm_main.o
 
-OBJ_ANAL=
-OBJ_ANAL+=asm.o
-OBJ_ANAL+=anal.o
-OBJ_ANAL+=anal_main.o
+OBJ_ANAL=asm.o anal.o anal_main.o
 
-ALL_TARGETS=
-ALL_TARGETS+=$(TARGET_ASM)
-ALL_TARGETS+=$(TARGET_ANAL)
+ALL_TARGETS= $(TARGET_ASM) $(TARGET_ANAL)
 
 all: $(ALL_TARGETS)
 
