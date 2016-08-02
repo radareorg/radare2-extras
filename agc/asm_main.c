@@ -1,11 +1,22 @@
+/* radare2 - GPL3 - Copyright 2016 - ibabushkin */
+
+#include <stdbool.h>
 #include <r_lib.h>
 #include <r_asm.h>
-#include "../arch/agc/asm_agc.h"
+#include "asm.h"
 
 static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
+    // default values
     op->buf_asm[0] = 0;
-    disasm_instruction (a->pc, ((const ut16 *)buf)[0], op->buf_asm, R_ASM_BUFSIZE);
     op->size = 2;
+
+    agc_insn_t insn = {0};
+    disasm_agc_insn (&insn, a->pc, ((const ut16 *)buf)[0], false);
+
+    // we sometimes pass more arguments than the format string takes, but who
+    // cares?
+    snprintf (op->buf_asm, R_ASM_BUFSIZE, agc_mnemonics[insn.type], insn.operand);
+
     return op->size;
 }
 
