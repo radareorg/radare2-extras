@@ -1,0 +1,12 @@
+PKGNAME radare2-extras-ssdeep
+VERSION 1.0
+
+REPORT PREFIX ;
+
+LANG_C!
+
+CHKLIB! fuzzy
+PKGCFG! SD_CFLAGS SD_LDFLAGS ssdeep
+PKGCFG! R2_CFLAGS R2_LDFLAGS r_core
+
+SUBDIRS . ;

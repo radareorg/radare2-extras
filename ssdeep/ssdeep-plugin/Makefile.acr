@@ -1,0 +1,47 @@
+PWD=$(shell pwd)
+R2VERSION=@R2VERSION@
+DESTDIR=
+PREFIX=@PREFIX@
+HOST_OS=@HOST_OS@
+LIBDIR=@LIBDIR@
+INSTALL_LIB=@INSTALL_LIB@
+
+#LIBYARA_CFLAGS=@LIBYARA_CFLAGS@
+#LIBYARA_LDFLAGS=@LIBYARA_LDFLAGS@
+LIBSSDEEP_CFLAGS=
+LIBSSDEEP_LDFLAGS=-lfuzzy
+R2_CFLAGS=@R2_CFLAGS@
+R2_LDFLAGS=@R2_LDFLAGS@
+SD_CFLAGS=@SD_CFLAGS@
+SD_LDFLAGS=@SD_LDFLAGS@
+
+CFLAGS+=${R2_CFLAGS} ${LIBSSDEEP_CFLAGS} ${SD_CFLAGS}
+LDFLAGS+=${R2_LDFLAGS} ${LIBSSDEEP_LDFLAGS} ${SD_LDFLAGS}
+CFLAGS+=-I. -fPIC
+LDFLAGS+=-shared
+
+ifneq ("$(wildcard ../../options.mk)","")
+include ../../options.mk
+endif
+
+MOD=core_ssdeep
+
+all: $(MOD).$(LIBEXT)
+
+$(MOD).$(LIBEXT): ${MOD}.o
+	${CC} ${MOD}.o ${CFLAGS} ${LDFLAGS} -o ${MOD}.${LIBEXT}
+
+clean:
+	rm -f ${MOD}.o ${MOD}.${LIBEXT}
+
+mrproper: clean
+	rm -f Makefile
+
+install:
+	${INSTALL_LIB} ${MOD}.${LIBEXT} $(R2PM_PLUGDIR)/${MOD}.${LIBEXT}
+
+symstall:
+	ln -fs ${PWD}/${MOD}.${LIBEXT} $(R2PM_PLUGDIR)/$(MOD).$(LIBEXT)
+
+uninstall:
+	rm -f ${R2PM_PLUGDIR}/$(MOD).$(LIBEXT)
