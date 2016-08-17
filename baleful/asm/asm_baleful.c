@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2014-2015 - SkUaTeR */
+/* radare - LGPL - Copyright 2014-2016 - SkUaTeR */
 
 #include <stdio.h>
 #include <string.h>
@@ -6,21 +6,20 @@
 #include <r_lib.h>
 #include <r_asm.h>
 
-int asm_baleful_getregs(const ut8 *buf, char * b, char * oper, int type) {
-	const ut8 * c;
-	const ut8  *r0;
-	const ut8  *r1;
-	const ut8  *r2;
-	const ut8  *r3;
+static int asm_baleful_getregs(const ut8 *buf, char * b, char * oper, int type) {
+	const ut8 *c = buf + 1;
+	const ut8 *r0;
+	const ut8 *r1;
+	const ut8 *r2;
+	const ut8 *r3;
 	const ut32 *imm;
 	const ut32 *imm1;
+	int size = 0;
 
-	int size=0;
-	c   = buf+1;
-	switch(type) {
+	switch (type) {
 	case 0: // 8 8 11 5
 		r0  = buf + 2;
-		switch(*c) {
+		switch (*c) {
 		case 1:
 			r1  = buf + 3;
 			imm = (ut32*)(buf + 4);
@@ -333,7 +332,7 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	return op->size;
 }
 
-RAsmPlugin r_asm_plugin_baleful = {
+static RAsmPlugin r_asm_plugin_baleful = {
 	.name = "baleful",
 	.arch = "baleful",
 	.license = "LGPL3",
@@ -343,10 +342,7 @@ RAsmPlugin r_asm_plugin_baleful = {
 	//.assemble =null// &assemble
 };
 
-#ifndef CORELIB
-struct r_lib_struct_t radare_plugin = {
+RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_ASM,
 	.data = &r_asm_plugin_baleful
-
 };
-#endif
