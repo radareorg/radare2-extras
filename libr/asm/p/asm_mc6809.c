@@ -1090,14 +1090,14 @@ static int mc6809_disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 		break;
 	case RELATIVE:
 		op->size += 2;
-		sprintf (op->buf_asm, "%s $%02x",
+		sprintf (op->buf_asm, "%s $%04x",
 			mc6809_opcode->name,
-			(*opcode_args + op->size) & 0xFF);
+			(ut16) (a->pc + (st8) *opcode_args + op->size) & 0xFFFF);
 		break;
 	case RELATIVELONG:
 		op->size += 3;
 		sprintf (op->buf_asm, "%s $%04x", mc6809_opcode->name,
-			(opcode_args[0]*256+opcode_args[1]+op->size) & 0xFFFF);
+			(ut16) (a->pc + (st16)(opcode_args[0]*256+opcode_args[1])+op->size) & 0xFFFF);
 		break;
 	case TFREXG:
 		/* In the transfer/exchange mode, both top bits of the
