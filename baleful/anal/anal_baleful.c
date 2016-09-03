@@ -340,15 +340,15 @@ static int baleful_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 		op->size = getp(buf,p0,p1,p2,p3,0);
 		r_strbuf_setf (&op->esil, "%s,%s,|,%s,=",p2,p1,p0);
 		break;
-	case 12: // 8 8 11 5 ROL <<<<
+	case 12: // 8 8 11 5 ROL <<<
 		op->type = R_ANAL_OP_TYPE_ROL;
 		op->size = getp(buf,p0,p1,p2,p3,0);
-		r_strbuf_setf (&op->esil, "%s,%s,<<<<,%s,=",p2,p1,p0);
+		r_strbuf_setf (&op->esil, "%s,%s,<<<,%s,=",p2,p1,p0);
 		break;
-	case 13: // 8 8 11 5 ROR >>>>
+	case 13: // 8 8 11 5 ROR >>>
 		op->type = R_ANAL_OP_TYPE_ROR;
 		op->size = getp(buf,p0,p1,p2,p3,0);
-		r_strbuf_setf (&op->esil, "%s,%s,>>>>,%s,=",p2,p1,p0);
+		r_strbuf_setf (&op->esil, "%s,%s,>>>,%s,=",p2,p1,p0);
 		break;
 	case 25: //          ++
 		op->type = R_ANAL_OP_TYPE_ADD;
