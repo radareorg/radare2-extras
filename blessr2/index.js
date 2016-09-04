@@ -343,28 +343,36 @@ function layout(style) {
 function uiNewFrame(r2, cmd, opts) {
     const box = newBox(cmd, opts || {
         width: 80,
-        height: '40%'
+        height: '60%'
     });
-    if (cmd && box.cmd) {
-        r2.cmd(box.cmd, (txt) => {
-            box.setContent(txt);
-            screen.render();
-        });
-    }
     box.setContent('Loading...');
+    if (cmd && box.cmd) {
+        refreshBox (r2, box);
+    }
     box.focus();
     screen.append(box);
     screen.render();
     return box;
 }
 
-function refreshCurrentBox(r2) {
-    const box = screen.focused;
-    if (!box) return;
+function refreshBox(r2, box) {
+    if (!box || !box.cmd) {
+        return;
+    }
     r2.cmd(box.cmd, (txt) => {
         box.setContent(txt);
         screen.render();
     });
+}
+
+function refreshCurrentBox(r2) {
+    return refreshBox(r2, screen.focused);
+}
+
+function refreshAllBoxes(r2, box) {
+    for (let box of screen.children) {
+        refreshBox(r2, box);
+    }
 }
 
 function keysHelp() {
@@ -551,13 +559,16 @@ function stepInto(r2, box) {
             r2.cmd(bgbox.cmd, (txt) => {
                 bgbox.setContent(txt);
                 screen.render();
+refreshAllBoxes(r2);
             });
+/*
             if (regs !== undefined) {
                 r2.cmd(regs.cmd, (txt) => {
                     regs.setContent(txt);
                     screen.render();
                 });
             }
+*/
         });
     });
     screen.render();
@@ -637,6 +648,9 @@ function handleKeys(r2) {
             uiNewFrame(r2, 'af;agf');
         }],
         ['n', () => {
+            nextWindow();
+        }],
+        ['tab', () => {
             nextWindow();
         }],
         ['S-n', () => {
@@ -723,6 +737,9 @@ function handleKeys(r2) {
             const box = uiNewFrame(r2, '');
             box.setContent(keysHelp());
             screen.render();
+        }],
+        ['S-r', () => {
+            refreshAllBoxes(r2);
         }],
         ['S-e', () => {
             let ef = uiNewFrame(r2, 'e??', {
