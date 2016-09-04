@@ -506,6 +506,10 @@ function prevWindow() {
     screen.render();
 }
 
+function seekToLine(r2, box) {
+    return activateLine(r2, box);
+}
+
 function activateLine(r2, box) {
     if (box) {
         const item = box.items ? box.items[box.selected] : undefined;
@@ -632,9 +636,15 @@ function handleKeys(r2) {
         ['a', () => {
             uiNewFrame(r2, 'af;agf');
         }],
-        ['n', nextWindow],
-        ['S-n', prevWindow],
-        ['s', stepInto],
+        ['n', () => {
+            nextWindow();
+        }],
+        ['S-n', () => {
+            prevWindow();
+        }],
+        ['s', () => {
+            stepInto(r2, screen.focused);
+        }],
         [';', () => {
             addComment(r2, screen.focused);
         }],
