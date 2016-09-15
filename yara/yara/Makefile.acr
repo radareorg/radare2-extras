@@ -24,7 +24,7 @@ ifneq ("$(wildcard ../../options.mk)","")
 include ../../options.mk
 endif
 
-MOD=core_yara3
+MOD=core_yara
 
 all: $(MOD).$(LIBEXT)
 

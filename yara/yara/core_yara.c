@@ -306,7 +306,7 @@ err_exit:
 
 static int r_cmd_yara_help(const RCore* core) {
 	const char * help_message[] = {
-		"Usage: yara3", "", " Yara plugin",
+		"Usage: yara", "", " Yara plugin",
 		"add", " [file]", "Add yara rules from file, or open $EDITOR with yara rule template",
 		"clear", "", "Clear all rules",
 		"help", "", "Show this help",
@@ -345,9 +345,9 @@ static int r_cmd_yara_process(const RCore* core, const char* input) {
 static int r_cmd_yara_call(void *user, const char *input) {
 	const char *args;
 	const RCore* core = (RCore*) user;
-	if (strncmp (input, "yara3", 5))
+	if (strncmp (input, "yara", 4))
 		return false;
-	else if (strncmp (input, "yara3 ", 6))
+	else if (strncmp (input, "yara ", 5))
 		return r_cmd_yara_help (core);
 	args = input+5;
 	if (! initialized)
@@ -436,9 +436,9 @@ static int r_cmd_yara_deinit(){
 	return true;
 }
 
-RCorePlugin r_core_plugin_yara3 = {
-	.name = "yara3",
-	.desc = "YARA V3 integration",
+RCorePlugin r_core_plugin_yara = {
+	.name = "yara",
+	.desc = "YARA integration",
 	.license = "LGPL",
 	.call = r_cmd_yara_call,
 	.init = r_cmd_yara_init,
@@ -448,7 +448,7 @@ RCorePlugin r_core_plugin_yara3 = {
 #ifndef CORELIB
 RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_CORE,
-	.data = &r_core_plugin_yara3,
+	.data = &r_core_plugin_yara,
         .version = R2_VERSION
 };
 #endif
