@@ -16,6 +16,7 @@ static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 		break;
 	case 64:
 		arch = KS_ARCH_ARM64;
+		mode = KS_MODE_LITTLE_ENDIAN;
 		break;
 	}
 	if (a->big_endian) {
