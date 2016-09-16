@@ -50,7 +50,9 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 	memcpy (ao->buf, insn, size);
 beach:
 	ks_free (insn);
-	ks_close (ks);
-	ks = NULL;
+	if (ks) {
+		ks_close (ks);
+		ks = NULL;
+	}
 	return size;
 }
