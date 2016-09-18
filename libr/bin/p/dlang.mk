@@ -13,7 +13,7 @@ DLANG_LDFLAGS+=-lphobos2-ldc
 DMD=ldc2 -relocation-model=pic
 
 dmangle.o:
-	$(DMD) -c ../arch/dlang/dmangle.d
+	$(DMD) -c ../format/dlang/dmangle.d
 
 ${TARGET_DLANG}: ${OBJ_DLANG}
 	${CC} $(call libname,bin_dlang) ${LDFLAGS} $(DLANG_LDFLAGS) \
