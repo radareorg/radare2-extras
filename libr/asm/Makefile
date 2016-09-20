@@ -6,8 +6,9 @@ msil:
 
 tab:
 	cd p ; $(MAKE) asm_x86_tab.$(LIBEXT)
-
+	
 clean:
 	rm -f p/asm_x86_bea.$(LIBEXT)
+	rm -f p/asm_x86_tab.$(LIBEXT)
 
 include ../../options.mk
