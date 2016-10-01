@@ -28,13 +28,23 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 		if (err || !ks) {
 			eprintf ("Cannot initialize keystone\n");
 			size = -1;
-			goto beach;
+			ks_free (insn);
+			if (ks) {
+				ks_close (ks);
+				ks = NULL;
+			}
+			return size;
 		}
 	}
 
 	if (!ks) {
 		size = -1;
-		goto beach;
+		ks_free (insn);
+		if (ks) {
+			ks_close (ks);
+			ks = NULL;
+		}
+		return size;
 	}
 	if (a->syntax == R_ASM_SYNTAX_ATT) {
 		ks_option (ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_ATT);
@@ -45,7 +55,12 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 	if (rc) {
 		eprintf ("%s\n", ks_strerror ((ks_err)ks_errno (ks)));
 		size = -1;
-		goto beach;
+		ks_free (insn);
+		if (ks) {
+			ks_close (ks);
+			ks = NULL;
+		}
+		return size;
 	}
 	memcpy (ao->buf, insn, size);
 beach:
