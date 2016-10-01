@@ -6,9 +6,8 @@ static int oldbit = 0;
 
 static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch, ks_mode mode) {
 	ks_err err = KS_ERR_ARCH;
-	size_t count;
-	size_t size;
 	bool must_init = false;
+	size_t count, size;
 	ut8 *insn = NULL;
 
 	if (!ks_arch_supported (arch)) {
@@ -27,24 +26,22 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 		err = ks_open (arch, mode, &ks);
 		if (err || !ks) {
 			eprintf ("Cannot initialize keystone\n");
-			size = -1;
 			ks_free (insn);
 			if (ks) {
 				ks_close (ks);
 				ks = NULL;
 			}
-			return size;
+			return -1;
 		}
 	}
 
 	if (!ks) {
-		size = -1;
 		ks_free (insn);
 		if (ks) {
 			ks_close (ks);
 			ks = NULL;
 		}
-		return size;
+		return -1;
 	}
 	if (a->syntax == R_ASM_SYNTAX_ATT) {
 		ks_option (ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_ATT);
@@ -53,17 +50,15 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 	}
 	int rc = ks_asm (ks, str, a->pc, &insn, &size, &count);
 	if (rc) {
-		eprintf ("%s\n", ks_strerror ((ks_err)ks_errno (ks)));
-		size = -1;
+		eprintf ("ks_asm: %s\n", ks_strerror ((ks_err)ks_errno (ks)));
 		ks_free (insn);
 		if (ks) {
 			ks_close (ks);
 			ks = NULL;
 		}
-		return size;
+		return -1;
 	}
-	memcpy (ao->buf, insn, size);
-beach:
+	memcpy (ao->buf, insn, R_MIN (size, sizeof (ao->buf) -1));
 	ks_free (insn);
 	if (ks) {
 		ks_close (ks);
