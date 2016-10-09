@@ -1,5 +1,5 @@
 all:
-	cd ../libr/debug ; PKG_CONFIG_PATH=/usr/lib/pkgconfig $(MAKE)
+	$(MAKE) -C ../libr/debug
 
 install:
 	$(MAKE) -C .. unicorn-install
