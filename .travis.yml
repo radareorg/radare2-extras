@@ -57,8 +57,7 @@ env:
   - TESTS="r2pm -i www-t"
   - TESTS="r2pm -i x86bea"
   - TESTS="r2pm -i x86tab"
-  - TESTS="r2pm -i yara2-lib && r2pm -i yara2"
-  - TESTS="r2pm -i yara3-lib && r2pm -i yara3"
+  - TESTS="r2pm -i yara-lib && r2pm -i yara"
 sudo:
   - false
 language:
