@@ -10,16 +10,16 @@ a curses-like library and r2pipe.
 Installation
 ------------
 
-	$ r2pm -i bless-r2
+	$ r2pm -i blessr2
 
 or
 
-	$ npm install -g bless-r2
+	$ npm install -g blessr2
 
 Usage
 -----
 
-	$ $(npm bin)/bless-r2 -h
+	$ $(npm bin)/blessr2 -h
 	Usage: blessr2 [-Htnwd] [file|url]
 
 or from r2
