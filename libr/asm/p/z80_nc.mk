@@ -1,7 +1,6 @@
 OBJ_Z80=../arch/z80_nc/z80.o \
 	../arch/z80_nc/disasm.o \
 	../arch/z80_nc/test.o \
-	../arch/z80_nc/z80asm.o \
 	asm_z80_nc.o
 
 STATIC_OBJ+=${OBJ_Z80}
