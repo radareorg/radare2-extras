@@ -1,371 +1,296 @@
-/* radare - LGPL - Copyright 2015 - Dāvis */
+/*
+ *  File Name: mdmp.c
+ *  Project: Radare2
+ *
+ *  Copyright: 2016. LGPL. All right reserved.
+ *
+ *  NOTE:
+ *    1. TODO: Perform full parsing of MDMP!
+ */
+
+/*******************************************************************************
+ *  Includes
+ ******************************************************************************/
+
 #include <r_util.h>
 
 #include "mdmp.h"
 
-struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf) {
-	struct r_bin_mdmp_obj *obj = R_NEW0(struct r_bin_mdmp_obj);
-	if (!obj) return NULL;
-	obj->b = r_buf_new_with_buf (buf);
-	if (!obj->b) {
-		eprintf ("r_bin_mdmp_new_buf: r_buf_new_with_buf failed\n");
-		r_bin_mdmp_free (obj);
-		return NULL;
-	}
-	obj->kv = sdb_new0 ();
-	if (!r_bin_mdmp_init (obj)) {
-		r_bin_mdmp_free (obj);
-		return NULL;
-	}
-	return obj;
+/*******************************************************************************
+ *  Functions
+ ******************************************************************************/
+
+ut64 r_bin_mdmp_get_baddr(struct r_bin_mdmp_obj *obj) {
+  return (ut64)(obj->b->buf);
+}
+
+static bool r_bin_mdmp_init_hdr(struct r_bin_mdmp_obj *obj) {
+  obj->hdr = (struct minidump_header *)obj->b->buf;
+
+  sdb_num_set(obj->kv, "mdmp.hdr.time_date_stamp", obj->hdr->time_date_stamp, 0);
+  sdb_num_set(obj->kv, "mdmp.hdr.flags", obj->hdr->flags, 0);
+
+  if (obj->hdr->number_of_streams == 0) {
+    eprintf("Warning: No streams present!\n");
+    return false;
+  }
+
+  if (obj->hdr->stream_directory_rva < sizeof(struct minidump_header))
+  {
+    eprintf("Error: RVA for directory resides in the header!\n");
+    return false;
+  }
+
+  if (obj->hdr->check_sum != 0) {
+    eprintf("TODO: Checksum present but needs validating!\n");
+    return false;
+  }
+
+  return true;
+}
+
+
+static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct minidump_directory *entry) {
+  int i;
+
+  struct minidump_handle_operation_list *handle_operation_list;
+  struct minidump_memory_list *memory_list;
+  struct minidump_memory64_list *memory64_list;
+  struct minidump_memory_info_list *memory_info_list;
+  struct minidump_module_list *module_list;
+  struct minidump_thread_list *thread_list;
+  struct minidump_thread_ex_list *thread_ex_list;
+  struct minidump_thread_info_list *thread_info_list;
+  struct minidump_unloaded_module_list *unloaded_module_list;
+
+  struct avrf_handle_operation *handle_operations;
+  struct minidump_memory_descriptor *memories;
+  struct minidump_memory_descriptor64 *memories64;
+  struct minidump_memory_info *memory_infos;
+  struct minidump_module *modules;
+  struct minidump_thread *threads;
+  struct minidump_thread_ex *ex_threads;
+  struct minidump_thread_info *thread_infos;
+  struct minidump_unloaded_module *unloaded_modules;
+
+  /* We could confirm data sizes but a malcious MDMP will always get around
+   * this! But we can ensure that the data is not outside of the file */
+  if (entry->location.rva + entry->location.data_size > obj->b->length)
+  {
+    eprintf("ERROR: Size Mismatch - Stream data is larger than file size!\n");
+    return false;
+  }
+
+  switch (entry->stream_type) {
+    case THREAD_LIST_STREAM:
+      thread_list = (struct minidump_thread_list *)(obj->b->buf + entry->location.rva);
+      for (i = 0; i < thread_list->number_of_threads; i++) {
+        threads = (struct minidump_thread *)(&(thread_list->threads));
+        r_list_append(obj->streams.threads, &(threads[i]));
+      }
+
+      break;
+    case MODULE_LIST_STREAM:
+      module_list = (struct minidump_module_list *)(obj->b->buf + entry->location.rva);
+      for (i = 0; i < module_list->number_of_modules; i++) {
+        modules = (struct minidump_module *)(&(module_list->modules));
+        r_list_append(obj->streams.modules, &(modules[i]));
+      };
+      break;
+    case MEMORY_LIST_STREAM:
+      memory_list = (struct minidump_memory_list *)(obj->b->buf + entry->location.rva);
+      for (i = 0; i < memory_list->number_of_memory_ranges; i++) {
+        memories = (struct minidump_memory_descriptor *)(&(memory_list->memory_ranges));
+        r_list_append(obj->streams.memories, &(memories[i]));
+      }
+
+      break;
+    case EXCEPTION_STREAM:
+      obj->streams.exception = (struct minidump_exception_stream *)(obj->b->buf + entry->location.rva);
+
+      break;
+    case SYSTEM_INFO_STREAM:
+      obj->streams.system_info = (struct minidump_system_info *)(obj->b->buf + entry->location.rva);
+
+      break;
+    case THREAD_EX_LIST_STREAM:
+      thread_ex_list = (struct minidump_thread_ex_list *)(obj->b->buf + entry->location.rva);
+      for (i = 0; i < thread_ex_list->number_of_threads; i++) {
+        ex_threads = (struct minidump_thread_ex *)(&(thread_ex_list->threads));
+        r_list_append(obj->streams.ex_threads, &(ex_threads[i]));
+      }
+
+      break;
+    case MEMORY_64_LIST_STREAM:
+      memory64_list = (struct minidump_memory64_list *)(obj->b->buf + entry->location.rva);
+      obj->streams.memories64.base_rva = memory64_list->base_rva;
+      for (i = 0; i < memory64_list->number_of_memory_ranges; i++) {
+        memories64 = (struct minidump_memory_descriptor64 *)(&(memory64_list->memory_ranges));
+        r_list_append(obj->streams.memories64.memories, &(memories64[i]));
+      }
+
+      break;
+    case COMMENT_STREAM_A:
+      obj->streams.comments_a = obj->b->buf + entry->location.rva;
+
+      break;
+    case COMMENT_STREAM_W:
+      obj->streams.comments_w = obj->b->buf + entry->location.rva;
+
+      break;
+    case HANDLE_DATA_STREAM:
+      obj->streams.handle_data = (struct minidump_handle_data_stream *)(obj->b->buf + entry->location.rva);
+
+      break;
+    case FUNCTION_TABLE_STREAM:
+      obj->streams.function_table = (struct minidump_function_table_stream *)(obj->b->buf + entry->location.rva);
+
+      break;
+    case UNLOADED_MODULE_LIST_STREAM:
+      unloaded_module_list = (struct minidump_unloaded_module_list *)(obj->b->buf + entry->location.rva);
+      for (i = 0; i < unloaded_module_list->number_of_entries; i++) {
+        unloaded_modules = (struct minidump_unloaded_module *)((ut8 *)&unloaded_module_list + sizeof(struct minidump_unloaded_module_list));
+        r_list_append(obj->streams.unloaded_modules, &(unloaded_modules[i]));
+      }
+
+      break;
+    case MISC_INFO_STREAM:
+      obj->streams.misc_info.misc_info_1 = (struct minidump_misc_info *)(obj->b->buf + entry->location.rva);
+
+      break;
+    case MEMORY_INFO_LIST_STREAM:
+      memory_info_list = (struct minidump_memory_info_list *)(obj->b->buf + entry->location.rva);
+      for (i = 0; i < memory_info_list->number_of_entries; i++) {
+        memory_infos = (struct minidump_memory_info *)((ut8 *)memory_info_list + sizeof(struct minidump_memory_info_list));
+        r_list_append(obj->streams.memory_infos, &(memory_infos[i]));
+      }
+
+      break;
+    case THREAD_INFO_LIST_STREAM:
+      thread_info_list = (struct minidump_thread_info_list *)(obj->b->buf + entry->location.rva);
+      for (i = 0; i < thread_info_list->number_of_entries; i++) {
+        thread_infos = (struct minidump_thread_info *)((ut8 *)thread_info_list + sizeof(struct minidump_thread_info_list));
+        r_list_append(obj->streams.thread_infos, &(thread_infos[i]));
+      }
+
+      break;
+    case HANDLE_OPERATION_LIST_STREAM:
+      eprintf("TODO: Parse handle operation list stream!\n");
+
+      handle_operation_list = (struct minidump_handle_operation_list *)(obj->b->buf + entry->location.rva);
+      for (i = 0; i < handle_operation_list->number_of_entries; i++) {
+        handle_operations = (struct avrf_handle_operation *)((ut8 *)handle_operation_list + sizeof(struct minidump_handle_operation_list));
+        r_list_append(obj->streams.operations, &(handle_operations[i]));
+      }
+
+      break;
+    case LAST_RESERVED_STREAM:
+      eprintf("TODO: Parse last reserved stream!\n");
+      break;
+    case UNUSED_STREAM:
+    case RESERVED_STREAM_0:
+    case RESERVED_STREAM_1:
+      /* Silently ignore reserved streams */
+      break;
+    default:
+      eprintf("WARNING: Invalid or unsupported enumeration encountered %i\n", entry->stream_type);
+      return false;
+  }
+  return true;
+}
+
+static bool r_bin_mdmp_init_directory(struct r_bin_mdmp_obj *obj) {
+  int i;
+  ut8 *directory_base;
+  struct minidump_directory *entry;
+
+  directory_base = obj->b->buf + obj->hdr->stream_directory_rva;
+
+  /* Parse each entry in the directory */
+  for (i = 0; i < obj->hdr->number_of_streams; i++) {
+    entry = (struct minidump_directory *)(directory_base + (i * sizeof(struct minidump_directory)));
+    r_bin_mdmp_init_directory_entry(obj, entry);
+  }
+
+  return true;
+}
+
+static int r_bin_mdmp_init(struct r_bin_mdmp_obj *obj) {
+  if (!r_bin_mdmp_init_hdr(obj)) {
+    eprintf("Error: Failed to initialise header\n");
+    return false;
+  }
+
+  if (!r_bin_mdmp_init_directory(obj)) {
+    eprintf("Error: Failed to initialise directory structures!\n");
+    return false;
+  }
+
+  return true;
 }
 
 void r_bin_mdmp_free(struct r_bin_mdmp_obj *obj) {
-	if (!obj) return;
-	r_bin_mdmp_destroy_lists(obj);
-	obj->system_info = NULL;
-	obj->hdr = NULL;
-	if (obj->kv) {
-		sdb_free (obj->kv);
-		obj->kv = NULL;
-	}
-	if (obj->b) {
-		r_buf_free (obj->b);
-		obj->b = NULL;
-	}
-	free (obj);
+  if (!obj) {
+    return;
+  }
+
+  if (obj->streams.ex_threads) r_list_free(obj->streams.ex_threads);
+  if (obj->streams.memories) r_list_free(obj->streams.memories);
+  if (obj->streams.memories64.memories) r_list_free(obj->streams.memories64.memories);
+  if (obj->streams.memory_infos) r_list_free(obj->streams.memory_infos);
+  if (obj->streams.modules) r_list_free(obj->streams.modules);
+  if (obj->streams.operations) r_list_free(obj->streams.operations);
+  if (obj->streams.thread_infos) r_list_free(obj->streams.thread_infos);
+  if (obj->streams.threads) r_list_free(obj->streams.threads);
+  if (obj->streams.unloaded_modules) r_list_free(obj->streams.unloaded_modules);
+
+  if (obj->kv) {
+    sdb_free(obj->kv);
+    obj->kv = NULL;
+  }
+  if (obj->b) {
+    r_buf_free (obj->b);
+    obj->kv = NULL;
+  }
+  R_FREE(obj);
+
+  return;
 }
 
-bool r_bin_mdmp_create_lists(struct r_bin_mdmp_obj *obj) {
-	if (!(obj->streams = r_list_new())) return false;
-	if (!(obj->threads = r_list_new())) return false;
-	if (!(obj->thread_info = r_list_new())) return false;
-	if (!(obj->threads_ex = r_list_new())) return false;
-	if (!(obj->modules = r_list_new())) return false;
-	if (!(obj->unloaded_modules = r_list_new())) return false;
-	if (!(obj->memory = r_list_new())) return false;
-	if (!(obj->memory64 = r_list_new())) return false;
-	if (!(obj->memory_info = r_list_new())) return false;
-	if (!(obj->exceptions = r_list_new())) return false;
-	if (!(obj->comments_a = r_list_new())) return false;
-	if (!(obj->comments_w = r_list_new())) return false;
-	if (!(obj->handle_streams = r_list_new())) return false;
-	if (!(obj->function_tables = r_list_new())) return false;
-	if (!(obj->misc_info = r_list_newf (free))) return false;
-	if (!(obj->handle_operations = r_list_new ())) return false;
-	if (!(obj->token_info = r_list_new())) return false;
-	return true;
-}
+struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf) {
+  bool streams;
+  struct r_bin_mdmp_obj *obj;
 
-void r_bin_mdmp_destroy_lists(struct r_bin_mdmp_obj *obj) {
-	if (obj->threads) {
-		r_list_free(obj->threads);
-		obj->threads = NULL;
-	}
+  obj = R_NEW0(struct r_bin_mdmp_obj);
+  obj->kv = sdb_new0();
+  obj->b = r_buf_new();
+  obj->size = (ut32)buf->length;
 
-	if (obj->thread_info) {
-		r_list_free(obj->thread_info);
-		obj->thread_info = NULL;
-	}
+  streams = true;
+  if (!(obj->streams.ex_threads = r_list_new())) streams = false;
+  if (!(obj->streams.memories = r_list_new())) streams = false;
+  if (!(obj->streams.memories64.memories = r_list_new())) streams = false;
+  if (!(obj->streams.memory_infos = r_list_new())) streams = false;
+  if (!(obj->streams.modules = r_list_new())) streams = false;
+  if (!(obj->streams.operations = r_list_new())) streams = false;
+  if (!(obj->streams.thread_infos = r_list_new())) streams = false;
+  if (!(obj->streams.threads = r_list_new())) streams = false;
+  if (!(obj->streams.unloaded_modules = r_list_new())) streams = false;
 
-	if (obj->threads_ex) {
-		r_list_free(obj->threads_ex);
-		obj->threads_ex = NULL;
-	}
+  if (streams == false) {
+    r_bin_mdmp_free(obj);
+    return NULL;
+  }
 
-	if (obj->modules) {
-		r_list_free(obj->modules);
-		obj->modules = NULL;
-	}
+  if (!r_buf_set_bytes(obj->b, buf->buf, buf->length)) {
+    r_bin_mdmp_free(obj);
+    return NULL;
+  }
 
-	if (obj->unloaded_modules) {
-		r_list_free(obj->unloaded_modules);
-		obj->unloaded_modules = NULL;
-	}
+  if (!r_bin_mdmp_init(obj)) {
+    r_bin_mdmp_free(obj);
+    return NULL;
+  }
 
-	if (obj->memory) {
-		r_list_free(obj->memory);
-		obj->memory = NULL;
-	}
-
-	if (obj->memory64) {
-		r_list_free(obj->memory64);
-		obj->memory64 = NULL;
-	}
-
-	if (obj->memory_info) {
-		r_list_free(obj->memory_info);
-		obj->memory_info = NULL;
-	}
-
-	if (obj->exceptions) {
-		r_list_free(obj->exceptions);
-		obj->exceptions = NULL;
-	}
-
-	if (obj->comments_a) {
-		r_list_free(obj->comments_a);
-		obj->comments_a = NULL;
-	}
-
-	if (obj->comments_w) {
-		r_list_free(obj->comments_w);
-		obj->comments_w = NULL;
-	}
-
-	if (obj->handle_streams) {
-		r_list_free(obj->handle_streams);
-		obj->handle_streams = NULL;
-	}
-
-	if (obj->function_tables) {
-		r_list_free(obj->function_tables);
-		obj->function_tables = NULL;
-	}
-
-	if (obj->misc_info) {
-		r_list_free(obj->misc_info);
-		obj->misc_info = NULL;
-	}
-
-	if (obj->handle_operations) {
-		r_list_free(obj->handle_operations);
-		obj->handle_operations = NULL;
-	}
-
-	if (obj->token_info) {
-		r_list_free(obj->token_info);
-		obj->token_info = NULL;
-	}
-
-	if (obj->streams) {
-		r_list_free(obj->streams);
-		obj->streams = NULL;
-	}
-}
-
-int r_bin_mdmp_init(struct r_bin_mdmp_obj *obj) {
-	if (obj->b->length < sizeof(MINIDUMP_HEADER)) {
-		eprintf("Error in r_bin_mdmp_init: length too short, not enough space for MINIDUMP_HEADER\n");
-		return false;
-	}
-
-	obj->hdr = (PMINIDUMP_HEADER)obj->b->buf;
-
-	if (obj->hdr->NumberOfStreams <= 0) {
-		eprintf("Error in r_bin_mdmp_init: no streams\n");
-		return false;
-	}
-
-	if (obj->hdr->StreamDirectoryRva < sizeof(obj->hdr)) {
-		eprintf("Error in r_bin_mdmp_init: invalid StreamDirectoryRva, size %d\n", obj->hdr->StreamDirectoryRva);
-		return false;
-	}
-
-	if (obj->hdr->CheckSum != 0) {
-		eprintf("Warning in r_bin_mdmp_init: CheckSum present, but not validated, because validation not implemented yet\n");
-	}
-
-	sdb_num_set (obj->kv, "mdmp.hdr.TimeDateStamp", obj->hdr->TimeDateStamp, 0);
-	sdb_num_set (obj->kv, "mdmp.hdr.Flags", obj->hdr->Flags, 0);
-
-	if (!r_bin_mdmp_init_streams(obj)) {
-		return false;
-	}
-	return true;
-}
-
-int r_bin_mdmp_init_streams(struct r_bin_mdmp_obj *obj) {
-	size_t i, l;
-	PMINIDUMP_DIRECTORY dir;
-
-	if (obj->streams)
-		return true;
-
-	if(!r_bin_mdmp_create_lists(obj))
-		return false;
-
-	for (i = 0; i < obj->hdr->NumberOfStreams; i++) {
-		l = obj->hdr->StreamDirectoryRva + i * sizeof(MINIDUMP_DIRECTORY);
-		if (l + sizeof(MINIDUMP_DIRECTORY) > obj->b->length) {
-			eprintf("Warning in r_bin_mdmp_init_streams: length too short, not enough space for all streams\n");
-			break;
-		}
-		dir = (PMINIDUMP_DIRECTORY)(obj->b->buf + l);
-		eprintf("ss %d\n", dir->StreamType);
-		r_bin_mdmp_init_directory(obj, dir);
-		r_list_append(obj->streams, dir);
-	};
-
-	if (!obj->system_info) {
-		eprintf("Warning in r_bin_mdmp_init_streams: SystemInfoStream not found\n");
-		return false;
-	}
-
-	return true;
-}
-
-int r_bin_mdmp_directory_check(struct r_bin_mdmp_obj *obj, PMINIDUMP_DIRECTORY dir, size_t size, char *name) {
-	if (size > dir->Location.DataSize) {
-		eprintf("Warning in r_bin_mdmp_directory_check: %s DataSize mismatch\n", name);
-		return false;
-	};
-	if (dir->Location.Rva + dir->Location.DataSize > obj->b->length) {
-		eprintf("Warning in r_bin_mdmp_directory_check: length too short, not enough space for %s\n", name);
-		return false;
-	}
-	return true;
-}
-
-int r_bin_mdmp_init_directory(struct r_bin_mdmp_obj *obj, PMINIDUMP_DIRECTORY dir)
-{
-	size_t i, j, k;
-	void *p, *m;
-	switch (dir->StreamType) {
-	case UnusedStream:
-		break;
-	case ThreadListStream:
-		if (r_bin_mdmp_directory_check(obj, dir, sizeof(MINIDUMP_THREAD), "ThreadListStream")) {
-			r_list_append(obj->threads, obj->b->buf + dir->Location.Rva);
-		};
-		break;
-	case ModuleListStream:
-		if (r_bin_mdmp_directory_check(obj, dir, sizeof(MINIDUMP_MODULE_LIST), "ModuleListStream"))
-		{
-			p = obj->b->buf + dir->Location.Rva;
-			j = ((PMINIDUMP_MODULE_LIST)p)->NumberOfModules;
-			for (i = 0; i < j; i++) {
-				m = (void *)(&((PMINIDUMP_MODULE_LIST)p)->Modules[i]);
-				if (m - (void *)obj->b->buf + sizeof(MINIDUMP_MODULE) > obj->b->length) {
-					eprintf("Warning in r_bin_mdmp_init_directory: length too short, not enough space for all MINIDUMP_MODULE\n");
-					break;
-				}
-				r_list_append(obj->modules, m);
-			};
-		};
-		break;
-	case MemoryListStream:
-		break;
-	case ExceptionStream:
-		break;
-	case SystemInfoStream:
-		if (obj->system_info)
-		{
-			eprintf("Warning in r_bin_mdmp_init_directory: another SystemInfoStream encountered, ignored\n");
-			return false;
-		}
-		if (r_bin_mdmp_directory_check(obj, dir, sizeof(MINIDUMP_SYSTEM_INFO), "SystemInfoStream"))
-		{
-			obj->system_info = (PMINIDUMP_SYSTEM_INFO)(obj->b->buf + dir->Location.Rva);
-		};
-		break;
-	case ThreadExListStream:
-		break;
-	case Memory64ListStream:
-		if (r_bin_mdmp_directory_check(obj, dir, sizeof(MINIDUMP_MEMORY64_LIST), "Memory64ListStream"))
-		{
-			p = obj->b->buf + dir->Location.Rva;
-			j = ((PMINIDUMP_MEMORY64_LIST)p)->NumberOfMemoryRanges;
-			for (i = 0; i < j; i++) {
-				m = (void *)(&((PMINIDUMP_MEMORY64_LIST)p)->MemoryRanges[i]);
-				if (m - (void *)obj->b->buf + sizeof(MINIDUMP_MEMORY_DESCRIPTOR64) > obj->b->length) {
-					eprintf("Warning in r_bin_mdmp_init_directory: length too short, not enough space for all MINIDUMP_MEMORY_DESCRIPTOR64\n");
-					break;
-				}
-				r_list_append(obj->memory64, m);
-			};
-		};
-		break;
-	case CommentStreamA:
-		break;
-	case CommentStreamW:
-		break;
-	case HandleDataStream:
-		break;
-	case FunctionTableStream:
-		break;
-	case UnloadedModuleListStream:
-		break;
-	case MiscInfoStream:
-		if (dir->Location.Rva + dir->Location.DataSize > obj->b->length)
-		{
-			eprintf("Warning in r_bin_mdmp_init_directory: length too short, not enough space for MiscInfoStream\n");
-			return false;
-		}
-		p = obj->b->buf + dir->Location.Rva;
-		i = ((PMINIDUMP_MISC_INFO)p)->SizeOfInfo;
-		if (i != dir->Location.DataSize) {
-			eprintf("Warning in r_bin_mdmp_init_directory: MINIDUMP_MISC_INFO DataSize size mismatch\n");
-			return false;
-		}
-		if(!(m = malloc(sizeof(MINIDUMP_MISC_INFO_N)))) {
-			eprintf("Warning in r_bin_mdmp_init_directory: malloc failed\n");
-			return false;
-		}
-		memset(m, 0, sizeof(MINIDUMP_MISC_INFO_N));
-		if (i <= sizeof(MINIDUMP_MISC_INFO_N)) {
-			memcpy(m, p, i);
-		} else {
-			memcpy (m, p, sizeof(MINIDUMP_MISC_INFO_N));
-			eprintf ("Warning in r_bin_mdmp_init_directory: PMINIDUMP_MISC_INFO structure bigger than expected, truncated from %d\n", (int)i);
-		}
-		r_list_append(obj->misc_info, m);
-		break;
-	case MemoryInfoListStream:
-		if (r_bin_mdmp_directory_check(obj, dir, sizeof(MINIDUMP_MEMORY_INFO_LIST), "MemoryInfoListStream"))
-		{
-			p = obj->b->buf + dir->Location.Rva;
-			if ((sizeof(MINIDUMP_MEMORY_INFO_LIST) != ((PMINIDUMP_MEMORY_INFO_LIST)p)->SizeOfHeader) || (sizeof(MINIDUMP_MEMORY_INFO) != ((PMINIDUMP_MEMORY_INFO_LIST)p)->SizeOfEntry))
-			{
-				eprintf("Warning in r_bin_mdmp_init_directory: MemoryInfoListStream size mismatch\n");
-				return false;
-			};
-			j = ((PMINIDUMP_MEMORY_INFO_LIST)p)->NumberOfEntries;
-			for (i = 0; i < j; i++) {
-				k = dir->Location.Rva + sizeof(MINIDUMP_MEMORY_INFO_LIST) + i * sizeof(MINIDUMP_MEMORY_INFO);
-				if (k + sizeof(MINIDUMP_MEMORY_INFO) > obj->b->length) {
-					eprintf("Warning in r_bin_mdmp_init_directory: length too short, not enough space for all MINIDUMP_MEMORY_INFO\n");
-					break;
-				}
-				r_list_append(obj->memory_info, obj->b->buf + k);
-			};
-		};
-		break;
-	case ThreadInfoListStream:
-		if (r_bin_mdmp_directory_check(obj, dir, sizeof(MINIDUMP_THREAD_INFO_LIST), "ThreadInfoListStream"))
-		{
-			p = obj->b->buf + dir->Location.Rva;
-			if ((sizeof(MINIDUMP_THREAD_INFO_LIST) != ((PMINIDUMP_THREAD_INFO_LIST)p)->SizeOfHeader) || (sizeof(MINIDUMP_THREAD_INFO) != ((PMINIDUMP_THREAD_INFO_LIST)p)->SizeOfEntry))
-			{
-				eprintf("Warning in r_bin_mdmp_init_directory: ThreadInfoListStream size mismatch\n");
-				return false;
-			};
-			j = ((PMINIDUMP_THREAD_INFO_LIST)p)->NumberOfEntries;
-			for (i = 0; i < j; i++) {
-				k = dir->Location.Rva + sizeof(MINIDUMP_THREAD_INFO_LIST) + i * sizeof(MINIDUMP_THREAD_INFO);
-				if (k + sizeof(MINIDUMP_THREAD_INFO) > obj->b->length) {
-					eprintf("Warning in r_bin_mdmp_init_directory: length too short, not enough space for all MINIDUMP_THREAD_INFO\n");
-					break;
-				}
-				r_list_append(obj->thread_info, obj->b->buf + k);
-			};
-		};
-		break;
-	case HandleOperationListStream:
-		break;
-	case TokenStream:
-		break;
-	case JavaScriptDataStream:
-		break;
-	default
-			:
-		eprintf("Warning in r_bin_mdmp_init_directory: uknown stream %d\n", dir->StreamType);
-	}
-	return true;
-}
-
-PMINIDUMP_STRING r_bin_mdmp_locate_string(struct r_bin_mdmp_obj *obj, RVA Rva) {
-	if (Rva >= obj->b->length)
-		return NULL;
-	return (PMINIDUMP_STRING)(obj->b->buf + Rva);
+  return obj;
 }
