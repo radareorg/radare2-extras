@@ -1,15 +1,15 @@
 /*
- *  File Name: mdmp.h
- *  Project: Radare2
+ *	File Name: mdmp.h
+ *	Project: Radare2
  *
- *  Copyright: 2016. LGPL. All right reserved.
+ *	Copyright: 2016. LGPL. All right reserved.
  */
 
 #ifndef MDMP_H
 #define MDMP_H
 
 /*******************************************************************************
- *  Includes
+ *	Includes
  ******************************************************************************/
 
 #include <r_types.h>
@@ -20,46 +20,46 @@
 #include "mdmp_specs.h"
 
 /*******************************************************************************
- *  Structs
+ *	Structs
  ******************************************************************************/
 
 struct r_bin_mdmp_obj {
-  struct minidump_header *hdr;
+	struct minidump_header *hdr;
 
-  /* Encountered streams */
-  struct minidump_streams {
-    ut8 *comments_a;
-    ut8 *comments_w;
+	/* Encountered streams */
+	struct minidump_streams {
+		ut8 *comments_a;
+		ut8 *comments_w;
 
-    struct minidump_exception_stream *exception;
-    struct minidump_function_table_stream *function_table;
-    struct minidump_handle_data_stream *handle_data;
-    struct minidump_system_info *system_info;
+		struct minidump_exception_stream *exception;
+		struct minidump_function_table_stream *function_table;
+		struct minidump_handle_data_stream *handle_data;
+		struct minidump_system_info *system_info;
 
-    union {
-      struct minidump_misc_info *misc_info_1;
-      struct minidump_misc_info_2 *misc_info_2;
-    } misc_info;
+		union {
+			struct minidump_misc_info *misc_info_1;
+			struct minidump_misc_info_2 *misc_info_2;
+		} misc_info;
 
-    /* Lists */
-    RList *ex_threads;
-    RList *memories;
-    RList *memory_infos;
-    RList *modules;
-    RList *operations;
-    RList *thread_infos;
-    RList *threads;
-    RList *unloaded_modules;
-    struct {
-      rva64_t base_rva;
-      RList   *memories;
-    } memories64;
-  } streams;
+		/* Lists */
+		RList *ex_threads;
+		RList *memories;
+		RList *memory_infos;
+		RList *modules;
+		RList *operations;
+		RList *thread_infos;
+		RList *threads;
+		RList *unloaded_modules;
+		struct {
+			rva64_t base_rva;
+			RList *memories;
+		} memories64;
+	} streams;
 
-  struct r_buf_t *b;
-  size_t size;
-  ut8 endian;
-  Sdb *kv;
+	struct r_buf_t *b;
+	size_t size;
+	ut8 endian;
+	Sdb *kv;
 };
 
 struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf);
