@@ -1,4 +1,4 @@
-/* Radare2 - LGPL - Copyright 2016 */
+/* radare2 - LGPL - Copyright 2016 - Davis, Alex Kornitzer */
 
 #include <r_types.h>
 #include <r_util.h>
@@ -205,7 +205,7 @@ static RList *mem (RBinFile *arch) {
 
     /* FIXME: Hacky approach to match memory from virtual address to location in buffer */
     location = &(module->memory);
-    ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x RAM", /*obj->b->buf+*/location->rva));
+    ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x RAM", location->rva));
     ptr->addr = module->start_of_memory_range;
     ptr->size = (location->data_size);
     ptr->perms = r_str_rwx ("---");

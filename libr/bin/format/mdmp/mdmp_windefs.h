@@ -1,4 +1,4 @@
-/* Radare2 - LGPL - Copyright 2016 */
+/* radare2 - LGPL - Copyright 2016 - Davis, Alex Kornitzer */
 
 #ifndef MDMP_WINDEFS_H
 #define MDMP_WINDEFS_H

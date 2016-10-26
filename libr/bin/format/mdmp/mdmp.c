@@ -1,4 +1,4 @@
-/* Radare2 - LGPL - Copyright 2016 */
+/* radare2 - LGPL - Copyright 2016 - Davis, Alex Kornitzer */
 
 #include <r_util.h>
 
@@ -227,7 +227,7 @@ void r_bin_mdmp_free(struct r_bin_mdmp_obj *obj) {
 }
 
 struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf) {
-	bool streams;
+	bool streams = true;
 	struct r_bin_mdmp_obj *obj;
 
 	obj = R_NEW0 (struct r_bin_mdmp_obj);
@@ -235,7 +235,6 @@ struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf) {
 	obj->b = r_buf_new ();
 	obj->size = (ut32)buf->length;
 
-	streams = true;
 	if (!(obj->streams.ex_threads = r_list_new ())) streams = false;
 	if (!(obj->streams.memories = r_list_new ())) streams = false;
 	if (!(obj->streams.memories64.memories = r_list_new ())) streams = false;
@@ -246,7 +245,7 @@ struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf) {
 	if (!(obj->streams.threads = r_list_new ())) streams = false;
 	if (!(obj->streams.unloaded_modules = r_list_new ())) streams = false;
 
-	if (streams == false) {
+	if (!streams) {
 		r_bin_mdmp_free (obj);
 		return NULL;
 	}
