@@ -1,13 +1,4 @@
-/*
- *  File Name: bin_mdmp.c
- *  Project: Radare2
- *
- *  Copyright: 2016. LGPL. All right reserved.
- */
-
-/*******************************************************************************
- *  Includes
- ******************************************************************************/
+/* Radare2 - LGPL - Copyright 2016 */
 
 #include <r_types.h>
 #include <r_util.h>
@@ -16,16 +7,10 @@
 
 #include "mdmp/mdmp.h"
 
-/*******************************************************************************
- *  Prototypes
- ******************************************************************************/
 
 static int check(RBinFile *arch);
 static int check_bytes(const ut8 *buf, ut64 length);
 
-/*******************************************************************************
- *  Functions
- ******************************************************************************/
 
 static ut64 baddr(RBinFile *arch) {
   return r_bin_mdmp_get_baddr (arch->o->bin_obj);
@@ -178,7 +163,7 @@ static RList *sections(RBinFile *arch) {
     ptr->add = true;
     ptr->srwx = 0;
 
-    // Loop through the memories sections looking for a match
+    /* Loop through the memories sections looking for a match */
     index = obj->streams.memories64.base_rva;
     r_list_foreach (obj->streams.memories64.memories, mem_it, memory64) {
       if (!(mem_ptr = R_NEW0 (RBinMem))) {

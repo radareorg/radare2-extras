@@ -1,16 +1,7 @@
-/*
- *	File Name: mdmp.h
- *	Project: Radare2
- *
- *	Copyright: 2016. LGPL. All right reserved.
- */
+/* Radare2 - LGPL - Copyright 2016 */
 
 #ifndef MDMP_H
 #define MDMP_H
-
-/*******************************************************************************
- *	Includes
- ******************************************************************************/
 
 #include <r_types.h>
 #include <r_util.h>
@@ -18,10 +9,6 @@
 #include <r_bin.h>
 
 #include "mdmp_specs.h"
-
-/*******************************************************************************
- *	Structs
- ******************************************************************************/
 
 struct r_bin_mdmp_obj {
 	struct minidump_header *hdr;

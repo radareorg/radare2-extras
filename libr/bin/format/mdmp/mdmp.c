@@ -1,24 +1,8 @@
-/*
- *	File Name: mdmp.c
- *	Project: Radare2
- *
- *	Copyright: 2016. LGPL. All right reserved.
- *
- *	NOTE:
- *		1. TODO: Perform full parsing of MDMP!
- */
-
-/*******************************************************************************
- *	Includes
- ******************************************************************************/
+/* Radare2 - LGPL - Copyright 2016 */
 
 #include <r_util.h>
 
 #include "mdmp.h"
-
-/*******************************************************************************
- *	Functions
- ******************************************************************************/
 
 ut64 r_bin_mdmp_get_baddr(struct r_bin_mdmp_obj *obj) {
 	return (ut64)(obj->b->buf);
@@ -74,7 +58,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 	struct minidump_unloaded_module *unloaded_modules;
 
 	/* We could confirm data sizes but a malcious MDMP will always get around
-	 * this! But we can ensure that the data is not outside of the file */
+	** this! But we can ensure that the data is not outside of the file */
 	if (entry->location.rva + entry->location.data_size > obj->b->length) {
 		eprintf("ERROR: Size Mismatch - Stream data is larger than file size!\n");
 		return false;

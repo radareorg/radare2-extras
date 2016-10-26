@@ -1,34 +1,13 @@
-/*
- *	File Name: mdmp_specs.h
- *	Project: Radare2
- *
- *	Copyright: 2016. LGPL. All right reserved.
- *
- *	Resources:
- *		1. MiniDump Headers - https://msdn.microsoft.com/en-us/library/windows/desktop/ms680378(v=vs.85).aspx
- *
- *	Description:
- *
- *	NOTE:
- *		1. Descriptions have been taken from [1].
- *		2. I know this is a windows standard but we need to keep convention
- *			 throughout the code, so we are keeping with snake_case!
- */
+/* Radare2 - LGPL - Copyright 2016 */
 
 #ifndef MDMP_SPECS_H
 #define MDMP_SPECS_H
 
-/*******************************************************************************
- *	Includes
- ******************************************************************************/
 
 #include <r_types_base.h>
 
 #include "mdmp_windefs.h"
 
-/*******************************************************************************
- *	Defines
- ******************************************************************************/
 
 #define MDMP_MAGIC	"\x4D\x44\x4D\x50\x93\xA7"
 
@@ -80,17 +59,11 @@
 #define MINIDUMP_THREAD_INFO_INVALID_CONTEXT	0x00000010
 #define MINIDUMP_THREAD_INFO_INVALID_TEB	0x00000020
 
-/*******************************************************************************
- *	Typedefs
- ******************************************************************************/
 
 typedef st32 HRESULT;
 typedef ut32 rva_t;
 typedef ut64 rva64_t;
 
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- *	Enums
- *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
 /* Identifies the type of information returned by the MiniDumpCallback
  * function. */

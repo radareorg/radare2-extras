@@ -1,16 +1,8 @@
-/*
- *	File Name: mdmp_windefs.h
- *	Project: Radare2
- *
- *	Copyright: 2016. LGPL. All right reserved.
- */
+/* Radare2 - LGPL - Copyright 2016 */
 
 #ifndef MDMP_WINDEFS_H
 #define MDMP_WINDEFS_H
 
-/*******************************************************************************
- *	Defines
- ******************************************************************************/
 
 #define EXCEPTION_MAXIMUM_PARAMETERS 15
 
@@ -21,9 +13,6 @@
 #define ARM_MAX_BREAKPOINTS 8
 #define ARM_MAX_WATCHPOINTS 1
 
-/*******************************************************************************
- *	Structs
- ******************************************************************************/
 
 struct windows_floating_save_area {
 	ut32	control_word;
@@ -492,4 +481,4 @@ struct exception_pointers_i386 {
 	void /*struct context*/ *context_record;
 }__attribute__((packed));
 
-#endif
+#endif /* MDMP_WINDEFS_H */
