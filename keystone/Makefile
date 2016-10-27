@@ -13,10 +13,10 @@ all: $(PLUGINS)
 #$(info $(LIBS))
 
 define kscc
-$(CC) -c -fPIC $(LDFLAGS_SHARED) -Wall\
+$(CC) -c -fPIC -Wall\
 	$(R2_CFLAGS) $(KS_CFLAGS)\
 	-o asm_$(1)_ks.$(O_EXT) asm_$(1)_ks.c
-$(CXX)  $(LDFLAGS_SHARED) -Wall\
+$(CXX) $(LDFLAGS_SHARED)\
 	$(R2_LDFLAGS) $(KS_LDFLAGS)\
 	-o asm_$(1)_ks.$(SO_EXT) asm_$(1)_ks.$(O_EXT) $(KS_LINK)
 rm asm_$(1)_ks.$(O_EXT)
