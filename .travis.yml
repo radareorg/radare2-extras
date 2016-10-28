@@ -60,8 +60,7 @@ env:
   - TESTS="r2pm -i x86tab"
   - TESTS="r2pm -i z80-nc"
   - TESTS="r2pm -i yara-lib && r2pm -i yara"
-  - TESTS="r2pm -i yara2-lib && r2pm -i yara2"
-  - TESTS="r2pm -i yara3-lib && r2pm -i yara3"
+  - TESTS="r2pm -i m68k"
 sudo:
   - false
 language:
