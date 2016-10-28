@@ -46,6 +46,9 @@
 #ifndef M68K_DISASM_H
 #define M68K_DISASM_H
 
+#include <r_types.h>
+#define ut32i ut32
+
 /* version/revision */
 #define M68KDISASM_VER 0
 #define M68KDISASM_REV 4
@@ -187,7 +190,7 @@ typedef unsigned short m68k_word;  /* pointer to 16-bit instruction word */
 
 #define TRAP_MASK ENCW(1,1,1,1, 1,1,1,1, 1,1,1,1, 0,0,0,0)
 #define TRAP_INST ENCW(0,1,0,0, 1,1,1,0, 0,1,0,0, 0,0,0,0)
-                                                    
+
 #define DIVSL_MASK  ENCW(1,1,1,1, 1,1,1,1, 1,1,0,0, 0,0,0,0)
 #define DIVUL_MASK  ENCW(1,1,1,1, 1,1,1,1, 1,1,0,0, 0,0,0,0)
 #define JMP_MASK  ENCW(1,1,1,1, 1,1,1,1, 1,1,0,0, 0,0,0,0)
@@ -437,7 +440,7 @@ struct DisasmPara_68k {
   int radix;                    /* base 2, 8, 10, 16 ... */
 /* call-back functions for symbolic debugger support */
   unsigned long (*get_areg)(int);  /* returns current value of reg. An */
-  char *(*find_symbol)(unsigned long,unsigned long *);
+  char *(*find_symbol)(ut32, ut32i *);
                                 /* finds closest symbol to addr and */
                                 /*  returns (positive) difference and name */
 /* changed by disassembler: */
@@ -471,9 +474,6 @@ typedef struct dis_buffer dis_buffer_t;
 #else
 #define IS_INST(inst,val) ((inst/**/_MASK & (val)) == inst/**/_INST)
 #endif
-#define PRINT_FPREG(dbuf, reg) addstr(dbuf, fpregs[reg])
-#define PRINT_DREG(dbuf, reg) addstr(dbuf, dregs[reg])
-#define PRINT_AREG(dbuf, reg) addstr(dbuf, aregs[reg])
 
 #undef NBBY
 #define NBBY 256  /*@@@*/
@@ -484,14 +484,8 @@ typedef struct dis_buffer dis_buffer_t;
 #define DB_STGY_ANY 0  /*@@@*/
 
 /* common Unix typedefs used in m68k_disasm.c */
-#if !defined(_SYS_TYPES_H)
-typedef unsigned char u_char;
-typedef unsigned short u_short;
-typedef unsigned int u_int;
-typedef unsigned long u_long;
-#endif
-typedef unsigned long vm68k_offset_t;
-typedef unsigned long db_expr_t; /*@@@*/
+typedef ut32 vm68k_offset_t;
+typedef ut32 db_expr_t; /*@@@*/
 typedef const char *db_sym_t;  /*@@@*/
 
 
