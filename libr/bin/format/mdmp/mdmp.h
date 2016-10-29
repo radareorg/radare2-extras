@@ -1,57 +1,56 @@
+/* radare2 - LGPL - Copyright 2016 - Davis, Alex Kornitzer */
+
 #ifndef MDMP_H
 #define MDMP_H
 
-#include <r_bin.h>
 #include <r_types.h>
-
-#if 0
-#include "windows/types.h"
-#include "windows/exception.h"
-#include "windows/resources.h"
-#include "windows/version_info.h"
-#include "windows/time.h"
-#include "windows/timezone.h"
-#include "windows/processor.h"
-#include "windows/products.h"
-#endif
-#include "windefs.h"
+#include <r_util.h>
+#include <r_lib.h>
+#include <r_bin.h>
 
 #include "mdmp_specs.h"
 
 struct r_bin_mdmp_obj {
-	PMINIDUMP_HEADER hdr;
-	RList * /* PMINIDUMP_DIRECTORY             */ streams;
-	RList * /* PMINIDUMP_THREAD                */ threads;
-	RList * /* PMINIDUMP_THREAD_INFO           */ thread_info;
-	RList * /* PMINIDUMP_THREAD_EX_LIST        */ threads_ex;
-	RList * /* MINIDUMP_MODULE                 */ modules;
-	RList * /* PMINIDUMP_UNLOADED_MODULE_LIST  */ unloaded_modules;
-	RList * /* PMINIDUMP_MEMORY_LIST           */ memory;
-	RList * /* PMINIDUMP_MEMORY64_LIST         */ memory64;
-	RList * /* PMINIDUMP_MEMORY_INFO_LIST      */ memory_info;
-	RList * /* PMINIDUMP_EXCEPTION_INFORMATION */ exceptions;
-	PMINIDUMP_SYSTEM_INFO                         system_info;
-	RList * /* Null-terminated ANSI String     */ comments_a;
-	RList * /* Null-terminated Wide String     */ comments_w;
-	RList * /* PMINIDUMP_HANDLE_DATA_STREAM    */ handle_streams;
-	RList * /* PMINIDUMP_FUNCTION_TABLE_STREAM */ function_tables;
-	RList * /* PMINIDUMP_MISC_INFO_N           */ misc_info;
-	RList * /* PMINIDUMP_HANDLE_OPERATION_LIST */ handle_operations;
-	RList * /* PMINIDUMP_TOKEN_INFO_LIST       */ token_info;
-	RList * /*                                 */ javascipt_stream;
+	struct minidump_header *hdr;
 
-	const char *file;
+	/* Encountered streams */
+	struct minidump_streams {
+		ut8 *comments_a;
+		ut8 *comments_w;
+
+		struct minidump_exception_stream *exception;
+		struct minidump_function_table_stream *function_table;
+		struct minidump_handle_data_stream *handle_data;
+		struct minidump_system_info *system_info;
+
+		union {
+			struct minidump_misc_info *misc_info_1;
+			struct minidump_misc_info_2 *misc_info_2;
+		} misc_info;
+
+		/* Lists */
+		RList *ex_threads;
+		RList *memories;
+		RList *memory_infos;
+		RList *modules;
+		RList *operations;
+		RList *thread_infos;
+		RList *threads;
+		RList *unloaded_modules;
+		struct {
+			rva64_t base_rva;
+			RList *memories;
+		} memories64;
+	} streams;
+
 	struct r_buf_t *b;
+	size_t size;
+	ut8 endian;
 	Sdb *kv;
 };
 
 struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf);
 void r_bin_mdmp_free(struct r_bin_mdmp_obj *obj);
-bool r_bin_mdmp_create_lists(struct r_bin_mdmp_obj *obj);
-void r_bin_mdmp_destroy_lists(struct r_bin_mdmp_obj *obj);
-int r_bin_mdmp_init(struct r_bin_mdmp_obj *obj);
-int r_bin_mdmp_init_streams(struct r_bin_mdmp_obj *obj);
-int r_bin_mdmp_init_directory(struct r_bin_mdmp_obj *obj, PMINIDUMP_DIRECTORY dir);
-PMINIDUMP_STRING r_bin_mdmp_locate_string(struct r_bin_mdmp_obj *obj, RVA Rva);
+ut64 r_bin_mdmp_get_baddr(struct r_bin_mdmp_obj *obj);
 
 #endif /* MDMP_H */
