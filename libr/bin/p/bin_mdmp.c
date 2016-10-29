@@ -22,7 +22,7 @@ static Sdb *get_sdb(RBinObject *o) {
 	if (!o) return NULL;
 
 	bin = (struct r_bin_mdmp_obj *) o->bin_obj;
-	if (bin->kv) return bin->kv;
+	if (bin && bin->kv) return bin->kv;
 
 	return NULL;
 }
@@ -33,28 +33,15 @@ static int destroy(RBinFile *arch) {
 	return true;
 }
 
-static void *load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb) {
-	RBuffer *tbuf;
-	void *res;
-
-	if (!buf || !sz || sz == UT64_MAX) {
-		return NULL;
-	}
-
-	tbuf = r_buf_new ();
-	r_buf_set_bytes (tbuf, buf, sz);
-	res = r_bin_mdmp_new_buf (tbuf);
-	r_buf_free (tbuf);
-	return res;
-}
-
 static RBinInfo *info(RBinFile *arch) {
 	struct r_bin_mdmp_obj *obj;
 	RBinInfo *ret;
 
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
-	ret = R_NEW0 (RBinInfo);
+	if (!(ret = R_NEW0 (RBinInfo))) {
+		return NULL;
+	}
 	ret->big_endian = obj->endian;
 	ret->claimed_checksum = strdup (sdb_fmt (0, "0x%08x", obj->hdr->check_sum));
 	ret->file = arch->file ? strdup (arch->file) : NULL;
@@ -115,32 +102,46 @@ static RBinInfo *info(RBinFile *arch) {
 	return ret;
 }
 
+static void *load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb) {
+	RBuffer *tbuf;
+	struct r_bin_mdmp_obj *res;
+
+	if (!buf || !sz || sz == UT64_MAX) {
+		return NULL;
+	}
+
+	tbuf = r_buf_new ();
+	r_buf_set_bytes (tbuf, buf, sz);
+	res = r_bin_mdmp_new_buf (tbuf);
+	if (res) {
+		sdb_ns_set (sdb, "info", res->kv);
+	}
+	r_buf_free (tbuf);
+	return res;
+}
+
 static int load(RBinFile *arch) {
-	const ut8 *bytes;
-	ut64 sz;
+	const ut8 *bytes = arch ? r_buf_buffer (arch->buf) : NULL;
+	ut64 sz = arch ? r_buf_size (arch->buf) : 0;
 
 	if (!arch || !arch->o) {
 		return false;
 	}
 
-	bytes = arch ? r_buf_buffer (arch->buf) : NULL;
-	sz = arch ? r_buf_size (arch->buf) : 0;
 	arch->o->bin_obj = load_bytes (arch, bytes, sz, arch->o->loadaddr, arch->sdb);
 
 	return arch->o->bin_obj ? true : false;
 }
 
 static RList *sections(RBinFile *arch) {
+	struct minidump_memory_descriptor *memory;
+	struct minidump_memory_descriptor64 *memory64;
 	struct minidump_module *module;
 	struct minidump_string *str;
 	struct r_bin_mdmp_obj *obj;
 	RList *ret;
-	RListIter *it;
+	RListIter *it_0, *it_1;
 	RBinSection *ptr;
-
-	struct minidump_memory_descriptor64 *memory64;
-	RListIter *mem_it;
-	RBinMem *mem_ptr;
 	ut64 index;
 
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
@@ -149,7 +150,56 @@ static RList *sections(RBinFile *arch) {
 		return NULL;
 	}
 
-	r_list_foreach (obj->streams.modules, it, module) {
+	/* In order to resolve virtual and physical addresses correctly, the
+	** memories list must also be resolved. FIXME?: As a further note it
+	** seems that r2 will not resolve the addresses unless memory
+	** permissions are set, as well as a valid name, and add==true!!! */
+
+	r_list_foreach (obj->streams.memories, it_0, memory) {
+		if (!(ptr = R_NEW0 (RBinSection))) {
+			return ret;
+		}
+
+		strncpy(ptr->name, "MEM", 3);
+		ptr->paddr = (memory->memory).rva;
+		ptr->size = (memory->memory).data_size;
+		ptr->vaddr = memory->start_of_memory_range;
+		ptr->vsize = (memory->memory).data_size;
+		ptr->add = true;
+		ptr->srwx = r_str_rwx ("mrwx");
+
+		/* FIXME: Off as mapping will only succeed with 'mrwx' */
+#if 0
+		ptr->srwx = r_bin_mdmp_get_srwx (obj, ptr->vaddr);
+#endif
+
+		r_list_append (ret, ptr);
+	}
+
+	index = obj->streams.memories64.base_rva;
+	r_list_foreach (obj->streams.memories64.memories, it_0, memory64) {
+		if (!(ptr = R_NEW0 (RBinSection))) {
+			return ret;
+		}
+
+		strncpy(ptr->name, "MEM", 3);
+		ptr->paddr = index;
+		ptr->size = memory64->data_size;
+		ptr->vaddr = memory64->start_of_memory_range;
+		ptr->vsize = memory64->data_size;
+		ptr->add = true;
+		ptr->srwx = r_str_rwx ("mrwx");
+
+		/* FIXME: Off as mapping will only succeed with 'mrwx' */
+#if 0
+		ptr->srwx = r_bin_mdmp_get_srwx (obj, ptr->vaddr);
+#endif
+
+		r_list_append (ret, ptr);
+
+		index += memory64->data_size;
+	}
+	r_list_foreach (obj->streams.modules, it_0, module) {
 		if (!(ptr = R_NEW0 (RBinSection))) {
 			return ret;
 		}
@@ -161,21 +211,22 @@ static RList *sections(RBinFile *arch) {
 		ptr->paddr = 0;
 		ptr->vaddr = module->base_of_image;
 		ptr->add = true;
-		ptr->srwx = 0;
+		ptr->srwx = r_str_rwx ("mrwx");
 
 		/* Loop through the memories sections looking for a match */
 		index = obj->streams.memories64.base_rva;
-		r_list_foreach (obj->streams.memories64.memories, mem_it, memory64) {
-			if (!(mem_ptr = R_NEW0 (RBinMem))) {
-				return ret;
-			}
-
+		r_list_foreach (obj->streams.memories64.memories, it_1, memory64) {
 			if (ptr->vaddr == memory64->start_of_memory_range) {
 				ptr->paddr = index;
 				break;
 			}
 			index += memory64->data_size;
 		}
+
+		/* FIXME: Off as mapping will only succeed with 'mrwx' */
+#if 0
+		ptr->srwx = r_bin_mdmp_get_srwx (obj, ptr->vaddr);
+#endif
 
 		r_list_append (ret, ptr);
 	}
@@ -205,10 +256,10 @@ static RList *mem (RBinFile *arch) {
 
 		/* FIXME: Hacky approach to match memory from virtual address to location in buffer */
 		location = &(module->memory);
-		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x RAM", location->rva));
+		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x MEM", location->rva));
 		ptr->addr = module->start_of_memory_range;
 		ptr->size = (location->data_size);
-		ptr->perms = r_str_rwx ("---");
+		ptr->perms = r_bin_mdmp_get_srwx (obj, ptr->addr);
 
 		r_list_append (ret, ptr);
 	}
@@ -220,10 +271,10 @@ static RList *mem (RBinFile *arch) {
 		}
 
 		/* FIXME: Hacky approach to match memory from virtual address to location in buffer */
-		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x RAM", index));
+		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x MEM", index));
 		ptr->addr = module64->start_of_memory_range;
 		ptr->size = module64->data_size;
-		ptr->perms = r_str_rwx ("---");
+		ptr->perms = r_bin_mdmp_get_srwx (obj, ptr->addr);
 
 		index += module64->data_size;
 

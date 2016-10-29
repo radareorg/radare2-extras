@@ -8,6 +8,40 @@ ut64 r_bin_mdmp_get_baddr(struct r_bin_mdmp_obj *obj) {
 	return (ut64)(obj->b->buf);
 }
 
+ut32 r_bin_mdmp_get_srwx(struct r_bin_mdmp_obj *obj, ut64 address)
+{
+	struct minidump_memory_info *mem_info;
+	RListIter *it;
+
+	r_list_foreach (obj->streams.memory_infos, it, mem_info) {
+		if (address == mem_info->base_address) {
+			break;
+		}
+	}
+
+	switch (mem_info->protect) {
+	case MINIDUMP_PAGE_READONLY:
+		return R_BIN_SCN_READABLE;
+	case MINIDUMP_PAGE_READWRITE:
+		return R_BIN_SCN_READABLE | R_BIN_SCN_WRITABLE;
+	case MINIDUMP_PAGE_EXECUTE:
+		return R_BIN_SCN_EXECUTABLE;
+	case MINIDUMP_PAGE_EXECUTE_READ:
+		return R_BIN_SCN_EXECUTABLE | R_BIN_SCN_READABLE;
+	case MINIDUMP_PAGE_EXECUTE_READWRITE:
+		return R_BIN_SCN_EXECUTABLE | R_BIN_SCN_READABLE | R_BIN_SCN_WRITABLE;
+	case MINIDUMP_PAGE_NOACCESS:
+	case MINIDUMP_PAGE_WRITECOPY:
+	case MINIDUMP_PAGE_EXECUTE_WRITECOPY:
+	case MINIDUMP_PAGE_GUARD:
+	case MINIDUMP_PAGE_NOCACHE:
+	case MINIDUMP_PAGE_WRITECOMBINE:
+	default:
+		return 0;
+	}
+}
+
+
 static bool r_bin_mdmp_init_hdr(struct r_bin_mdmp_obj *obj) {
 	obj->hdr = (struct minidump_header *)obj->b->buf;
 
