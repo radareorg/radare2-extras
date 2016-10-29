@@ -33,6 +33,13 @@ static int destroy(RBinFile *arch) {
 	return true;
 }
 
+static RList *entries(RBinFile *arch) {
+	RList *ret;
+	if (!(ret = r_list_newf (free)))
+		return NULL;
+	return ret;
+}
+
 static RBinInfo *info(RBinFile *arch) {
 	struct r_bin_mdmp_obj *obj;
 	RBinInfo *ret;
@@ -307,6 +314,7 @@ RBinPlugin r_bin_plugin_mdmp = {
 	.check = &check,
 	.check_bytes = &check_bytes,
 	.destroy = &destroy,
+	.entries = entries,
 	.get_sdb = &get_sdb,
 	.info = &info,
 	.load = &load,

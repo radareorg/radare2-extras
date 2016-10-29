@@ -10,14 +10,18 @@ ut64 r_bin_mdmp_get_baddr(struct r_bin_mdmp_obj *obj) {
 
 ut32 r_bin_mdmp_get_srwx(struct r_bin_mdmp_obj *obj, ut64 address)
 {
+	bool found = false;
 	struct minidump_memory_info *mem_info;
 	RListIter *it;
 
 	r_list_foreach (obj->streams.memory_infos, it, mem_info) {
-		if (address == mem_info->base_address) {
+		if (mem_info->allocation_base && address == mem_info->base_address) {
+			found = true;
 			break;
 		}
 	}
+
+	if (!found) return 0;
 
 	switch (mem_info->protect) {
 	case MINIDUMP_PAGE_READONLY:
