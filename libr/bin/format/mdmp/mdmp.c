@@ -100,6 +100,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 
 	switch (entry->stream_type) {
 	case THREAD_LIST_STREAM:
+		/* TODO: Not yet fully parsed or utilised */
 		thread_list = (struct minidump_thread_list *)(obj->b->buf + entry->location.rva);
 		for (i = 0; i < thread_list->number_of_threads; i++) {
 			threads = (struct minidump_thread *)(&(thread_list->threads));
@@ -121,12 +122,14 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		}
 		break;
 	case EXCEPTION_STREAM:
+		/* TODO: Not yet fully parsed or utilised */
 		obj->streams.exception = (struct minidump_exception_stream *)(obj->b->buf + entry->location.rva);
 		break;
 	case SYSTEM_INFO_STREAM:
 		obj->streams.system_info = (struct minidump_system_info *)(obj->b->buf + entry->location.rva);
 		break;
 	case THREAD_EX_LIST_STREAM:
+		/* TODO: Not yet fully parsed or utilised */
 		thread_ex_list = (struct minidump_thread_ex_list *)(obj->b->buf + entry->location.rva);
 		for (i = 0; i < thread_ex_list->number_of_threads; i++) {
 			ex_threads = (struct minidump_thread_ex *)(&(thread_ex_list->threads));
@@ -142,18 +145,23 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		}
 		break;
 	case COMMENT_STREAM_A:
+		/* TODO: Not yet fully parsed or utilised */
 		obj->streams.comments_a = obj->b->buf + entry->location.rva;
 		break;
 	case COMMENT_STREAM_W:
+		/* TODO: Not yet fully parsed or utilised */
 		obj->streams.comments_w = obj->b->buf + entry->location.rva;
 		break;
 	case HANDLE_DATA_STREAM:
+		/* TODO: Not yet fully parsed or utilised */
 		obj->streams.handle_data = (struct minidump_handle_data_stream *)(obj->b->buf + entry->location.rva);
 		break;
 	case FUNCTION_TABLE_STREAM:
+		/* TODO: Not yet fully parsed or utilised */
 		obj->streams.function_table = (struct minidump_function_table_stream *)(obj->b->buf + entry->location.rva);
 		break;
 	case UNLOADED_MODULE_LIST_STREAM:
+		/* TODO: Not yet fully parsed or utilised */
 		unloaded_module_list = (struct minidump_unloaded_module_list *)(obj->b->buf + entry->location.rva);
 		for (i = 0; i < unloaded_module_list->number_of_entries; i++) {
 			unloaded_modules = (struct minidump_unloaded_module *)((ut8 *)&unloaded_module_list + sizeof (struct minidump_unloaded_module_list));
@@ -161,6 +169,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		}
 		break;
 	case MISC_INFO_STREAM:
+		/* TODO: Not yet fully parsed or utilised */
 		obj->streams.misc_info.misc_info_1 = (struct minidump_misc_info *)(obj->b->buf + entry->location.rva);
 		break;
 	case MEMORY_INFO_LIST_STREAM:
@@ -171,6 +180,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		}
 		break;
 	case THREAD_INFO_LIST_STREAM:
+		/* TODO: Not yet fully parsed or utilised */
 		thread_info_list = (struct minidump_thread_info_list *)(obj->b->buf + entry->location.rva);
 		for (i = 0; i < thread_info_list->number_of_entries; i++) {
 			thread_infos = (struct minidump_thread_info *)((ut8 *)thread_info_list + sizeof (struct minidump_thread_info_list));
@@ -178,8 +188,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		}
 		break;
 	case HANDLE_OPERATION_LIST_STREAM:
-		eprintf ("TODO: Parse handle operation list stream!\n");
-
+		/* TODO: Not yet fully parsed or utilised */
 		handle_operation_list = (struct minidump_handle_operation_list *)(obj->b->buf + entry->location.rva);
 		for (i = 0; i < handle_operation_list->number_of_entries; i++) {
 			handle_operations = (struct avrf_handle_operation *)((ut8 *)handle_operation_list + sizeof (struct minidump_handle_operation_list));
@@ -188,7 +197,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 
 		break;
 	case LAST_RESERVED_STREAM:
-		eprintf ("TODO: Parse last reserved stream!\n");
+		/* TODO: Not yet fully parsed or utilised */
 		break;
 	case UNUSED_STREAM:
 	case RESERVED_STREAM_0:
@@ -261,7 +270,7 @@ void r_bin_mdmp_free(struct r_bin_mdmp_obj *obj) {
 }
 
 struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf) {
-	bool streams = true;
+	bool fail = false;
 	struct r_bin_mdmp_obj *obj;
 
 	obj = R_NEW0 (struct r_bin_mdmp_obj);
@@ -269,17 +278,17 @@ struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf) {
 	obj->b = r_buf_new ();
 	obj->size = (ut32)buf->length;
 
-	if (!(obj->streams.ex_threads = r_list_new ())) streams = false;
-	if (!(obj->streams.memories = r_list_new ())) streams = false;
-	if (!(obj->streams.memories64.memories = r_list_new ())) streams = false;
-	if (!(obj->streams.memory_infos = r_list_new ())) streams = false;
-	if (!(obj->streams.modules = r_list_new ())) streams = false;
-	if (!(obj->streams.operations = r_list_new ())) streams = false;
-	if (!(obj->streams.thread_infos = r_list_new ())) streams = false;
-	if (!(obj->streams.threads = r_list_new ())) streams = false;
-	if (!(obj->streams.unloaded_modules = r_list_new ())) streams = false;
+	fail |= (!(obj->streams.ex_threads = r_list_new ()));
+	fail |= (!(obj->streams.memories = r_list_new ()));
+	fail |= (!(obj->streams.memories64.memories = r_list_new ()));
+	fail |= (!(obj->streams.memory_infos = r_list_new ()));
+	fail |= (!(obj->streams.modules = r_list_new ()));
+	fail |= (!(obj->streams.operations = r_list_new ()));
+	fail |= (!(obj->streams.thread_infos = r_list_new ()));
+	fail |= (!(obj->streams.threads = r_list_new ()));
+	fail |= (!(obj->streams.unloaded_modules = r_list_new ()));
 
-	if (!streams) {
+	if (fail) {
 		r_bin_mdmp_free (obj);
 		return NULL;
 	}
