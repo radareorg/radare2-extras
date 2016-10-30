@@ -160,25 +160,22 @@ static RList *sections(RBinFile *arch) {
 	/* In order to resolve virtual and physical addresses correctly, the
 	** memories list must also be resolved. FIXME?: As a further note it
 	** seems that r2 will not resolve the addresses unless memory
-	** permissions are set, as well as a valid name, and add==true!!! */
+	** permissions contain R_BIN_SCN_MAP and add==true!!! */
 
 	r_list_foreach (obj->streams.memories, it_0, memory) {
 		if (!(ptr = R_NEW0 (RBinSection))) {
 			return ret;
 		}
 
-		strncpy(ptr->name, "MEM", 3);
+		strncpy(ptr->name, "Memory_Section", 14);
 		ptr->paddr = (memory->memory).rva;
 		ptr->size = (memory->memory).data_size;
 		ptr->vaddr = memory->start_of_memory_range;
 		ptr->vsize = (memory->memory).data_size;
 		ptr->add = true;
-		ptr->srwx = r_str_rwx ("mrwx");
 
-		/* FIXME: Off as mapping will only succeed with 'mrwx' */
-#if 0
-		ptr->srwx = r_bin_mdmp_get_srwx (obj, ptr->vaddr);
-#endif
+		ptr->srwx = R_BIN_SCN_MAP;
+		ptr->srwx |= r_bin_mdmp_get_srwx (obj, ptr->vaddr);
 
 		r_list_append (ret, ptr);
 	}
@@ -189,23 +186,21 @@ static RList *sections(RBinFile *arch) {
 			return ret;
 		}
 
-		strncpy(ptr->name, "MEM", 3);
+		strncpy(ptr->name, "Memory_Section", 14);
 		ptr->paddr = index;
 		ptr->size = memory64->data_size;
 		ptr->vaddr = memory64->start_of_memory_range;
 		ptr->vsize = memory64->data_size;
 		ptr->add = true;
-		ptr->srwx = r_str_rwx ("mrwx");
 
-		/* FIXME: Off as mapping will only succeed with 'mrwx' */
-#if 0
-		ptr->srwx = r_bin_mdmp_get_srwx (obj, ptr->vaddr);
-#endif
+		ptr->srwx = R_BIN_SCN_MAP;
+		ptr->srwx |= r_bin_mdmp_get_srwx (obj, ptr->vaddr);
 
 		r_list_append (ret, ptr);
 
 		index += memory64->data_size;
 	}
+
 	r_list_foreach (obj->streams.modules, it_0, module) {
 		if (!(ptr = R_NEW0 (RBinSection))) {
 			return ret;
@@ -218,7 +213,6 @@ static RList *sections(RBinFile *arch) {
 		ptr->paddr = 0;
 		ptr->vaddr = module->base_of_image;
 		ptr->add = true;
-		ptr->srwx = r_str_rwx ("mrwx");
 
 		/* Loop through the memories sections looking for a match */
 		index = obj->streams.memories64.base_rva;
@@ -230,10 +224,12 @@ static RList *sections(RBinFile *arch) {
 			index += memory64->data_size;
 		}
 
-		/* FIXME: Off as mapping will only succeed with 'mrwx' */
-#if 0
-		ptr->srwx = r_bin_mdmp_get_srwx (obj, ptr->vaddr);
-#endif
+		/* FIXME?: Will only set the permissions for the first section,
+		** i.e. header. Should we group all the permissions together
+		** and report as lets say rwx as we will contain header, .text,
+		** .data, etc... */
+		ptr->srwx = R_BIN_SCN_MAP;
+		ptr->srwx |= r_bin_mdmp_get_srwx (obj, ptr->vaddr);
 
 		r_list_append (ret, ptr);
 	}
@@ -263,10 +259,11 @@ static RList *mem (RBinFile *arch) {
 
 		/* FIXME: Hacky approach to match memory from virtual address to location in buffer */
 		location = &(module->memory);
-		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x MEM", location->rva));
+		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x Memory_Section", location->rva));
 		ptr->addr = module->start_of_memory_range;
 		ptr->size = (location->data_size);
-		ptr->perms = r_bin_mdmp_get_srwx (obj, ptr->addr);
+		ptr->perms = R_BIN_SCN_MAP;
+		ptr->perms |= r_bin_mdmp_get_srwx (obj, ptr->addr);
 
 		r_list_append (ret, ptr);
 	}
@@ -278,10 +275,11 @@ static RList *mem (RBinFile *arch) {
 		}
 
 		/* FIXME: Hacky approach to match memory from virtual address to location in buffer */
-		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x MEM", index));
+		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x Memory_Section", index));
 		ptr->addr = module64->start_of_memory_range;
 		ptr->size = module64->data_size;
-		ptr->perms = r_bin_mdmp_get_srwx (obj, ptr->addr);
+		ptr->perms = R_BIN_SCN_MAP;
+		ptr->perms |= r_bin_mdmp_get_srwx (obj, ptr->addr);
 
 		index += module64->data_size;
 

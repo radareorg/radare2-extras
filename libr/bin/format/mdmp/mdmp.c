@@ -23,6 +23,8 @@ ut32 r_bin_mdmp_get_srwx(struct r_bin_mdmp_obj *obj, ut64 address)
 
 	if (!found) return 0;
 
+	/* FIXME: Have I got these mappings right, I am not sure I have!!! */
+
 	switch (mem_info->protect) {
 	case MINIDUMP_PAGE_READONLY:
 		return R_BIN_SCN_READABLE;
