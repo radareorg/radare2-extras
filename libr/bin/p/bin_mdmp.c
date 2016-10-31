@@ -5,6 +5,7 @@
 #include <r_lib.h>
 #include <r_bin.h>
 
+#include "mdmp/pe/pe.h"
 #include "mdmp/mdmp.h"
 
 
@@ -13,7 +14,7 @@ static int check_bytes(const ut8 *buf, ut64 length);
 
 
 static ut64 baddr(RBinFile *arch) {
-	return r_bin_mdmp_get_baddr (arch->o->bin_obj);
+	return 0LL;
 }
 
 static Sdb *get_sdb(RBinObject *o) {
@@ -33,10 +34,56 @@ static int destroy(RBinFile *arch) {
 	return true;
 }
 
-static RList *entries(RBinFile *arch) {
-	RList *ret;
-	if (!(ret = r_list_newf (free)))
+static RList* entries(RBinFile *arch) {
+	struct minidump_module *module;
+	struct r_bin_mdmp_obj *obj;
+	struct r_bin_pe_addr_t *entry = NULL;
+	struct PE_(r_bin_pe_obj_t) *pe_bin;
+	ut64 paddr;
+	RBinAddr *ptr = NULL;
+	RListIter *it;
+	RList* ret;
+	RBuffer *pe_buf;
+
+	if (!(ret = r_list_newf (free))) {
 		return NULL;
+	}
+
+	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
+
+	r_list_foreach (obj->streams.modules, it, module) {
+		/* TODO: Don't initialise the whole pe structure, we only need
+		** to init the header and the sections, but both of these
+		** functions are static! */
+		if (!(paddr = r_bin_get_paddr(obj, module->base_of_image))) {
+			continue;
+		}
+		pe_buf = r_buf_new_with_bytes(obj->b->buf + paddr, module->size_of_image);
+		pe_bin = PE_(r_bin_pe_new_buf) (pe_buf);
+		r_buf_free(pe_buf);
+
+		if (!(entry = PE_(r_bin_pe_get_entrypoint) (pe_bin))) {
+			PE_(r_bin_pe_free) (pe_bin);
+			continue;
+		}
+
+		if ((ptr = R_NEW0 (RBinAddr))) {
+			/* Swap and modify the entry points due to the fact
+			** that we are already loaded in memory */
+			ptr->paddr = paddr+entry->vaddr;
+			ptr->vaddr = entry->vaddr+module->base_of_image;
+			ptr->type  = R_BIN_ENTRY_TYPE_PROGRAM;
+			r_list_append (ret, ptr);
+		}
+
+		// TODO: TLS Callback
+		// get TLS callback addresses
+		//add_tls_callbacks (arch, ret);
+
+		free (entry);
+		PE_(r_bin_pe_free) (pe_bin);
+	}
+
 	return ret;
 }
 
@@ -147,7 +194,7 @@ static RList *sections(RBinFile *arch) {
 	struct minidump_string *str;
 	struct r_bin_mdmp_obj *obj;
 	RList *ret;
-	RListIter *it_0, *it_1;
+	RListIter *it;
 	RBinSection *ptr;
 	ut64 index;
 
@@ -162,7 +209,7 @@ static RList *sections(RBinFile *arch) {
 	** seems that r2 will not resolve the addresses unless memory
 	** permissions contain R_BIN_SCN_MAP and add==true!!! */
 
-	r_list_foreach (obj->streams.memories, it_0, memory) {
+	r_list_foreach (obj->streams.memories, it, memory) {
 		if (!(ptr = R_NEW0 (RBinSection))) {
 			return ret;
 		}
@@ -181,7 +228,7 @@ static RList *sections(RBinFile *arch) {
 	}
 
 	index = obj->streams.memories64.base_rva;
-	r_list_foreach (obj->streams.memories64.memories, it_0, memory64) {
+	r_list_foreach (obj->streams.memories64.memories, it, memory64) {
 		if (!(ptr = R_NEW0 (RBinSection))) {
 			return ret;
 		}
@@ -201,28 +248,18 @@ static RList *sections(RBinFile *arch) {
 		index += memory64->data_size;
 	}
 
-	r_list_foreach (obj->streams.modules, it_0, module) {
+	r_list_foreach (obj->streams.modules, it, module) {
 		if (!(ptr = R_NEW0 (RBinSection))) {
 			return ret;
 		}
 
 		str = (struct minidump_string *)(obj->b->buf + module->module_name_rva);
 		r_str_utf16_to_utf8 ((ut8 *)ptr->name, R_BIN_SIZEOF_STRINGS, (const ut8 *)&(str->buffer), str->length, obj->endian);
-		ptr->size = module->size_of_image;
-		ptr->vsize = module->size_of_image;
-		ptr->paddr = 0;
 		ptr->vaddr = module->base_of_image;
+		ptr->vsize = module->size_of_image;
+		ptr->paddr = r_bin_get_paddr(obj, ptr->vaddr);
+		ptr->size = module->size_of_image;
 		ptr->add = true;
-
-		/* Loop through the memories sections looking for a match */
-		index = obj->streams.memories64.base_rva;
-		r_list_foreach (obj->streams.memories64.memories, it_1, memory64) {
-			if (ptr->vaddr == memory64->start_of_memory_range) {
-				ptr->paddr = index;
-				break;
-			}
-			index += memory64->data_size;
-		}
 
 		/* FIXME?: Will only set the permissions for the first section,
 		** i.e. header. Should we group all the permissions together

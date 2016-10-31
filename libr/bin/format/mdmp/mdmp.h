@@ -52,6 +52,7 @@ struct r_bin_mdmp_obj {
 struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf);
 void r_bin_mdmp_free(struct r_bin_mdmp_obj *obj);
 ut64 r_bin_mdmp_get_baddr(struct r_bin_mdmp_obj *obj);
+ut64 r_bin_get_paddr(struct r_bin_mdmp_obj *obj, ut64 vaddr);
 ut32 r_bin_mdmp_get_srwx(struct r_bin_mdmp_obj *obj, ut64 address);
 
 #endif /* MDMP_H */
