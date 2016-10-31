@@ -39,7 +39,7 @@ static RList* entries(RBinFile *arch) {
 	struct r_bin_mdmp_obj *obj;
 	struct r_bin_pe_addr_t *entry = NULL;
 	struct PE_(r_bin_pe_obj_t) *pe_bin;
-	ut64 paddr;
+	ut64 offset, paddr;
 	RBinAddr *ptr = NULL;
 	RListIter *it;
 	RList* ret;
@@ -68,10 +68,17 @@ static RList* entries(RBinFile *arch) {
 		}
 
 		if ((ptr = R_NEW0 (RBinAddr))) {
-			/* Swap and modify the entry points due to the fact
-			** that we are already loaded in memory */
-			ptr->paddr = paddr+entry->vaddr;
-			ptr->vaddr = entry->vaddr+module->base_of_image;
+			/* Hacky! We need to use the vaddr to calculate the
+			** correct offset for the entry. We must cater for
+			** correctly resolved calculations and incorrectly
+			** resolved! */
+			/* FIXME: Does this work for all cases? */
+			offset = entry->vaddr;
+			if (offset > module->base_of_image) {
+				offset -= module->base_of_image;
+			}
+			ptr->paddr = offset + paddr;
+			ptr->vaddr = offset + module->base_of_image;
 			ptr->type  = R_BIN_ENTRY_TYPE_PROGRAM;
 			r_list_append (ret, ptr);
 		}
@@ -257,7 +264,7 @@ static RList *sections(RBinFile *arch) {
 		r_str_utf16_to_utf8 ((ut8 *)ptr->name, R_BIN_SIZEOF_STRINGS, (const ut8 *)&(str->buffer), str->length, obj->endian);
 		ptr->vaddr = module->base_of_image;
 		ptr->vsize = module->size_of_image;
-		ptr->paddr = r_bin_get_paddr(obj, ptr->vaddr);
+		ptr->paddr = r_bin_get_paddr (obj, ptr->vaddr);
 		ptr->size = module->size_of_image;
 		ptr->add = true;
 

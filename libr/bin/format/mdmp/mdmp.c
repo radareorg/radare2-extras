@@ -27,14 +27,14 @@ ut64 r_bin_get_paddr(struct r_bin_mdmp_obj *obj, ut64 vaddr) {
 	return paddr;
 }
 
-ut32 r_bin_mdmp_get_srwx(struct r_bin_mdmp_obj *obj, ut64 address)
+ut32 r_bin_mdmp_get_srwx(struct r_bin_mdmp_obj *obj, ut64 vaddr)
 {
 	bool found = false;
 	struct minidump_memory_info *mem_info;
 	RListIter *it;
 
 	r_list_foreach (obj->streams.memory_infos, it, mem_info) {
-		if (mem_info->allocation_base && address == mem_info->base_address) {
+		if (mem_info->allocation_base && vaddr == mem_info->base_address) {
 			found = true;
 			break;
 		}
