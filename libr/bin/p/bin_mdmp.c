@@ -333,6 +333,116 @@ static RList *mem (RBinFile *arch) {
 	return ret;
 }
 
+static bool patch_pe_headers(RBuffer *pe_buf) {
+	int i;
+	PE_(image_dos_header) dos_hdr;
+	PE_(image_nt_headers) nt_hdr;
+	PE_(image_section_header) *section_hdrs;
+
+	r_buf_read_at (pe_buf, 0, (ut8*)&dos_hdr, sizeof(PE_(image_dos_header)));
+	r_buf_read_at (pe_buf, dos_hdr.e_lfanew, (ut8*)&nt_hdr, sizeof (PE_(image_nt_headers)));
+
+	/* Patch RawData in headers */
+	section_hdrs = (PE_(image_section_header) *)(pe_buf->buf + dos_hdr.e_lfanew + 4 + sizeof (PE_(image_file_header)) + nt_hdr.file_header.SizeOfOptionalHeader);
+	for (i = 0; i < nt_hdr.file_header.NumberOfSections; i++) {
+		section_hdrs[i].PointerToRawData = section_hdrs[i].VirtualAddress;
+	}
+
+	return true;
+}
+
+static RList* symbols(RBinFile *arch) {
+	int i;
+	ut64 offset, paddr;
+	struct minidump_module *module;
+	struct r_bin_mdmp_obj *obj;
+	struct r_bin_pe_export_t *symbols = NULL;
+	struct r_bin_pe_import_t *imports = NULL;
+	struct PE_(r_bin_pe_obj_t) *pe_bin;
+	RBinSymbol *ptr = NULL;
+	RBuffer *pe_buf;
+	RList *ret = NULL;
+	RListIter *it;
+
+	if (!(ret = r_list_new ())) {
+		return NULL;
+	}
+	ret->free = free;
+
+	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
+
+	r_list_foreach (obj->streams.modules, it, module) {
+		/* TODO: Don't initialise the whole pe structure, we only need
+		** to init the header and the sections, but both of these
+		** functions are static! */
+		if (!(paddr = r_bin_get_paddr(obj, module->base_of_image))) {
+			continue;
+		}
+
+		pe_buf = r_buf_new_with_bytes(obj->b->buf + paddr, module->size_of_image);
+		patch_pe_headers(pe_buf);
+		pe_bin = PE_(r_bin_pe_new_buf) (pe_buf);
+		r_buf_free(pe_buf);
+
+
+		/* TODO: Load symbol table from pdb file */
+		if ((symbols = PE_(r_bin_pe_get_exports)(pe_bin))) {
+			for (i = 0; !symbols[i].last; i++) {
+				if (!(ptr = R_NEW0 (RBinSymbol))) {
+					break;
+				}
+				/* Hacky! We need to use the vaddr to calculate the
+				** correct offset for the entry. We must cater for
+				** correctly resolved calculations and incorrectly
+				** resolved! */
+				/* FIXME: Does this work for all cases? */
+				offset = symbols[i].vaddr;
+				if (offset > module->base_of_image) {
+					offset -= module->base_of_image;
+				}
+				ptr->name = strdup ((char *)symbols[i].name);
+				ptr->forwarder = r_str_const ((char *)symbols[i].forwarder);
+				ptr->bind = r_str_const ("GLOBAL");
+				ptr->type = r_str_const ("FUNC");
+				ptr->size = 0;
+				ptr->vaddr = offset + module->base_of_image;
+				ptr->paddr = symbols[i].paddr + paddr;
+				ptr->ordinal = symbols[i].ordinal;
+				r_list_append (ret, ptr);
+			}
+			free (symbols);
+		}
+
+		if ((imports = PE_(r_bin_pe_get_imports)(pe_bin))) {
+			for (i = 0; !imports[i].last; i++) {
+				if (!(ptr = R_NEW0 (RBinSymbol))) {
+					break;
+				}
+				/* Hacky! We need to use the vaddr to calculate the
+				** correct offset for the entry. We must cater for
+				** correctly resolved calculations and incorrectly
+				** resolved! */
+				/* FIXME: Does this work for all cases? */
+				offset = imports[i].vaddr;
+				if (offset > module->base_of_image) {
+					offset -= module->base_of_image;
+				}
+				ptr->name = r_str_newf ("imp.%s", imports[i].name);
+				ptr->bind = r_str_const ("NONE");
+				ptr->type = r_str_const ("FUNC");
+				ptr->size = 0;
+				ptr->vaddr = offset + module->base_of_image;
+				ptr->paddr = imports[i].paddr + paddr;
+				ptr->ordinal = imports[i].ordinal;
+				r_list_append (ret, ptr);
+			}
+			free (imports);
+		}
+		PE_(r_bin_pe_free) (pe_bin);
+	}
+	return ret;
+}
+
 static int check(RBinFile *arch) {
 	const ut8 *bytes;
 	ut64 sz;
@@ -363,6 +473,7 @@ RBinPlugin r_bin_plugin_mdmp = {
 	.load_bytes = &load_bytes,
 	.mem = &mem,
 	.sections = &sections,
+	.symbols = &symbols,
 };
 
 #ifndef CORELIB
