@@ -5,6 +5,7 @@ PLUGINS=arm x86 mips sparc ppc hexagon sysz
 LIBS=$(addsuffix _ks.$(SO_EXT),$(addprefix asm_,${PLUGINS}))
 #R2PM_PLUGDIR?=${LIBDIR}/radare2/last/
 R2PM_PLUGDIR?=~/.config/radare2/plugins
+R2PM_PREFIX?=~/.config/radare2/prefix
 
 ifeq ($(shell uname),Darwin)
 KS_LDFLAGS+=-Xlinker -rpath -Xlinker $(R2PM_PREFIX)/lib
