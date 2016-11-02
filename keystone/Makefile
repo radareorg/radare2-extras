@@ -6,6 +6,13 @@ LIBS=$(addsuffix _ks.$(SO_EXT),$(addprefix asm_,${PLUGINS}))
 #R2PM_PLUGDIR?=${LIBDIR}/radare2/last/
 R2PM_PLUGDIR?=~/.config/radare2/plugins
 
+ifeq ($(shell uname),Darwin)
+KS_LDFLAGS+=-Xlinker -rpath -Xlinker $(R2PM_PREFIX)/lib
+endif
+ifeq ($(shell uname),Linux)
+KS_LDFLAGS+=-Xlinker -Wl,-R$(R2PM_PREFIX)/lib
+endif
+
 .PHONY: all clean install uninstall mrproper test
 
 all: $(PLUGINS)
