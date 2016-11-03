@@ -50,7 +50,7 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 	}
 	int rc = ks_asm (ks, str, a->pc, &insn, &size, &count);
 	if (rc) {
-		eprintf ("ks_asm: %s\n", ks_strerror ((ks_err)ks_errno (ks)));
+		eprintf ("ks_asm: (%s) %s\n", str, ks_strerror ((ks_err)ks_errno (ks)));
 		ks_free (insn);
 		if (ks) {
 			ks_close (ks);
