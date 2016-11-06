@@ -361,6 +361,95 @@ static void filter_import(ut8 *n) {
 	}
 }
 
+static RList* relocs(RBinFile *arch) {
+	int i;
+	struct minidump_module *module;
+	struct r_bin_mdmp_obj *obj;
+	struct r_bin_pe_import_t *imports = NULL;
+	struct PE_(r_bin_pe_obj_t) *pe_bin;
+	ut64 offset, paddr;
+	RBinImport *ptr = NULL;
+	RBinReloc *rel = NULL;
+	RListIter *it;
+	RList* ret;
+	RBuffer *pe_buf;
+
+	if (!(ret = r_list_newf (free))) {
+		return NULL;
+	}
+
+	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
+
+	r_list_foreach (obj->streams.modules, it, module) {
+		if (!(paddr = r_bin_get_paddr(obj, module->base_of_image))) {
+			continue;
+		}
+		pe_buf = r_buf_new_with_bytes(obj->b->buf + paddr, module->size_of_image);
+		pe_bin = PE_(r_bin_pe_new_buf) (pe_buf);
+		r_buf_free(pe_buf);
+
+		/* TODO: Why is the bin_pe doing the reloc parsing!!! This
+		 * should be changed, for now we will parse the imports again!
+		 * */
+		if (!(paddr = r_bin_get_paddr(obj, module->base_of_image))) {
+			continue;
+		}
+
+		pe_buf = r_buf_new_with_bytes(obj->b->buf + paddr, module->size_of_image);
+		patch_pe_headers(pe_buf);
+		pe_bin = PE_(r_bin_pe_new_buf) (pe_buf);
+		r_buf_free(pe_buf);
+
+		if (!(imports = PE_(r_bin_pe_get_imports)(pe_bin))) {
+			return ret;
+		}
+		for (i = 0; !imports[i].last; i++) {
+			/* FIXME: The ptr will leak */
+			if (!(ptr = R_NEW0 (RBinImport))) {
+				break;
+			}
+			filter_import (imports[i].name);
+			ptr->name = strdup ((char*)imports[i].name);
+			ptr->bind = r_str_const ("NONE");
+			ptr->type = r_str_const ("FUNC");
+			ptr->ordinal = imports[i].ordinal;
+
+			// NOTE(eddyb) a PE hint is just an optional possible DLL export table
+			// index for the import. There is no point in exposing it.
+			//ptr->hint = imports[i].hint;
+			if (!(rel = R_NEW0 (RBinReloc))) {
+				break;
+			}
+#ifdef R_BIN_PE64
+			rel->type = R_BIN_RELOC_64;
+#else
+			rel->type = R_BIN_RELOC_32;
+#endif
+			/* Hacky! We need to use the vaddr to calculate the
+			** correct offset for the entry. We must cater for
+			** correctly resolved calculations and incorrectly
+			** resolved! */
+			/* FIXME: Does this work for all cases? */
+			offset = imports[i].vaddr;
+			if (offset > module->base_of_image) {
+				offset -= module->base_of_image;
+			}
+			rel->additive = 0;
+			rel->import = ptr;
+			rel->addend = 0;
+//			rel->vaddr = imports[i].vaddr;
+//			rel->paddr = imports[i].paddr;
+			rel->vaddr = offset + module->base_of_image;
+			rel->paddr = imports[i].paddr + paddr;
+			r_list_append (ret, rel);
+		}
+		free (imports);
+		PE_(r_bin_pe_free) (pe_bin);
+	}
+
+	return ret;
+}
+
 static RList* imports(RBinFile *arch) {
 	int i;
 	ut64 offset, paddr;
@@ -575,6 +664,7 @@ RBinPlugin r_bin_plugin_mdmp = {
 	.load = &load,
 	.load_bytes = &load_bytes,
 	.mem = &mem,
+	.relocs = &relocs,
 	.sections = &sections,
 	.symbols = &symbols,
 };
