@@ -30,13 +30,10 @@ static int destroy(RBinFile *arch) {
 
 static RList* entries(RBinFile *arch) {
 	struct r_bin_mdmp_obj *obj;
-	struct r_bin_mdmp_pe32_bin *pe32_bin;
-	struct r_bin_mdmp_pe64_bin *pe64_bin;
-	struct r_bin_pe_addr_t *entry = NULL;
-	ut64 offset;
-	RBinAddr *ptr = NULL;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
 	RListIter *it;
-	RList* ret;
+	RList* ret, *list;
 
 	if (!(ret = r_list_newf (free))) {
 		return NULL;
@@ -45,48 +42,14 @@ static RList* entries(RBinFile *arch) {
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
-		if (!(entry = Pe32_r_bin_pe_get_entrypoint(pe32_bin->bin))) {
-			continue;
-		}
-
-		if ((ptr = R_NEW0 (RBinAddr))) {
-			offset = entry->vaddr;
-			if (offset > pe32_bin->vaddr) {
-				offset -= pe32_bin->vaddr;
-			}
-			ptr->paddr = offset + pe32_bin->paddr;
-			ptr->vaddr = offset + pe32_bin->vaddr;
-			ptr->type  = R_BIN_ENTRY_TYPE_PROGRAM;
-			r_list_append (ret, ptr);
-		}
-
-		// TODO: TLS Callback
-		// get TLS callback addresses
-		//add_tls_callbacks (arch, ret);
-
-		free (entry);
+		list = Pe32_r_bin_mdmp_pe_get_entrypoint (pe32_bin);
+		r_list_join(ret, list);
+		r_list_free(list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
-		if (!(entry = Pe64_r_bin_pe_get_entrypoint(pe64_bin->bin))) {
-			continue;
-		}
-
-		if ((ptr = R_NEW0 (RBinAddr))) {
-			offset = entry->vaddr;
-			if (offset > pe64_bin->vaddr) {
-				offset -= pe64_bin->vaddr;
-			}
-			ptr->paddr = offset + pe64_bin->paddr;
-			ptr->vaddr = offset + pe64_bin->vaddr;
-			ptr->type  = R_BIN_ENTRY_TYPE_PROGRAM;
-			r_list_append (ret, ptr);
-		}
-
-		// TODO: TLS Callback
-		// get TLS callback addresses
-		//add_tls_callbacks (arch, ret);
-
-		free (entry);
+		list = Pe64_r_bin_mdmp_pe_get_entrypoint (pe64_bin);
+		r_list_join(ret, list);
+		r_list_free(list);
 	}
 
 	return ret;
@@ -331,20 +294,10 @@ static RList *mem (RBinFile *arch) {
 	return ret;
 }
 
-static void filter_import(ut8 *n) {
-	int I;
-	for (I = 0; n[I]; I++) {
-		if (n[I] < 30 || n[I] >= 0x7f) {
-			n[I] = 0;
-			break;
-		}
-	}
-}
-
 static RList* relocs(RBinFile *arch) {
 	struct r_bin_mdmp_obj *obj;
-	struct r_bin_mdmp_pe32_bin *pe32_bin;
-	struct r_bin_mdmp_pe64_bin *pe64_bin;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
 	RListIter *it;
 	RList* ret;
 
@@ -369,15 +322,10 @@ static RList* relocs(RBinFile *arch) {
 }
 
 static RList* imports(RBinFile *arch) {
-	int i;
-	ut64 offset;
 	struct r_bin_mdmp_obj *obj;
-	struct r_bin_mdmp_pe32_bin *pe32_bin;
-	struct r_bin_mdmp_pe64_bin *pe64_bin;
-	struct r_bin_pe_import_t *imports = NULL;
-	RBinImport *ptr = NULL;
-	RBinReloc *rel = NULL;
-	RList *ret = NULL, *relocs = NULL;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RList *ret = NULL, *list;
 	RListIter *it;
 
 	if (!(ret = r_list_new ())) {
@@ -391,94 +339,23 @@ static RList* imports(RBinFile *arch) {
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
-		if (!(imports = Pe32_r_bin_pe_get_imports(pe32_bin->bin))) {
-			return ret;
-		}
-		if (!(relocs = r_list_new ())) {
-			free (ret);
-			return NULL;
-		}
-		relocs->free = free;
-		pe32_bin->bin->relocs = relocs;
-		for (i = 0; !imports[i].last; i++) {
-			if (!(ptr = R_NEW0 (RBinImport))) {
-				break;
-			}
-			filter_import (imports[i].name);
-			ptr->name = strdup ((char*)imports[i].name);
-			ptr->bind = r_str_const ("NONE");
-			ptr->type = r_str_const ("FUNC");
-			ptr->ordinal = imports[i].ordinal;
-			r_list_append (ret, ptr);
-
-			if (!(rel = R_NEW0 (RBinReloc))) {
-				break;
-			}
-			rel->type = R_BIN_RELOC_32;
-			offset = imports[i].vaddr;
-			if (offset > pe32_bin->vaddr) {
-				offset -= pe32_bin->vaddr;
-			}
-			rel->additive = 0;
-			rel->import = ptr;
-			rel->addend = 0;
-			rel->vaddr = offset + pe32_bin->vaddr;
-			rel->paddr = imports[i].paddr + pe32_bin->paddr;
-			r_list_append (relocs, rel);
-		}
-		free (imports);
+		list = Pe32_r_bin_mdmp_pe_get_imports (pe32_bin);
+		r_list_join(ret, list);
+		r_list_free(list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
-		if (!(imports = Pe64_r_bin_pe_get_imports(pe64_bin->bin))) {
-			return ret;
-		}
-		if (!(relocs = r_list_new ())) {
-			free (ret);
-			return NULL;
-		}
-		relocs->free = free;
-		pe64_bin->bin->relocs = relocs;
-		for (i = 0; !imports[i].last; i++) {
-			if (!(ptr = R_NEW0 (RBinImport))) {
-				break;
-			}
-			filter_import (imports[i].name);
-			ptr->name = strdup ((char*)imports[i].name);
-			ptr->bind = r_str_const ("NONE");
-			ptr->type = r_str_const ("FUNC");
-			ptr->ordinal = imports[i].ordinal;
-			r_list_append (ret, ptr);
-
-			if (!(rel = R_NEW0 (RBinReloc))) {
-				break;
-			}
-			rel->type = R_BIN_RELOC_64;
-			offset = imports[i].vaddr;
-			if (offset > pe64_bin->vaddr) {
-				offset -= pe64_bin->vaddr;
-			}
-			rel->additive = 0;
-			rel->import = ptr;
-			rel->addend = 0;
-			rel->vaddr = offset + pe64_bin->vaddr;
-			rel->paddr = imports[i].paddr + pe64_bin->paddr;
-			r_list_append (relocs, rel);
-		}
-		free (imports);
+		list = Pe64_r_bin_mdmp_pe_get_imports (pe64_bin);
+		r_list_join(ret, list);
+		r_list_free(list);
 	}
 	return ret;
 }
 
 static RList* symbols(RBinFile *arch) {
-	int i;
-	ut64 offset;
 	struct r_bin_mdmp_obj *obj;
-	struct r_bin_mdmp_pe32_bin *pe32_bin;
-	struct r_bin_mdmp_pe64_bin *pe64_bin;
-	struct r_bin_pe_export_t *symbols = NULL;
-	struct r_bin_pe_import_t *imports = NULL;
-	RBinSymbol *ptr = NULL;
-	RList *ret = NULL;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RList *ret = NULL, *list;
 	RListIter *it;
 
 	if (!(ret = r_list_new ())) {
@@ -489,93 +366,14 @@ static RList* symbols(RBinFile *arch) {
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
-		/* TODO: Load symbol table from pdb file */
-		if ((symbols = Pe32_r_bin_pe_get_exports(pe32_bin->bin))) {
-			for (i = 0; !symbols[i].last; i++) {
-				if (!(ptr = R_NEW0 (RBinSymbol))) {
-					break;
-				}
-				offset = symbols[i].vaddr;
-				if (offset > pe32_bin->vaddr) {
-					offset -= pe32_bin->vaddr;
-				}
-				ptr->name = strdup ((char *)symbols[i].name);
-				ptr->forwarder = r_str_const ((char *)symbols[i].forwarder);
-				ptr->bind = r_str_const ("GLOBAL");
-				ptr->type = r_str_const ("FUNC");
-				ptr->size = 0;
-				ptr->vaddr = offset + pe32_bin->vaddr;
-				ptr->paddr = symbols[i].paddr + pe32_bin->paddr;
-				ptr->ordinal = symbols[i].ordinal;
-				r_list_append (ret, ptr);
-			}
-			free (symbols);
-		}
-
-		if ((imports = Pe32_r_bin_pe_get_imports(pe32_bin->bin))) {
-			for (i = 0; !imports[i].last; i++) {
-				if (!(ptr = R_NEW0 (RBinSymbol))) {
-					break;
-				}
-				offset = imports[i].vaddr;
-				if (offset > pe32_bin->vaddr) {
-					offset -= pe32_bin->vaddr;
-				}
-				ptr->name = r_str_newf ("imp.%s", imports[i].name);
-				ptr->bind = r_str_const ("NONE");
-				ptr->type = r_str_const ("FUNC");
-				ptr->size = 0;
-				ptr->vaddr = offset + pe32_bin->vaddr;
-				ptr->paddr = imports[i].paddr + pe32_bin->paddr;
-				ptr->ordinal = imports[i].ordinal;
-				r_list_append (ret, ptr);
-			}
-			free (imports);
-		}
+		list = Pe32_r_bin_mdmp_pe_get_symbols (pe32_bin);
+		r_list_join(ret, list);
+		r_list_free(list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
-		/* TODO: Load symbol table from pdb file */
-		if ((symbols = Pe64_r_bin_pe_get_exports(pe64_bin->bin))) {
-			for (i = 0; !symbols[i].last; i++) {
-				if (!(ptr = R_NEW0 (RBinSymbol))) {
-					break;
-				}
-				offset = symbols[i].vaddr;
-				if (offset > pe64_bin->vaddr) {
-					offset -= pe64_bin->vaddr;
-				}
-				ptr->name = strdup ((char *)symbols[i].name);
-				ptr->forwarder = r_str_const ((char *)symbols[i].forwarder);
-				ptr->bind = r_str_const ("GLOBAL");
-				ptr->type = r_str_const ("FUNC");
-				ptr->size = 0;
-				ptr->vaddr = offset + pe64_bin->vaddr;
-				ptr->paddr = symbols[i].paddr + pe64_bin->paddr;
-				ptr->ordinal = symbols[i].ordinal;
-				r_list_append (ret, ptr);
-			}
-			free (symbols);
-		}
-		if ((imports = Pe64_r_bin_pe_get_imports(pe64_bin->bin))) {
-			for (i = 0; !imports[i].last; i++) {
-				if (!(ptr = R_NEW0 (RBinSymbol))) {
-					break;
-				}
-				offset = imports[i].vaddr;
-				if (offset > pe64_bin->vaddr) {
-					offset -= pe64_bin->vaddr;
-				}
-				ptr->name = r_str_newf ("imp.%s", imports[i].name);
-				ptr->bind = r_str_const ("NONE");
-				ptr->type = r_str_const ("FUNC");
-				ptr->size = 0;
-				ptr->vaddr = offset + pe64_bin->vaddr;
-				ptr->paddr = imports[i].paddr + pe64_bin->paddr;
-				ptr->ordinal = imports[i].ordinal;
-				r_list_append (ret, ptr);
-			}
-			free (imports);
-		}
+		list = Pe64_r_bin_mdmp_pe_get_symbols (pe64_bin);
+		r_list_join(ret, list);
+		r_list_free(list);
 	}
 	return ret;
 }

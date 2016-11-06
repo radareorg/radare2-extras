@@ -9,25 +9,8 @@
 #include <r_bin.h>
 
 #include "mdmp_specs.h"
-
-/* Get the 32-bit and 64 */
-#include "mdmp/pe/pe.h"
-#define R_BIN_PE64
-#include "mdmp/pe/pe.h"
-
-/* r2 has a plugin for 32 bit and 64 bit pe binaries, so we will have to cater
- * to this */
-struct r_bin_mdmp_pe32_bin {
-	ut64 vaddr;
-	ut64 paddr;
-	struct Pe32_r_bin_pe_obj_t *bin;
-};
-
-struct r_bin_mdmp_pe64_bin {
-	ut64 vaddr;
-	ut64 paddr;
-	struct Pe64_r_bin_pe_obj_t *bin;
-};
+#include "mdmp_pe.h"
+#include "mdmp_pe64.h"
 
 struct r_bin_mdmp_obj {
 	struct minidump_header *hdr;

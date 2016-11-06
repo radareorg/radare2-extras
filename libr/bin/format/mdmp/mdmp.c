@@ -66,13 +66,13 @@ ut32 r_bin_mdmp_get_srwx(struct r_bin_mdmp_obj *obj, ut64 vaddr)
 	}
 }
 
-static void r_bin_mdmp_free_pe32_bin(struct r_bin_mdmp_pe32_bin *pe_bin) {
+static void r_bin_mdmp_free_pe32_bin(struct Pe32_r_bin_mdmp_pe_bin *pe_bin) {
 	if (!pe_bin) return;
 	Pe32_r_bin_pe_free (pe_bin->bin);
 	R_FREE (pe_bin);
 }
 
-static void r_bin_mdmp_free_pe64_bin(struct r_bin_mdmp_pe64_bin *pe_bin) {
+static void r_bin_mdmp_free_pe64_bin(struct Pe64_r_bin_mdmp_pe_bin *pe_bin) {
 	if (!pe_bin) return;
 	Pe64_r_bin_pe_free (pe_bin->bin);
 	R_FREE (pe_bin);
@@ -318,9 +318,7 @@ static int check_pe32_bytes(const ut8 *buf, ut64 length) {
 		return false;
 	idx = (buf[0x3c] | (buf[0x3d]<<8));
 	if (length > idx+0x18+2)
-		if (!memcmp (buf, "MZ", 2) &&
-		    !memcmp (buf+idx, "PE", 2) &&
-		    !memcmp (buf+idx+0x18, "\x0b\x01", 2))
+		if (!memcmp (buf, "MZ", 2) && !memcmp (buf+idx, "PE", 2) && !memcmp (buf+idx+0x18, "\x0b\x01", 2))
 			return true;
 	return false;
 }
@@ -331,9 +329,7 @@ static int check_pe64_bytes(const ut8 *buf, ut64 length) {
 		return false;
 	idx = buf[0x3c] | (buf[0x3d]<<8);
 	if (length >= idx+0x20)
-		if (!memcmp (buf, "MZ", 2) &&
-			!memcmp (buf+idx, "PE", 2) &&
-			!memcmp (buf+idx+0x18, "\x0b\x02", 2))
+		if (!memcmp (buf, "MZ", 2) && !memcmp (buf+idx, "PE", 2) && !memcmp (buf+idx+0x18, "\x0b\x02", 2))
 			ret = true;
 	return ret;
 }
@@ -341,13 +337,13 @@ static int check_pe64_bytes(const ut8 *buf, ut64 length) {
 static bool r_bin_mdmp_init_pe_bins(struct r_bin_mdmp_obj *obj) {
 	ut64 paddr;
 	struct minidump_module *module;
-	struct r_bin_mdmp_pe32_bin *pe32_bin;
-	struct r_bin_mdmp_pe64_bin *pe64_bin;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
 	RBuffer *buf;
 	RListIter *it;
 
-	obj->pe32_bins->free = r_bin_mdmp_free_pe32_bin;
-	obj->pe64_bins->free = r_bin_mdmp_free_pe64_bin;
+	obj->pe32_bins->free = (RListFree)&r_bin_mdmp_free_pe32_bin;
+	obj->pe64_bins->free = (RListFree)&r_bin_mdmp_free_pe64_bin;
 
 	r_list_foreach (obj->streams.modules, it, module) {
 		if (!(paddr = r_bin_mdmp_get_paddr (obj, module->base_of_image))) {
@@ -355,7 +351,7 @@ static bool r_bin_mdmp_init_pe_bins(struct r_bin_mdmp_obj *obj) {
 		}
 		buf = r_buf_new_with_bytes (obj->b->buf + paddr, module->size_of_image);
 		if (check_pe32_bytes(buf->buf, module->size_of_image)) {
-			if (!(pe32_bin = calloc(1, sizeof (struct r_bin_mdmp_pe32_bin)))) {
+			if (!(pe32_bin = calloc(1, sizeof (struct Pe32_r_bin_mdmp_pe_bin)))) {
 				continue;
 			}
 			r_bin_mdmp_patch_pe_headers (buf);
@@ -365,7 +361,7 @@ static bool r_bin_mdmp_init_pe_bins(struct r_bin_mdmp_obj *obj) {
 
 			r_list_append (obj->pe32_bins, pe32_bin);
 		} else if (check_pe64_bytes(buf->buf, module->size_of_image)) {
-			if (!(pe64_bin = calloc(1, sizeof (struct r_bin_mdmp_pe64_bin)))) {
+			if (!(pe64_bin = calloc(1, sizeof (struct Pe64_r_bin_mdmp_pe_bin)))) {
 				continue;
 			}
 			r_bin_mdmp_patch_pe_headers (buf);
