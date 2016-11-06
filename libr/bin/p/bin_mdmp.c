@@ -5,13 +5,7 @@
 #include <r_lib.h>
 #include <r_bin.h>
 
-#include "mdmp/pe/pe.h"
 #include "mdmp/mdmp.h"
-
-
-static int check(RBinFile *arch);
-static int check_bytes(const ut8 *buf, ut64 length);
-
 
 static ut64 baddr(RBinFile *arch) {
 	return 0LL;
@@ -35,15 +29,14 @@ static int destroy(RBinFile *arch) {
 }
 
 static RList* entries(RBinFile *arch) {
-	struct minidump_module *module;
 	struct r_bin_mdmp_obj *obj;
+	struct r_bin_mdmp_pe32_bin *pe32_bin;
+	struct r_bin_mdmp_pe64_bin *pe64_bin;
 	struct r_bin_pe_addr_t *entry = NULL;
-	struct PE_(r_bin_pe_obj_t) *pe_bin;
-	ut64 offset, paddr;
+	ut64 offset;
 	RBinAddr *ptr = NULL;
 	RListIter *it;
 	RList* ret;
-	RBuffer *pe_buf;
 
 	if (!(ret = r_list_newf (free))) {
 		return NULL;
@@ -51,34 +44,18 @@ static RList* entries(RBinFile *arch) {
 
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
-	r_list_foreach (obj->streams.modules, it, module) {
-		/* TODO: Don't initialise the whole pe structure, we only need
-		** to init the header and the sections, but both of these
-		** functions are static! */
-		if (!(paddr = r_bin_get_paddr(obj, module->base_of_image))) {
-			continue;
-		}
-		pe_buf = r_buf_new_with_bytes(obj->b->buf + paddr, module->size_of_image);
-		pe_bin = PE_(r_bin_pe_new_buf) (pe_buf);
-		r_buf_free(pe_buf);
-
-		if (!(entry = PE_(r_bin_pe_get_entrypoint) (pe_bin))) {
-			PE_(r_bin_pe_free) (pe_bin);
+	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
+		if (!(entry = Pe32_r_bin_pe_get_entrypoint(pe32_bin->bin))) {
 			continue;
 		}
 
 		if ((ptr = R_NEW0 (RBinAddr))) {
-			/* Hacky! We need to use the vaddr to calculate the
-			** correct offset for the entry. We must cater for
-			** correctly resolved calculations and incorrectly
-			** resolved! */
-			/* FIXME: Does this work for all cases? */
 			offset = entry->vaddr;
-			if (offset > module->base_of_image) {
-				offset -= module->base_of_image;
+			if (offset > pe32_bin->vaddr) {
+				offset -= pe32_bin->vaddr;
 			}
-			ptr->paddr = offset + paddr;
-			ptr->vaddr = offset + module->base_of_image;
+			ptr->paddr = offset + pe32_bin->paddr;
+			ptr->vaddr = offset + pe32_bin->vaddr;
 			ptr->type  = R_BIN_ENTRY_TYPE_PROGRAM;
 			r_list_append (ret, ptr);
 		}
@@ -88,7 +65,28 @@ static RList* entries(RBinFile *arch) {
 		//add_tls_callbacks (arch, ret);
 
 		free (entry);
-		PE_(r_bin_pe_free) (pe_bin);
+	}
+	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
+		if (!(entry = Pe64_r_bin_pe_get_entrypoint(pe64_bin->bin))) {
+			continue;
+		}
+
+		if ((ptr = R_NEW0 (RBinAddr))) {
+			offset = entry->vaddr;
+			if (offset > pe64_bin->vaddr) {
+				offset -= pe64_bin->vaddr;
+			}
+			ptr->paddr = offset + pe64_bin->paddr;
+			ptr->vaddr = offset + pe64_bin->vaddr;
+			ptr->type  = R_BIN_ENTRY_TYPE_PROGRAM;
+			r_list_append (ret, ptr);
+		}
+
+		// TODO: TLS Callback
+		// get TLS callback addresses
+		//add_tls_callbacks (arch, ret);
+
+		free (entry);
 	}
 
 	return ret;
@@ -264,7 +262,7 @@ static RList *sections(RBinFile *arch) {
 		r_str_utf16_to_utf8 ((ut8 *)ptr->name, R_BIN_SIZEOF_STRINGS, (const ut8 *)&(str->buffer), str->length, obj->endian);
 		ptr->vaddr = module->base_of_image;
 		ptr->vsize = module->size_of_image;
-		ptr->paddr = r_bin_get_paddr (obj, ptr->vaddr);
+		ptr->paddr = r_bin_mdmp_get_paddr (obj, ptr->vaddr);
 		ptr->size = module->size_of_image;
 		ptr->add = true;
 
@@ -333,24 +331,6 @@ static RList *mem (RBinFile *arch) {
 	return ret;
 }
 
-static bool patch_pe_headers(RBuffer *pe_buf) {
-	int i;
-	PE_(image_dos_header) dos_hdr;
-	PE_(image_nt_headers) nt_hdr;
-	PE_(image_section_header) *section_hdrs;
-
-	r_buf_read_at (pe_buf, 0, (ut8*)&dos_hdr, sizeof(PE_(image_dos_header)));
-	r_buf_read_at (pe_buf, dos_hdr.e_lfanew, (ut8*)&nt_hdr, sizeof (PE_(image_nt_headers)));
-
-	/* Patch RawData in headers */
-	section_hdrs = (PE_(image_section_header) *)(pe_buf->buf + dos_hdr.e_lfanew + 4 + sizeof (PE_(image_file_header)) + nt_hdr.file_header.SizeOfOptionalHeader);
-	for (i = 0; i < nt_hdr.file_header.NumberOfSections; i++) {
-		section_hdrs[i].PointerToRawData = section_hdrs[i].VirtualAddress;
-	}
-
-	return true;
-}
-
 static void filter_import(ut8 *n) {
 	int I;
 	for (I = 0; n[I]; I++) {
@@ -362,17 +342,11 @@ static void filter_import(ut8 *n) {
 }
 
 static RList* relocs(RBinFile *arch) {
-	int i;
-	struct minidump_module *module;
 	struct r_bin_mdmp_obj *obj;
-	struct r_bin_pe_import_t *imports = NULL;
-	struct PE_(r_bin_pe_obj_t) *pe_bin;
-	ut64 offset, paddr;
-	RBinImport *ptr = NULL;
-	RBinReloc *rel = NULL;
+	struct r_bin_mdmp_pe32_bin *pe32_bin;
+	struct r_bin_mdmp_pe64_bin *pe64_bin;
 	RListIter *it;
 	RList* ret;
-	RBuffer *pe_buf;
 
 	if (!(ret = r_list_newf (free))) {
 		return NULL;
@@ -380,71 +354,15 @@ static RList* relocs(RBinFile *arch) {
 
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
-	r_list_foreach (obj->streams.modules, it, module) {
-		if (!(paddr = r_bin_get_paddr(obj, module->base_of_image))) {
-			continue;
+	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
+		if (pe32_bin->bin) {
+			r_list_join(ret, pe32_bin->bin->relocs);
 		}
-		pe_buf = r_buf_new_with_bytes(obj->b->buf + paddr, module->size_of_image);
-		pe_bin = PE_(r_bin_pe_new_buf) (pe_buf);
-		r_buf_free(pe_buf);
-
-		/* TODO: Why is the bin_pe doing the reloc parsing!!! This
-		 * should be changed, for now we will parse the imports again!
-		 * */
-		if (!(paddr = r_bin_get_paddr(obj, module->base_of_image))) {
-			continue;
+	}
+	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
+		if (pe64_bin->bin) {
+			r_list_join(ret, pe64_bin->bin->relocs);
 		}
-
-		pe_buf = r_buf_new_with_bytes(obj->b->buf + paddr, module->size_of_image);
-		patch_pe_headers(pe_buf);
-		pe_bin = PE_(r_bin_pe_new_buf) (pe_buf);
-		r_buf_free(pe_buf);
-
-		if (!(imports = PE_(r_bin_pe_get_imports)(pe_bin))) {
-			return ret;
-		}
-		for (i = 0; !imports[i].last; i++) {
-			/* FIXME: The ptr will leak */
-			if (!(ptr = R_NEW0 (RBinImport))) {
-				break;
-			}
-			filter_import (imports[i].name);
-			ptr->name = strdup ((char*)imports[i].name);
-			ptr->bind = r_str_const ("NONE");
-			ptr->type = r_str_const ("FUNC");
-			ptr->ordinal = imports[i].ordinal;
-
-			// NOTE(eddyb) a PE hint is just an optional possible DLL export table
-			// index for the import. There is no point in exposing it.
-			//ptr->hint = imports[i].hint;
-			if (!(rel = R_NEW0 (RBinReloc))) {
-				break;
-			}
-#ifdef R_BIN_PE64
-			rel->type = R_BIN_RELOC_64;
-#else
-			rel->type = R_BIN_RELOC_32;
-#endif
-			/* Hacky! We need to use the vaddr to calculate the
-			** correct offset for the entry. We must cater for
-			** correctly resolved calculations and incorrectly
-			** resolved! */
-			/* FIXME: Does this work for all cases? */
-			offset = imports[i].vaddr;
-			if (offset > module->base_of_image) {
-				offset -= module->base_of_image;
-			}
-			rel->additive = 0;
-			rel->import = ptr;
-			rel->addend = 0;
-//			rel->vaddr = imports[i].vaddr;
-//			rel->paddr = imports[i].paddr;
-			rel->vaddr = offset + module->base_of_image;
-			rel->paddr = imports[i].paddr + paddr;
-			r_list_append (ret, rel);
-		}
-		free (imports);
-		PE_(r_bin_pe_free) (pe_bin);
 	}
 
 	return ret;
@@ -452,14 +370,13 @@ static RList* relocs(RBinFile *arch) {
 
 static RList* imports(RBinFile *arch) {
 	int i;
-	ut64 offset, paddr;
-	struct minidump_module *module;
+	ut64 offset;
 	struct r_bin_mdmp_obj *obj;
+	struct r_bin_mdmp_pe32_bin *pe32_bin;
+	struct r_bin_mdmp_pe64_bin *pe64_bin;
 	struct r_bin_pe_import_t *imports = NULL;
-	struct PE_(r_bin_pe_obj_t) *pe_bin;
 	RBinImport *ptr = NULL;
 	RBinReloc *rel = NULL;
-	RBuffer *pe_buf;
 	RList *ret = NULL, *relocs = NULL;
 	RListIter *it;
 
@@ -469,33 +386,20 @@ static RList* imports(RBinFile *arch) {
 	if (!(ret = r_list_new ())) {
 		return NULL;
 	}
-	if (!(relocs = r_list_new ())) {
-		free (ret);
-		return NULL;
-	}
 	ret->free = free;
-	relocs->free = free;
 
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
-	r_list_foreach (obj->streams.modules, it, module) {
-		/* TODO: Don't initialise the whole pe structure, we only need
-		** to init the header and the sections, but both of these
-		** functions are static! */
-		if (!(paddr = r_bin_get_paddr(obj, module->base_of_image))) {
-			continue;
-		}
-
-		pe_buf = r_buf_new_with_bytes(obj->b->buf + paddr, module->size_of_image);
-		patch_pe_headers(pe_buf);
-		pe_bin = PE_(r_bin_pe_new_buf) (pe_buf);
-		r_buf_free(pe_buf);
-
-		pe_bin->relocs = relocs;
-
-		if (!(imports = PE_(r_bin_pe_get_imports)(pe_bin))) {
+	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
+		if (!(imports = Pe32_r_bin_pe_get_imports(pe32_bin->bin))) {
 			return ret;
 		}
+		if (!(relocs = r_list_new ())) {
+			free (ret);
+			return NULL;
+		}
+		relocs->free = free;
+		pe32_bin->bin->relocs = relocs;
 		for (i = 0; !imports[i].last; i++) {
 			if (!(ptr = R_NEW0 (RBinImport))) {
 				break;
@@ -505,53 +409,75 @@ static RList* imports(RBinFile *arch) {
 			ptr->bind = r_str_const ("NONE");
 			ptr->type = r_str_const ("FUNC");
 			ptr->ordinal = imports[i].ordinal;
-			// NOTE(eddyb) a PE hint is just an optional possible DLL export table
-			// index for the import. There is no point in exposing it.
-			//ptr->hint = imports[i].hint;
 			r_list_append (ret, ptr);
 
 			if (!(rel = R_NEW0 (RBinReloc))) {
 				break;
 			}
-#ifdef R_BIN_PE64
-			rel->type = R_BIN_RELOC_64;
-#else
 			rel->type = R_BIN_RELOC_32;
-#endif
-			/* Hacky! We need to use the vaddr to calculate the
-			** correct offset for the entry. We must cater for
-			** correctly resolved calculations and incorrectly
-			** resolved! */
-			/* FIXME: Does this work for all cases? */
 			offset = imports[i].vaddr;
-			if (offset > module->base_of_image) {
-				offset -= module->base_of_image;
+			if (offset > pe32_bin->vaddr) {
+				offset -= pe32_bin->vaddr;
 			}
 			rel->additive = 0;
 			rel->import = ptr;
 			rel->addend = 0;
-//			rel->vaddr = imports[i].vaddr;
-//			rel->paddr = imports[i].paddr;
-			rel->vaddr = offset + module->base_of_image;
-			rel->paddr = imports[i].paddr + paddr;
+			rel->vaddr = offset + pe32_bin->vaddr;
+			rel->paddr = imports[i].paddr + pe32_bin->paddr;
 			r_list_append (relocs, rel);
 		}
 		free (imports);
-		PE_(r_bin_pe_free) (pe_bin);
+	}
+	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
+		if (!(imports = Pe64_r_bin_pe_get_imports(pe64_bin->bin))) {
+			return ret;
+		}
+		if (!(relocs = r_list_new ())) {
+			free (ret);
+			return NULL;
+		}
+		relocs->free = free;
+		pe64_bin->bin->relocs = relocs;
+		for (i = 0; !imports[i].last; i++) {
+			if (!(ptr = R_NEW0 (RBinImport))) {
+				break;
+			}
+			filter_import (imports[i].name);
+			ptr->name = strdup ((char*)imports[i].name);
+			ptr->bind = r_str_const ("NONE");
+			ptr->type = r_str_const ("FUNC");
+			ptr->ordinal = imports[i].ordinal;
+			r_list_append (ret, ptr);
+
+			if (!(rel = R_NEW0 (RBinReloc))) {
+				break;
+			}
+			rel->type = R_BIN_RELOC_64;
+			offset = imports[i].vaddr;
+			if (offset > pe64_bin->vaddr) {
+				offset -= pe64_bin->vaddr;
+			}
+			rel->additive = 0;
+			rel->import = ptr;
+			rel->addend = 0;
+			rel->vaddr = offset + pe64_bin->vaddr;
+			rel->paddr = imports[i].paddr + pe64_bin->paddr;
+			r_list_append (relocs, rel);
+		}
+		free (imports);
 	}
 	return ret;
 }
 
 static RList* symbols(RBinFile *arch) {
 	int i;
-	ut64 offset, paddr;
-	struct minidump_module *module;
+	ut64 offset;
 	struct r_bin_mdmp_obj *obj;
+	struct r_bin_mdmp_pe32_bin *pe32_bin;
+	struct r_bin_mdmp_pe64_bin *pe64_bin;
 	struct r_bin_pe_export_t *symbols = NULL;
 	struct r_bin_pe_import_t *imports = NULL;
-	struct PE_(r_bin_pe_obj_t) *pe_bin;
 	RBinSymbol *ptr = NULL;
-	RBuffer *pe_buf;
 	RList *ret = NULL;
 	RListIter *it;
 
@@ -562,76 +488,101 @@ static RList* symbols(RBinFile *arch) {
 
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
-	r_list_foreach (obj->streams.modules, it, module) {
-		/* TODO: Don't initialise the whole pe structure, we only need
-		** to init the header and the sections, but both of these
-		** functions are static! */
-		if (!(paddr = r_bin_get_paddr(obj, module->base_of_image))) {
-			continue;
-		}
-
-		pe_buf = r_buf_new_with_bytes(obj->b->buf + paddr, module->size_of_image);
-		patch_pe_headers(pe_buf);
-		pe_bin = PE_(r_bin_pe_new_buf) (pe_buf);
-		r_buf_free(pe_buf);
-
-
+	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		/* TODO: Load symbol table from pdb file */
-		if ((symbols = PE_(r_bin_pe_get_exports)(pe_bin))) {
+		if ((symbols = Pe32_r_bin_pe_get_exports(pe32_bin->bin))) {
 			for (i = 0; !symbols[i].last; i++) {
 				if (!(ptr = R_NEW0 (RBinSymbol))) {
 					break;
 				}
-				/* Hacky! We need to use the vaddr to calculate the
-				** correct offset for the entry. We must cater for
-				** correctly resolved calculations and incorrectly
-				** resolved! */
-				/* FIXME: Does this work for all cases? */
 				offset = symbols[i].vaddr;
-				if (offset > module->base_of_image) {
-					offset -= module->base_of_image;
+				if (offset > pe32_bin->vaddr) {
+					offset -= pe32_bin->vaddr;
 				}
 				ptr->name = strdup ((char *)symbols[i].name);
 				ptr->forwarder = r_str_const ((char *)symbols[i].forwarder);
 				ptr->bind = r_str_const ("GLOBAL");
 				ptr->type = r_str_const ("FUNC");
 				ptr->size = 0;
-				ptr->vaddr = offset + module->base_of_image;
-				ptr->paddr = symbols[i].paddr + paddr;
+				ptr->vaddr = offset + pe32_bin->vaddr;
+				ptr->paddr = symbols[i].paddr + pe32_bin->paddr;
 				ptr->ordinal = symbols[i].ordinal;
 				r_list_append (ret, ptr);
 			}
 			free (symbols);
 		}
 
-		if ((imports = PE_(r_bin_pe_get_imports)(pe_bin))) {
+		if ((imports = Pe32_r_bin_pe_get_imports(pe32_bin->bin))) {
 			for (i = 0; !imports[i].last; i++) {
 				if (!(ptr = R_NEW0 (RBinSymbol))) {
 					break;
 				}
-				/* Hacky! We need to use the vaddr to calculate the
-				** correct offset for the entry. We must cater for
-				** correctly resolved calculations and incorrectly
-				** resolved! */
-				/* FIXME: Does this work for all cases? */
 				offset = imports[i].vaddr;
-				if (offset > module->base_of_image) {
-					offset -= module->base_of_image;
+				if (offset > pe32_bin->vaddr) {
+					offset -= pe32_bin->vaddr;
 				}
 				ptr->name = r_str_newf ("imp.%s", imports[i].name);
 				ptr->bind = r_str_const ("NONE");
 				ptr->type = r_str_const ("FUNC");
 				ptr->size = 0;
-				ptr->vaddr = offset + module->base_of_image;
-				ptr->paddr = imports[i].paddr + paddr;
+				ptr->vaddr = offset + pe32_bin->vaddr;
+				ptr->paddr = imports[i].paddr + pe32_bin->paddr;
 				ptr->ordinal = imports[i].ordinal;
 				r_list_append (ret, ptr);
 			}
 			free (imports);
 		}
-		PE_(r_bin_pe_free) (pe_bin);
+	}
+	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
+		/* TODO: Load symbol table from pdb file */
+		if ((symbols = Pe64_r_bin_pe_get_exports(pe64_bin->bin))) {
+			for (i = 0; !symbols[i].last; i++) {
+				if (!(ptr = R_NEW0 (RBinSymbol))) {
+					break;
+				}
+				offset = symbols[i].vaddr;
+				if (offset > pe64_bin->vaddr) {
+					offset -= pe64_bin->vaddr;
+				}
+				ptr->name = strdup ((char *)symbols[i].name);
+				ptr->forwarder = r_str_const ((char *)symbols[i].forwarder);
+				ptr->bind = r_str_const ("GLOBAL");
+				ptr->type = r_str_const ("FUNC");
+				ptr->size = 0;
+				ptr->vaddr = offset + pe64_bin->vaddr;
+				ptr->paddr = symbols[i].paddr + pe64_bin->paddr;
+				ptr->ordinal = symbols[i].ordinal;
+				r_list_append (ret, ptr);
+			}
+			free (symbols);
+		}
+		if ((imports = Pe64_r_bin_pe_get_imports(pe64_bin->bin))) {
+			for (i = 0; !imports[i].last; i++) {
+				if (!(ptr = R_NEW0 (RBinSymbol))) {
+					break;
+				}
+				offset = imports[i].vaddr;
+				if (offset > pe64_bin->vaddr) {
+					offset -= pe64_bin->vaddr;
+				}
+				ptr->name = r_str_newf ("imp.%s", imports[i].name);
+				ptr->bind = r_str_const ("NONE");
+				ptr->type = r_str_const ("FUNC");
+				ptr->size = 0;
+				ptr->vaddr = offset + pe64_bin->vaddr;
+				ptr->paddr = imports[i].paddr + pe64_bin->paddr;
+				ptr->ordinal = imports[i].ordinal;
+				r_list_append (ret, ptr);
+			}
+			free (imports);
+		}
 	}
 	return ret;
+}
+
+static int check_bytes(const ut8 *buf, ut64 length) {
+	return buf && (length > sizeof (struct minidump_header))
+		&& (!memcmp (buf, MDMP_MAGIC, 6));
 }
 
 static int check(RBinFile *arch) {
@@ -642,11 +593,6 @@ static int check(RBinFile *arch) {
 	sz = arch ? r_buf_size (arch->buf) : 0;
 
 	return check_bytes (bytes, sz);
-}
-
-static int check_bytes(const ut8 *buf, ut64 length) {
-	return buf && (length > sizeof (struct minidump_header))
-		&& (!memcmp (buf, MDMP_MAGIC, 6));
 }
 
 RBinPlugin r_bin_plugin_mdmp = {

@@ -339,7 +339,15 @@ static int bin_pe_init_hdr(struct PE_(r_bin_pe_obj_t)* bin) {
 			      timestr, 0);
 	 }
 	bin->optional_header = &bin->nt_headers->optional_header;
-	bin->data_directory = (PE_(image_data_directory *))&bin->optional_header->DataDirectory;
+//	bin->data_directory = (PE_(image_data_directory *))&bin->optional_header->DataDirectory;
+
+	if (bin->optional_header->Magic == 0x20B) {
+		bin->data_directory = (PE_(image_data_directory *))(bin->b->buf + bin->dos_header->e_lfanew + 0x88);
+	} else {
+		bin->data_directory = (PE_(image_data_directory *))(bin->b->buf + bin->dos_header->e_lfanew + 0x78);
+//		bin->data_directory = (PE_(image_data_directory *))(bin->b->buf + 0xF8);
+	}
+
 
 	if (strncmp ((char*)&bin->dos_header->e_magic, "MZ", 2) ||
 		strncmp ((char*)&bin->nt_headers->Signature, "PE", 2))
@@ -1435,7 +1443,7 @@ static Sdb *Pe_r_bin_store_var_file_info(VarFileInfo *varFileInfo) {
 }
 
 static Sdb *Pe_r_bin_store_string(String *string) {
-	Sdb *sdb = NULL; 
+	Sdb *sdb = NULL;
 	char *encodedVal = NULL, *encodedKey = NULL;
 	if (!string) {
 		return NULL;
@@ -1464,7 +1472,7 @@ static Sdb *Pe_r_bin_store_string_table(StringTable *stringTable) {
 	char key[20];
 	char *encodedKey = NULL;
 	int i = 0;
-	Sdb *sdb = NULL; 
+	Sdb *sdb = NULL;
 	if (!stringTable) {
 		return NULL;
 	}
@@ -1504,7 +1512,7 @@ static Sdb *Pe_r_bin_store_string_file_info(StringFileInfo *stringFileInfo) {
 }
 
 static Sdb *Pe_r_bin_store_fixed_file_info(PE_VS_FIXEDFILEINFO *vs_fixedFileInfo) {
-	Sdb *sdb = NULL; 
+	Sdb *sdb = NULL;
 	if (!vs_fixedFileInfo) {
 		return NULL;
 	}
@@ -1529,7 +1537,7 @@ static Sdb *Pe_r_bin_store_fixed_file_info(PE_VS_FIXEDFILEINFO *vs_fixedFileInfo
 }
 
 static Sdb *Pe_r_bin_store_resource_version_info(PE_VS_VERSIONINFO *vs_VersionInfo) {
-	Sdb *sdb = NULL; 
+	Sdb *sdb = NULL;
 	if (!vs_VersionInfo) {
 		return NULL;
 	}
@@ -1559,7 +1567,7 @@ void PE_(r_bin_store_all_resource_version_info)(struct PE_(r_bin_pe_obj_t)* bin)
 	}
 	sdb = sdb_new0();
 	if (!sdb) {
-		return; 
+		return;
 	}
 	// XXX: assume there is only 3 layers in the tree
 	ut32 totalRes = bin->resource_directory->NumberOfNamedEntries + bin->resource_directory->NumberOfIdEntries;
@@ -1604,7 +1612,7 @@ void PE_(r_bin_store_all_resource_version_info)(struct PE_(r_bin_pe_obj_t)* bin)
 				off = bin->resource_directory_offset + identEntry.u2.s.OffsetToDirectory;
 				if (off > bin->size || off + sizeof (Pe_image_resource_directory) > bin->size) {
 					goto out_error;
-				}	
+				}
 				if (r_buf_read_at (bin->b, off, (ut8*)&langDir, sizeof(Pe_image_resource_directory)) < 1) {
 					eprintf ("Warning: read (resource language directory)\n");
 					goto out_error;
@@ -1922,8 +1930,8 @@ int PE_(r_bin_pe_get_file_alignment)(struct PE_(r_bin_pe_obj_t)* bin) {
 
 ut64 PE_(r_bin_pe_get_image_base)(struct PE_(r_bin_pe_obj_t)* bin) {
 	if (!bin || !bin->nt_headers) {
-		return 0LL; 
-	}	
+		return 0LL;
+	}
 	return (ut64)bin->nt_headers->optional_header.ImageBase;
 }
 

@@ -61,6 +61,14 @@ struct r_bin_pe_lib_t {
 	int last;
 };
 
+#define GUIDSTR_LEN 34
+#define DBG_FILE_NAME_LEN 255
+
+typedef struct SDebugInfo{
+	char guidstr[GUIDSTR_LEN];
+	char file_name[DBG_FILE_NAME_LEN];
+} SDebugInfo;
+
 #endif
 
 struct PE_(r_bin_pe_obj_t) {
@@ -91,14 +99,6 @@ struct PE_(r_bin_pe_obj_t) {
 	struct r_buf_t* b;
 	Sdb *kv;
 };
-
-#define GUIDSTR_LEN 34
-#define DBG_FILE_NAME_LEN 255
-
-typedef struct SDebugInfo{
-	char guidstr[GUIDSTR_LEN];
-	char file_name[DBG_FILE_NAME_LEN];
-} SDebugInfo;
 
 void PE_(r_bin_store_all_resource_version_info)(struct PE_(r_bin_pe_obj_t)* bin);
 char* PE_(r_bin_pe_get_arch)(struct PE_(r_bin_pe_obj_t)* bin);

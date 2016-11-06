@@ -8,7 +8,7 @@ ut64 r_bin_mdmp_get_baddr(struct r_bin_mdmp_obj *obj) {
 	return (ut64)(obj->b->buf);
 }
 
-ut64 r_bin_get_paddr(struct r_bin_mdmp_obj *obj, ut64 vaddr) {
+ut64 r_bin_mdmp_get_paddr(struct r_bin_mdmp_obj *obj, ut64 vaddr) {
 	/* FIXME: Will only resolve exact matches, probably no need to fix as
 	** this function will become redundant on the optimisation stage */
 	struct minidump_memory_descriptor64 *memory;
@@ -66,6 +66,48 @@ ut32 r_bin_mdmp_get_srwx(struct r_bin_mdmp_obj *obj, ut64 vaddr)
 	}
 }
 
+static void r_bin_mdmp_free_pe32_bin(struct r_bin_mdmp_pe32_bin *pe_bin) {
+	if (!pe_bin) return;
+	Pe32_r_bin_pe_free (pe_bin->bin);
+	R_FREE (pe_bin);
+}
+
+static void r_bin_mdmp_free_pe64_bin(struct r_bin_mdmp_pe64_bin *pe_bin) {
+	if (!pe_bin) return;
+	Pe64_r_bin_pe_free (pe_bin->bin);
+	R_FREE (pe_bin);
+}
+
+void r_bin_mdmp_free(struct r_bin_mdmp_obj *obj) {
+	if (!obj) {
+		return;
+	}
+
+	if (obj->streams.ex_threads) r_list_free (obj->streams.ex_threads);
+	if (obj->streams.memories) r_list_free (obj->streams.memories);
+	if (obj->streams.memories64.memories) r_list_free (obj->streams.memories64.memories);
+	if (obj->streams.memory_infos) r_list_free (obj->streams.memory_infos);
+	if (obj->streams.modules) r_list_free (obj->streams.modules);
+	if (obj->streams.operations) r_list_free (obj->streams.operations);
+	if (obj->streams.thread_infos) r_list_free (obj->streams.thread_infos);
+	if (obj->streams.threads) r_list_free (obj->streams.threads);
+	if (obj->streams.unloaded_modules) r_list_free (obj->streams.unloaded_modules);
+
+	if (obj->pe32_bins) r_list_free (obj->pe32_bins);
+	if (obj->pe64_bins) r_list_free (obj->pe64_bins);
+
+	if (obj->kv) {
+		sdb_free (obj->kv);
+		obj->kv = NULL;
+	}
+	if (obj->b) {
+		r_buf_free (obj->b);
+		obj->kv = NULL;
+	}
+	R_FREE (obj);
+
+	return;
+}
 
 static bool r_bin_mdmp_init_hdr(struct r_bin_mdmp_obj *obj) {
 	obj->hdr = (struct minidump_header *)obj->b->buf;
@@ -91,7 +133,6 @@ static bool r_bin_mdmp_init_hdr(struct r_bin_mdmp_obj *obj) {
 
 	return true;
 }
-
 
 static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct minidump_directory *entry) {
 	int i;
@@ -252,6 +293,94 @@ static bool r_bin_mdmp_init_directory(struct r_bin_mdmp_obj *obj) {
 	return true;
 }
 
+static bool r_bin_mdmp_patch_pe_headers(RBuffer *pe_buf) {
+	int i;
+	Pe64_image_dos_header dos_hdr;
+	Pe64_image_nt_headers nt_hdr;
+	Pe64_image_section_header *section_hdrs;
+
+	r_buf_read_at (pe_buf, 0, (ut8 *)&dos_hdr, sizeof (Pe64_image_dos_header));
+	r_buf_read_at (pe_buf, dos_hdr.e_lfanew, (ut8 *)&nt_hdr, sizeof (Pe64_image_nt_headers));
+
+	/* Patch RawData in headers */
+	section_hdrs = (Pe64_image_section_header *)(pe_buf->buf + dos_hdr.e_lfanew + 4 + sizeof (Pe64_image_file_header) + nt_hdr.file_header.SizeOfOptionalHeader);
+	for (i = 0; i < nt_hdr.file_header.NumberOfSections; i++) {
+		section_hdrs[i].PointerToRawData = section_hdrs[i].VirtualAddress;
+	}
+
+	return true;
+}
+
+static int check_pe32_bytes(const ut8 *buf, ut64 length) {
+	unsigned int idx;
+	if (!buf) return false;
+	if (length <= 0x3d)
+		return false;
+	idx = (buf[0x3c] | (buf[0x3d]<<8));
+	if (length > idx+0x18+2)
+		if (!memcmp (buf, "MZ", 2) &&
+		    !memcmp (buf+idx, "PE", 2) &&
+		    !memcmp (buf+idx+0x18, "\x0b\x01", 2))
+			return true;
+	return false;
+}
+
+static int check_pe64_bytes(const ut8 *buf, ut64 length) {
+	int idx, ret = false;
+	if (!buf || length <= 0x3d)
+		return false;
+	idx = buf[0x3c] | (buf[0x3d]<<8);
+	if (length >= idx+0x20)
+		if (!memcmp (buf, "MZ", 2) &&
+			!memcmp (buf+idx, "PE", 2) &&
+			!memcmp (buf+idx+0x18, "\x0b\x02", 2))
+			ret = true;
+	return ret;
+}
+
+static bool r_bin_mdmp_init_pe_bins(struct r_bin_mdmp_obj *obj) {
+	ut64 paddr;
+	struct minidump_module *module;
+	struct r_bin_mdmp_pe32_bin *pe32_bin;
+	struct r_bin_mdmp_pe64_bin *pe64_bin;
+	RBuffer *buf;
+	RListIter *it;
+
+	obj->pe32_bins->free = r_bin_mdmp_free_pe32_bin;
+	obj->pe64_bins->free = r_bin_mdmp_free_pe64_bin;
+
+	r_list_foreach (obj->streams.modules, it, module) {
+		if (!(paddr = r_bin_mdmp_get_paddr (obj, module->base_of_image))) {
+			continue;
+		}
+		buf = r_buf_new_with_bytes (obj->b->buf + paddr, module->size_of_image);
+		if (check_pe32_bytes(buf->buf, module->size_of_image)) {
+			if (!(pe32_bin = calloc(1, sizeof (struct r_bin_mdmp_pe32_bin)))) {
+				continue;
+			}
+			r_bin_mdmp_patch_pe_headers (buf);
+			pe32_bin->vaddr = module->base_of_image;
+			pe32_bin->paddr = paddr;
+			pe32_bin->bin = Pe32_r_bin_pe_new_buf (buf);
+
+			r_list_append (obj->pe32_bins, pe32_bin);
+		} else if (check_pe64_bytes(buf->buf, module->size_of_image)) {
+			if (!(pe64_bin = calloc(1, sizeof (struct r_bin_mdmp_pe64_bin)))) {
+				continue;
+			}
+			r_bin_mdmp_patch_pe_headers (buf);
+			pe64_bin->vaddr = module->base_of_image;
+			pe64_bin->paddr = paddr;
+			pe64_bin->bin = Pe64_r_bin_pe_new_buf (buf);
+
+			r_list_append (obj->pe64_bins, pe64_bin);
+		}
+		r_buf_free (buf);
+	}
+
+	return true;
+}
+
 static int r_bin_mdmp_init(struct r_bin_mdmp_obj *obj) {
 	if (!r_bin_mdmp_init_hdr (obj)) {
 		eprintf ("Error: Failed to initialise header\n");
@@ -263,35 +392,12 @@ static int r_bin_mdmp_init(struct r_bin_mdmp_obj *obj) {
 		return false;
 	}
 
+	if (!r_bin_mdmp_init_pe_bins (obj)) {
+		eprintf ("Error: Failed to initialise pe binaries!\n");
+		return false;
+	}
+
 	return true;
-}
-
-void r_bin_mdmp_free(struct r_bin_mdmp_obj *obj) {
-	if (!obj) {
-		return;
-	}
-
-	if (obj->streams.ex_threads) r_list_free (obj->streams.ex_threads);
-	if (obj->streams.memories) r_list_free (obj->streams.memories);
-	if (obj->streams.memories64.memories) r_list_free (obj->streams.memories64.memories);
-	if (obj->streams.memory_infos) r_list_free (obj->streams.memory_infos);
-	if (obj->streams.modules) r_list_free (obj->streams.modules);
-	if (obj->streams.operations) r_list_free (obj->streams.operations);
-	if (obj->streams.thread_infos) r_list_free (obj->streams.thread_infos);
-	if (obj->streams.threads) r_list_free (obj->streams.threads);
-	if (obj->streams.unloaded_modules) r_list_free (obj->streams.unloaded_modules);
-
-	if (obj->kv) {
-		sdb_free (obj->kv);
-		obj->kv = NULL;
-	}
-	if (obj->b) {
-		r_buf_free (obj->b);
-		obj->kv = NULL;
-	}
-	R_FREE (obj);
-
-	return;
 }
 
 struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf) {
@@ -312,6 +418,9 @@ struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf) {
 	fail |= (!(obj->streams.thread_infos = r_list_new ()));
 	fail |= (!(obj->streams.threads = r_list_new ()));
 	fail |= (!(obj->streams.unloaded_modules = r_list_new ()));
+
+	fail |= (!(obj->pe32_bins = r_list_new ()));
+	fail |= (!(obj->pe64_bins = r_list_new ()));
 
 	if (fail) {
 		r_bin_mdmp_free (obj);
