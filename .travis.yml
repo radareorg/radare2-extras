@@ -19,7 +19,6 @@ env:
 #  - TESTS="r2pm -i bcl" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i blackfin"
   - TESTS="r2pm -i blessr2"
-  - TESTS="r2pm -i bokken"
 #  - TESTS="r2pm -i bpf" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
 #  - TESTS="r2pm -i dlang" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i dirtycow"
