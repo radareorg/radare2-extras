@@ -29,6 +29,7 @@ static Sdb *get_sdb(RBinObject *o) {
 	if (!o) return NULL;
 
 	bin = (struct r_bin_mdmp_obj *) o->bin_obj;
+
 	if (bin && bin->kv) return bin->kv;
 
 	return NULL;

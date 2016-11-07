@@ -190,7 +190,6 @@ typedef enum thread_write_flags_t {
 	THREAD_WRITE_THREAD_INFO		= 0x0040
 } thread_write_flags;
 
-
 /* Contains header information for the minidump file. */
 struct minidump_header {
 	ut32 	signature;

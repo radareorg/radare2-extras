@@ -11,6 +11,7 @@ else
 SO_EXT=so
 endif
 endif
+O_EXT=o
 
 KS_CFLAGS=$(shell pkg-config --cflags keystone)
 KS_LDFLAGS=$(shell pkg-config --libs keystone)

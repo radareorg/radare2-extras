@@ -19,9 +19,9 @@ env:
 #  - TESTS="r2pm -i bcl" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i blackfin"
   - TESTS="r2pm -i blessr2"
-  - TESTS="r2pm -i bokken"
 #  - TESTS="r2pm -i bpf" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
 #  - TESTS="r2pm -i dlang" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
+  - TESTS="r2pm -i dirtycow"
   - TESTS="r2pm -i duktape"
 #  - TESTS="r2pm -i io-ewf" # https://github.com/travis-ci/apt-package-whitelist/issues/3205
 #  - TESTS="r2pm -i keystone-lib && r2pm -i keystone && cd radare2-regressions && make keystone && cd .." [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
@@ -42,6 +42,7 @@ env:
 #  - TESTS="r2pm -i radeco" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i retdec"
   - TESTS="r2pm -i swf && cd radare2-regressions && make swf && cd .."
+  - TESTS="r2pm -i m68k && cd radare2-regressions && make m68k-extras && cd .."
 #  - TESTS="r2pm -i swig" Sorry. This package cannot be installed in your home.
   - TESTS="r2pm -i syms2elf"
 #  - TESTS="r2pm -i tcc" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
@@ -57,7 +58,9 @@ env:
   - TESTS="r2pm -i www-t"
   - TESTS="r2pm -i x86bea"
   - TESTS="r2pm -i x86tab"
+  - TESTS="r2pm -i z80-nc"
   - TESTS="r2pm -i yara-lib && r2pm -i yara"
+  - TESTS="r2pm -i m68k"
 sudo:
   - false
 language:

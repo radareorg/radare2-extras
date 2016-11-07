@@ -11,6 +11,8 @@ ARCHS+=msil.mk
 ARCHS+=swf.mk
 ARCHS+=vc4.mk
 ARCHS+=mc6809.mk
+ARCHS+=z80_nc.mk
+ARCHS+=m68k.mk
 
 include ../../plugs.mk
 

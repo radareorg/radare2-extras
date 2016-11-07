@@ -5,6 +5,14 @@ PLUGINS=arm x86 mips sparc ppc hexagon sysz
 LIBS=$(addsuffix _ks.$(SO_EXT),$(addprefix asm_,${PLUGINS}))
 #R2PM_PLUGDIR?=${LIBDIR}/radare2/last/
 R2PM_PLUGDIR?=~/.config/radare2/plugins
+R2PM_PREFIX?=~/.config/radare2/prefix
+
+ifeq ($(shell uname),Darwin)
+KS_LDFLAGS+=-Xlinker -rpath -Xlinker $(R2PM_PREFIX)/lib
+endif
+ifeq ($(shell uname),Linux)
+KS_LDFLAGS+=-Xlinker -Wl,-R$(R2PM_PREFIX)/lib
+endif
 
 .PHONY: all clean install uninstall mrproper test
 
@@ -13,10 +21,13 @@ all: $(PLUGINS)
 #$(info $(LIBS))
 
 define kscc
-$(CC) -lc++ -fPIC $(LDFLAGS_SHARED) -Wall\
-	$(R2_CFLAGS) $(R2_LDFLAGS)\
-	$(KS_CFLAGS) $(KS_LDFLAGS)\
-	-o asm_$(1)_ks.$(SO_EXT) asm_$(1)_ks.c $(KS_LINK)
+$(CC) -c -fPIC -Wall\
+	$(R2_CFLAGS) $(KS_CFLAGS)\
+	-o asm_$(1)_ks.$(O_EXT) asm_$(1)_ks.c
+$(CXX) $(LDFLAGS_SHARED)\
+	$(R2_LDFLAGS) $(KS_LDFLAGS)\
+	-o asm_$(1)_ks.$(SO_EXT) asm_$(1)_ks.$(O_EXT) $(KS_LINK)
+rm asm_$(1)_ks.$(O_EXT)
 endef
 
 define ksmake
