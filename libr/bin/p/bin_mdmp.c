@@ -10,7 +10,7 @@
 /* FIXME: Using r_list_join seems to break the lists and their freeing ability.
 I am yet to determine the cause (its only a linked list!!!), but we can append
 as a work around */
-static int r_list_shit_join(RList *list1, RList *list2) {
+static int r_list_hacky_join(RList *list1, RList *list2) {
 	void *data;
 	RListIter *it;
 	r_list_foreach (list2, it, data) {
@@ -55,12 +55,12 @@ static RList* entries(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		list = Pe32_r_bin_mdmp_pe_get_entrypoint (pe32_bin);
-		r_list_shit_join (ret, list);
+		r_list_hacky_join (ret, list);
 		r_list_free (list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		list = Pe64_r_bin_mdmp_pe_get_entrypoint (pe64_bin);
-		r_list_shit_join (ret, list);
+		r_list_hacky_join (ret, list);
 		r_list_free (list);
 	}
 
@@ -132,6 +132,50 @@ static RBinInfo *info(RBinFile *arch) {
 		default:
 			ret->os = strdup ("Unknown");
 		}
+	}
+
+	return ret;
+}
+
+static RList* libs(RBinFile *arch) {
+	char *ptr = NULL;
+	int i, j = 0;
+	struct r_bin_mdmp_obj *obj;
+	struct r_bin_pe_lib_t *libs = NULL;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RList *ret = NULL;
+	RListIter *it;
+
+	if (!(ret = r_list_newf (free))) {
+		return NULL;
+	}
+
+	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
+
+	/* TODO: Resolve module name for lib, or filter to remove duplicates,
+	** rather than an arbitrary number :) */
+	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
+		if (!(libs = Pe32_r_bin_pe_get_libs (pe32_bin->bin))) {
+			return ret;
+		}
+		for (i = 0; !libs[i].last; i++) {
+			ptr = r_str_newf ("[%d] - %s", j, libs[i].name);
+			r_list_append (ret, ptr);
+		}
+		j++;
+		free (libs);
+	}
+	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
+		if (!(libs = Pe64_r_bin_pe_get_libs (pe64_bin->bin))) {
+			return ret;
+		}
+		for (i = 0; !libs[i].last; i++) {
+			ptr = r_str_newf ("[%d] - %s", j, libs[i].name);
+			r_list_append (ret, ptr);
+		}
+		j++;
+		free (libs);
 	}
 
 	return ret;
@@ -250,8 +294,7 @@ static RList *sections(RBinFile *arch) {
 	return ret;
 }
 
-/* TODO: This (but better) should be in r_bin.c It already is */
-/* FIXME: Why is it not mem_free static? */
+/* FIXME: This is already in r_bin.c but its static, why?! */
 static void r_bin_mem_free(void *data) {
 	RBinMem *mem = (RBinMem *)data;
 	if (mem && mem->mirrors) {
@@ -266,11 +309,13 @@ static RList *mem (RBinFile *arch) {
 	struct minidump_location_descriptor *location;
 	struct minidump_memory_descriptor *module;
 	struct minidump_memory_descriptor64 *module64;
+	struct minidump_memory_info *mem_info;
 	struct r_bin_mdmp_obj *obj;
 	RList *ret;
 	RListIter *it;
 	RBinMem *ptr;
 	ut64 index;
+	ut64 state, type, a_protect;
 
 	if (!(ret = r_list_newf (r_bin_mem_free))) {
 		return NULL;
@@ -278,17 +323,26 @@ static RList *mem (RBinFile *arch) {
 
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
+	/* [1] As there isnt a better place to put this info at the moment we will
+	** mash it into the name field, but without enumeration for now  */
 	r_list_foreach (obj->streams.memories, it, module) {
 		if (!(ptr = R_NEW0 (RBinMem))) {
 			return ret;
 		}
-
-		location = &(module->memory);
-		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x Memory_Section", location->rva));
 		ptr->addr = module->start_of_memory_range;
 		ptr->size = (location->data_size);
 		ptr->perms = R_BIN_SCN_MAP;
 		ptr->perms |= r_bin_mdmp_get_srwx (obj, ptr->addr);
+
+		/* [1] */
+		state = type = a_protect = 0;
+		if ((mem_info = r_bin_mdmp_get_mem_info (obj, ptr->addr))) {
+			state = mem_info->state;
+			type = mem_info->type;
+			a_protect = mem_info->allocation_protect;
+		}
+		location = &(module->memory);
+		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x state=0x%08x type=0x%08x allocation_protect=0x%08x Memory_Section", location->rva, state, type, a_protect));
 
 		r_list_append (ret, ptr);
 	}
@@ -298,12 +352,19 @@ static RList *mem (RBinFile *arch) {
 		if (!(ptr = R_NEW0 (RBinMem))) {
 			return ret;
 		}
-
-		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x Memory_Section", index));
 		ptr->addr = module64->start_of_memory_range;
 		ptr->size = module64->data_size;
 		ptr->perms = R_BIN_SCN_MAP;
 		ptr->perms |= r_bin_mdmp_get_srwx (obj, ptr->addr);
+
+		/* [1] */
+		state = type = a_protect = 0;
+		if ((mem_info = r_bin_mdmp_get_mem_info (obj, ptr->addr))) {
+			state = mem_info->state;
+			type = mem_info->type;
+			a_protect = mem_info->allocation_protect;
+		}
+		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x state=0x%08x type=0x%08x allocation_protect=0x%08x Memory_Section", index, state, type, a_protect));
 
 		index += module64->data_size;
 
@@ -328,12 +389,12 @@ static RList* relocs(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		if (pe32_bin->bin) {
-			r_list_shit_join (ret, pe32_bin->bin->relocs);
+			r_list_hacky_join (ret, pe32_bin->bin->relocs);
 		}
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		if (pe64_bin->bin) {
-			r_list_shit_join (ret, pe64_bin->bin->relocs);
+			r_list_hacky_join (ret, pe64_bin->bin->relocs);
 		}
 	}
 
@@ -355,12 +416,12 @@ static RList* imports(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		list = Pe32_r_bin_mdmp_pe_get_imports (pe32_bin);
-		r_list_shit_join (ret, list);
+		r_list_hacky_join (ret, list);
 		r_list_free (list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		list = Pe64_r_bin_mdmp_pe_get_imports (pe64_bin);
-		r_list_shit_join (ret, list);
+		r_list_hacky_join (ret, list);
 		r_list_free (list);
 	}
 	return ret;
@@ -381,12 +442,12 @@ static RList* symbols(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		list = Pe32_r_bin_mdmp_pe_get_symbols (pe32_bin);
-		r_list_shit_join (ret, list);
+		r_list_hacky_join (ret, list);
 		r_list_free (list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		list = Pe64_r_bin_mdmp_pe_get_symbols (pe64_bin);
-		r_list_shit_join (ret, list);
+		r_list_hacky_join (ret, list);
 		r_list_free (list);
 	}
 
@@ -420,6 +481,7 @@ RBinPlugin r_bin_plugin_mdmp = {
 	.get_sdb = &get_sdb,
 	.imports = &imports,
 	.info = &info,
+	.libs = &libs,
 	.load = &load,
 	.load_bytes = &load_bytes,
 	.mem = &mem,
