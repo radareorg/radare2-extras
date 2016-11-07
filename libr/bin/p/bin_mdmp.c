@@ -280,6 +280,7 @@ static RList *sections(RBinFile *arch) {
 		ptr->paddr = r_bin_mdmp_get_paddr (obj, ptr->vaddr);
 		ptr->size = module->size_of_image;
 		ptr->add = true;
+		ptr->has_strings = true;
 
 		/* FIXME?: Will only set the permissions for the first section,
 		** i.e. header. Should we group all the permissions together
