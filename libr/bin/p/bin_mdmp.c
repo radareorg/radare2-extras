@@ -486,6 +486,7 @@ RBinPlugin r_bin_plugin_mdmp = {
 	.load = &load,
 	.load_bytes = &load_bytes,
 	.mem = &mem,
+	.minstrlen = 10,
 	.relocs = &relocs,
 	.sections = &sections,
 	.symbols = &symbols,
