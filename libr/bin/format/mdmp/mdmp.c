@@ -66,22 +66,24 @@ ut32 r_bin_mdmp_get_srwx(struct r_bin_mdmp_obj *obj, ut64 vaddr)
 	}
 }
 
-static void r_bin_mdmp_free_pe32_bin(struct Pe32_r_bin_mdmp_pe_bin *pe_bin) {
-	if (!pe_bin) return;
-	Pe32_r_bin_pe_free (pe_bin->bin);
-	R_FREE (pe_bin);
+static void r_bin_mdmp_free_pe32_bin(void *pe_bin_) {
+	struct Pe32_r_bin_mdmp_pe_bin *pe_bin = pe_bin_;
+	if (pe_bin) {
+		Pe32_r_bin_pe_free (pe_bin->bin);
+		R_FREE (pe_bin);
+	}
 }
 
-static void r_bin_mdmp_free_pe64_bin(struct Pe64_r_bin_mdmp_pe_bin *pe_bin) {
-	if (!pe_bin) return;
-	Pe64_r_bin_pe_free (pe_bin->bin);
-	R_FREE (pe_bin);
+static void r_bin_mdmp_free_pe64_bin(void *pe_bin_) {
+	struct Pe64_r_bin_mdmp_pe_bin *pe_bin = pe_bin_;
+	if (pe_bin) {
+		Pe64_r_bin_pe_free (pe_bin->bin);
+		R_FREE (pe_bin);
+	}
 }
 
 void r_bin_mdmp_free(struct r_bin_mdmp_obj *obj) {
-	if (!obj) {
-		return;
-	}
+	if (!obj) return;
 
 	if (obj->streams.ex_threads) r_list_free (obj->streams.ex_threads);
 	if (obj->streams.memories) r_list_free (obj->streams.memories);
@@ -342,16 +344,13 @@ static bool r_bin_mdmp_init_pe_bins(struct r_bin_mdmp_obj *obj) {
 	RBuffer *buf;
 	RListIter *it;
 
-	obj->pe32_bins->free = (RListFree)&r_bin_mdmp_free_pe32_bin;
-	obj->pe64_bins->free = (RListFree)&r_bin_mdmp_free_pe64_bin;
-
 	r_list_foreach (obj->streams.modules, it, module) {
 		if (!(paddr = r_bin_mdmp_get_paddr (obj, module->base_of_image))) {
 			continue;
 		}
 		buf = r_buf_new_with_bytes (obj->b->buf + paddr, module->size_of_image);
-		if (check_pe32_bytes(buf->buf, module->size_of_image)) {
-			if (!(pe32_bin = calloc(1, sizeof (struct Pe32_r_bin_mdmp_pe_bin)))) {
+		if (check_pe32_bytes (buf->buf, module->size_of_image)) {
+			if (!(pe32_bin = R_NEW0 (struct Pe32_r_bin_mdmp_pe_bin))) {
 				continue;
 			}
 			r_bin_mdmp_patch_pe_headers (buf);
@@ -360,8 +359,8 @@ static bool r_bin_mdmp_init_pe_bins(struct r_bin_mdmp_obj *obj) {
 			pe32_bin->bin = Pe32_r_bin_pe_new_buf (buf);
 
 			r_list_append (obj->pe32_bins, pe32_bin);
-		} else if (check_pe64_bytes(buf->buf, module->size_of_image)) {
-			if (!(pe64_bin = calloc(1, sizeof (struct Pe64_r_bin_mdmp_pe_bin)))) {
+		} else if (check_pe64_bytes (buf->buf, module->size_of_image)) {
+			if (!(pe64_bin = R_NEW0 (struct Pe64_r_bin_mdmp_pe_bin))) {
 				continue;
 			}
 			r_bin_mdmp_patch_pe_headers (buf);
@@ -415,8 +414,8 @@ struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf) {
 	fail |= (!(obj->streams.threads = r_list_new ()));
 	fail |= (!(obj->streams.unloaded_modules = r_list_new ()));
 
-	fail |= (!(obj->pe32_bins = r_list_new ()));
-	fail |= (!(obj->pe64_bins = r_list_new ()));
+	fail |= (!(obj->pe32_bins = r_list_newf (r_bin_mdmp_free_pe32_bin)));
+	fail |= (!(obj->pe64_bins = r_list_newf (r_bin_mdmp_free_pe64_bin)));
 
 	if (fail) {
 		r_bin_mdmp_free (obj);
