@@ -42,7 +42,7 @@ RList *PE_(r_bin_mdmp_pe_get_entrypoint)(struct PE_(r_bin_mdmp_pe_bin) *pe_bin) 
 	if (!(entry = PE_(r_bin_pe_get_entrypoint) (pe_bin->bin))) {
 		return NULL;
 	}
-	if (!(ret = r_list_newf (free))) {
+	if (!(ret = r_list_new ())) {
 		return NULL;
 	}
 
@@ -86,7 +86,7 @@ RList *PE_(r_bin_mdmp_pe_get_imports)(struct PE_(r_bin_mdmp_pe_bin) *pe_bin) {
 	if (!(imports = PE_(r_bin_pe_get_imports) (pe_bin->bin))) {
 		return NULL;
 	}
-	if (!(ret = r_list_newf (r_bin_import_free))) {
+	if (!(ret = r_list_new ())) {
 		return NULL;
 	}
 	if (!(relocs = r_list_newf (free))) {
@@ -137,7 +137,7 @@ RList *PE_(r_bin_mdmp_pe_get_symbols)(struct PE_(r_bin_mdmp_pe_bin) *pe_bin) {
 	RBinSymbol *ptr = NULL;
 	RList* ret;
 
-	if (!(ret = r_list_newf (r_bin_symbol_free))) {
+	if (!(ret = r_list_new ())) {
 		return NULL;
 	}
 
@@ -165,7 +165,6 @@ RList *PE_(r_bin_mdmp_pe_get_symbols)(struct PE_(r_bin_mdmp_pe_bin) *pe_bin) {
 		free (symbols);
 	}
 	/* Calling imports is unstable at the moment, I think this is an issue in pe.c */
-#if 0
 	if ((imports = PE_(r_bin_pe_get_imports) (pe_bin->bin))) {
 		for (i = 0; !imports[i].last; i++) {
 			if (!(ptr = R_NEW0 (RBinSymbol))) {
@@ -187,7 +186,6 @@ RList *PE_(r_bin_mdmp_pe_get_symbols)(struct PE_(r_bin_mdmp_pe_bin) *pe_bin) {
 		}
 		free (imports);
 	}
-#endif
 
 	return ret;
 }

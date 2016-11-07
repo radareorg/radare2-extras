@@ -7,6 +7,18 @@
 
 #include "mdmp/mdmp.h"
 
+/* FIXME: Using r_list_join seems to break the lists and their freeing ability.
+I am yet to determine the cause (its only a linked list!!!), but we can append
+as a work around */
+static int r_list_shit_join(RList *list1, RList *list2) {
+	void *data;
+	RListIter *it;
+	r_list_foreach (list2, it, data) {
+		r_list_append (list1, data);
+	}
+	return 1;
+}
+
 static ut64 baddr(RBinFile *arch) {
 	return 0LL;
 }
@@ -43,12 +55,12 @@ static RList* entries(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		list = Pe32_r_bin_mdmp_pe_get_entrypoint (pe32_bin);
-		r_list_join (ret, list);
+		r_list_shit_join (ret, list);
 		r_list_free (list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		list = Pe64_r_bin_mdmp_pe_get_entrypoint (pe64_bin);
-		r_list_join (ret, list);
+		r_list_shit_join (ret, list);
 		r_list_free (list);
 	}
 
@@ -238,6 +250,18 @@ static RList *sections(RBinFile *arch) {
 	return ret;
 }
 
+/* TODO: This (but better) should be in r_bin.c It already is */
+/* FIXME: Why is it not mem_free static? */
+static void r_bin_mem_free(void *data) {
+	RBinMem *mem = (RBinMem *)data;
+	if (mem && mem->mirrors) {
+		mem->mirrors->free = r_bin_mem_free;
+		r_list_free (mem->mirrors);
+		mem->mirrors = NULL;
+	}
+	free (mem);
+}
+
 static RList *mem (RBinFile *arch) {
 	struct minidump_location_descriptor *location;
 	struct minidump_memory_descriptor *module;
@@ -248,7 +272,7 @@ static RList *mem (RBinFile *arch) {
 	RBinMem *ptr;
 	ut64 index;
 
-	if (!(ret = r_list_newf (free))) {
+	if (!(ret = r_list_newf (r_bin_mem_free))) {
 		return NULL;
 	}
 
@@ -296,7 +320,7 @@ static RList* relocs(RBinFile *arch) {
 	RListIter *it;
 	RList* ret;
 
-	if (!(ret = r_list_newf (free))) {
+	if (!(ret = r_list_new ())) {
 		return NULL;
 	}
 
@@ -304,12 +328,12 @@ static RList* relocs(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		if (pe32_bin->bin) {
-			r_list_join (ret, pe32_bin->bin->relocs);
+			r_list_shit_join (ret, pe32_bin->bin->relocs);
 		}
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		if (pe64_bin->bin) {
-			r_list_join (ret, pe64_bin->bin->relocs);
+			r_list_shit_join (ret, pe64_bin->bin->relocs);
 		}
 	}
 
@@ -331,12 +355,12 @@ static RList* imports(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		list = Pe32_r_bin_mdmp_pe_get_imports (pe32_bin);
-		r_list_join (ret, list);
+		r_list_shit_join (ret, list);
 		r_list_free (list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		list = Pe64_r_bin_mdmp_pe_get_imports (pe64_bin);
-		r_list_join (ret, list);
+		r_list_shit_join (ret, list);
 		r_list_free (list);
 	}
 	return ret;
@@ -357,12 +381,12 @@ static RList* symbols(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		list = Pe32_r_bin_mdmp_pe_get_symbols (pe32_bin);
-		r_list_join (ret, list);
+		r_list_shit_join (ret, list);
 		r_list_free (list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		list = Pe64_r_bin_mdmp_pe_get_symbols (pe64_bin);
-		r_list_join (ret, list);
+		r_list_shit_join (ret, list);
 		r_list_free (list);
 	}
 

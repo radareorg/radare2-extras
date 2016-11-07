@@ -104,7 +104,7 @@ void r_bin_mdmp_free(struct r_bin_mdmp_obj *obj) {
 	}
 	if (obj->b) {
 		r_buf_free (obj->b);
-		obj->kv = NULL;
+		obj->b = NULL;
 	}
 	R_FREE (obj);
 
