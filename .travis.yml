@@ -25,7 +25,7 @@ env:
   - TESTS="r2pm -i duktape"
 #  - TESTS="r2pm -i io-ewf" # https://github.com/travis-ci/apt-package-whitelist/issues/3205
 #  - TESTS="r2pm -i keystone-lib && r2pm -i keystone && cd radare2-regressions && make keystone && cd .." [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
-#  - TESTS="r2pm -i mdmp" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
+  - TESTS="r2pm -i mdmp" && cd radare2-regressions && make extras.mdmp && cd .."
   - TESTS="r2pm -i microblaze"
   - TESTS="r2pm -i msil"
   - TESTS="r2pm -i ppcdisasm"

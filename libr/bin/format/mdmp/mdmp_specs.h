@@ -21,6 +21,20 @@
 #define MEM_MAPPED	0x0040000
 #define MEM_PRIVATE 	0x0020000
 
+#define MINIDUMP_PAGE_NOACCESS			0x00000001
+#define MINIDUMP_PAGE_READONLY			0x00000002
+#define MINIDUMP_PAGE_READWRITE			0x00000004
+#define MINIDUMP_PAGE_WRITECOPY			0x00000008
+#define MINIDUMP_PAGE_EXECUTE			0x00000010
+#define MINIDUMP_PAGE_EXECUTE_READ		0x00000020
+#define MINIDUMP_PAGE_EXECUTE_READWRITE 	0x00000040
+#define MINIDUMP_PAGE_EXECUTE_WRITECOPY 	0x00000080
+#define MINIDUMP_PAGE_GUARD			0x00000100
+#define MINIDUMP_PAGE_NOCACHE			0x00000200
+#define MINIDUMP_PAGE_WRITECOMBINE		0x00000400
+#define MINIDUMP_PAGE_TARGETS_INVALID		0x40000000
+#define MINIDUMP_PAGE_TARGETS_NO_UPDATE 	0x40000000
+
 #define MINIDUMP_MISC1_PROCESS_ID		0x00000001
 #define MINIDUMP_MISC1_PROCESS_TIMES		0x00000002
 #define MINIDUMP_MISC1_PROCESSOR_POWER_INFO 	0x00000004
@@ -175,10 +189,6 @@ typedef enum thread_write_flags_t {
 	THREAD_WRITE_THREAD_DATA		= 0x0020,
 	THREAD_WRITE_THREAD_INFO		= 0x0040
 } thread_write_flags;
-
-/*******************************************************************************
- *	Structs
- ******************************************************************************/
 
 /* Contains header information for the minidump file. */
 struct minidump_header {

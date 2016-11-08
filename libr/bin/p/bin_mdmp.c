@@ -7,13 +7,20 @@
 
 #include "mdmp/mdmp.h"
 
-
-static int check(RBinFile *arch);
-static int check_bytes(const ut8 *buf, ut64 length);
-
+/* FIXME: Using r_list_join seems to break the lists and their freeing ability.
+I am yet to determine the cause (its only a linked list!!!), but we can append
+as a work around */
+static int r_list_hacky_join(RList *list1, RList *list2) {
+	void *data;
+	RListIter *it;
+	r_list_foreach (list2, it, data) {
+		r_list_append (list1, data);
+	}
+	return 1;
+}
 
 static ut64 baddr(RBinFile *arch) {
-	return r_bin_mdmp_get_baddr (arch->o->bin_obj);
+	return 0LL;
 }
 
 static Sdb *get_sdb(RBinObject *o) {
@@ -22,7 +29,8 @@ static Sdb *get_sdb(RBinObject *o) {
 	if (!o) return NULL;
 
 	bin = (struct r_bin_mdmp_obj *) o->bin_obj;
-	if (bin->kv) return bin->kv;
+
+	if (bin && bin->kv) return bin->kv;
 
 	return NULL;
 }
@@ -33,19 +41,31 @@ static int destroy(RBinFile *arch) {
 	return true;
 }
 
-static void *load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb) {
-	RBuffer *tbuf;
-	void *res;
+static RList* entries(RBinFile *arch) {
+	struct r_bin_mdmp_obj *obj;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RListIter *it;
+	RList* ret, *list;
 
-	if (!buf || !sz || sz == UT64_MAX) {
+	if (!(ret = r_list_newf (free))) {
 		return NULL;
 	}
 
-	tbuf = r_buf_new ();
-	r_buf_set_bytes (tbuf, buf, sz);
-	res = r_bin_mdmp_new_buf (tbuf);
-	r_buf_free (tbuf);
-	return res;
+	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
+
+	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
+		list = Pe32_r_bin_mdmp_pe_get_entrypoint (pe32_bin);
+		r_list_hacky_join (ret, list);
+		r_list_free (list);
+	}
+	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
+		list = Pe64_r_bin_mdmp_pe_get_entrypoint (pe64_bin);
+		r_list_hacky_join (ret, list);
+		r_list_free (list);
+	}
+
+	return ret;
 }
 
 static RBinInfo *info(RBinFile *arch) {
@@ -54,7 +74,10 @@ static RBinInfo *info(RBinFile *arch) {
 
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
-	ret = R_NEW0 (RBinInfo);
+	if (!(ret = R_NEW0 (RBinInfo))) {
+		return NULL;
+	}
+
 	ret->big_endian = obj->endian;
 	ret->claimed_checksum = strdup (sdb_fmt (0, "0x%08x", obj->hdr->check_sum));
 	ret->file = arch->file ? strdup (arch->file) : NULL;
@@ -115,38 +138,135 @@ static RBinInfo *info(RBinFile *arch) {
 	return ret;
 }
 
+static RList* libs(RBinFile *arch) {
+	char *ptr = NULL;
+	int i, j = 0;
+	struct r_bin_mdmp_obj *obj;
+	struct r_bin_pe_lib_t *libs = NULL;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RList *ret = NULL;
+	RListIter *it;
+
+	if (!(ret = r_list_newf (free))) {
+		return NULL;
+	}
+
+	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
+
+	/* TODO: Resolve module name for lib, or filter to remove duplicates,
+	** rather than an arbitrary number :) */
+	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
+		if (!(libs = Pe32_r_bin_pe_get_libs (pe32_bin->bin))) {
+			return ret;
+		}
+		for (i = 0; !libs[i].last; i++) {
+			ptr = r_str_newf ("[%d] - %s", j, libs[i].name);
+			r_list_append (ret, ptr);
+		}
+		j++;
+		free (libs);
+	}
+	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
+		if (!(libs = Pe64_r_bin_pe_get_libs (pe64_bin->bin))) {
+			return ret;
+		}
+		for (i = 0; !libs[i].last; i++) {
+			ptr = r_str_newf ("[%d] - %s", j, libs[i].name);
+			r_list_append (ret, ptr);
+		}
+		j++;
+		free (libs);
+	}
+
+	return ret;
+}
+
+static void *load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb) {
+	RBuffer *tbuf;
+	struct r_bin_mdmp_obj *res;
+
+	if (!buf || !sz || sz == UT64_MAX) {
+		return NULL;
+	}
+
+	tbuf = r_buf_new ();
+	r_buf_set_bytes (tbuf, buf, sz);
+	if ((res = r_bin_mdmp_new_buf (tbuf))) {
+		sdb_ns_set (sdb, "info", res->kv);
+	}
+	r_buf_free (tbuf);
+
+	return res;
+}
+
 static int load(RBinFile *arch) {
-	const ut8 *bytes;
-	ut64 sz;
+	const ut8 *bytes = arch ? r_buf_buffer (arch->buf) : NULL;
+	ut64 sz = arch ? r_buf_size (arch->buf) : 0;
 
 	if (!arch || !arch->o) {
 		return false;
 	}
 
-	bytes = arch ? r_buf_buffer (arch->buf) : NULL;
-	sz = arch ? r_buf_size (arch->buf) : 0;
 	arch->o->bin_obj = load_bytes (arch, bytes, sz, arch->o->loadaddr, arch->sdb);
 
 	return arch->o->bin_obj ? true : false;
 }
 
 static RList *sections(RBinFile *arch) {
+	struct minidump_memory_descriptor *memory;
+	struct minidump_memory_descriptor64 *memory64;
 	struct minidump_module *module;
 	struct minidump_string *str;
 	struct r_bin_mdmp_obj *obj;
 	RList *ret;
 	RListIter *it;
 	RBinSection *ptr;
-
-	struct minidump_memory_descriptor64 *memory64;
-	RListIter *mem_it;
-	RBinMem *mem_ptr;
 	ut64 index;
 
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
 	if (!(ret = r_list_newf (free))) {
 		return NULL;
+	}
+
+	r_list_foreach (obj->streams.memories, it, memory) {
+		if (!(ptr = R_NEW0 (RBinSection))) {
+			return ret;
+		}
+
+		strncpy(ptr->name, "Memory_Section", 14);
+		ptr->paddr = (memory->memory).rva;
+		ptr->size = (memory->memory).data_size;
+		ptr->vaddr = memory->start_of_memory_range;
+		ptr->vsize = (memory->memory).data_size;
+		ptr->add = true;
+
+		ptr->srwx = R_BIN_SCN_MAP;
+		ptr->srwx |= r_bin_mdmp_get_srwx (obj, ptr->vaddr);
+
+		r_list_append (ret, ptr);
+	}
+
+	index = obj->streams.memories64.base_rva;
+	r_list_foreach (obj->streams.memories64.memories, it, memory64) {
+		if (!(ptr = R_NEW0 (RBinSection))) {
+			return ret;
+		}
+
+		strncpy(ptr->name, "Memory_Section", 14);
+		ptr->paddr = index;
+		ptr->size = memory64->data_size;
+		ptr->vaddr = memory64->start_of_memory_range;
+		ptr->vsize = memory64->data_size;
+		ptr->add = true;
+
+		ptr->srwx = R_BIN_SCN_MAP;
+		ptr->srwx |= r_bin_mdmp_get_srwx (obj, ptr->vaddr);
+
+		r_list_append (ret, ptr);
+
+		index += memory64->data_size;
 	}
 
 	r_list_foreach (obj->streams.modules, it, module) {
@@ -156,26 +276,19 @@ static RList *sections(RBinFile *arch) {
 
 		str = (struct minidump_string *)(obj->b->buf + module->module_name_rva);
 		r_str_utf16_to_utf8 ((ut8 *)ptr->name, R_BIN_SIZEOF_STRINGS, (const ut8 *)&(str->buffer), str->length, obj->endian);
-		ptr->size = module->size_of_image;
-		ptr->vsize = module->size_of_image;
-		ptr->paddr = 0;
 		ptr->vaddr = module->base_of_image;
+		ptr->vsize = module->size_of_image;
+		ptr->paddr = r_bin_mdmp_get_paddr (obj, ptr->vaddr);
+		ptr->size = module->size_of_image;
 		ptr->add = true;
-		ptr->srwx = 0;
+		ptr->has_strings = true;
 
-		/* Loop through the memories sections looking for a match */
-		index = obj->streams.memories64.base_rva;
-		r_list_foreach (obj->streams.memories64.memories, mem_it, memory64) {
-			if (!(mem_ptr = R_NEW0 (RBinMem))) {
-				return ret;
-			}
-
-			if (ptr->vaddr == memory64->start_of_memory_range) {
-				ptr->paddr = index;
-				break;
-			}
-			index += memory64->data_size;
-		}
+		/* FIXME?: Will only set the permissions for the first section,
+		** i.e. header. Should we group all the permissions together
+		** and report as lets say rwx as we will contain header, .text,
+		** .data, etc... */
+		ptr->srwx = R_BIN_SCN_MAP;
+		ptr->srwx |= r_bin_mdmp_get_srwx (obj, ptr->vaddr);
 
 		r_list_append (ret, ptr);
 	}
@@ -183,32 +296,55 @@ static RList *sections(RBinFile *arch) {
 	return ret;
 }
 
+/* FIXME: This is already in r_bin.c but its static, why?! */
+static void r_bin_mem_free(void *data) {
+	RBinMem *mem = (RBinMem *)data;
+	if (mem && mem->mirrors) {
+		mem->mirrors->free = r_bin_mem_free;
+		r_list_free (mem->mirrors);
+		mem->mirrors = NULL;
+	}
+	free (mem);
+}
+
 static RList *mem (RBinFile *arch) {
 	struct minidump_location_descriptor *location;
 	struct minidump_memory_descriptor *module;
 	struct minidump_memory_descriptor64 *module64;
+	struct minidump_memory_info *mem_info;
 	struct r_bin_mdmp_obj *obj;
 	RList *ret;
 	RListIter *it;
 	RBinMem *ptr;
 	ut64 index;
+	ut64 state, type, a_protect;
 
-	if (!(ret = r_list_new ()))
+	if (!(ret = r_list_newf (r_bin_mem_free))) {
 		return NULL;
+	}
 
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
+	/* [1] As there isnt a better place to put this info at the moment we will
+	** mash it into the name field, but without enumeration for now  */
 	r_list_foreach (obj->streams.memories, it, module) {
 		if (!(ptr = R_NEW0 (RBinMem))) {
 			return ret;
 		}
-
-		/* FIXME: Hacky approach to match memory from virtual address to location in buffer */
-		location = &(module->memory);
-		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x RAM", location->rva));
 		ptr->addr = module->start_of_memory_range;
 		ptr->size = (location->data_size);
-		ptr->perms = r_str_rwx ("---");
+		ptr->perms = R_BIN_SCN_MAP;
+		ptr->perms |= r_bin_mdmp_get_srwx (obj, ptr->addr);
+
+		/* [1] */
+		state = type = a_protect = 0;
+		if ((mem_info = r_bin_mdmp_get_mem_info (obj, ptr->addr))) {
+			state = mem_info->state;
+			type = mem_info->type;
+			a_protect = mem_info->allocation_protect;
+		}
+		location = &(module->memory);
+		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x state=0x%08x type=0x%08x allocation_protect=0x%08x Memory_Section", location->rva, state, type, a_protect));
 
 		r_list_append (ret, ptr);
 	}
@@ -218,12 +354,19 @@ static RList *mem (RBinFile *arch) {
 		if (!(ptr = R_NEW0 (RBinMem))) {
 			return ret;
 		}
-
-		/* FIXME: Hacky approach to match memory from virtual address to location in buffer */
-		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x RAM", index));
 		ptr->addr = module64->start_of_memory_range;
 		ptr->size = module64->data_size;
-		ptr->perms = r_str_rwx ("---");
+		ptr->perms = R_BIN_SCN_MAP;
+		ptr->perms |= r_bin_mdmp_get_srwx (obj, ptr->addr);
+
+		/* [1] */
+		state = type = a_protect = 0;
+		if ((mem_info = r_bin_mdmp_get_mem_info (obj, ptr->addr))) {
+			state = mem_info->state;
+			type = mem_info->type;
+			a_protect = mem_info->allocation_protect;
+		}
+		ptr->name = strdup (sdb_fmt (0, "paddr=0x%08x state=0x%08x type=0x%08x allocation_protect=0x%08x Memory_Section", index, state, type, a_protect));
 
 		index += module64->data_size;
 
@@ -231,6 +374,91 @@ static RList *mem (RBinFile *arch) {
 	}
 
 	return ret;
+}
+
+static RList* relocs(RBinFile *arch) {
+	struct r_bin_mdmp_obj *obj;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RListIter *it;
+	RList* ret;
+
+	if (!(ret = r_list_new ())) {
+		return NULL;
+	}
+
+	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
+
+	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
+		if (pe32_bin->bin) {
+			r_list_hacky_join (ret, pe32_bin->bin->relocs);
+		}
+	}
+	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
+		if (pe64_bin->bin) {
+			r_list_hacky_join (ret, pe64_bin->bin->relocs);
+		}
+	}
+
+	return ret;
+}
+
+static RList* imports(RBinFile *arch) {
+	struct r_bin_mdmp_obj *obj;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RList *ret = NULL, *list;
+	RListIter *it;
+
+	if (!(ret = r_list_newf (r_bin_import_free))) {
+		return NULL;
+	}
+
+	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
+
+	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
+		list = Pe32_r_bin_mdmp_pe_get_imports (pe32_bin);
+		r_list_hacky_join (ret, list);
+		r_list_free (list);
+	}
+	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
+		list = Pe64_r_bin_mdmp_pe_get_imports (pe64_bin);
+		r_list_hacky_join (ret, list);
+		r_list_free (list);
+	}
+	return ret;
+}
+
+static RList* symbols(RBinFile *arch) {
+	struct r_bin_mdmp_obj *obj;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RList *ret, *list;
+	RListIter *it;
+
+	if (!(ret = r_list_newf (r_bin_import_free))) {
+		return NULL;
+	}
+
+	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
+
+	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
+		list = Pe32_r_bin_mdmp_pe_get_symbols (pe32_bin);
+		r_list_hacky_join (ret, list);
+		r_list_free (list);
+	}
+	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
+		list = Pe64_r_bin_mdmp_pe_get_symbols (pe64_bin);
+		r_list_hacky_join (ret, list);
+		r_list_free (list);
+	}
+
+	return ret;
+}
+
+static int check_bytes(const ut8 *buf, ut64 length) {
+	return buf && (length > sizeof (struct minidump_header))
+		&& (!memcmp (buf, MDMP_MAGIC, 6));
 }
 
 static int check(RBinFile *arch) {
@@ -243,11 +471,6 @@ static int check(RBinFile *arch) {
 	return check_bytes (bytes, sz);
 }
 
-static int check_bytes(const ut8 *buf, ut64 length) {
-	return buf && (length > sizeof (struct minidump_header))
-		&& (!memcmp (buf, MDMP_MAGIC, 6));
-}
-
 RBinPlugin r_bin_plugin_mdmp = {
 	.name = "mdmp",
 	.desc = "Minidump format r_bin plugin",
@@ -256,12 +479,18 @@ RBinPlugin r_bin_plugin_mdmp = {
 	.check = &check,
 	.check_bytes = &check_bytes,
 	.destroy = &destroy,
+	.entries = entries,
 	.get_sdb = &get_sdb,
+	.imports = &imports,
 	.info = &info,
+	.libs = &libs,
 	.load = &load,
 	.load_bytes = &load_bytes,
 	.mem = &mem,
+	.minstrlen = 10,
+	.relocs = &relocs,
 	.sections = &sections,
+	.symbols = &symbols,
 };
 
 #ifndef CORELIB

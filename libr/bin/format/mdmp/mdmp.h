@@ -9,6 +9,8 @@
 #include <r_bin.h>
 
 #include "mdmp_specs.h"
+#include "mdmp_pe.h"
+#include "mdmp_pe64.h"
 
 struct r_bin_mdmp_obj {
 	struct minidump_header *hdr;
@@ -43,6 +45,10 @@ struct r_bin_mdmp_obj {
 		} memories64;
 	} streams;
 
+	/* Binary memory objects */
+	RList *pe32_bins;
+	RList *pe64_bins;
+
 	struct r_buf_t *b;
 	size_t size;
 	ut8 endian;
@@ -52,5 +58,8 @@ struct r_bin_mdmp_obj {
 struct r_bin_mdmp_obj *r_bin_mdmp_new_buf(struct r_buf_t *buf);
 void r_bin_mdmp_free(struct r_bin_mdmp_obj *obj);
 ut64 r_bin_mdmp_get_baddr(struct r_bin_mdmp_obj *obj);
+ut64 r_bin_mdmp_get_paddr(struct r_bin_mdmp_obj *obj, ut64 vaddr);
+ut32 r_bin_mdmp_get_srwx(struct r_bin_mdmp_obj *obj, ut64 vaddr);
+struct minidump_memory_info *r_bin_mdmp_get_mem_info(struct r_bin_mdmp_obj *obj, ut64 vaddr);
 
 #endif /* MDMP_H */
