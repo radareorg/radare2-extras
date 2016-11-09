@@ -1,5 +1,5 @@
 PKGNAME radare2-extras
-VERSION 0.10.6
+VERSION 1.0
 CONTACT pancake ; pancake@nopcode.org
 
 REPORT PREFIX ;
