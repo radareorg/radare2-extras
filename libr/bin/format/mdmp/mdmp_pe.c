@@ -129,6 +129,73 @@ RList *PE_(r_bin_mdmp_pe_get_imports)(struct PE_(r_bin_mdmp_pe_bin) *pe_bin) {
 	return ret;
 }
 
+RList *PE_(r_bin_mdmp_pe_get_sections)(struct PE_(r_bin_mdmp_pe_bin) *pe_bin) {
+	/* TODO: Vet code, taken verbatim(ish) from bin_pe.c */
+	int i;
+	ut64 ba = pe_bin->vaddr;//baddr (arch);
+	struct r_bin_pe_section_t *sections = NULL;
+	RBinSection *ptr;
+	RList *ret;
+
+	if (!(ret = r_list_new ())) {
+		return NULL;
+	}
+	if (!(sections = PE_(r_bin_pe_get_sections) (pe_bin->bin))){
+		r_list_free (ret);
+		return NULL;
+	}
+	PE_(r_bin_pe_check_sections) (pe_bin->bin, &sections);
+	for (i = 0; !sections[i].last; i++) {
+		if (!(ptr = R_NEW0 (RBinSection))) {
+			break;
+		}
+		if (sections[i].name[0]) {
+			strncpy (ptr->name, (char*)sections[i].name, R_BIN_SIZEOF_STRINGS);
+		}
+		ptr->size = sections[i].size;
+		if (ptr->size > pe_bin->bin->size) {
+			if (sections[i].vsize < pe_bin->bin->size) {
+				ptr->size = sections[i].vsize;
+			} else {
+				//hack give it page size
+				ptr->size = 4096;
+			}
+		}
+		ptr->vsize = sections[i].vsize;
+		if (!ptr->vsize && ptr->size) {
+			ptr->vsize = ptr->size;
+		}
+		ptr->paddr = sections[i].paddr + pe_bin->paddr;
+		ptr->vaddr = sections[i].vaddr + ba;
+		ptr->add = true;
+		ptr->srwx = R_BIN_SCN_MAP;
+		if (R_BIN_PE_SCN_IS_EXECUTABLE (sections[i].flags)) {
+			ptr->srwx |= R_BIN_SCN_EXECUTABLE;
+		}
+		if (R_BIN_PE_SCN_IS_WRITABLE (sections[i].flags)) {
+			ptr->srwx |= R_BIN_SCN_WRITABLE;
+		}
+		if (R_BIN_PE_SCN_IS_READABLE (sections[i].flags)) {
+			ptr->srwx |= R_BIN_SCN_READABLE;
+		}
+		if (R_BIN_PE_SCN_IS_SHAREABLE (sections[i].flags)) {
+			ptr->srwx |= R_BIN_SCN_SHAREABLE;
+		}
+#define X 1
+#define ROW (4 | 2)
+		if (ptr->srwx & ROW && !(ptr->srwx & X) && ptr->size > 0) {
+			if (!strcmp (ptr->name, ".rsrc") ||
+			  	!strcmp (ptr->name, ".data") ||
+				!strcmp (ptr->name, ".rdata")) {
+					ptr->is_data = true;
+				}
+		}
+		r_list_append (ret, ptr);
+	}
+	free (sections);
+	return ret;
+}
+
 RList *PE_(r_bin_mdmp_pe_get_symbols)(struct PE_(r_bin_mdmp_pe_bin) *pe_bin) {
 	int i;
 	ut64 offset;

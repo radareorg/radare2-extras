@@ -220,8 +220,10 @@ static RList *sections(RBinFile *arch) {
 	struct minidump_module *module;
 	struct minidump_string *str;
 	struct r_bin_mdmp_obj *obj;
-	RList *ret;
-	RListIter *it;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RList *ret, *pe_secs;
+	RListIter *it, *it0;
 	RBinSection *ptr;
 	ut64 index;
 
@@ -285,16 +287,28 @@ static RList *sections(RBinFile *arch) {
 		ptr->paddr = r_bin_mdmp_get_paddr (obj, ptr->vaddr);
 		ptr->size = module->size_of_image;
 		ptr->add = true;
-		ptr->has_strings = true;
-
-		/* FIXME?: Will only set the permissions for the first section,
-		** i.e. header. Should we group all the permissions together
-		** and report as lets say rwx as we will contain header, .text,
-		** .data, etc... */
+		ptr->has_strings = false;
+		/* As this is an encompassing section we will set the RWX to 0 */
 		ptr->srwx = R_BIN_SCN_MAP;
-		ptr->srwx |= r_bin_mdmp_get_srwx (obj, ptr->vaddr);
 
 		r_list_append (ret, ptr);
+
+		/* Grab the pe sections */
+		r_list_foreach (obj->pe32_bins, it0, pe32_bin) {
+			if (pe32_bin->vaddr == module->base_of_image && pe32_bin->bin) {
+				pe_secs = Pe32_r_bin_mdmp_pe_get_sections(pe32_bin);
+				r_list_hacky_join (ret, pe_secs);
+				r_list_free(pe_secs);
+			}
+		}
+		r_list_foreach (obj->pe64_bins, it0, pe64_bin) {
+			if (pe64_bin->vaddr == module->base_of_image && pe64_bin->bin) {
+				pe_secs = Pe64_r_bin_mdmp_pe_get_sections(pe64_bin);
+				r_list_hacky_join (ret, pe_secs);
+				r_list_free(pe_secs);
+			}
+		}
+
 	}
 
 	return ret;
@@ -491,7 +505,6 @@ RBinPlugin r_bin_plugin_mdmp = {
 	.load = &load,
 	.load_bytes = &load_bytes,
 	.mem = &mem,
-	.minstrlen = 10,
 	.relocs = &relocs,
 	.sections = &sections,
 	.symbols = &symbols,
