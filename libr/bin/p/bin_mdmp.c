@@ -231,6 +231,9 @@ static RList *sections(RBinFile *arch) {
 		return NULL;
 	}
 
+	/* TODO: Can't remove the memories from this section until get_vaddr is
+	** implemented correctly, currently it is never called!?!? Is it a
+	** relic? */
 	r_list_foreach (obj->streams.memories, it, memory) {
 		if (!(ptr = R_NEW0 (RBinSection))) {
 			return ret;
