@@ -8,8 +8,10 @@
 #include "mdmp/mdmp.h"
 
 /* FIXME: Using r_list_join seems to break the lists and their freeing ability.
-I am yet to determine the cause (its only a linked list!!!), but we can append
-as a work around */
+ * I am yet to determine the cause (its only a linked list!!!), but we can
+ * append as a work around */
+/* UPDATE: The new linked list in r2 v1.0 is not happy either will stick with
+ * this for now */
 static int r_list_hacky_join(RList *list1, RList *list2) {
 	void *data;
 	RListIter *it;
@@ -37,7 +39,6 @@ static Sdb *get_sdb(RBinObject *o) {
 
 static int destroy(RBinFile *arch) {
 	r_bin_mdmp_free ((struct r_bin_mdmp_obj*)arch->o->bin_obj);
-
 	return true;
 }
 
@@ -72,11 +73,11 @@ static RBinInfo *info(RBinFile *arch) {
 	struct r_bin_mdmp_obj *obj;
 	RBinInfo *ret;
 
-	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
-
 	if (!(ret = R_NEW0 (RBinInfo))) {
 		return NULL;
 	}
+
+	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
 	ret->big_endian = obj->endian;
 	ret->claimed_checksum = strdup (sdb_fmt (0, "0x%08x", obj->hdr->check_sum));

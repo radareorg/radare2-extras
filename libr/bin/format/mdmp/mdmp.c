@@ -31,6 +31,8 @@ struct minidump_memory_info *r_bin_mdmp_get_mem_info(struct r_bin_mdmp_obj *obj,
 	struct minidump_memory_info *mem_info;
 	RListIter *it;
 
+	if (!obj) return NULL;
+
 	r_list_foreach (obj->streams.memory_infos, it, mem_info) {
 		if (mem_info->allocation_base && vaddr == mem_info->base_address) {
 			return mem_info;
@@ -42,18 +44,11 @@ struct minidump_memory_info *r_bin_mdmp_get_mem_info(struct r_bin_mdmp_obj *obj,
 
 ut32 r_bin_mdmp_get_srwx(struct r_bin_mdmp_obj *obj, ut64 vaddr)
 {
-	bool found = false;
 	struct minidump_memory_info *mem_info;
-	RListIter *it;
 
-	r_list_foreach (obj->streams.memory_infos, it, mem_info) {
-		if (mem_info->allocation_base && vaddr == mem_info->base_address) {
-			found = true;
-			break;
-		}
+	if (!(mem_info = r_bin_mdmp_get_mem_info(obj, vaddr))) {
+		return 0;
 	}
-
-	if (!found) return 0;
 
 	/* FIXME: Have I got these mappings right, I am not sure I have!!! */
 
@@ -98,27 +93,24 @@ static void r_bin_mdmp_free_pe64_bin(void *pe_bin_) {
 void r_bin_mdmp_free(struct r_bin_mdmp_obj *obj) {
 	if (!obj) return;
 
-	if (obj->streams.ex_threads) r_list_free (obj->streams.ex_threads);
-	if (obj->streams.memories) r_list_free (obj->streams.memories);
-	if (obj->streams.memories64.memories) r_list_free (obj->streams.memories64.memories);
-	if (obj->streams.memory_infos) r_list_free (obj->streams.memory_infos);
-	if (obj->streams.modules) r_list_free (obj->streams.modules);
-	if (obj->streams.operations) r_list_free (obj->streams.operations);
-	if (obj->streams.thread_infos) r_list_free (obj->streams.thread_infos);
-	if (obj->streams.threads) r_list_free (obj->streams.threads);
-	if (obj->streams.unloaded_modules) r_list_free (obj->streams.unloaded_modules);
+	r_list_free (obj->streams.ex_threads);
+	r_list_free (obj->streams.memories);
+	r_list_free (obj->streams.memories64.memories);
+	r_list_free (obj->streams.memory_infos);
+	r_list_free (obj->streams.modules);
+	r_list_free (obj->streams.operations);
+	r_list_free (obj->streams.thread_infos);
+	r_list_free (obj->streams.threads);
+	r_list_free (obj->streams.unloaded_modules);
 
-	if (obj->pe32_bins) r_list_free (obj->pe32_bins);
-	if (obj->pe64_bins) r_list_free (obj->pe64_bins);
+	r_list_free (obj->pe32_bins);
+	r_list_free (obj->pe64_bins);
 
-	if (obj->kv) {
-		sdb_free (obj->kv);
-		obj->kv = NULL;
-	}
-	if (obj->b) {
-		r_buf_free (obj->b);
-		obj->b = NULL;
-	}
+	sdb_free (obj->kv);
+	r_buf_free (obj->b);
+
+	memset (obj, 0, sizeof (struct r_bin_mdmp_obj));
+
 	R_FREE (obj);
 
 	return;
@@ -175,7 +167,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 	/* We could confirm data sizes but a malcious MDMP will always get around
 	** this! But we can ensure that the data is not outside of the file */
 	if (entry->location.rva + entry->location.data_size > obj->b->length) {
-		eprintf("ERROR: Size Mismatch - Stream data is larger than file size!\n");
+		eprintf("[ERROR] Size Mismatch - Stream data is larger than file size!\n");
 		return false;
 	}
 
@@ -286,7 +278,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		/* Silently ignore reserved streams */
 		break;
 	default:
-		eprintf ("WARNING: Invalid or unsupported enumeration encountered %i\n", entry->stream_type);
+		eprintf ("[INFO] Invalid or unsupported enumeration encountered %i\n", entry->stream_type);
 		return false;
 	}
 	return true;
@@ -391,17 +383,17 @@ static bool r_bin_mdmp_init_pe_bins(struct r_bin_mdmp_obj *obj) {
 
 static int r_bin_mdmp_init(struct r_bin_mdmp_obj *obj) {
 	if (!r_bin_mdmp_init_hdr (obj)) {
-		eprintf ("Error: Failed to initialise header\n");
+		eprintf ("[ERROR] Failed to initialise header\n");
 		return false;
 	}
 
 	if (!r_bin_mdmp_init_directory (obj)) {
-		eprintf ("Error: Failed to initialise directory structures!\n");
+		eprintf ("[ERROR] Failed to initialise directory structures!\n");
 		return false;
 	}
 
 	if (!r_bin_mdmp_init_pe_bins (obj)) {
-		eprintf ("Error: Failed to initialise pe binaries!\n");
+		eprintf ("[ERROR] Failed to initialise pe binaries!\n");
 		return false;
 	}
 
