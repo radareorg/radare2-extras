@@ -351,7 +351,6 @@ static bool r_bin_mdmp_init_pe_bins(struct r_bin_mdmp_obj *obj) {
 	RListIter *it, *it_dup;
 
 	r_list_foreach (obj->streams.modules, it, module) {
-		eprintf("[INFO] Loading module 0x%.08x\n", module->base_of_image);
 		/* Duplicate modules can appear in the MDMP module list,
 		** filtering them out seems to be the correct behaviour */
 		if (!(paddr = r_bin_mdmp_get_paddr (obj, module->base_of_image))) {
