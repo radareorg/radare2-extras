@@ -123,18 +123,18 @@ static bool r_bin_mdmp_init_hdr(struct r_bin_mdmp_obj *obj) {
 	sdb_num_set (obj->kv, "mdmp.hdr.flags", obj->hdr->flags, 0);
 
 	if (obj->hdr->number_of_streams == 0) {
-		eprintf ("Warning: No streams present!\n");
+		eprintf ("[WARN] No streams present!\n");
 		return false;
 	}
 
 	if (obj->hdr->stream_directory_rva < sizeof (struct minidump_header))
 	{
-		eprintf ("Error: RVA for directory resides in the header!\n");
+		eprintf ("[ERROR] RVA for directory resides in the header!\n");
 		return false;
 	}
 
 	if (obj->hdr->check_sum) {
-		eprintf ("TODO: Checksum present but needs validating!\n");
+		eprintf ("[INFO] Checksum present but needs validating!\n");
 		return false;
 	}
 
@@ -278,7 +278,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		/* Silently ignore reserved streams */
 		break;
 	default:
-		eprintf ("[INFO] Invalid or unsupported enumeration encountered %i\n", entry->stream_type);
+		eprintf ("[WARN] Invalid or unsupported enumeration encountered %i\n", entry->stream_type);
 		return false;
 	}
 	return true;
