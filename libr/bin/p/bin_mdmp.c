@@ -7,9 +7,9 @@
 
 #include "mdmp/mdmp.h"
 
-/* TODO: This is a correct implementation for r_list_join, I will create a PR
+/* TODO: This is a correct implementation for r_llist_join, I will create a PR
  * on the core for this! */
-static int r_list_join(RList *list1, RList *list2) {
+static int r_llist_join(RList *list1, RList *list2) {
 	if (!list1 || !list2) return 0;
 	if (!(list2->length)) return 0;
 
@@ -65,12 +65,12 @@ static RList* entries(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		list = Pe32_r_bin_mdmp_pe_get_entrypoint (pe32_bin);
-		r_list_join (ret, list);
+		r_llist_join (ret, list);
 		r_list_free (list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		list = Pe64_r_bin_mdmp_pe_get_entrypoint (pe64_bin);
-		r_list_join (ret, list);
+		r_llist_join (ret, list);
 		r_list_free (list);
 	}
 
@@ -307,14 +307,14 @@ static RList *sections(RBinFile *arch) {
 		r_list_foreach (obj->pe32_bins, it0, pe32_bin) {
 			if (pe32_bin->vaddr == module->base_of_image && pe32_bin->bin) {
 				pe_secs = Pe32_r_bin_mdmp_pe_get_sections(pe32_bin);
-				r_list_join (ret, pe_secs);
+				r_llist_join (ret, pe_secs);
 				r_list_free(pe_secs);
 			}
 		}
 		r_list_foreach (obj->pe64_bins, it0, pe64_bin) {
 			if (pe64_bin->vaddr == module->base_of_image && pe64_bin->bin) {
 				pe_secs = Pe64_r_bin_mdmp_pe_get_sections(pe64_bin);
-				r_list_join (ret, pe_secs);
+				r_llist_join (ret, pe_secs);
 				r_list_free(pe_secs);
 			}
 		}
@@ -418,12 +418,12 @@ static RList* relocs(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		if (pe32_bin->bin) {
-			r_list_join (ret, pe32_bin->bin->relocs);
+			r_llist_join (ret, pe32_bin->bin->relocs);
 		}
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		if (pe64_bin->bin) {
-			r_list_join (ret, pe64_bin->bin->relocs);
+			r_llist_join (ret, pe64_bin->bin->relocs);
 		}
 	}
 
@@ -445,12 +445,12 @@ static RList* imports(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		list = Pe32_r_bin_mdmp_pe_get_imports (pe32_bin);
-		r_list_join (ret, list);
+		r_llist_join (ret, list);
 		r_list_free (list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		list = Pe64_r_bin_mdmp_pe_get_imports (pe64_bin);
-		r_list_join (ret, list);
+		r_llist_join (ret, list);
 		r_list_free (list);
 	}
 	return ret;
@@ -471,12 +471,12 @@ static RList* symbols(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		list = Pe32_r_bin_mdmp_pe_get_symbols (pe32_bin);
-		r_list_join (ret, list);
+		r_llist_join (ret, list);
 		r_list_free (list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		list = Pe64_r_bin_mdmp_pe_get_symbols (pe64_bin);
-		r_list_join (ret, list);
+		r_llist_join (ret, list);
 		r_list_free (list);
 	}
 	return ret;
