@@ -30,10 +30,10 @@ static int r_llist_join(RList *list1, RList *list2) {
 }
 
 /* FIXME: This is already in r_bin.c but its static, why?! */
-static void r_bin_mem_free(void *data) {
+static void r_bbin_mem_free(void *data) {
 	RBinMem *mem = (RBinMem *)data;
 	if (mem && mem->mirrors) {
-		mem->mirrors->free = r_bin_mem_free;
+		mem->mirrors->free = r_bbin_mem_free;
 		r_list_free (mem->mirrors);
 		mem->mirrors = NULL;
 	}
@@ -161,7 +161,7 @@ static RBinInfo *info(RBinFile *arch) {
 
 static RList* libs(RBinFile *arch) {
 	char *ptr = NULL;
-	int i, j = 0;
+	int i;
 	struct r_bin_mdmp_obj *obj;
 	struct r_bin_pe_lib_t *libs = NULL;
 	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
@@ -176,16 +176,15 @@ static RList* libs(RBinFile *arch) {
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
 	/* TODO: Resolve module name for lib, or filter to remove duplicates,
-	** rather than an arbitrary number :) */
+	** rather than the vaddr :) */
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		if (!(libs = Pe32_r_bin_pe_get_libs (pe32_bin->bin))) {
 			return ret;
 		}
 		for (i = 0; !libs[i].last; i++) {
-			ptr = r_str_newf ("[%d] - %s", j, libs[i].name);
+			ptr = r_str_newf ("[0x%.08x] - %s", pe32_bin->vaddr, libs[i].name);
 			r_list_append (ret, ptr);
 		}
-		j++;
 		free (libs);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
@@ -193,10 +192,9 @@ static RList* libs(RBinFile *arch) {
 			return ret;
 		}
 		for (i = 0; !libs[i].last; i++) {
-			ptr = r_str_newf ("[%d] - %s", j, libs[i].name);
+			ptr = r_str_newf ("[0x%.08x] - %s", pe64_bin->vaddr, libs[i].name);
 			r_list_append (ret, ptr);
 		}
-		j++;
 		free (libs);
 	}
 
@@ -349,7 +347,7 @@ static RList *mem (RBinFile *arch) {
 	ut64 index;
 	ut64 state, type, a_protect;
 
-	if (!(ret = r_list_newf (r_bin_mem_free))) {
+	if (!(ret = r_list_newf (r_bbin_mem_free))) {
 		return NULL;
 	}
 
