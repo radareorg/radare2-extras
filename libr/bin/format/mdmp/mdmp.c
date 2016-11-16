@@ -183,6 +183,38 @@ static void r_bin_mdmp_init_parsing(struct r_bin_mdmp_obj *obj) {
 		"IoFinishCallback=13, ReadMemoryFailureCallback=14, "
 		"SecondaryFlagsCallback=15 };", 0);
 
+	sdb_set (obj->kv, "mdmp_exception_code.cparse",
+		"enum mdmp_exception_code { "
+		"DBG_CONTROL_C=0x40010005, "
+		"EXCEPTION_GUARD_PAGE_VIOLATION=0x80000001, "
+		"EXCEPTION_DATATYPE_MISALIGNMENT=0x80000002, "
+		"EXCEPTION_BREAKPOINT=0x80000003, "
+		"EXCEPTION_SINGLE_STEP=0x80000004, "
+		"EXCEPTION_ACCESS_VIOLATION=0xc0000005, "
+		"EXCEPTION_IN_PAGE_ERROR=0xc0000006, "
+		"EXCEPTION_INVALID_HANDLE=0xc0000008, "
+		"EXCEPTION_ILLEGAL_INSTRUCTION=0xc000001d, "
+		"EXCEPTION_NONCONTINUABLE_EXCEPTION=0xc0000025, "
+		"EXCEPTION_INVALID_DISPOSITION=0xc0000026, "
+		"EXCEPTION_ARRAY_BOUNDS_EXCEEDED=0xc000008c, "
+		"EXCEPTION_FLOAT_DENORMAL_OPERAND=0xc000008d, "
+		"EXCEPTION_FLOAT_DIVIDE_BY_ZERO=0xc000008e, "
+		"EXCEPTION_FLOAT_INEXACT_RESULT=0xc000008f, "
+		"EXCEPTION_FLOAT_INVALID_OPERATION=0xc0000090, "
+		"EXCEPTION_FLOAT_OVERFLOW=0xc0000091, "
+		"EXCEPTION_FLOAT_STACK_CHECK=0xc0000092, "
+		"EXCEPTION_FLOAT_UNDERFLOW=0xc0000093, "
+		"EXCEPTION_INTEGER_DIVIDE_BY_ZERO=0xc0000094, "
+		"EXCEPTION_INTEGER_OVERFLOW=0xc0000095, "
+		"EXCEPTION_PRIVILEGED_INSTRUCTION=0xc0000096, "
+		"EXCEPTION_STACK_OVERFLOW=0xc00000fd, "
+		"EXCEPTION_POSSIBLE_DEADLOCK=0xc0000194 };", 0);
+
+	sdb_set (obj->kv, "mdmp_exception_flags.cparse",
+		"enum mdmp_exception_flags { "
+		"EXCEPTION_CONTINUABLE=0, "
+		"EXCEPTION_NONCONTINUABLE=1 };", 0);
+
 	sdb_set (obj->kv, "mdmp_handle_object_information_type.cparse",
 		"enum mdmp_handle_object_information_type { "
 		"MiniHandleObjectInformationNone=0, "
@@ -248,10 +280,28 @@ static void r_bin_mdmp_init_parsing(struct r_bin_mdmp_obj *obj) {
 		"ThreadWriteThreadData=0x20, "
 		"ThreadWriteThreadInfo=0x40 };", 0);
 
+	sdb_set (obj->kv, "mdmp_context_flags.cparse",
+		"enum mdmp_context_flags { CONTEXT_i386=0x10000, "
+		"CONTEXT_CONTROL=0x10001, CONTEXT_INTEGER=0x10002, "
+		"CONTEXT_SEGMENTS=0x10004, CONTEXT_FLOATING_POINT=0x10008, "
+		"CONTEXT_DEBUG_REGISTERS=0x10010, "
+		"CONTEXT_EXTENDED_REGISTERS=0x10020 };", 0);
+
 	sdb_set (obj->kv, "mdmp_location_descriptor.format",
 		"dd DataSize RVA", 0);
 	sdb_set (obj->kv, "mdmp_location_descriptor64.format",
 		"qq DataSize RVA", 0);
+	sdb_set (obj->kv, "mdmp_memory_descriptor.format", "q? "
+		"StartOfMemoryRange "
+		"(mdmp_location_descriptor)Memory", 0);
+	sdb_set (obj->kv, "mdmp_memory_descriptor64.format", "qq "
+		"StartOfMemoryRange DataSize", 0);
+
+#if 0
+	/* TODO: Flag dependent thus not fully implemented */
+	sdb_set (obj->kv, "mdmp_context.format", "[4]E "
+		"(mdmp_context_flags)ContextFlags", 0);
+#endif
 
 	sdb_set (obj->kv, "mdmp_vs_fixedfileinfo.format", "ddddddddddddd "
 		"dwSignature dwStrucVersion dwFileVersionMs "
@@ -260,8 +310,7 @@ static void r_bin_mdmp_init_parsing(struct r_bin_mdmp_obj *obj) {
 		"dwFileOs dwFileType dwFileSubtype dwFileDateMs "
 		"dwFileDateLs", 0);
 
-	/* TODO: Two byte pointer */
-	sdb_set (obj->kv, "mdmp_string.format", "dp Length Buffer", 0);
+	sdb_set (obj->kv, "mdmp_string.format", "dZ Length Buffer", 0);
 }
 
 static bool r_bin_mdmp_init_hdr(struct r_bin_mdmp_obj *obj) {
@@ -348,7 +397,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 	case MODULE_LIST_STREAM:
 		module_list = (struct minidump_module_list *)(obj->b->buf + entry->location.rva);
 
-		sdb_set (obj->kv, "mdmp_module.format", "qddddqqqqq "
+		sdb_set (obj->kv, "mdmp_module.format", "qdddd???qq "
 			"BaseOfImage SizeOfImage CheckSum "
 			"TimeDateStamp ModuleNameRVA "
 			"(mdmp_vs_fixedfileinfo)VersionInfo "
@@ -372,9 +421,6 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 	case MEMORY_LIST_STREAM:
 		memory_list = (struct minidump_memory_list *)(obj->b->buf + entry->location.rva);
 
-		sdb_set (obj->kv, "mdmp_memory_descriptor.format", "q? "
-			"StartOfMemoryRange "
-			"(mdmp_location_descriptor)Memory", 0);
 		sdb_num_set (obj->kv, "mdmp_memory_list.offset",
 			entry->location.rva, 0);
 		sdb_set (obj->kv, "mdmp_memory_list.format",
@@ -394,8 +440,9 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		/* TODO: Not yet fully parsed or utilised */
 		obj->streams.exception = (struct minidump_exception_stream *)(obj->b->buf + entry->location.rva);
 
-		sdb_set (obj->kv, "mdmp_exception.format", "ddqqdd[15]q "
-			"ExceptionCode ExceptionFlags "
+		sdb_set (obj->kv, "mdmp_exception.format", "[4]E[4]Eqqdd[15]q "
+			"(mdmp_exception_code)ExceptionCode "
+			"(mdmp_exception_flags)ExceptionFlags "
 			"ExceptionRecord ExceptionAddress "
 			"NumberParameters __UnusedAlignment "
 			"ExceptionInformation", 0);
@@ -413,11 +460,11 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		sdb_num_set (obj->kv, "mdmp_system_info.offset",
 			entry->location.rva, 0);
 		/* TODO: We need E as a byte! */
-		sdb_set (obj->kv, "mdmp_system_info.format", "[2]Ewwbbddddd[2]Ew[2]q "
+		sdb_set (obj->kv, "mdmp_system_info.format", "[2]Ewwbbddd[4]Ed[2]Ew[2]q "
 			"(mdmp_processor_architecture)ProcessorArchitecture "
 			"ProcessorLevel ProcessorRevision NumberOfProcessors "
 			"(mdmp_product_type)ProductType "
-			"MajorVersion MinorVersion BuildNumber PlatformId "
+			"MajorVersion MinorVersion BuildNumber (mdmp_platform_id)PlatformId "
 			"CsdVersionRva (mdmp_suite_mask)SuiteMask Reserved2 ProcessorFeatures", 0);
 
 		break;
@@ -446,8 +493,6 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 	case MEMORY_64_LIST_STREAM:
 		memory64_list = (struct minidump_memory64_list *)(obj->b->buf + entry->location.rva);
 
-		sdb_set (obj->kv, "mdmp_memory_descriptor64.format", "qq "
-			"StartOfMemoryRange DataSize", 0);
 		sdb_num_set (obj->kv, "mdmp_memory64_list.offset",
 			entry->location.rva, 0);
 		sdb_set (obj->kv, "mdmp_memory64_list.format",
@@ -540,8 +585,8 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		memory_info_list = (struct minidump_memory_info_list *)(obj->b->buf + entry->location.rva);
 
 		sdb_set (obj->kv, "mdmp_memory_info.format",
-			"qqddq[4]E[4]E[4]Ed BaseAddress AllocationBase "
-			"AllocationProtect __Alignment1 RegionSize "
+			"qq[4]Edq[4]E[4]E[4]Ed BaseAddress AllocationBase "
+			"(mdmp_page_protect)AllocationProtect __Alignment1 RegionSize "
 			"(mdmp_mem_state)State (mdmp_page_protect)Protect "
 			"(mdmp_mem_type)Type __Alignment2", 0);
 		sdb_num_set (obj->kv, "mdmp_memory_info_list.offset",
