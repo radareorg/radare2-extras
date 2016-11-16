@@ -29,6 +29,18 @@ static int r_llist_join(RList *list1, RList *list2) {
 	return 1;
 }
 
+/* FIXME: This is already in r_bin.c but its static, why?! */
+static void r_bin_mem_free(void *data) {
+	RBinMem *mem = (RBinMem *)data;
+	if (mem && mem->mirrors) {
+		mem->mirrors->free = r_bin_mem_free;
+		r_list_free (mem->mirrors);
+		mem->mirrors = NULL;
+	}
+	free (mem);
+}
+
+
 static ut64 baddr(RBinFile *arch) {
 	return 0LL;
 }
@@ -321,17 +333,6 @@ static RList *sections(RBinFile *arch) {
 	}
 	eprintf("[INFO] Parsing data sections for large dumps can take time, please be patient!\n");
 	return ret;
-}
-
-/* FIXME: This is already in r_bin.c but its static, why?! */
-static void r_bin_mem_free(void *data) {
-	RBinMem *mem = (RBinMem *)data;
-	if (mem && mem->mirrors) {
-		mem->mirrors->free = r_bin_mem_free;
-		r_list_free (mem->mirrors);
-		mem->mirrors = NULL;
-	}
-	free (mem);
 }
 
 static RList *mem (RBinFile *arch) {
