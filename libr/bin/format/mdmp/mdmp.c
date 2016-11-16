@@ -299,7 +299,7 @@ static void r_bin_mdmp_init_parsing(struct r_bin_mdmp_obj *obj) {
 
 #if 0
 	/* TODO: Flag dependent thus not fully implemented */
-	sdb_set (obj->kv, "mdmp_context.format", "[4]E "
+	sdb_set (obj->kv, "mdmp_context.format", "[4]B "
 		"(mdmp_context_flags)ContextFlags", 0);
 #endif
 
@@ -335,9 +335,9 @@ static bool r_bin_mdmp_init_hdr(struct r_bin_mdmp_obj *obj) {
 	sdb_num_set (obj->kv, "mdmp.hdr.time_date_stamp", obj->hdr->time_date_stamp, 0);
 	sdb_num_set (obj->kv, "mdmp.hdr.flags", obj->hdr->flags, 0);
 	sdb_num_set (obj->kv, "mdmp_header.offset", 0, 0);
-	sdb_set (obj->kv, "mdmp_header.format", "[4]zddddd[8]E Signature "
-			"Version NumberOfStreams StreamDirectoryRVA CheckSum "
-			"TimeDateStamp (mdmp_type)Flags", 0);
+	sdb_set (obj->kv, "mdmp_header.format", "[4]zddddd[8]B Signature "
+		"Version NumberOfStreams StreamDirectoryRVA CheckSum "
+		"TimeDateStamp (mdmp_type)Flags", 0);
 
 	return true;
 }
@@ -460,7 +460,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		sdb_num_set (obj->kv, "mdmp_system_info.offset",
 			entry->location.rva, 0);
 		/* TODO: We need E as a byte! */
-		sdb_set (obj->kv, "mdmp_system_info.format", "[2]Ewwbbddd[4]Ed[2]Ew[2]q "
+		sdb_set (obj->kv, "mdmp_system_info.format", "[2]EwwbBddd[4]Ed[2]Ew[2]q "
 			"(mdmp_processor_architecture)ProcessorArchitecture "
 			"ProcessorLevel ProcessorRevision NumberOfProcessors "
 			"(mdmp_product_type)ProductType "
@@ -573,7 +573,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		/* TODO: Handle different sizes */
 		sdb_num_set (obj->kv, "mdmp_misc_info.offset",
 			entry->location.rva, 0);
-		sdb_set (obj->kv, "mdmp_misc_info.format", "d[4]Eddddddddd "
+		sdb_set (obj->kv, "mdmp_misc_info.format", "d[4]Bddddddddd "
 			"SizeOfInfo (mdmp_misc1_flags)Flags1 ProcessId "
 			"ProcessCreateTime ProcessUserTime ProcessKernelTime "
 			"ProcessorMaxMhz ProcessorCurrentMhz "
