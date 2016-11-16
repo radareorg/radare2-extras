@@ -97,7 +97,7 @@ typedef enum minidump_callback_type_t {
 	IO_WRITE_ALL_CALLBACK,
 	IO_FINISH_CALLBACK,
 	READ_MEMORY_FAILURE_CALLBACK,
-	SECONDARY_FLAGS_CALLback
+	SECONDARY_FLAGS_CALLBACK
 } minidump_callback_type;
 
 /* Identifies the type of object-specific information. */
@@ -110,7 +110,7 @@ typedef enum minidump_handle_object_information_type_t {
 	MINI_PROCESS_INFORMATION_2
 } minidump_handle_object_information_type;
 
-typedef enum	minidump_secondary_flags_t {
+typedef enum minidump_secondary_flags_t {
 	MINI_SECONDARY_WITHOUT_POWER_INFO  = 0X00000001
 } minidump_secondary_flags;
 

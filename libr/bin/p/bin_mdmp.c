@@ -7,17 +7,39 @@
 
 #include "mdmp/mdmp.h"
 
-/* FIXME: Using r_list_join seems to break the lists and their freeing ability.
-I am yet to determine the cause (its only a linked list!!!), but we can append
-as a work around */
-static int r_list_hacky_join(RList *list1, RList *list2) {
-	void *data;
-	RListIter *it;
-	r_list_foreach (list2, it, data) {
-		r_list_append (list1, data);
+/* TODO: This is a correct implementation for r_llist_join, I will create a PR
+ * on the core for this! */
+static int r_llist_join(RList *list1, RList *list2) {
+	if (!list1 || !list2) return 0;
+	if (!(list2->length)) return 0;
+
+	if (!(list1->length)) {
+		list1->head = list2->head;
+		list1->tail = list2->tail;
+	} else {
+		list1->tail->n = list2->head;
+		list2->head->p = list1->tail;
+		list1->tail = list2->tail;
+		list1->tail->n = NULL;
+		list1->sorted = false;
 	}
+	list1->length += list2->length;
+	list2->head = list2->tail = NULL;
+	/* the caller must free list2 */
 	return 1;
 }
+
+/* FIXME: This is already in r_bin.c but its static, why?! */
+static void r_bbin_mem_free(void *data) {
+	RBinMem *mem = (RBinMem *)data;
+	if (mem && mem->mirrors) {
+		mem->mirrors->free = r_bbin_mem_free;
+		r_list_free (mem->mirrors);
+		mem->mirrors = NULL;
+	}
+	free (mem);
+}
+
 
 static ut64 baddr(RBinFile *arch) {
 	return 0LL;
@@ -37,7 +59,6 @@ static Sdb *get_sdb(RBinObject *o) {
 
 static int destroy(RBinFile *arch) {
 	r_bin_mdmp_free ((struct r_bin_mdmp_obj*)arch->o->bin_obj);
-
 	return true;
 }
 
@@ -56,12 +77,12 @@ static RList* entries(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		list = Pe32_r_bin_mdmp_pe_get_entrypoint (pe32_bin);
-		r_list_hacky_join (ret, list);
+		r_llist_join (ret, list);
 		r_list_free (list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		list = Pe64_r_bin_mdmp_pe_get_entrypoint (pe64_bin);
-		r_list_hacky_join (ret, list);
+		r_llist_join (ret, list);
 		r_list_free (list);
 	}
 
@@ -72,11 +93,11 @@ static RBinInfo *info(RBinFile *arch) {
 	struct r_bin_mdmp_obj *obj;
 	RBinInfo *ret;
 
-	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
-
 	if (!(ret = R_NEW0 (RBinInfo))) {
 		return NULL;
 	}
+
+	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
 	ret->big_endian = obj->endian;
 	ret->claimed_checksum = strdup (sdb_fmt (0, "0x%08x", obj->hdr->check_sum));
@@ -140,7 +161,7 @@ static RBinInfo *info(RBinFile *arch) {
 
 static RList* libs(RBinFile *arch) {
 	char *ptr = NULL;
-	int i, j = 0;
+	int i;
 	struct r_bin_mdmp_obj *obj;
 	struct r_bin_pe_lib_t *libs = NULL;
 	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
@@ -155,16 +176,15 @@ static RList* libs(RBinFile *arch) {
 	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
 	/* TODO: Resolve module name for lib, or filter to remove duplicates,
-	** rather than an arbitrary number :) */
+	** rather than the vaddr :) */
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		if (!(libs = Pe32_r_bin_pe_get_libs (pe32_bin->bin))) {
 			return ret;
 		}
 		for (i = 0; !libs[i].last; i++) {
-			ptr = r_str_newf ("[%d] - %s", j, libs[i].name);
+			ptr = r_str_newf ("[0x%.08x] - %s", pe32_bin->vaddr, libs[i].name);
 			r_list_append (ret, ptr);
 		}
-		j++;
 		free (libs);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
@@ -172,10 +192,9 @@ static RList* libs(RBinFile *arch) {
 			return ret;
 		}
 		for (i = 0; !libs[i].last; i++) {
-			ptr = r_str_newf ("[%d] - %s", j, libs[i].name);
+			ptr = r_str_newf ("[0x%.08x] - %s", pe64_bin->vaddr, libs[i].name);
 			r_list_append (ret, ptr);
 		}
-		j++;
 		free (libs);
 	}
 
@@ -219,8 +238,10 @@ static RList *sections(RBinFile *arch) {
 	struct minidump_module *module;
 	struct minidump_string *str;
 	struct r_bin_mdmp_obj *obj;
-	RList *ret;
-	RListIter *it;
+	struct Pe32_r_bin_mdmp_pe_bin *pe32_bin;
+	struct Pe64_r_bin_mdmp_pe_bin *pe64_bin;
+	RList *ret, *pe_secs;
+	RListIter *it, *it0;
 	RBinSection *ptr;
 	ut64 index;
 
@@ -230,6 +251,9 @@ static RList *sections(RBinFile *arch) {
 		return NULL;
 	}
 
+	/* TODO: Can't remove the memories from this section until get_vaddr is
+	** implemented correctly, currently it is never called!?!? Is it a
+	** relic? */
 	r_list_foreach (obj->streams.memories, it, memory) {
 		if (!(ptr = R_NEW0 (RBinSection))) {
 			return ret;
@@ -241,6 +265,7 @@ static RList *sections(RBinFile *arch) {
 		ptr->vaddr = memory->start_of_memory_range;
 		ptr->vsize = (memory->memory).data_size;
 		ptr->add = true;
+		ptr->has_strings = false;
 
 		ptr->srwx = R_BIN_SCN_MAP;
 		ptr->srwx |= r_bin_mdmp_get_srwx (obj, ptr->vaddr);
@@ -260,6 +285,7 @@ static RList *sections(RBinFile *arch) {
 		ptr->vaddr = memory64->start_of_memory_range;
 		ptr->vsize = memory64->data_size;
 		ptr->add = true;
+		ptr->has_strings = false;
 
 		ptr->srwx = R_BIN_SCN_MAP;
 		ptr->srwx |= r_bin_mdmp_get_srwx (obj, ptr->vaddr);
@@ -281,30 +307,32 @@ static RList *sections(RBinFile *arch) {
 		ptr->paddr = r_bin_mdmp_get_paddr (obj, ptr->vaddr);
 		ptr->size = module->size_of_image;
 		ptr->add = true;
-		ptr->has_strings = true;
-
-		/* FIXME?: Will only set the permissions for the first section,
-		** i.e. header. Should we group all the permissions together
-		** and report as lets say rwx as we will contain header, .text,
-		** .data, etc... */
+		ptr->has_strings = false;
+		/* As this is an encompassing section we will set the RWX to 0 */
 		ptr->srwx = R_BIN_SCN_MAP;
-		ptr->srwx |= r_bin_mdmp_get_srwx (obj, ptr->vaddr);
 
 		r_list_append (ret, ptr);
-	}
 
+		/* Grab the pe sections */
+		r_list_foreach (obj->pe32_bins, it0, pe32_bin) {
+			if (pe32_bin->vaddr == module->base_of_image && pe32_bin->bin) {
+				pe_secs = Pe32_r_bin_mdmp_pe_get_sections(pe32_bin);
+				r_llist_join (ret, pe_secs);
+				r_list_free(pe_secs);
+			}
+		}
+		r_list_foreach (obj->pe64_bins, it0, pe64_bin) {
+			if (pe64_bin->vaddr == module->base_of_image && pe64_bin->bin) {
+				pe_secs = Pe64_r_bin_mdmp_pe_get_sections(pe64_bin);
+				r_llist_join (ret, pe_secs);
+				r_list_free(pe_secs);
+			}
+		}
+	}
+	eprintf("[INFO] Parsing data sections for large dumps can take time, "
+		"please be patient (but if strings ain't your thing try with "
+		"-z)!\n");
 	return ret;
-}
-
-/* FIXME: This is already in r_bin.c but its static, why?! */
-static void r_bin_mem_free(void *data) {
-	RBinMem *mem = (RBinMem *)data;
-	if (mem && mem->mirrors) {
-		mem->mirrors->free = r_bin_mem_free;
-		r_list_free (mem->mirrors);
-		mem->mirrors = NULL;
-	}
-	free (mem);
 }
 
 static RList *mem (RBinFile *arch) {
@@ -319,7 +347,7 @@ static RList *mem (RBinFile *arch) {
 	ut64 index;
 	ut64 state, type, a_protect;
 
-	if (!(ret = r_list_newf (r_bin_mem_free))) {
+	if (!(ret = r_list_newf (r_bbin_mem_free))) {
 		return NULL;
 	}
 
@@ -391,12 +419,12 @@ static RList* relocs(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		if (pe32_bin->bin) {
-			r_list_hacky_join (ret, pe32_bin->bin->relocs);
+			r_llist_join (ret, pe32_bin->bin->relocs);
 		}
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		if (pe64_bin->bin) {
-			r_list_hacky_join (ret, pe64_bin->bin->relocs);
+			r_llist_join (ret, pe64_bin->bin->relocs);
 		}
 	}
 
@@ -418,12 +446,12 @@ static RList* imports(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		list = Pe32_r_bin_mdmp_pe_get_imports (pe32_bin);
-		r_list_hacky_join (ret, list);
+		r_llist_join (ret, list);
 		r_list_free (list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		list = Pe64_r_bin_mdmp_pe_get_imports (pe64_bin);
-		r_list_hacky_join (ret, list);
+		r_llist_join (ret, list);
 		r_list_free (list);
 	}
 	return ret;
@@ -444,15 +472,14 @@ static RList* symbols(RBinFile *arch) {
 
 	r_list_foreach (obj->pe32_bins, it, pe32_bin) {
 		list = Pe32_r_bin_mdmp_pe_get_symbols (pe32_bin);
-		r_list_hacky_join (ret, list);
+		r_llist_join (ret, list);
 		r_list_free (list);
 	}
 	r_list_foreach (obj->pe64_bins, it, pe64_bin) {
 		list = Pe64_r_bin_mdmp_pe_get_symbols (pe64_bin);
-		r_list_hacky_join (ret, list);
+		r_llist_join (ret, list);
 		r_list_free (list);
 	}
-
 	return ret;
 }
 
@@ -487,7 +514,6 @@ RBinPlugin r_bin_plugin_mdmp = {
 	.load = &load,
 	.load_bytes = &load_bytes,
 	.mem = &mem,
-	.minstrlen = 10,
 	.relocs = &relocs,
 	.sections = &sections,
 	.symbols = &symbols,
