@@ -335,7 +335,7 @@ static bool r_bin_mdmp_init_hdr(struct r_bin_mdmp_obj *obj) {
 	sdb_num_set (obj->kv, "mdmp.hdr.time_date_stamp", obj->hdr->time_date_stamp, 0);
 	sdb_num_set (obj->kv, "mdmp.hdr.flags", obj->hdr->flags, 0);
 	sdb_num_set (obj->kv, "mdmp_header.offset", 0, 0);
-	sdb_set (obj->kv, "mdmp_header.format", "[4]zddddd[8]B Signature "
+	sdb_set (obj->kv, "mdmp_header.format", "[4]zddddt[8]B Signature "
 		"Version NumberOfStreams StreamDirectoryRVA CheckSum "
 		"TimeDateStamp (mdmp_type)Flags", 0);
 
@@ -397,7 +397,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 	case MODULE_LIST_STREAM:
 		module_list = (struct minidump_module_list *)(obj->b->buf + entry->location.rva);
 
-		sdb_set (obj->kv, "mdmp_module.format", "qdddd???qq "
+		sdb_set (obj->kv, "mdmp_module.format", "qddtd???qq "
 			"BaseOfImage SizeOfImage CheckSum "
 			"TimeDateStamp ModuleNameRVA "
 			"(mdmp_vs_fixedfileinfo)VersionInfo "
@@ -553,7 +553,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		/* TODO: Not yet fully parsed or utilised */
 		unloaded_module_list = (struct minidump_unloaded_module_list *)(obj->b->buf + entry->location.rva);
 
-		sdb_set (obj->kv, "mdmp_unloaded_module.format", "qdddd "
+		sdb_set (obj->kv, "mdmp_unloaded_module.format", "qddtd "
 			"BaseOfImage SizeOfImage CheckSum TimeDateStamp "
 			"ModuleNameRva", 0);
 		sdb_num_set (obj->kv, "mdmp_unloaded_module_list.offset",
@@ -573,7 +573,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		/* TODO: Handle different sizes */
 		sdb_num_set (obj->kv, "mdmp_misc_info.offset",
 			entry->location.rva, 0);
-		sdb_set (obj->kv, "mdmp_misc_info.format", "d[4]Bddddddddd "
+		sdb_set (obj->kv, "mdmp_misc_info.format", "d[4]Bdtttddddd "
 			"SizeOfInfo (mdmp_misc1_flags)Flags1 ProcessId "
 			"ProcessCreateTime ProcessUserTime ProcessKernelTime "
 			"ProcessorMaxMhz ProcessorCurrentMhz "
@@ -606,7 +606,7 @@ static bool r_bin_mdmp_init_directory_entry(struct r_bin_mdmp_obj *obj, struct m
 		/* TODO: Not yet fully parsed or utilised */
 		thread_info_list = (struct minidump_thread_info_list *)(obj->b->buf + entry->location.rva);
 
-		sdb_set (obj->kv, "mdmp_thread_info.format", "ddddqqqqqq "
+		sdb_set (obj->kv, "mdmp_thread_info.format", "ddddttttqq "
 			"ThreadId DumpFlags DumpError ExitStatus CreateTime "
 			"ExitTime KernelTime UserTime StartAddress Affinity",
 			0);
