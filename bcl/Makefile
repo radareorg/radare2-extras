@@ -1,7 +1,7 @@
 include ../options.mk
 
 CFLAGS+=$(shell pkg-config --cflags r_util)
-CC_LIB=$(CC) -shared $(CFLAGS) $(LDFLAGS)
+CC_LIB=$(CC) -shared $(CFLAGS) $(LDFLAGS) -fPIC
 CC_ASM=$(CC_LIB) $(shell pkg-config --libs r_asm)
 CC_ANA=$(CC_LIB) $(shell pkg-config --libs r_anal)
 CC_BIN=$(CC_LIB) $(shell pkg-config --libs r_bin)
