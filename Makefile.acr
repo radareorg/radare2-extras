@@ -19,8 +19,8 @@ help:
 	@echo "  baleful            - build baleful r2 plugin"
 	@echo "  asm                - build armthumb, ppc, psosvm, x86bea, m68k plugins"
 	@echo "  anal               - build analysis plugins (RAnal)"
+	@echo "  bin                - build binary plugins (RBin)"
 	@echo "  debug              - build debugger plugins (RDebug)"
-	@echo "  dlang              - support DLang demangler (RBin)"
 	@echo "  yara{2,3}          - build yara2 or yara3 r2 plugin"
 	@echo "  (target)-install   - install given plugin"
 	@echo "  (target)-clean     - clean given plugin"
@@ -38,9 +38,9 @@ asm-install:
 	$(MAKE) -C libr/asm/p install DESTDIR=$(DESTDIR)
 asm-clean:
 	$(MAKE) -C libr/asm/p clean
-dlang:
+bin:
 	$(MAKE) -C libr/bin/p
-dlang-install:
+bin-install:
 	$(MAKE) -C libr/bin/p install DESTDIR=$(DESTDIR)
 yara2 yara3:
 	cd yara/$@ ; ./configure --prefix=$(PREFIX)
