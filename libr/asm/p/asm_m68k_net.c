@@ -39,7 +39,7 @@ static int disassemble(RAsm *a, RAsmOp *aop, const ut8 *buf, int len) {
 }
 
 RAsmPlugin r_asm_plugin_m68k = {
-	.name = "m68k",
+	.name = "m68k.net",
 	.arch = "m68k",
 	.license = "BSD",
 	.bits = 16|32,
@@ -49,7 +49,7 @@ RAsmPlugin r_asm_plugin_m68k = {
 };
 
 #ifndef CORELIB
-struct r_lib_struct_t radare_plugin = {
+RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_ASM,
 	.data = &r_asm_plugin_m68k,
 	.version = R2_VERSION
