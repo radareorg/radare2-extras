@@ -7,8 +7,8 @@ msil:
 tab:
 	cd p ; $(MAKE) asm_x86_tab.$(LIBEXT)
 
-m68k:
-	cd p ; $(MAKE) asm_m68k.$(LIBEXT)
+m68k_net:
+	cd p ; $(MAKE) asm_m68k_net.$(LIBEXT)
 	
 clean:
 	rm -f p/asm_x86_bea.$(LIBEXT)

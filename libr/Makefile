@@ -8,8 +8,8 @@ tab:
 	$(MAKE) -C asm tab
 
 m68k:
-	$(MAKE) -C asm m68k
-	$(MAKE) -C anal m68k
+	$(MAKE) -C asm m68k_net
+	$(MAKE) -C anal m68k_net
 
 clean:
 	$(MAKE) -C asm clean
