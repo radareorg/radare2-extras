@@ -230,7 +230,7 @@ function walkInto(r2, foo) {
     box.setText('Loading...\n');
     screen.render();
     [bgbox, box, xbox, gbox].forEach((b) => {
-        r2.cmd(b.cmd, (txt) => {
+        r2.cmd(b.cmd, (err, txt) => {
             b.setContent(txt);
             screen.render();
         });
@@ -359,7 +359,7 @@ function refreshBox(r2, box) {
     if (!box || !box.cmd) {
         return;
     }
-    r2.cmd(box.cmd, (txt) => {
+    r2.cmd(box.cmd, (err, txt) => {
         box.setContent(txt);
         screen.render();
     });
@@ -528,7 +528,7 @@ function activateLine(r2, box) {
             const at = parseInt(line.substring(addr), 16);
             const isCode = true; //item.cmd && item.cmd.indexOf && item.cmd.indexOf('pd') != -1;
             if (isCode) {
-                r2.cmd('e scr.color=0;ao@' + at + ';e scr.color=1', (txt) => {
+                r2.cmd('e scr.color=0;ao@' + at + ';e scr.color=1', (err, txt) => {
                     let obj = {}
                     txt.split('\n').forEach((x) => {
                         const ab = x.split(': ');
@@ -550,13 +550,13 @@ function activateLine(r2, box) {
 }
 
 function stepInto(r2, box) {
-    r2.cmd(config.debug ? 'ds;dr*' : 'aes;.aer*', (cmds) => {
+    r2.cmd(config.debug ? 'ds;dr*' : 'aes;.aer*', (err, cmds) => {
         r2.cmd(cmds.split('\n').join(';'));
         if (!box) box = bgbox;
-        r2.cmd(box.cmd, (txt) => {
+        r2.cmd(box.cmd, (err, txt) => {
             box.setContent(txt);
             screen.render();
-            r2.cmd(bgbox.cmd, (txt) => {
+            r2.cmd(bgbox.cmd, (err, txt) => {
                 bgbox.setContent(txt);
                 screen.render();
 refreshAllBoxes(r2);
@@ -602,7 +602,7 @@ function gotoOffset(r2, val, box, nostack) {
     if (offsetStack) {
         offsetStack.push(val);
     }
-    r2.cmd('s ' + val + ';' + box.cmd, (txt) => {
+    r2.cmd('s ' + val + ';' + box.cmd, (err, txt) => {
         box.setContent(txt);
         box.setScroll(0);
         box.selected = 0;
@@ -666,10 +666,10 @@ function handleKeys(r2) {
             uiQuestion('String', 'String to search', (val) => {
                 let box = uiNewFrame(r2, val);
                 box.setContent('Loading...');
-                r2.cmd('/ ' + val, (txt) => {
+                r2.cmd('/ ' + val, (err, txt) => {
                     box.setContent(txt);
                     screen.render();
-                    r2.cmd('fs searches;f', (txt) => {
+                    r2.cmd('fs searches;f', (err, txt) => {
                         box.setContent('Search for: "' + val + '":\n\n' + txt);
                         screen.render();
                     });
@@ -690,7 +690,7 @@ function handleKeys(r2) {
         ['S-a', () => {
             r2.cmd('af', () => {
                 let box = screen.focused;
-                r2.cmd(box.cmd, (txt) => {
+                r2.cmd(box.cmd, (err, txt) => {
                     box.setContent(txt);
                     screen.render();
                 });
@@ -698,7 +698,7 @@ function handleKeys(r2) {
         }],
         [':', () => {
             uiQuestion('Input', 'Command to run', (val) => {
-                r2.cmd(bgbox.cmd = val, (txt) => {
+                r2.cmd(bgbox.cmd = val, (err, txt) => {
                     bgbox.setContent(txt);
                     screen.render();
                 });
@@ -706,11 +706,11 @@ function handleKeys(r2) {
         }],
         ['!', () => {
             uiQuestion('Input', 'Command to run', (val) => {
-                r2.cmd(val, (txt) => {
+                r2.cmd(val, (err, txt) => {
                     uiNewFrame(r2, val);
                     const box = screen.focused;
                     if (box) {
-                        r2.cmd(box.cmd, (x) => {
+                        r2.cmd(box.cmd, (err, x) => {
                             box.setContent(x);
                         });
                     }
@@ -756,7 +756,7 @@ function handleKeys(r2) {
                 screen.render();
             } else {
                 uiQuestion('Eval Config', 'key=value', (val) => {
-                    r2.cmd('e ' + val, (txt) => {
+                    r2.cmd('e ' + val, (err, txt) => {
                         screen.render();
                     });
                 });
@@ -780,7 +780,7 @@ function handleKeys(r2) {
             });
             screen.append(box);
             uiQuestion('Offset', 'Where to go?', (val) => {
-                r2.cmd('s ' + val + ';' + box.cmd, (txt) => {
+                r2.cmd('s ' + val + ';' + box.cmd, (err, txt) => {
                     box.setContent(txt);
                     screen.render();
                 });
@@ -1065,11 +1065,14 @@ function handleMouse(r2) {
     });
 }
 
-function main(r2) {
-    config.theme && r2.cmd("ecr");
-    handleKeys(r2);
-    handleMouse(r2);
-    walkInto(r2, 'entry0');
+function main(err, r2) {
+  if (err) {
+    throw err;
+  }
+  config.theme && r2.cmd("ecr");
+  handleKeys(r2);
+  handleMouse(r2);
+  walkInto(r2, 'entry0');
 }
 
 /* main */
