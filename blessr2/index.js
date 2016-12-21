@@ -193,7 +193,9 @@ function newBox(name, obj) {
         obj.selectedBg = '#000070';
         res = blessed.list(obj);
         res.setContent = function(x) {
-            res.setItems(x.split('\n'));
+            if (typeof x === 'string') {
+                res.setItems(x.split('\n'));
+            }
         }
     }
     res.cmd = name;
