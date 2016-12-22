@@ -1,0 +1,124 @@
+diff --git a/src/nc/gui/CxxView.cpp b/src/nc/gui/CxxView.cpp
+index b84385d..c7cac9a 100644
+--- a/src/nc/gui/CxxView.cpp
++++ b/src/nc/gui/CxxView.cpp
+@@ -35,6 +35,7 @@
+ #include <nc/core/likec/LabelDeclaration.h>
+ #include <nc/core/likec/LabelStatement.h>
+ #include <nc/core/likec/VariableDeclaration.h>
++#include <nc/core/arch/Instruction.h>
+ 
+ #include "CppSyntaxHighlighter.h"
+ #include "CxxDocument.h"
+@@ -101,6 +102,7 @@ void CxxView::setDocument(CxxDocument *document) {
+ 
+     updateSelection();
+ }
++int _i = 0;
+ 
+ void CxxView::updateSelection() {
+     std::vector<const core::likec::TreeNode *> nodes;
+@@ -154,6 +156,17 @@ void CxxView::updateSelection() {
+         selectedInstructions_.swap(instructions);
+         Q_EMIT instructionSelectionChanged();
+     }
++    const char *str = textEdit()->toPlainText().toStdString().c_str();
++    if (str && *str) {
++        if (_i++ == 1) {
++            FILE * fd = fopen ("r2snow-source.c", "w");
++            if (fd) {
++                fprintf (fd, "%s\n", str);
++                fclose (fd);
++            }
++            exit (0);
++        }
++    }
+ }
+ 
+ boost::optional<ConstantValue> CxxView::getIntegerUnderCursor() const {
+@@ -274,9 +287,18 @@ void CxxView::highlightInstructions(const std::vector<const core::arch::Instruct
+ 
+     std::vector<Range<int>> ranges;
+ 
++    FILE *fd = fopen ("r2snow-addrof.txt", "w");
++    ByteAddr addr = 0;
+     foreach (const core::arch::Instruction *instruction, instructions) {
++        std::vector<Range<int>> r;
++        document()->getRanges(instruction, r);
+         document()->getRanges(instruction, ranges);
++        addr = instruction->addr();
++        foreach (auto range, r) {
++            if (fd) fprintf (fd, "0x%llx %d\n", (uint64_t)addr, range.start());
++        }
+     }
++    fclose (fd);
+ 
+     highlight(std::move(ranges), ensureVisible);
+ }
+diff --git a/src/nc/gui/InstructionsModel.cpp b/src/nc/gui/InstructionsModel.cpp
+index 540f406..a56d243 100644
+--- a/src/nc/gui/InstructionsModel.cpp
++++ b/src/nc/gui/InstructionsModel.cpp
+@@ -115,6 +115,7 @@ QVariant InstructionsModel::data(const QModelIndex &index, int role) const {
+         auto instruction = getInstruction(index);
+         assert(instruction);
+ 
++// printf ("0x%llx %s\n", instruction->addr(), instruction->toString().toStdString().c_str());
+         switch (index.column()) {
+             case IMC_INSTRUCTION: return tr("%1:\t%2").arg(instruction->addr(), 0, 16).arg(instruction->toString());
+             default: unreachable();
+diff --git a/src/nc/gui/InstructionsView.cpp b/src/nc/gui/InstructionsView.cpp
+index c9c9aac..5712cf9 100644
+--- a/src/nc/gui/InstructionsView.cpp
++++ b/src/nc/gui/InstructionsView.cpp
+@@ -81,6 +81,7 @@ void InstructionsView::highlightInstructions(const std::vector<const core::arch:
+ 
+         if (ensureVisible && !instructions.empty()) {
+             treeView()->scrollTo(model()->getIndex(instructions.back()));
++    //        printf ("--source-- %d\n", model()->getIndex(instructions.back()).row());
+         }
+     }
+ }
+diff --git a/src/nc/gui/MainWindow.cpp b/src/nc/gui/MainWindow.cpp
+index 69a7a32..72d1013 100644
+--- a/src/nc/gui/MainWindow.cpp
++++ b/src/nc/gui/MainWindow.cpp
+@@ -435,16 +435,21 @@ void MainWindow::instructionsChanged() {
+     instructionsView_->setModel(new InstructionsModel(this, project()->instructions()));
+ }
+ 
++int i = 0;
+ void MainWindow::treeChanged() {
+     if (cxxView_->document()) {
+         cxxView_->document()->deleteLater();
+     }
+     cxxView_->setDocument(new CxxDocument(this, project()->context()));
+ 
++
+     if (inspectorView_->model()) {
+         inspectorView_->model()->deleteLater();
+     }
+     inspectorView_->setModel(new InspectorModel(this, project()->context()));
++    if (i++ == 1) {
++        instructionsView_->treeView()->selectAll();
++    }
+ }
+ 
+ void MainWindow::populateInstructionsContextMenu(QMenu *menu) {
+@@ -478,6 +483,7 @@ void MainWindow::populateSymbolsContextMenu(QMenu *menu) {
+ }
+ 
+ void MainWindow::exportCfg() {
++    instructionsView_->treeView()->selectAll();
+     if (!project()) {
+         return;
+     }
+@@ -578,6 +587,8 @@ void MainWindow::highlightInstructionsInCxx() {
+ }
+ 
+ void MainWindow::highlightCxxInInstructions() {
++// printf("Trigger the highlight->\n");
++    highlightInstructionsInCxx();
+     if (instructionsView_->isVisible()) {
+         instructionsView_->blockSignals(true);
+         instructionsView_->highlightInstructions(cxxView_->selectedInstructions());
