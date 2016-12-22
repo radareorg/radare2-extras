@@ -10,10 +10,10 @@ use constant {
 my $source = read_file(R2SNOW_SOURCE);
 my @addrof = read_file("r2snow-addrof.txt");
 
-$source =~s/reinterpret_cast//g;
-$source =~s/static_cast//g;
-
-write_file R2SNOW_SOURCE . ".txt", $source;
+my $ts = $source;
+$ts =~s/reinterpret_cast//g;
+$ts =~s/static_cast//g;
+write_file R2SNOW_SOURCE . ".txt", $ts;
 
 local @nls = ();
 sub initNewlines() {
