@@ -11,7 +11,7 @@ ifeq ($(shell uname),Darwin)
 KS_LDFLAGS+=-Xlinker -rpath -Xlinker $(R2PM_PREFIX)/lib
 endif
 ifeq ($(shell uname),Linux)
-KS_LDFLAGS+=-Xlinker -Wl,-R$(R2PM_PREFIX)/lib
+KS_LDFLAGS+=-Wl,-R$(R2PM_PREFIX)/lib
 endif
 
 .PHONY: all clean install uninstall mrproper test
