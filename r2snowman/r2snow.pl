@@ -13,7 +13,7 @@ my @addrof = read_file("r2snow-addrof.txt");
 $source =~s/reinterpret_cast//g;
 $source =~s/static_cast//g;
 
-write_file R2SNOW_SOURCE, $source;
+write_file R2SNOW_SOURCE . ".txt", $source;
 
 local @nls = ();
 sub initNewlines() {
@@ -42,7 +42,7 @@ initNewlines();
 
 foreach my $a (@addrof) {
   my ($addr, $offset) = split(" ", $a);
-  my $file = R2SNOW_SOURCE;
+  my $file = R2SNOW_SOURCE . ".txt";
   my $line = lineFor($offset);
   print "CL $file:$line $addr\n";
 }
