@@ -7,7 +7,6 @@ all: snowman
 	cd snowman ; patch -p1 < ../snowman-r2.patch
 	cd snowman/src ; cmake . ; make -j4
 	cp -f snowman/src/snowman/snowman r2snow.bin
-	$(MAKE) install
 
 install:
 	mkdir -p $(DESTDIR)/$(BINDIR)
