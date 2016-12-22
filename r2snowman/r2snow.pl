@@ -28,7 +28,7 @@ sub initNewlines() {
 
 sub lineFor($) {
   my ($offset) = @_;
-  my $line = 1;
+  my $line = 0;
   foreach my $nl (@nls) {
     if ($nl >= $offset) {
       return $line;
