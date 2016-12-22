@@ -1,6 +1,5 @@
 #!/bin/sh
 TARGET="$1"
-R2SNOW_PATH=/tmp
 
 if [ -z "$1" ]; then
 	TARGET="${R2_FILE}"
@@ -14,6 +13,5 @@ if [ -f "$1" ]; then
 	exit 1
 fi
 
-$R2SNOW_PATH/r2snow.bin $TARGET > /dev/null
-$R2SNOW_PATH/r2snow.pl
-
+r2snow.bin $TARGET > /dev/null
+r2snow.pl
