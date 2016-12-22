@@ -1,3 +1,7 @@
+PREFIX=/usr/local
+BINDIR=$(PREFIX)/bin
+DESTDIR?=
+
 all: snowman
 	cd snowman ; git reset --hard
 	cd snowman ; patch -p1 < ../snowman-r2.patch
@@ -6,7 +10,11 @@ all: snowman
 	$(MAKE) install
 
 install:
-	cp r2snow.bin r2snow.pl r2snow /tmp
+	mkdir -p $(DESTDIR)/$(BINDIR)
+	cp -f r2snow.bin r2snow.pl r2snow $(DESTDIR)$(BINDIR)
+
+uninstall:
+	rm -f $(DESTDIR)$(BINDIR)/r2snow*
 
 snowman:
 	git clone https://github.com/yegord/snowman.git
