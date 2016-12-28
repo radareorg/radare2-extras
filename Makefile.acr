@@ -7,8 +7,7 @@ CZ=xz -f
 
 DIRS=
 ifeq ($(HAVE_LIB_YARA),1)
-DIRS+=yara/yara2
-DIRS+=yara/yara3
+DIRS+=yara/yara
 DIRS+=libr/asm/p
 DIRS+=libr/anal/p
 endif
@@ -21,7 +20,7 @@ help:
 	@echo "  anal               - build analysis plugins (RAnal)"
 	@echo "  bin                - build binary plugins (RBin)"
 	@echo "  debug              - build debugger plugins (RDebug)"
-	@echo "  yara{2,3}          - build yara2 or yara3 r2 plugin"
+	@echo "  yara               - build yara3 r2 plugin"
 	@echo "  (target)-install   - install given plugin"
 	@echo "  (target)-clean     - clean given plugin"
 	@echo "  install-yara{2,3}  - install Yara 2 or 3 from Git"
@@ -42,23 +41,19 @@ bin:
 	$(MAKE) -C libr/bin/p
 bin-install:
 	$(MAKE) -C libr/bin/p install DESTDIR=$(DESTDIR)
-yara2 yara3:
+yara:
 	cd yara/$@ ; ./configure --prefix=$(PREFIX)
 	$(MAKE) -C yara/$@
-yara2-clean:
-	$(MAKE) -C yara/yara2 clean
-yara3-clean:
-	$(MAKE) -C yara/yara3 clean
+yara-clean:
+	$(MAKE) -C yara/yara clean
 baleful-install:
 	$(MAKE) -C baleful install DESTDIR=$(DESTDIR)
 debug-install unicorn-install:
 	$(MAKE) -C libr/debug/p install DESTDIR=$(DESTDIR)
 debug-uninstall unicorn-uninstall:
 	$(MAKE) -C libr/debug/p uninstall DESTDIR=$(DESTDIR)
-yara2-install:
-	$(MAKE) -C yara/yara2 install DESTDIR=$(DESTDIR)
 yara3-install:
-	$(MAKE) -C yara/yara3 install DESTDIR=$(DESTDIR)
+	$(MAKE) -C yara/yara install DESTDIR=$(DESTDIR)
 
 all:
 	for a in $(DIRS) ; do \
