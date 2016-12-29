@@ -15,3 +15,4 @@ fi
 
 r2snow.bin $TARGET > /dev/null
 r2snow.pl
+exit 0
