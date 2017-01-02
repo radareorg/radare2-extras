@@ -1,0 +1,13 @@
+[package]
+name = "r2-asm-6502"
+version = "0.1.0"
+authors = ["pancake <pancake@nopcode.org>"]
+
+[lib]
+name = "asm_6502_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+libc = "0.2.18"
+# c_string = "0.7.0"
+disasm6502 = "0.2.1"
