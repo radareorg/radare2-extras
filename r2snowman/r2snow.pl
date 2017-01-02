@@ -1,19 +1,33 @@
 #!/usr/bin/env perl
 # generate r2 script out of a snowman decompilation
 # author : pancake // nopcode.org // 2016
-use File::Slurp;
+
+sub rf {
+  my ($file) = shift;
+  open FH, $file or die "cannot open $file";
+  my @lines = <FH>;
+  close FH;
+  return @lines;
+}
+
+sub wf {
+  my ($file, $data) = @_;
+  open FH, ">$file" or die "cannot open $file";
+  print FH $data;
+  close FH;
+}
 
 use constant {
   R2SNOW_SOURCE => "r2snow-source.c"
 };
 
-my $source = read_file(R2SNOW_SOURCE);
-my @addrof = read_file("r2snow-addrof.txt");
+my $source = rf(R2SNOW_SOURCE);
+my @addrof = rf("r2snow-addrof.txt");
 
 my $ts = $source;
 $ts =~s/reinterpret_cast//g;
 $ts =~s/static_cast//g;
-write_file R2SNOW_SOURCE . ".txt", $ts;
+wf(R2SNOW_SOURCE . ".txt", $ts);
 
 local @nls = ();
 sub initNewlines() {
