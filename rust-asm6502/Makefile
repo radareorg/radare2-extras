@@ -4,7 +4,7 @@ all:
 	cp -f target/release/libasm_6502_rs.dylib ~/.config/radare2/plugins/
 
 uninstall:
-	rm -f ~/.config/radare2/plugins/
+	rm -f ~/.config/radare2/plugins/libasm_6502_rs.dylib
 
 clean:
 	cargo clean
