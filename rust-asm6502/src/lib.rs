@@ -5,7 +5,7 @@ use libc::*;
 use std::ffi::CString;
 
 // order matters because of libr/util/lib.c
-#[repr(i32)]
+#[repr(C,i32)]
 pub enum RLibType {
     RLibTypeIo = 0,
     RLibTypeDbg = 1,
@@ -25,11 +25,7 @@ pub enum RLibType {
     RLibTypeLast = 15,
 }
 
-//#[repr(C)]
-// pub struct StaticCString(*const u8);
-//unsafe impl Sync for StaticCString {}
-
-// [std::default::Default;
+#[repr(C)]
 pub struct RAsmPlugin {
     name: *const c_char,
     arch: *const c_char,
@@ -47,12 +43,8 @@ pub struct RAsmPlugin {
     pub disassemble: extern "C" fn(*const c_void, *mut RAsmOp, *const uint8_t, c_int) -> c_int,
     // int (*assemble)(RAsm *a, RAsmOp *op, const char *buf);
     pub assemble: extern "C" fn(*const c_void, *const c_char) -> c_int,
-    // RAsmModifyCallback modify;
-    // typedef int (*RAsmModifyCallback)(RAsm *a, ut8 *buf, int field, ut64 val);
     pub modify: extern "C" fn(*mut c_void, *mut uint8_t, c_int, uint64_t) -> c_int,
-    // int (*set_subarch)(RAsm *a, const char *buf);
     pub set_subarch: extern "C" fn(*const c_void, *const c_char) -> c_int,
-    // char *(*mnemonics)(RAsm *a, int id, bool json);
     pub mnemonics: extern "C" fn(*const c_void, c_int, bool) -> *mut c_char,
     features: *const [u8]
 }
@@ -60,6 +52,7 @@ pub struct RAsmPlugin {
 const sz: usize = 256;
 type RAsmOpString = [c_char; sz];
 
+#[repr(C)]
 pub struct RAsmOp {
         size: c_int,
         payload: c_int,
@@ -68,6 +61,7 @@ pub struct RAsmOp {
         buf_hex: RAsmOpString
 }
 
+#[repr(C)]
 pub struct RLibHandler {
     pub _type: c_int,
     pub desc: [c_char; 128], pub user: *const c_void,
@@ -75,14 +69,16 @@ pub struct RLibHandler {
     pub destructor: extern "C" fn(*const RLibPlugin, *mut c_void, *mut c_void),
 }
 
+#[repr(C)]
 pub struct RLibPlugin {
     pub _type: c_int,
     pub file: *const c_char,
     pub data: *const c_void,
-    pub handler: *const RLibHandler, // struct r_lib_handler_t
+    pub handler: *const RLibHandler,
     pub dl_handler: *const c_void
 }
 
+#[repr(C)]
 pub struct RLibStruct {
 	pub _type: RLibType,
 	pub data: *const c_void,
