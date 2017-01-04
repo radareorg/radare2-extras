@@ -21,7 +21,7 @@ use constant {
   R2SNOW_SOURCE => "r2snow-source.c"
 };
 
-my $source = rf(R2SNOW_SOURCE);
+my $source = join("", rf(R2SNOW_SOURCE));
 my @addrof = rf("r2snow-addrof.txt");
 
 my $ts = $source;
