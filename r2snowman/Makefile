@@ -15,4 +15,4 @@ uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/r2snow*
 
 snowman:
-	git clone https://github.com/yegord/snowman.git
+	git clone -b feature/output-ranges https://github.com/fabianfreyer/snowman.git
