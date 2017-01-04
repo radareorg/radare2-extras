@@ -12,6 +12,8 @@ addons:
       - mono-xbuild
       - curl
       - tcc
+      - libboost-dev
+      - libqt4-dev
 
 env:
   - TESTS="r2pm -i armthumb"
