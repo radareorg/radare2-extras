@@ -368,7 +368,49 @@ static int print_value (Dwarf_Die die, char *data, Dwarf_Unsigned addr, int inde
 		}
 		break;
 	case DW_TAG_array_type:
-		printf ("PRINT RAW BYTES FROM MEMORY");// Lets do this :)
+		//TODO: proper output for multidimensional array instead of printing it as linear array
+		{
+			int i;
+			Dwarf_Die typedie = 0;
+			ut64 arrlength = 0;
+			ut64 typesize = 0;
+			int inbits;
+			res = get_type_die (die, &typedie, NULL);
+			if (res == DW_DLV_ERROR) {
+				printf ("ERROR: print_value :: get_type_die :: %d\n", __LINE__);
+				return res;
+			}
+			res = get_size (typedie, &typesize, &inbits);
+			if (res == DW_DLV_ERROR) {
+				printf ("ERROR: print_value :: get_size :: %d\n", __LINE__);
+				return res;
+			}
+			res = get_array_length (typedie, &arrlength);
+			if (res == DW_DLV_ERROR) {
+				printf ("ERROR: %d\n", __LINE__);
+				return res;
+			}
+
+			printf ("[");
+			for (i = 0; i < arrlength; i++) {
+				if (typesize == 1) {
+					printf ("0x%hhx", *(ut8 *)(data + addr));
+				} else if (typesize == 2) {
+					printf ("0x%hx", *(ut16 *)(data + addr));
+				} else if (typesize == 4) {
+					printf ("0x%x", *(ut32 *)(data + addr));
+				} else if (typesize == 8) {
+					printf ("0x%"PFMT64x, *(ut64 *)(data + addr));
+				} else {
+					printf ("ERROR: print_value :: size = %llu", typesize);
+				}
+				if (i != arrlength - 1) {
+					printf (", ");
+				}
+				addr += typesize;
+			}
+			printf ("]");
+		}
 		break;
 	default:
 		printf ("[*] NEW TAG found: get_size :: %d\n",tag);
