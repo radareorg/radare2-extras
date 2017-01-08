@@ -22,8 +22,8 @@ static int mycall(void *user, const char *input) {
 	int i, j;
 	const int seqsz = 100;
 	int data[seqsz];
-        RCore *core = (RCore *) user;
-        if (!strncmp (input, "pbc", 3)) {
+	RCore *core = (RCore *) user;
+	if (!strncmp (input, "pbc", 3)) {
 		char lala = input[3];
 		int newsize, bsize;
 		int in_color = r_config_get_i (core->config, "scr.color");
