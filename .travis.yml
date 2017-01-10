@@ -14,6 +14,8 @@ addons:
       - tcc
       - libboost-dev
       - libqt4-dev
+      - cmake
+      - cmake-data
 
 env:
   - TESTS="r2pm -i armthumb"

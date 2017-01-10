@@ -14,5 +14,8 @@ install:
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/r2snow*
 
-snowman:
+cmakeVersion:
+	cmake --version
+
+snowman: cmakeVersion
 	git clone -b feature/output-ranges https://github.com/fabianfreyer/snowman.git
