@@ -13,6 +13,6 @@ if [ -f "$1" ]; then
 	exit 1
 fi
 
-nocode --print-cxx=r2snow-source.c --print-ranges=r2snow-addrof.txt $TARGET
+nocode --print-cxx=r2snow-source.c --print-ranges=r2snow-addrof.txt "$TARGET"
 r2snow.pl
 exit 0
