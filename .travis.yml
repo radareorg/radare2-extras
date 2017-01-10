@@ -1,9 +1,13 @@
 os:
   - linux
+
 compiler:
   - clang
 
 addons:
+  sources:
+    - ubuntu-toolchain-r-test
+    - llvm-toolchain-precise-3.6
   apt:
     packages:
       - g++
