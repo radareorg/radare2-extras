@@ -7,6 +7,9 @@ bea:
 tab:
 	$(MAKE) -C asm tab
 
+olly:
+	$(MAKE) -C asm olly
+
 m68k:
 	$(MAKE) -C asm m68k_net
 	$(MAKE) -C anal m68k_net
@@ -21,6 +24,9 @@ bea-install:
 
 tab-install:
 	cp -f asm/p/asm_x86_tab.$(LIBEXT) $(R2PM_PLUGDIR)
+
+olly-install:
+	cp -f asm/p/asm_x86_olly.$(LIBEXT) $(R2PM_PLUGDIR)
 
 m68k-install:
 	cp -f asm/p/asm_m68k_net.$(LIBEXT) $(R2PM_PLUGDIR)
