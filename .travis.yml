@@ -68,6 +68,7 @@ env:
   - TESTS="r2pm -i www-t"
   - TESTS="r2pm -i x86bea"
   - TESTS="r2pm -i x86tab"
+  - TESTS="r2pm -i x86olly"
   - TESTS="r2pm -i z80-nc"
   - TESTS="r2pm -i yara-lib && r2pm -i yara"
 sudo:
