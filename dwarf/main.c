@@ -16,9 +16,6 @@ static Sdb *s = NULL;
 static int fd = -1;
 static Dwarf_Debug dbg = 0;
 
-// Current Output Format::
-// name = offset_from_start_addr -- size -- value_for_name
-
 /*
  * DW_DLV_NO_ENTRY -1
  * DW_DLV_OK 0
@@ -27,12 +24,15 @@ static Dwarf_Debug dbg = 0;
  * TODO: check for return values
  */
 
-//TODO: free all the possible dwarf variables
 //TODO: print string instead of its address
 
 //char *data = NULL;
 
-static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentlevel, Dwarf_Unsigned startaddr, int isStruct);
+#define NRM_FORMAT  0
+#define JSON_FORMAT 1
+#define C_FORMAT    2
+
+static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentlevel, Dwarf_Unsigned startaddr, int isStruct, int type);
 static int get_size (Dwarf_Die die, Dwarf_Unsigned *size, int *inbits);
 
 static int get_type_die_offset (Dwarf_Die die, Dwarf_Off *offset, Dwarf_Error *error) {
@@ -41,10 +41,12 @@ static int get_type_die_offset (Dwarf_Die die, Dwarf_Off *offset, Dwarf_Error *e
 
 	res = dwarf_attr (die, DW_AT_type, &attr, error);
 	if (res != DW_DLV_OK) {
+		dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
 		return res;
 	}
 
 	res = dwarf_global_formref (attr, offset, error);
+	dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
 	return res;
 }
 
@@ -70,10 +72,12 @@ static int get_type_tag (Dwarf_Die die, Dwarf_Half *tag, Dwarf_Error *error) {
 
 	res = get_type_die (die, &typedie, error);
 	if (res != DW_DLV_OK) {
+		dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 		return res;
 	}
 
 	res = dwarf_tag (typedie, tag, error);
+	dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 	return res;
 }
 
@@ -116,7 +120,15 @@ static int get_dwarf_diename (Dwarf_Die die, char **diename, Dwarf_Error *error)
 		return (res == DW_DLV_OK) ? DW_DLV_NO_ENTRY : res;
 	}
 
-	res = dwarf_diename (die, diename, error);
+	res = get_type_die (die, &typedie, error);
+	if (res == DW_DLV_ERROR) {
+		printf ("ERROR: get_dwarf_diename :: get_type_die :: %d\n", __LINE__);
+		dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
+		return res;
+	}
+
+	res = dwarf_diename (typedie, diename, error);
+	dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 	return res;
 }
 
@@ -132,9 +144,11 @@ static int get_array_length (Dwarf_Die die, Dwarf_Unsigned *len) {
 	res = dwarf_child (die, &child, NULL);
 	if (res == DW_DLV_ERROR) {
 		printf ("ERROR: get_array_length :: dwarf_child :: %d\n", __LINE__);
+		dwarf_dealloc (dbg, child, DW_DLA_DIE);
 		return res;
 	} else if (res == DW_DLV_NO_ENTRY) {
 		*len = 0;
+		dwarf_dealloc (dbg, child, DW_DLA_DIE);
 		return DW_DLV_ERROR;
 	}
 
@@ -143,6 +157,7 @@ static int get_array_length (Dwarf_Die die, Dwarf_Unsigned *len) {
 		res = dwarf_tag (child, &tag, NULL);
 		if (res == DW_DLV_ERROR) {
 			printf ("ERROR: get_array_length :: dwarf_tag :: %d\n", __LINE__);
+			dwarf_dealloc (dbg, child, DW_DLA_DIE);
 			return res;
 		}
 
@@ -150,18 +165,25 @@ static int get_array_length (Dwarf_Die die, Dwarf_Unsigned *len) {
 			res = dwarf_attr (child, DW_AT_count, &attr, NULL);
 			if (res == DW_DLV_ERROR) {
 				printf ("ERROR: get_array_length :: dwarf_attr :: %d\n", __LINE__);
+				dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+				dwarf_dealloc (dbg, child, DW_DLA_DIE);
 				return res;
 			} else if (res == DW_DLV_OK) {
 				res = get_num_from_attr (attr, &temp_len);
 			    if (res != DW_DLV_OK) {
 				    *len = 0;
+					dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+					dwarf_dealloc (dbg, child, DW_DLA_DIE);
 					return res;
 				}
 			} else {
+				dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
 				res = dwarf_attr (child, DW_AT_upper_bound, &attr, NULL);
 				if (res == DW_DLV_ERROR) {
 					*len = 0;
 					printf ("ERROR: get_array_length :: dwarf_attr :: %d\n", __LINE__);
+					dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+					dwarf_dealloc (dbg, child, DW_DLA_DIE);
 					return DW_DLV_ERROR;
 				} else if (res == DW_DLV_NO_ENTRY) {
 					temp_len = 0;
@@ -170,6 +192,8 @@ static int get_array_length (Dwarf_Die die, Dwarf_Unsigned *len) {
 					res = get_num_from_attr (attr, &temp_len);
 					if (res != DW_DLV_OK) {
 						*len = 0;
+						dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+						dwarf_dealloc (dbg, child, DW_DLA_DIE);
 						return DW_DLV_ERROR;
 					}
 				}
@@ -186,12 +210,16 @@ static int get_array_length (Dwarf_Die die, Dwarf_Unsigned *len) {
 		if (res == DW_DLV_ERROR) {
 			printf ("ERROR: get_array_length :: dwarf_siblingof :: %d\n", __LINE__);
 			*len = 0;
+			dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+			dwarf_dealloc (dbg, child, DW_DLA_DIE);
 			return res;
 		}
 		dwarf_dealloc (dbg, child, DW_DLA_DIE);
 		child = sibdie;
 	}
 
+	dwarf_dealloc (dbg, child, DW_DLA_DIE);
+	dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
 	return DW_DLV_OK;
 }
 
@@ -206,7 +234,6 @@ static int get_size (Dwarf_Die die, Dwarf_Unsigned *size, int *inbits) {
 	Dwarf_Half tag;
 	Dwarf_Off offset;
 	Dwarf_Die typedie;
-	Dwarf_Attribute attr;
 
 	// Return size value if DW_AT_byte_size or DW_AT_bit_size entry, if present
 	res = dwarf_bytesize (die, size, NULL);
@@ -232,6 +259,7 @@ static int get_size (Dwarf_Die die, Dwarf_Unsigned *size, int *inbits) {
 	res = get_type_die (die, &typedie, NULL);
 	if (res != DW_DLV_OK) {
 		printf ("ERROR | NO_ENTRY: get_size::get_type_die::%d\n", __LINE__);
+		dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 		return res;
 	}
 
@@ -239,6 +267,7 @@ static int get_size (Dwarf_Die die, Dwarf_Unsigned *size, int *inbits) {
 	res = dwarf_tag (typedie, &tag, NULL);
 	if (res == DW_DLV_ERROR) {
 		printf ("ERROR: get_size::dwarf_tag::%d\n", __LINE__);
+		dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 		return res;
 	}
 
@@ -251,17 +280,21 @@ static int get_size (Dwarf_Die die, Dwarf_Unsigned *size, int *inbits) {
 			res = dwarf_bytesize (typedie, size, NULL);
 			if (res == DW_DLV_ERROR) {
 				printf ("ERROR: get_size::dwarf_bytesize::%d\n", __LINE__);
+				dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 				return res;
 			} else if (res == DW_DLV_OK) {
 				*inbits = 0;
+				dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 				return res;
 			} else {
 				res = dwarf_bitsize (typedie, size, NULL);
 				if (res == DW_DLV_ERROR) {
 					printf ("ERROR: get_size::dwarf_bitsize::%d\n", __LINE__);
+					dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 					return res;
 				} else if (res == DW_DLV_OK) {
 					*inbits = 1;
+					dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 					return res;
 				}
 			}
@@ -276,12 +309,14 @@ static int get_size (Dwarf_Die die, Dwarf_Unsigned *size, int *inbits) {
 			res = get_size (typedie, &typesize, &bits);
 			if (res == DW_DLV_ERROR) {
 				printf ("ERROR: %d\n", __LINE__);
+				dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 				return res;
 			}
 
 			res = get_array_length (typedie, &arrlength);
 			if (res == DW_DLV_ERROR) {
 				printf ("ERROR: %d\n", __LINE__);
+				dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 				return res;
 			}
 
@@ -308,7 +343,7 @@ static int get_size (Dwarf_Die die, Dwarf_Unsigned *size, int *inbits) {
 	return res;
 }
 
-static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int indentlevel, Dwarf_Unsigned size) {
+static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int indentlevel, Dwarf_Unsigned size, int type) {
 	int res = DW_DLV_ERROR;
 	Dwarf_Half tag = 0;
 
@@ -331,12 +366,25 @@ static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int ind
 				printf ("ERROR: print_value :: get_type_die_offset :: %d\n", __LINE__);
 				return res;
 			}
-			printf (" {\n");
-			res = print_struct_or_union_die (core, offset, indentlevel + 1, addr, isStruct);
-			for (i = 0; i < indentlevel; i++) {
-				printf ("  ");
+
+			if (type == NRM_FORMAT) {
+				printf ("{\n");
+			} else if (type == JSON_FORMAT) {
+				//printf ("{");
+			} else if (type == C_FORMAT) {
+			    //TODO
 			}
-			printf ("}");
+			res = print_struct_or_union_die (core, offset, indentlevel + 1, addr, isStruct, type);
+			if (type == NRM_FORMAT) {
+				for (i = 0; i < indentlevel; i++) {
+					printf ("  ");
+				}
+				printf ("}");
+			} else if (type == JSON_FORMAT) {
+				//printf ("}");
+			} else if (type == C_FORMAT) {
+				//TODO
+			}
 		}
 		break;
 	case DW_TAG_typedef:
@@ -347,14 +395,19 @@ static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int ind
 			res = get_type_die (die, &typedie, NULL);
 			if (res == DW_DLV_ERROR) {
 				printf ("ERROR: print_value :: get_type_die :: %d\n", __LINE__);
+				dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 				return res;
 			}
-			res = print_value (core, typedie, addr, indentlevel, size);
+			res = print_value (core, typedie, addr, indentlevel, size, type);
+			dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 		}
 		break;
 	case DW_TAG_base_type:
 	case DW_TAG_pointer_type:
 	case DW_TAG_enumeration_type:
+		if (type == JSON_FORMAT) {
+			printf ("\"");
+		}
 		res = DW_DLV_OK;
 		if (size == 1) {
 			printf ("0x%hhx", *(ut8 *)(core->block + addr));
@@ -366,6 +419,9 @@ static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int ind
 			printf ("0x%"PFMT64x"", *(ut64 *)(core->block + addr));
 		} else {
 			printf ("ERROR: print_value :: size = %llu", size);
+		}
+		if (type == JSON_FORMAT) {
+			printf ("\"");
 		}
 		break;
 	case DW_TAG_array_type:
@@ -379,21 +435,27 @@ static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int ind
 			res = get_type_die (die, &typedie, NULL);
 			if (res == DW_DLV_ERROR) {
 				printf ("ERROR: print_value :: get_type_die :: %d\n", __LINE__);
+				dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 				return res;
 			}
 			res = get_size (typedie, &typesize, &inbits);
 			if (res == DW_DLV_ERROR) {
 				printf ("ERROR: print_value :: get_size :: %d\n", __LINE__);
+				dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 				return res;
 			}
 			res = get_array_length (typedie, &arrlength);
 			if (res == DW_DLV_ERROR) {
 				printf ("ERROR: %d\n", __LINE__);
+				dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 				return res;
 			}
 
 			printf ("[");
 			for (i = 0; i < arrlength; i++) {
+				if (type == JSON_FORMAT) {
+					printf ("\"");
+				}
 				if (typesize == 1) {
 					printf ("0x%hhx", *(ut8 *)(core->block + addr));
 				} else if (typesize == 2) {
@@ -405,12 +467,16 @@ static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int ind
 				} else {
 					printf ("ERROR: print_value :: size = %llu", typesize);
 				}
+				if (type == JSON_FORMAT) {
+					printf ("\"");
+				}
 				if (i != arrlength - 1) {
 					printf (", ");
 				}
 				addr += typesize;
 			}
 			printf ("]");
+			dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
 		}
 		break;
 	default:
@@ -425,53 +491,36 @@ static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int ind
  *
  * ofStrct means parent is struct (print member of struct)
  */
-static int print_member (RCore *core, Dwarf_Die die, Dwarf_Unsigned startaddr, int indentlevel, int ofStruct) {
+static int print_member_name (RCore *core, Dwarf_Die die, Dwarf_Unsigned startaddr, int indentlevel, int ofStruct, int type) {
 	int res = DW_DLV_ERROR;
 	char *membername = NULL;
-	Dwarf_Attribute attr = 0;
-	Dwarf_Unsigned offset = 0;
-	unsigned long long size = 0;
-	int inbits = 0;
-	int i = 0;
 
 	//Get name
 	res = get_dwarf_diename (die, &membername, NULL);
 	if (res == DW_DLV_ERROR) {
-		printf ("ERROR: print_member::get_dwarf_diename::%d\n", __LINE__);
+		printf ("ERROR: print_member_name::get_dwarf_diename::%d\n", __LINE__);
+		dwarf_dealloc (dbg, membername, DW_DLA_STRING);
 		return res;
 	}
 
-	//Get size <-- not require since print_value is another function
-	res = get_size (die, &size, &inbits);
-	if (res == DW_DLV_ERROR) {
-		printf ("ERROR: print_member::get_size::%d\n", __LINE__);
-		return res;
+	if (type == NRM_FORMAT) {
+		printf ("%s", membername);
+	} else if (type == JSON_FORMAT) {
+		printf ("\"%s\"", membername);
+	} else if (type == C_FORMAT) {
+		//TODO
 	}
-
-	if (ofStruct) {
-		//Get data_member_location (byte offset from start)
-		res = dwarf_attr (die, DW_AT_data_member_location, &attr, NULL);
-		if (res == DW_DLV_ERROR) {
-			printf ("ERROR: print_member::dwarf_attr::%d\n", __LINE__);
-			return res;
-		}
-
-		res = get_num_from_attr (attr, &offset);
-		if (res == DW_DLV_ERROR) {
-			printf ("ERROR: print_member::get_num_from_attr::%d\n", __LINE__);
-			return res;
-		}
-	}
-
-	for (i = 0; i < indentlevel; i++) {
-		printf ("  ");
-	}
-	printf ("%s = ", membername, offset+startaddr, size);
-	print_value (core, die, offset+startaddr, indentlevel, size);
+	dwarf_dealloc (dbg, membername, DW_DLA_STRING);
 	return DW_DLV_OK;
 }
 
-static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentlevel, Dwarf_Unsigned startaddr, int isStruct) {
+/*
+ * Type:
+ **  0: normal
+ **  1: json
+ **  2: C-like format
+ */
+static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentlevel, Dwarf_Unsigned startaddr, int isStruct, int type) {
 	int res = DW_DLV_ERROR;
 	Dwarf_Die die = 0;
 	Dwarf_Die member = 0;
@@ -484,10 +533,12 @@ static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentl
 
 	res = dwarf_offdie (dbg, offset, &die, NULL);
 	if (res != DW_DLV_OK) {
+		dwarf_dealloc (dbg, die, DW_DLA_DIE);
 		return res;
 	}
 
-#if 0 //To be used with main function
+#if 0
+	//To be used with main function
 	/***** temporary add for memory read *****/
 	if (indentlevel == 0) {
 		int inbits = 0;
@@ -515,24 +566,85 @@ static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentl
 	res = dwarf_child (die, &member, NULL);
 	if (res == DW_DLV_ERROR) {
 		printf ("ERROR: print_struct_die :: dwarf_child\n");
+		dwarf_dealloc (dbg, die, DW_DLA_DIE);
+		dwarf_dealloc (dbg, member, DW_DLA_DIE);
 		return res;
 	}
 
+	if (type == JSON_FORMAT) {
+		printf ("{");
+	}
 	while (res != DW_DLV_NO_ENTRY) {
-		print_member (core, member, startaddr, indentlevel, isStruct);
+		if (type == NRM_FORMAT) {
+			int i;
+			for (i = 0; i < indentlevel; i++) {
+				printf ("  ");
+			}
+		}
+		print_member_name (core, member, startaddr, indentlevel, isStruct, type);
+		if (type == NRM_FORMAT) {
+			printf (" = ");
+		} else if (type == JSON_FORMAT) {
+			printf (":");
+		} else if (type == C_FORMAT) {
+			//TODO
+		}
+		{
+			Dwarf_Unsigned off = 0;
+			Dwarf_Attribute attr = 0;
+			ut64 size = 0;
+			int inbits = 0;
+			res = get_size (member, &size, &inbits);
+			if (res == DW_DLV_ERROR) {
+				printf ("ERROR: print_struct_or_union_die::get_size::%d\n", __LINE__);
+				return res;
+			}
+
+			if (isStruct) {
+				//Get data_member_location (byte offset from start)
+				res = dwarf_attr (member, DW_AT_data_member_location, &attr, NULL);
+				if (res == DW_DLV_ERROR || res == DW_DLV_NO_ENTRY) {
+					printf ("ERROR: print_struct_or_union_die::dwarf_attr::%d\n", __LINE__);
+					dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+					return res;
+				}
+
+				res = get_num_from_attr (attr, &off);
+				dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+				if (res == DW_DLV_ERROR) {
+					printf ("ERROR: print_struct_or_union_die::get_num_from_attr::%d\n", __LINE__);
+					return res;
+				}
+			}
+			print_value (core, member, startaddr + off, indentlevel, size, type);
+		}
+
 		res = dwarf_siblingof (dbg, member, &sibdie, NULL);
 		if (res == DW_DLV_ERROR) {
-			printf ("ERROR: print_struct_die :: dwarf_siblingof\n");
+			printf ("ERROR: print_struct_die :: dwarf_siblingof\n"); //TODO: should return from here?
 		}
 		if (res == DW_DLV_NO_ENTRY) {
-			printf ("\n");
 			break;
 		}
-		printf (",\n");
+		printf (",");
+		if (type != JSON_FORMAT) {
+			printf ("\n");
+		}
 		dwarf_dealloc (dbg, member, DW_DLA_DIE);
 		member = sibdie;
 	}
+	if (type == NRM_FORMAT) {
+		printf ("\n");
+	} else if (type == JSON_FORMAT) {
+		printf ("}");
+		if (indentlevel == 0) {
+			printf ("\n");
+		}
+	}
 
+	dwarf_dealloc (dbg, die, DW_DLA_DIE);
+	dwarf_dealloc (dbg, member, DW_DLA_DIE);
+	dwarf_dealloc (dbg, sibdie, DW_DLA_DIE);
 	return DW_DLV_OK;
 }
 
@@ -869,6 +981,13 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 		Dwarf_Die die = NULL;
 		ut64 oldblocksize = 0;
 		ut64 oldoffset = 0;
+		ut64 sdboffset = 0;
+		int type;
+
+		type = NRM_FORMAT;
+		if (!strncmp (input+5, "j", 1)) {
+			type = JSON_FORMAT;
+		}
 
 		structname = strdup (arg1);
 		temp = strchr (structname, ' ');
@@ -881,26 +1000,29 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 			core->offset = addr;
 		}
 
-		printf ("structname = %s\n", structname);
-		res = dwarf_offdie (dbg, sdb_num_get (s, structname, 0), &die, NULL);
-		if (res != DW_DLV_OK) {
-			printf ("ERROR: dwarf_offide %d\n", __LINE__);
-			return false;
-		}
-		res = get_size (die, &size, &inbits);
-		if (res != DW_DLV_OK) {
-			printf ("ERROR: lulz :P  No %d\n", __LINE__);
-			return false;
-		}
-
-		oldblocksize = core->blocksize;
-		if (r_core_block_size (core, size)) {
-			res = print_struct_or_union_die (core, sdb_num_get (s, structname, 0), 0, 0, 1);
+		//printf ("structname = %s\n", structname);
+		sdboffset = sdb_num_get (s, structname, 0);
+		if (sdboffset != 0) {
+			res = dwarf_offdie (dbg, sdb_num_get (s, structname, 0), &die, NULL);
 			if (res != DW_DLV_OK) {
-				printf ("Error while printing structure\n");
+				printf ("ERROR: dwarf_offide %d\n", __LINE__);
+				return false;
 			}
-			core->offset = oldoffset;
-			r_core_block_size (core, oldblocksize);
+			res = get_size (die, &size, &inbits);
+			if (res != DW_DLV_OK) {
+				printf ("ERROR: lulz :P  No %d\n", __LINE__);
+				return false;
+			}
+
+			oldblocksize = core->blocksize;
+			if (r_core_block_size (core, size)) {
+				res = print_struct_or_union_die (core, sdb_num_get (s, structname, 0), 0, 0, 1, type);
+				if (res != DW_DLV_OK) {
+					printf ("Error while printing structure\n");
+				}
+				core->offset = oldoffset;
+				r_core_block_size (core, oldblocksize);
+			}
 		}
 
 		free (structname);
