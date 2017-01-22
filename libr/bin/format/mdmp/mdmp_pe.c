@@ -8,7 +8,7 @@
 static void PE_(add_tls_callbacks)(struct PE_(r_bin_pe_obj_t) *bin, RList* list) {
 	char *key;
 	int count = 0;
-	PE_DWord paddr, vaddr;
+	PE_DWord haddr, paddr, vaddr;
 	RBinAddr *ptr = NULL;
 
 	do {
@@ -23,9 +23,16 @@ static void PE_(add_tls_callbacks)(struct PE_(r_bin_pe_obj_t) *bin, RList* list)
 		if (!vaddr) {
 			break;
 		}
+
+		key =  sdb_fmt (0, "pe.tls_callback%d_haddr", count);
+		haddr = sdb_num_get (bin->kv, key, 0);
+		if (!haddr) {
+			break;
+		}
 		if ((ptr = R_NEW0 (RBinAddr))) {
 			ptr->paddr = paddr;
 			ptr->vaddr = vaddr;
+			ptr->haddr = haddr;
 			ptr->type  = R_BIN_ENTRY_TYPE_TLS;
 			r_list_append (list, ptr);
 		}
@@ -53,6 +60,7 @@ RList *PE_(r_bin_mdmp_pe_get_entrypoint)(struct PE_(r_bin_mdmp_pe_bin) *pe_bin) 
 		}
 		ptr->paddr = offset + pe_bin->paddr;
 		ptr->vaddr = offset + pe_bin->vaddr;
+		ptr->haddr = pe_bin->paddr + entry->haddr;
 		ptr->type  = R_BIN_ENTRY_TYPE_PROGRAM;
 
 		r_list_append (ret, ptr);
@@ -185,7 +193,7 @@ RList *PE_(r_bin_mdmp_pe_get_sections)(struct PE_(r_bin_mdmp_pe_bin) *pe_bin) {
 #define ROW (4 | 2)
 		if (ptr->srwx & ROW && !(ptr->srwx & X) && ptr->size > 0) {
 			if (!strcmp (ptr->name, ".rsrc") ||
-			  	!strcmp (ptr->name, ".data") ||
+				!strcmp (ptr->name, ".data") ||
 				!strcmp (ptr->name, ".rdata")) {
 					ptr->is_data = true;
 				}

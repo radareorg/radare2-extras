@@ -17,6 +17,7 @@
 struct r_bin_pe_addr_t {
 	ut64 vaddr;
 	ut64 paddr;
+	ut64 haddr;
 };
 
 struct r_bin_pe_section_t {
@@ -74,7 +75,7 @@ typedef struct SDebugInfo{
 struct PE_(r_bin_pe_obj_t) {
 	// these pointers contain a copy of the headers and sections!
 	PE_(image_dos_header)             *dos_header;
-	PE_(image_nt_headers)		  *nt_headers;
+	PE_(image_nt_headers)             *nt_headers;
 	PE_(image_optional_header)        *optional_header; //not free this just pointer into nt_headers
 	PE_(image_data_directory)         *data_directory;  //not free this just pointer into nt_headers
 	PE_(image_section_header)         *section_header;
@@ -94,6 +95,7 @@ struct PE_(r_bin_pe_obj_t) {
 	int size;
 	int num_sections;
 	int endian;
+	bool verbose;
 	RList *relocs;
 	const char* file;
 	struct r_buf_t* b;
@@ -124,8 +126,8 @@ int PE_(r_bin_pe_is_stripped_line_nums)(struct PE_(r_bin_pe_obj_t)* bin);
 int PE_(r_bin_pe_is_stripped_local_syms)(struct PE_(r_bin_pe_obj_t)* bin);
 int PE_(r_bin_pe_is_stripped_debug)(struct PE_(r_bin_pe_obj_t)* bin);
 void* PE_(r_bin_pe_free)(struct PE_(r_bin_pe_obj_t)* bin);
-struct PE_(r_bin_pe_obj_t)* PE_(r_bin_pe_new)(const char* file);
-struct PE_(r_bin_pe_obj_t)* PE_(r_bin_pe_new_buf)(struct r_buf_t *buf);
+struct PE_(r_bin_pe_obj_t)* PE_(r_bin_pe_new)(const char* file, bool verbose);
+struct PE_(r_bin_pe_obj_t)* PE_(r_bin_pe_new_buf)(struct r_buf_t *buf, bool verbose);
 int PE_(r_bin_pe_get_debug_data)(struct PE_(r_bin_pe_obj_t) *bin, struct SDebugInfo *res);
 int PE_(bin_pe_get_claimed_checksum)(struct PE_(r_bin_pe_obj_t) *bin);
 int PE_(bin_pe_get_actual_checksum)(struct PE_(r_bin_pe_obj_t) *bin);
