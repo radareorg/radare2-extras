@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2015 - pancake */
+/* radare - LGPL - Copyright 2015-2017 - pancake */
 
 // r2 -e dbg.backend=unicorn -e cfg.debug=1 /bin/ls
 // r2 -D unicorn /bin/ls
@@ -263,8 +263,11 @@ static int r_debug_unicorn_map_dealloc(RDebug *dbg, ut64 addr, int size) {
 }
 
 static int r_debug_unicorn_detach(int pid) {
-	uc_close (uh);
-	uh = NULL;
+	if (uh) {
+		/* unicorn lib doesnt checks for null. it just crashes -_-U */
+		uc_close (uh);
+		uh = NULL;
+	}
 	return 0;
 }
 
@@ -626,7 +629,7 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 	return true;
 }
 
-struct r_debug_plugin_t r_debug_plugin_unicorn = {
+RDebugPlugin r_debug_plugin_unicorn = {
 	.name = "unicorn",
 	.license = "GPL",
 	.bits = R_SYS_BITS_32 | R_SYS_BITS_64,
@@ -661,14 +664,14 @@ struct r_debug_plugin_t r_debug_plugin_unicorn = {
 	.map_protect = r_debug_unicorn_map_protect,
 };
 
-struct r_lib_struct_t radare_plugin = {
+RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_DBG,
 	.data = &r_debug_plugin_unicorn,
 	.version = R2_VERSION
 };
 #else
-#warning Cannot find unicorn library
-struct r_debug_plugin_t r_debug_plugin_unicorn = {
+#error Cannot find unicorn library
+RDebugPlugin r_debug_plugin_unicorn = {
 	.name = "unicorn",
 };
 #endif // DEBUGGER
