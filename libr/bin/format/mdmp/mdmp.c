@@ -744,7 +744,7 @@ static bool r_bin_mdmp_init_pe_bins(struct r_bin_mdmp_obj *obj) {
 			r_bin_mdmp_patch_pe_headers (buf);
 			pe32_bin->vaddr = module->base_of_image;
 			pe32_bin->paddr = paddr;
-			pe32_bin->bin = Pe32_r_bin_pe_new_buf (buf);
+			pe32_bin->bin = Pe32_r_bin_pe_new_buf (buf, 0);
 
 			r_list_append (obj->pe32_bins, pe32_bin);
 		} else if (check_pe64_bytes (buf->buf, module->size_of_image)) {
@@ -761,7 +761,7 @@ static bool r_bin_mdmp_init_pe_bins(struct r_bin_mdmp_obj *obj) {
 			r_bin_mdmp_patch_pe_headers (buf);
 			pe64_bin->vaddr = module->base_of_image;
 			pe64_bin->paddr = paddr;
-			pe64_bin->bin = Pe64_r_bin_pe_new_buf (buf);
+			pe64_bin->bin = Pe64_r_bin_pe_new_buf (buf, 0);
 
 			r_list_append (obj->pe64_bins, pe64_bin);
 		}
