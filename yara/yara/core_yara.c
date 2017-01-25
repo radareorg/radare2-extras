@@ -345,18 +345,20 @@ static int r_cmd_yara_process(const RCore* core, const char* input) {
 static int r_cmd_yara_call(void *user, const char *input) {
 	const char *args;
 	const RCore* core = (RCore*) user;
-	if (strncmp (input, "yara", 4))
+	if (strncmp (input, "yara", 4)) {
 		return false;
-	else if (strncmp (input, "yara ", 5))
+	}
+	if (strncmp (input, "yara ", 5)) {
 		return r_cmd_yara_help (core);
-	args = input+5;
-	if (! initialized)
-		if (!r_cmd_yara_init (core))
-			return false;
-	if (*args)
+	}
+	args = input + 4;
+	if (! initialized && !r_cmd_yara_init (core)) {
+		return false;
+	}
+	if (*args) {
 		args++;
+	}
 	r_cmd_yara_process (core, args);
-
 	return true;
 }
 
