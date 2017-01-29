@@ -2,6 +2,11 @@
 #define __R2K_H
 
 #include <linux/version.h>
+#include <linux/uaccess.h>
+
+#if defined (CONFIG_X86_32) || defined(CONFIG_X86_64)
+#include <asm/processor-flags.h>
+#endif
 
 #define R2_TYPE 0x69
 
@@ -12,8 +17,11 @@
 #endif
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,32)
-#define kmap_atomic(addr)	kmap_atomic(addr, KM_USER0)
-#define kunmap_atomic(addr)	kunmap_atomic(addr, KM_USER0)
+#   define r2kmap_atomic(addr)		kmap_atomic(addr, KM_USER0)
+#   define r2kunmap_atomic(addr)	kunmap_atomic(addr, KM_USER0)
+#else
+#   define r2kmap_atomic(addr)		kmap_atomic(addr)
+#   define r2kunmap_atomic(addr)	kunmap_atomic(addr)
 #endif
 
 #define ADDR_OFFSET(x)          (x & (~PAGE_MASK))
@@ -31,6 +39,7 @@ struct r2k_memory_transf {
         unsigned long addr;
         unsigned long len;
         void __user *buff;
+        bool wp;
 };
 
 #define MAX_PHYS_ADDR	128
@@ -112,4 +121,68 @@ struct r2k_proc_info {
 };
 
 /**********************/
+
+
+
+/* Disable write protect */
+static inline void disable_wp(void)
+{
+#if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
+    preempt_disable();
+    cr0_clear_bits(X86_CR0_WP);
+#endif
+}
+
+
+static inline void enable_wp(void)
+{
+#if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
+    cr0_set_bits(X86_CR0_WP);
+    preempt_enable();
+#endif
+}
+
+
+/* Workaround for HARDENED_USERCOPY */
+#ifdef CONFIG_HARDENED_USERCOPY
+
+static inline int
+r2k_copy_from_user(void *dst, const void __user *src, unsigned size, bool wp)
+{
+    if (!wp) disable_wp();
+	memcpy(dst, src, size);
+    if (!wp) enable_wp();
+
+	return 0;
+}
+
+static inline int
+r2k_copy_to_user(void *dst, const void __user *src, unsigned size)
+{
+	memcpy(dst, src, size);
+	return 0;
+}
+
+#else
+
+static inline int
+r2k_copy_from_user(void *dst, const void __user *src, unsigned size, bool wp)
+{
+    int res;
+
+    if (!wp) disable_wp();
+	res = copy_from_user(dst, src, size);
+    if (!wp) enable_wp();
+
+    return res;
+}
+
+static inline int
+r2k_copy_to_user(void *dst, const void __user *src, unsigned size)
+{
+	return copy_to_user(dst, src, size);
+}
+
+#endif /* CONFIG_HARDENED_USERCOPY */
+
 #endif

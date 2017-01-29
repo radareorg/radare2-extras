@@ -62,4 +62,27 @@
 
 #endif
 
+
+static inline void cr0_set_bits(unsigned long mask)
+{
+    unsigned long cr0;
+
+    cr0 = native_read_cr0();
+    if ((cr0 | mask) != cr0) {
+        cr0 |= mask;
+        asm volatile("mov %0,%%cr0": : "r" (cr0), "m" (__force_order));
+	}
+}
+
+static inline void cr0_clear_bits(unsigned long mask)
+{
+    unsigned long cr0;
+
+    cr0 = native_read_cr0();
+    if ((cr0 & ~mask) != cr0) {
+            cr0 &= ~mask;
+            asm volatile("mov %0,%%cr0": : "r" (cr0), "m" (__force_order));
+    }
+}
+
 #endif

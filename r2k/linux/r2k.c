@@ -10,8 +10,8 @@
 #include <linux/sched.h>
 #include <linux/pagemap.h>
 #include <linux/highmem.h>
-#include <linux/uaccess.h>
 #include <linux/vmalloc.h>
+#include <asm/io.h>
 #include "r2k.h"
 
 
@@ -24,7 +24,7 @@
 		IOCTL_WRITE_PROCESS_ADDR	(writes to userspace linear addr)
 		IOCTL_READ_PHYSICAL_ADDR	(read from physical addr)
 		IOCTL_WRITE_PHYSICAL_ADDR	(writes to physical addr)
-		IOCTL_GET_KERNEL_MAP		
+		IOCTL_GET_KERNEL_MAP
 
 
 	- Rakholiya Jenish <p4n74>
@@ -69,8 +69,8 @@ static void clean_mmap (void)
 }
 
 static int mmap_struct (struct file *filp, struct vm_area_struct *vma)
-{	
-	int n_pages; 
+{
+	int n_pages;
 	unsigned long start_addr;
 	unsigned long end_addr;
 	unsigned long u_addr;
@@ -89,7 +89,7 @@ static int mmap_struct (struct file *filp, struct vm_area_struct *vma)
 		return -1;
 	}
 
-	for (k_addr = start_addr, u_addr = vma->vm_start; 
+	for (k_addr = start_addr, u_addr = vma->vm_start;
 		k_addr < end_addr; k_addr += PAGE_SIZE) {
 		unsigned long pfn = vmalloc_to_pfn ((void *)k_addr);
 		int ret = remap_pfn_range (vma, u_addr, pfn, PAGE_SIZE, PAGE_SHARED);
@@ -98,10 +98,10 @@ static int mmap_struct (struct file *filp, struct vm_area_struct *vma)
 		}
 		u_addr += PAGE_SIZE;
 	}
-	
+
 	return 0;
 }
-	
+
 static int is_from_module_or_vmalloc (unsigned long addr)
 {
 	if (is_vmalloc_addr ((void *)addr) ||
@@ -112,26 +112,26 @@ static int is_from_module_or_vmalloc (unsigned long addr)
 
 static int check_kernel_addr (unsigned long addr)
 {
-	return virt_addr_valid (addr) == 0 
-			? is_from_module_or_vmalloc (addr) 
+	return virt_addr_valid (addr) == 0
+			? is_from_module_or_vmalloc (addr)
 			: 1;
 }
 
-static int get_nr_pages (unsigned long addr, unsigned long next_aligned_addr, 
+static int get_nr_pages (unsigned long addr, unsigned long next_aligned_addr,
 							unsigned long len)
 {
 	int nr_pages;
 
 	if (addr & (PAGE_SIZE - 1)) {
-		if (addr + len > next_aligned_addr) 
-			nr_pages = len < PAGE_SIZE 
-					? (len / PAGE_SIZE) + 2 
+		if (addr + len > next_aligned_addr)
+			nr_pages = len < PAGE_SIZE
+					? (len / PAGE_SIZE) + 2
 					: (len / PAGE_SIZE) + 1;
 		else
 			nr_pages = 1;
 	} else {
-		 nr_pages = (len & (PAGE_SIZE - 1)) 
-				? len / PAGE_SIZE + 1 
+		 nr_pages = (len & (PAGE_SIZE - 1))
+				? len / PAGE_SIZE + 1
 				: len / PAGE_SIZE;
 	}
 	return nr_pages;
@@ -140,30 +140,30 @@ static int get_nr_pages (unsigned long addr, unsigned long next_aligned_addr,
 static inline int get_bytes_to_rw (unsigned long addr, unsigned long len,
 						unsigned long next_aligned_addr)
 {
-	return (len > (next_aligned_addr - addr)) 
-			? next_aligned_addr - addr 
+	return (len > (next_aligned_addr - addr))
+			? next_aligned_addr - addr
 			: len;
 }
 
 static unsigned long get_next_aligned_addr (unsigned long addr)
 {
-	return (addr & (PAGE_SIZE - 1)) 
-			? PAGE_ALIGN (addr) 
+	return (addr & (PAGE_SIZE - 1))
+			? PAGE_ALIGN (addr)
 			: addr + PAGE_SIZE;
 }
 
 static inline void *map_addr (struct page *pg, unsigned long addr)
 {
-	return kmap_atomic (pg) + ADDR_OFFSET (addr);
+	return r2kmap_atomic (pg) + ADDR_OFFSET (addr);
 }
 
 static inline void unmap_addr (void *kaddr, unsigned long addr)
 {
-	kunmap_atomic (kaddr - ADDR_OFFSET (addr));
+	r2kunmap_atomic (kaddr - ADDR_OFFSET (addr));
 }
 
-static int write_vmareastruct (struct vm_area_struct *vma, struct mm_struct *mm, 
-						struct r2k_proc_info *data, 
+static int write_vmareastruct (struct vm_area_struct *vma, struct mm_struct *mm,
+						struct r2k_proc_info *data,
 						unsigned long *count) {
 	struct file *file = vma->vm_file;
 	dev_t dev = 0;
@@ -254,7 +254,7 @@ write_name:
 	return 0;
 }
 
-static long io_ioctl (struct file *file, unsigned int cmd, 
+static long io_ioctl (struct file *file, unsigned int cmd,
 					unsigned long data_addr)
 {
 	struct r2k_memory_transf *m_transf;
@@ -273,7 +273,7 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 	switch (_IOC_NR (cmd)) {
 
 	case IOCTL_READ_KERNEL_MEMORY:
-	{	
+	{
 		int len;
 
 		m_transf = kmalloc (sizeof (struct r2k_memory_transf), GFP_KERNEL);
@@ -282,10 +282,10 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 			goto out;
 		}
 
-		ret = copy_from_user (m_transf, (void __user*)data_addr, 
+		ret = copy_from_user (m_transf, (void __user*)data_addr,
 					sizeof (struct r2k_memory_transf));
 		if (ret) {
-			pr_info ("%s: error - copy struct r2k_memory_transf\n", 
+			pr_info ("%s: error - copy struct r2k_memory_transf\n",
 								r2_devname);
 			ret = -EFAULT;
 			goto out;
@@ -293,7 +293,7 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 
 		len = m_transf->len;
 		if (!check_kernel_addr (m_transf->addr)) {
-			pr_info ("%s: 0x%lx invalid addr\n", r2_devname, 
+			pr_info ("%s: 0x%lx invalid addr\n", r2_devname,
 								m_transf->addr);
 			ret = -EFAULT;
 			goto out;
@@ -305,7 +305,7 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 			goto out;
 		}
 
-		ret = copy_to_user (m_transf->buff, (void *)m_transf->addr, len);
+		ret = r2k_copy_to_user (m_transf->buff, (void *)m_transf->addr, len);
 		if (ret) {
 			pr_info ("%s: copy_to_user failed\n", r2_devname);
 			ret = -EFAULT;
@@ -335,27 +335,28 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 
 		len = m_transf->len;
 		if (!check_kernel_addr (m_transf->addr)) {
-			pr_info ("%s: 0x%lx invalid addr\n", r2_devname, 
+			pr_info ("%s: 0x%lx invalid addr\n", r2_devname,
 								m_transf->addr);
 			ret = -EFAULT;
 			goto out;
-		}	
+		}
 
-		if (!addr_is_writeable (m_transf->addr)) {
-			pr_info ("%s: cannot write at addr 0x%lx\n", r2_devname, 
+		if (!addr_is_writeable(m_transf->addr) && m_transf->wp) {
+			pr_info ("%s: cannot write at addr 0x%lx\n", r2_devname,
 								m_transf->addr);
 			ret = -EPERM;
 			goto out;
 		}
 
-		ret = copy_from_user ((void *)m_transf->addr, m_transf->buff, len);
+		ret = r2k_copy_from_user((void *)m_transf->addr, m_transf->buff,
+								len, m_transf->wp);
 		if (ret) {
 			pr_info ("%s: copy_to_user failed\n", r2_devname);
 			ret = -EFAULT;
 			goto out;
 		}
 
-		break; 
+		break;
 	}
 	case IOCTL_READ_PROCESS_ADDR:
 	case IOCTL_WRITE_PROCESS_ADDR:
@@ -388,8 +389,8 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 
 		task = pid_task (find_vpid (m_transf->pid), PIDTYPE_PID);
 		if (!task) {
-			pr_info ("%s: could not retrieve task_struct" 
-							"from pid (%d)\n", 
+			pr_info ("%s: could not retrieve task_struct"
+							"from pid (%d)\n",
 							r2_devname, m_transf->pid);
 			ret = -ESRCH;
 			goto out;
@@ -397,27 +398,27 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 
 		vma = find_vma (task->mm, m_transf->addr);
 		if (!vma) {
-			pr_info ("%s: could not retrieve vm_area_struct" 
-								"at 0x%lx\n", 
+			pr_info ("%s: could not retrieve vm_area_struct"
+								"at 0x%lx\n",
 						r2_devname, m_transf->addr);
 			ret = -EFAULT;
 			goto out;
 		}
-			
+
 		if (m_transf->addr + len > vma->vm_end) {
-			pr_info ("%s: 0x%lx + %ld bytes goes beyond" 
+			pr_info ("%s: 0x%lx + %ld bytes goes beyond"
 					"valid addresses. bytes recalculated to"
-								"%ld bytes\n", 
-								r2_devname, 
-								m_transf->addr, 
-								m_transf->len, 
+								"%ld bytes\n",
+								r2_devname,
+								m_transf->addr,
+								m_transf->len,
 						vma->vm_end - m_transf->addr);
 			len = vma->vm_end - m_transf->addr;
 		}
-		
+
 		next_aligned_addr = get_next_aligned_addr (m_transf->addr);
 		nr_pages = get_nr_pages (m_transf->addr, next_aligned_addr, len);
-			
+
 		down_read (&task->mm->mmap_sem);
 		for (page_i = 0 ; page_i < nr_pages ; page_i++ ) {
 
@@ -425,15 +426,15 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 			void *kaddr;
 			int bytes;
 
-			ret = get_user_pages (task, task->mm, m_transf->addr, 1, 
-									0, 
-									0, 
-									&pg, 
+			ret = get_user_pages (task, task->mm, m_transf->addr, 1,
+									0,
+									0,
+									&pg,
 									NULL);
 			if (!ret) {
 				pr_info ("%s: could not retrieve page"
-							"from pid (%d)\n", 
-							r2_devname, 
+							"from pid (%d)\n",
+							r2_devname,
 							m_transf->pid);
 				ret = -ESRCH;
 				if (pg)
@@ -441,27 +442,26 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 				goto out_loop;
 			}
 
-			bytes = get_bytes_to_rw (m_transf->addr, len, 
+			bytes = get_bytes_to_rw (m_transf->addr, len,
 							next_aligned_addr);
 			kaddr = map_addr (pg, m_transf->addr);
 
 			if (!addr_is_mapped ( (unsigned long)kaddr)) {
-                        	pr_info ("%s: addr is not mapped," 
-						"triggering a fault\n", 
-								r2_devname);
+				pr_info ("%s: addr is not mapped,"
+						"triggering a fault\n", r2_devname);
 				unmap_addr (kaddr, m_transf->addr);
 				if (pg)
 					page_cache_release (pg);
 				goto out_loop;
-			} 
+			}
 
 			if (_IOC_NR (cmd) == IOCTL_READ_PROCESS_ADDR)
-				ret = copy_to_user (buffer_r, kaddr, bytes);
+				ret = r2k_copy_to_user (buffer_r, kaddr, bytes);
 			else
-				ret = copy_from_user (kaddr, buffer_r,  bytes);
+				ret = r2k_copy_from_user(kaddr, buffer_r,  bytes, m_transf->wp);
 
 			if (ret) {
-				pr_info ("%s: copy_to_user failed\n", 
+				pr_info ("%s: copy_to_user failed\n",
 								r2_devname);
 				ret = -EFAULT;
 				unmap_addr (kaddr, m_transf->addr);
@@ -503,7 +503,7 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 			ret = -EFAULT;
 			goto out;
 		}
-	
+
 		if (!pfn_valid (m_transf->addr >> PAGE_SHIFT)) {
 			pr_info ("%s: 0x%lx out of range\n", r2_devname, m_transf->addr);
 			ret = -EFAULT;
@@ -519,32 +519,32 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 
 		next_aligned_addr = get_next_aligned_addr (m_transf->addr);
 		nr_pages = get_nr_pages (m_transf->addr, next_aligned_addr, len);
-	
+
 		for (page_i = 0 ; page_i < nr_pages ; page_i++) {
 
 			struct page *pg;
 			void *kaddr;
 			int bytes;
 
-			bytes = get_bytes_to_rw (m_transf->addr, len, 
+			bytes = get_bytes_to_rw (m_transf->addr, len,
 							next_aligned_addr);
 
 			pg = pfn_to_page (m_transf->addr >> PAGE_SHIFT);
 			kaddr = map_addr (pg, m_transf->addr);
 
 			if (_IOC_NR (cmd) == IOCTL_READ_PHYSICAL_ADDR)
-				ret = copy_to_user (buffer_r, kaddr, bytes);
+				ret = r2k_copy_to_user (buffer_r, kaddr, bytes);
 			else {
-				if (!addr_is_writeable ( (unsigned long)kaddr)) {
+				if (!addr_is_writeable((unsigned long)kaddr) && m_transf->wp) {
 					pr_info ("%s: cannot write at addr "
-								"0x%lx\n", 
-								r2_devname, 
+								"0x%lx\n",
+								r2_devname,
 							(unsigned long)kaddr);
 					unmap_addr (kaddr, m_transf->addr);
 					ret = -EPERM;
 					goto out;
 				}
-				ret = copy_from_user (kaddr, buffer_r, bytes);
+				ret = r2k_copy_from_user(kaddr, buffer_r, bytes, m_transf->wp);
 			}
 
 			if (ret) {
@@ -565,9 +565,9 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 		void *kaddr = phys_to_virt (m_transf->addr);
 
 		if (_IOC_NR (cmd) == IOCTL_READ_PHYSICAL_ADDR)
-			ret = copy_to_user (buffer_r, kaddr, len);
+			ret = r2k_copy_to_user (buffer_r, kaddr, len);
 		else {
-			if (!addr_is_writeable ( (unsigned long)kaddr)) {
+			if (!addr_is_writeable((unsigned long)kaddr) && m_transf->wp) {
 				pr_info ("%s: cannot write at addr "
 							"0x%lx\n",
 							r2_devname,
@@ -575,7 +575,7 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 				ret = -EPERM;
 				goto out;
 			}
-			ret = copy_from_user (kaddr, buffer_r, len);
+			ret = r2k_copy_from_user(kaddr, buffer_r, len, m_transf->wp);
 		}
 
 		if (ret) {
@@ -591,9 +591,9 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 	{
 #if defined (CONFIG_X86_32) || defined (CONFIG_X86_64)
 		pr_info ("%s: IOCTL not supported on this arch\n", r2_devname);
-		ret = -1;
+		ret = -ENOSYS;
 		goto out;
-#else 
+#else
 		if (g_r2k_map.map_info) {
 			pr_info ("clean\n");
 			clean_mmap();
@@ -609,7 +609,7 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 		g_r2k_map.kernel_maps_info.size = k_map.kernel_maps_info.size;
 		g_r2k_map.kernel_maps_info.n_entries = k_map.kernel_maps_info.n_entries;
 		g_r2k_map.map_info = k_map.map_info;
-	
+
 		ret = copy_to_user ((void __user *)data_addr, &k_map.kernel_maps_info, sizeof (struct kernel_maps));
 		if (ret) {
 			pr_info ("%s: failed while copying\n", r2_devname);
@@ -622,7 +622,7 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 	case IOCTL_READ_REG:
 	{
 		struct r2k_control_reg regs;
-		
+
 #if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
 		regs.cr0 = native_read_cr0 ();
 		regs.cr2 = native_read_cr2 ();
@@ -661,24 +661,24 @@ static long io_ioctl (struct file *file, unsigned int cmd,
 		if (!proc_inf) {
 			return -ENOMEM;
 		}
-		
+
 		memset (proc_inf, 0, sizeof (*proc_inf));
 		ret = copy_from_user (&(proc_inf->pid), &(((struct r2k_proc_info __user *)data_addr)->pid), sizeof (pid_t));
 		if (ret) {
 			ret = -EFAULT;
 			goto out;
 		}
-		
+
 		task = pid_task (find_vpid (proc_inf->pid), PIDTYPE_PID);
 		if (!task) {
 			pr_info ("%s: Couldn't retrieve task_struct for pid (%d)\n", r2_devname, proc_inf->pid);
 			ret = -ESRCH;
 			goto out;
 		}
-		
+
 		mm = task->mm;
 		vma = mm ? mm->mmap : NULL;
-		
+
 		task_lock(task);
 		strncpy (proc_inf->comm, task->comm, sizeof (task->comm));
 		task_unlock(task);
@@ -747,8 +747,8 @@ static struct file_operations fops = {
 static char *r2k_devnode (struct device *dev_ph, umode_t *mode)
 {
 	if (mode) {
-		if (dev_ph->devt == devno) 
-			*mode = 0644;
+		if (dev_ph->devt == devno)
+			*mode = 0600;
 	}
 	return NULL;
 }
@@ -768,20 +768,20 @@ static int __init r2k_init (void)
 
 	r2k_class = class_create (THIS_MODULE, R2_CLASS_NAME);
 	if (IS_ERR (r2k_class)) {
-		pr_info ("%s: class_create failed creating -r2k- class\n", 
+		pr_info ("%s: class_create failed creating -r2k- class\n",
 								r2_devname);
 		ret = PTR_ERR (r2k_class);
 		goto out_unreg_dev;
 	}
 
-	r2k_class->devnode = r2k_devnode;		
+	r2k_class->devnode = r2k_devnode;
 
 	r2k_dev = cdev_alloc();
 	if (r2k_dev == NULL) {
 		pr_info ("%s: cdev_alloc failed\n", r2_devname);
 		ret = -ENOMEM;
 		goto out_unreg_class;
-	}	
+	}
 
 	cdev_init (r2k_dev, &fops);
 	ret = cdev_add (r2k_dev, devno, 1);
@@ -798,11 +798,15 @@ static int __init r2k_init (void)
 	}
 
 	pr_info ("%s: /dev/%s created\n", r2_devname, r2_devname);
+	pr_info ("%s: WARNING - This module implies a security risk as it allows "
+				"direct read/write to the system memory. "
+				"Use it only under test systems "
+					"at your own risk", r2_devname);
 
 	return 0;
 
 out_del_cdev:
-	cdev_del (r2k_dev);	
+	cdev_del (r2k_dev);
 
 out_unreg_class:
 	device_destroy (r2k_class, devno);
