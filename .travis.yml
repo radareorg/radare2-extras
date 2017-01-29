@@ -20,7 +20,10 @@ addons:
       - libqt4-dev
       - cmake
       - cmake-data
-
+      - ninja-build
+      - libboost-dev
+      - libqt4-dev
+      - exuberant-ctags
 env:
   - TESTS="r2pm -i armthumb"
   - TESTS="r2pm -i baleful"
