@@ -243,12 +243,11 @@ void insert_free_list(struct cache *cache, struct cache_entry *entry)
 
 
 /* Called with the cache mutex held */
-void remove_free_list(struct cache *cache, struct cache_entry *entry)
-{
+void remove_free_list(struct cache *cache, struct cache_entry *entry) {
+	/* not in free list */
 	if(entry->free_prev == NULL && entry->free_next == NULL)
-		/* not in free list */
 		return;
-	else if(entry->free_prev == entry && entry->free_next == entry) {
+	if (entry->free_prev == entry && entry->free_next == entry) {
 		/* only this entry in the free list */
 		cache->free_list = NULL;
 	} else {
@@ -511,6 +510,7 @@ int print_filename(char *pathname, struct inode *inode)
 void add_entry(struct hash_table_entry *hash_table[], long long start, int bytes) {
 	int hash = CALCULATE_HASH(start);
 	struct hash_table_entry *hash_table_entry;
+printf ("ADD ENTRY\n");
 
 	hash_table_entry = malloc(sizeof(struct hash_table_entry));
 	if(hash_table_entry == NULL)
@@ -527,39 +527,39 @@ int lookup_entry(struct hash_table_entry *hash_table[], long long start) {
 	struct hash_table_entry *hte;
 
 	for (hte = hash_table[hash]; hte; hte = hte->next) {
-		if (hte->start == start)
+printf ("FINDING IN HASH %lld %lld\n", hte->start, start);
+		if (hte->start == start) {
 			return hte->bytes;
+		}
 	}
+printf ("NOT FOUND\n");
 	return -1;
 }
 
-int read_fs_bytes(int fd, long long byte, int bytes, void *buff)
-{
+int read_fs_bytes(int fd, long long byte, int bytes, void *buff) {
 	off_t off = byte;
 	int res, count;
 
-fprintf(stderr, "read fs bytes from fd %d\n", fd);
-	TRACE("read_bytes: reading from position 0x%llx, bytes %d\n", byte,
-		bytes);
+	fprintf(stderr, "read fs bytes from fd %d\n", fd);
+	TRACE("read_bytes: reading from position 0x%llx, bytes %d\n", byte, bytes);
 
 	if(lseek(fd, off, SEEK_SET) == -1) {
 		ERROR("Lseek failed because %s\n", strerror(errno));
 		return FALSE;
 	}
 
-	for(count = 0; count < bytes; count += res) {
+	for (count = 0; count < bytes; count += res) {
 		res = read(fd, buff + count, bytes - count);
 		if(res < 1) {
 			if(res == 0) {
-				ERROR("Read on filesystem failed because "
-					"EOF\n");
+				ERROR("Read on filesystem failed because EOF\n");
 				return FALSE;
-			} else if(errno != EINTR) {
-				ERROR("Read on filesystem failed because %s\n",
-						strerror(errno));
+			}
+			if(errno != EINTR) {
+				ERROR("Read on filesystem failed because %s\n", strerror(errno));
 				return FALSE;
-			} else
-				res = 0;
+			}
+			res = 0;
 		}
 	}
 
