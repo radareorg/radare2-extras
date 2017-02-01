@@ -1,4 +1,4 @@
-radare2-extras
+radare2-extras [![Build Status](https://travis-ci.org/radare/radare2-extras.svg?branch=master)](https://travis-ci.org/radare/radare2-extras)
 ==============
 This repository contains extra plugins for radare2.
 
