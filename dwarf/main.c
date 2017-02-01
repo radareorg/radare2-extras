@@ -686,7 +686,91 @@ static int get_address_and_die (RCore *core, Dwarf_Die die, Dwarf_Unsigned start
 			}
 			break;
 		case DW_TAG_pointer_type:
-			printf ("woohoo!! not implemented\n");
+			{
+				Dwarf_Bool ret = 0;
+				Dwarf_Die typedie = 0;
+				Dwarf_Unsigned off = 0;
+				Dwarf_Attribute attr = 0;
+				ut64 ptraddress = 0;
+				ut64 typesize = 0;
+				int inbits = 0;
+
+				res = get_type_die (die, &typedie, NULL);
+				if (res == DW_DLV_ERROR) {
+					printf ("ERROR: get_address_and_die :: get_type_die :: %d\n", __LINE__);
+					dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
+					return res;
+				}
+
+				res = get_size (typedie, &typesize, &inbits);
+				if (res == DW_DLV_ERROR) {
+					printf ("ERROR: get_address_and_die :: get_size :: %d\n", __LINE__);
+					dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
+					return res;
+				}
+
+				res = dwarf_hasattr (die, DW_AT_data_member_location, &ret, NULL);
+				if (res == DW_DLV_ERROR) {
+					printf ("ERROR: dwarf_hasattr :: %d\n", __LINE__);
+					return res;
+				}
+
+				if (ret) {
+					res = dwarf_attr (die, DW_AT_data_member_location, &attr, NULL);
+					if (res != DW_DLV_OK) {
+						printf ("ERROR: get_address_and_die :: dwarf_attr :: %d\n", __LINE__);
+						dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+						return res;
+					}
+
+					res = get_num_from_attr (attr, &off);
+					dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+					if (res == DW_DLV_ERROR) {
+						printf ("ERROR: get_address_and_die :: get_num_from_attr :: %d\n", __LINE__);
+						return res;
+					}
+				}
+
+				if (typesize == 2) {
+					ptraddress = (ut64)*((ut16 *)(core->block + startaddr + off - core->offset));
+				} else if (typesize == 4) {
+					ptraddress = (ut64)*((ut32 *)(core->block + startaddr + off - core->offset));
+				} else if (typesize == 8) {
+					ptraddress = (ut64)*((ut64 *)(core->block + startaddr + off - core->offset));
+				}
+
+				while (tag == DW_TAG_pointer_type || tag == DW_TAG_const_type ||
+						 tag == DW_TAG_volatile_type || tag == DW_TAG_typedef) {
+					Dwarf_Die tmpdie = 0;
+
+					res = get_type_die (typedie, &tmpdie, NULL);
+					if (res == DW_DLV_ERROR) {
+						printf ("ERROR: get_address_and_die :: get_type_die :: %d\n", __LINE__);
+						dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
+						return res;
+					}
+
+					dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
+					typedie = tmpdie;
+
+					res = dwarf_tag (typedie, &tag, NULL);
+					if (res == DW_DLV_ERROR) {
+						printf ("ERROR: get_address_and_die :: dwarf_tag :: %d\n", __LINE__);
+						dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
+						return res;
+					}
+				}
+
+				res = get_address_and_die (core, typedie, ptraddress, remain, retdie, retaddr);
+				if (res != DW_DLV_OK) {
+					printf ("ERROR | NO_ENTRY: get_address_and_die :: get_address_and_die :: %d\n", __LINE__);
+				}
+
+				if (typedie != *retdie) {
+					dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
+				}
+				return res;
+			}
 			break;
 		default:
 			printf ("ERROR: get_address_and_die :: something new that is not implemented\n");
@@ -1062,10 +1146,9 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 	}
 
 	if (!strncmp (input, "idd", 3)) {
-		call2 = 0;
+		call2 = 1;
 	}
 
-	//printf ("input = %s\n", input);
 	if (!strncmp (input, "dwarf", 5) || !strncmp (input, "idd", 3)) {
 		if (!arg1) {
 			printf ("DWARF: invalid command\n");
@@ -1128,6 +1211,9 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 					type = JSON_FORMAT;
 				}
 			}
+			if (!strncmp (input+3, "a", 1)) {
+				needaddr = 1;
+			}
 		}
 
 		structname = strdup (arg1);
@@ -1143,6 +1229,11 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 		if (temp) {
 			*temp = 0;
 			temp += 1;
+			needaddr = 1; //Default print address in such cases
+
+			if (!strncmp (input+3, "v", 1)) {
+				needaddr = 0;
+			}
 
 			sdboffset = sdb_num_get (s, structname, 0);
 			if (sdboffset != 0) {
