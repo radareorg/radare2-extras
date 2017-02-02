@@ -25,15 +25,232 @@ static Dwarf_Debug dbg = 0;
  */
 
 //TODO: print string instead of its address
-
+//TODO: Refactor the code. Multiple places have repititon :(
 //char *data = NULL;
 
 #define NRM_FORMAT  0
 #define JSON_FORMAT 1
 #define C_FORMAT    2
 
+static int is_declaration (Dwarf_Die die);
 static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentlevel, Dwarf_Unsigned startaddr, int isStruct, int type);
 static int get_size (Dwarf_Die die, Dwarf_Unsigned *size, int *inbits);
+static int get_num_from_attr (Dwarf_Attribute attr, Dwarf_Unsigned *val);
+static int get_type_die (Dwarf_Die die, Dwarf_Die *typedie, Dwarf_Error *error);
+
+static int load_globals_or_functions (Dwarf_Die in_die, int load_globals) {
+	int res = DW_DLV_ERROR;
+	Dwarf_Die cur_die = in_die;
+	Dwarf_Die child = 0;
+	Dwarf_Die nextdie = 0;
+
+	res = dwarf_child (cur_die, &nextdie, NULL);
+	if (res == DW_DLV_ERROR) {
+		printf ("ERROR: dwarf_child :: %d\n", __LINE__);
+		return res;
+	} else if (res == DW_DLV_NO_ENTRY) {
+		return res;
+	}
+
+	cur_die = nextdie;
+	while (1) {
+		Dwarf_Half tag = 0;
+		nextdie = 0;
+
+		res = dwarf_tag (cur_die, &tag, NULL);
+		if (res == DW_DLV_ERROR) {
+			printf ("ERROR: load_globals :: %d\n", __LINE__);
+			return res;
+		}
+
+		if (load_globals) { // Load Globals
+			if (tag == DW_TAG_variable && !is_declaration (cur_die)) {
+				Dwarf_Locdesc *locdesc = 0;
+				Dwarf_Signed lcnt = 0;
+				Dwarf_Bool ret = 0;
+				Dwarf_Attribute attr = 0;
+
+				res = dwarf_hasattr (cur_die, DW_AT_location, &ret, NULL);
+				if (res == DW_DLV_ERROR) {
+					printf ("ERROR: load_globals_or_functions :: dwarf_hasattr :: %d\n", __LINE__);
+					return res;
+				}
+
+				if (ret) {
+					int i;
+					ut64 size;
+					int inbits;
+					char *diename = NULL;
+					Dwarf_Die typedie = 0;
+
+					res = dwarf_attr (cur_die, DW_AT_location, &attr, NULL);
+					if (res != DW_DLV_OK) {
+						dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+						return res;
+					}
+
+					res = dwarf_loclist (attr, &locdesc, &lcnt, NULL);
+					if (res != DW_DLV_OK) {
+						printf ("ERROR: load_globals_or_functions :: dwarf_loclist :: %d\n", __LINE__);
+						dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+						return res;
+					}
+
+					res = dwarf_diename (cur_die, &diename, NULL);
+					if (res != DW_DLV_OK) {
+						diename = "";
+						//return res;
+					}
+
+					res = get_type_die (cur_die, &typedie, NULL);
+					if (res == DW_DLV_OK) {
+						res = get_size (typedie, &size, &inbits);
+						if (res != DW_DLV_OK) {
+							size = 0;
+						}
+					} else {
+						size = 0;
+					}
+
+					for (i = 0; i < lcnt; i++) {
+						if (locdesc[i].ld_s->lr_atom == DW_OP_addr) {
+							r_cons_printf ("f sym.%s %llu @ 0x%llx\n", diename, size, locdesc[i].ld_s->lr_number);
+						}
+					}
+
+					dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
+					dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+				}
+			}
+		} else { // Load Functions
+			if (tag == DW_TAG_subprogram) {
+				Dwarf_Bool ret = 0;
+				Dwarf_Attribute attr = 0;
+				Dwarf_Addr low_pc = 0;
+				Dwarf_Addr high_pc = 0;
+				Dwarf_Half attr_form = 0;
+				ut64 size = 0;
+
+				res = dwarf_hasattr (cur_die, DW_AT_low_pc, &ret, NULL);
+				if (res == DW_DLV_ERROR) {
+					printf ("ERROR: load_globals_or_functions :: dwarf_hasattr :: %d\n", __LINE__);
+					return res;
+				}
+
+				if (ret) {
+					char *diename = NULL;
+					res = dwarf_diename (cur_die, &diename, NULL);
+					if (res == DW_DLV_ERROR) {
+					    goto next;
+					} else if (res == DW_DLV_NO_ENTRY) {
+						goto next;
+#if 0
+						// There occurs some repitition of flags with same name but different addr.
+						// 622 flags with same name and 29685 unique
+						res = dwarf_attr (cur_die, DW_AT_abstract_origin, &attr, NULL);
+						if (res != DW_DLV_OK) {
+							dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+							goto next;
+						} else {
+							Dwarf_Off offset = 0;
+							Dwarf_Die offdie = 0;
+
+							res = dwarf_global_formref (attr, &offset, NULL);
+							dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+							if (res == DW_DLV_OK) {
+								res = dwarf_offdie (dbg, offset, &offdie, NULL);
+								if (res == DW_DLV_OK) {
+									res = dwarf_diename (offdie, &diename, NULL);
+									dwarf_dealloc (dbg, offdie, DW_DLA_DIE);
+									if (res != DW_DLV_OK) {
+									    goto next;
+									}
+								} else {
+									goto next;
+								}
+							} else {
+								goto next;
+							}
+						}
+#endif
+					}
+
+					res = dwarf_attr (cur_die, DW_AT_low_pc, &attr, NULL);
+					if (res != DW_DLV_OK) {
+						dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+						printf ("ERROR: %d\n", __LINE__);
+						return res;
+					}
+
+					res = dwarf_formaddr (attr, &low_pc, NULL);
+					if (res != DW_DLV_OK) {
+						printf ("ERROR: load_globals_or_functions :: dwarf_formaddr :: %d\n", __LINE__);
+						return res;
+					}
+
+					dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+					res = dwarf_attr (cur_die, DW_AT_high_pc, &attr, NULL);
+					if (res != DW_DLV_OK) {
+						dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+						printf ("ERROR: %d\n", __LINE__);
+						return res;
+					}
+
+					res = dwarf_whatform (attr, &attr_form, NULL);
+					if (res != DW_DLV_OK) {
+						dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+						printf ("ERROR: %d\n", __LINE__);
+						return res;
+					}
+
+					if (attr_form == DW_FORM_addr) {
+						res = dwarf_formaddr (attr, &high_pc, NULL);
+						if (res != DW_DLV_OK) {
+							size = 0;
+						} else {
+							size = high_pc - low_pc;
+						}
+					} else {
+						res = get_num_from_attr (attr, &size);
+						if (res != DW_DLV_OK) {
+							size = 0;
+						}
+					}
+
+					r_cons_printf ("f sym.%s %llu @ 0x%llx\n", diename, size, (ut64) low_pc);
+					dwarf_dealloc (dbg, attr, DW_DLA_ATTR);
+					dwarf_dealloc (dbg, diename, DW_DLA_STRING);
+				}
+			}
+		}
+
+	next:
+		res = dwarf_siblingof (dbg, cur_die, &nextdie, NULL);
+		if (res == DW_DLV_ERROR) {
+			printf ("Error: dwarf_siblingof\n");
+			return -1;
+		}
+
+		if (res == DW_DLV_NO_ENTRY) {
+			break;
+		}
+
+		if (cur_die != in_die) {
+			dwarf_dealloc (dbg, cur_die, DW_DLA_DIE);
+		}
+		cur_die = nextdie;
+	}
+
+	if (cur_die != in_die) {
+		dwarf_dealloc (dbg, cur_die, DW_DLA_DIE);
+	}
+	return res;
+}
+
+static int load_functions () {
+	int res = DW_DLV_ERROR;
+	return res;
+}
 
 static int get_type_die_offset (Dwarf_Die die, Dwarf_Off *offset, Dwarf_Error *error) {
 	int res = DW_DLV_ERROR;
@@ -921,12 +1138,10 @@ static int print_specific_stuff (RCore *core, ut64 offset, Dwarf_Unsigned starta
  */
 static int is_declaration (Dwarf_Die die) {
 	int res = DW_DLV_ERROR;
-	Dwarf_Half attr;
 	Dwarf_Bool ret;
 
-	attr = DW_AT_declaration;
 	ret = 0;
-	res = dwarf_hasattr (die, attr, &ret, NULL);
+	res = dwarf_hasattr (die, DW_AT_declaration, &ret, NULL);
 	if (res == DW_DLV_ERROR) {
 		printf ("ERROR: is_declaration\n");
 	}
@@ -1031,7 +1246,7 @@ static int first_parse (Dwarf_Die in_die) {
 	return 0;
 }
 
-static int read_cu_list () {
+static int read_cu_list (int flag) {
 	int res;
 	Dwarf_Half address_size = 0;
 	Dwarf_Half version_stamp = 0;
@@ -1066,7 +1281,13 @@ static int read_cu_list () {
 			return -1;
 		}
 
-		first_parse (cu_die);
+		if (flag == 0) {
+			first_parse (cu_die);
+		} else if (flag == 1) {
+			load_globals_or_functions (cu_die, 1);
+		} else if (flag == 2) {
+			load_globals_or_functions (cu_die, 0);
+		}
 		dwarf_dealloc (dbg, cu_die, DW_DLA_DIE);
 	}
 }
@@ -1117,7 +1338,7 @@ static int r_cmd_dwarf_init (void *user, const char *input) {
 		return false;
 	}
 
-	res = read_cu_list (dbg);
+	res = read_cu_list (0);
 	if (res != 0) {
 		close (fd);
 		res = dwarf_finish (dbg, NULL);
@@ -1150,7 +1371,7 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 	}
 
 	if (!strncmp (input, "dwarf", 5) || !strncmp (input, "idd", 3)) {
-		if (!arg1) {
+		if (!arg1 && strncmp (input, "iddl", 4)) {
 			printf ("DWARF: invalid command\n");
 			return false;
 		}
@@ -1169,6 +1390,14 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 			}
 			printf ("DWARF: sdb not initialised. Run: `?:dwarf init filename` OR `iddi filename`\n");
 			return false;
+		}
+
+		if (!strncmp (input, "iddlg", 5)) {
+			read_cu_list (1);
+			return true;
+		} else if (!strncmp (input, "iddlf", 5)) {
+			read_cu_list (2);
+			return true;
 		}
 
 		if (!strncmp (arg1, init, 4)) {

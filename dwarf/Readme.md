@@ -20,9 +20,13 @@ Usage:
 Currently it works like a simple r2 core plugin.
 
 ```
-?:dwarf init path_to_file_having_dwarf_info
-?:dwarf structname [offset]
-?:dwarfj structname [offset]                // Output in JSON format
+iddi  path_to_file_having_dwarf_info
+idd   structname [offset]
+iddj  structname [offset]                // Output in JSON format
+iddv  structname.member1.submember2      // Print value of submember2 struct which is a member of member1 struct
+idda  structname.member1.submember2      // Print address of submember2 struct which is a member of member1 struct
+iddlg                                    // Print flags in r2 format for all global variables
+iddlf                                    // Print flags in r2 format for all functions
 ```
 
 Known problems:
@@ -36,10 +40,8 @@ Please file an issue if you find any other issue.
 Things to do:
 -------------
 
- - C format output
- - use `idd*` instead of `?:dwarf`
- - Access specific member of a structure using either `structname->membername` or `structname.membername` (also recursively like `structname->anotherstruct.membername`)
- - print a pointer to be able to use it with r2 native cmds (example: ``pd 20 @ `?:dwarf struct->another_struct.field` `` and ``wx 1010 @ `?:dwarf struct->another_struct.field` ``)
+ - C format output (`iddd`)
+ - Print type and size for structure or any of its member (`iddt`)
 
 License:
 --------
