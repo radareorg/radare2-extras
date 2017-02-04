@@ -4,6 +4,7 @@ else
 SO_EXT=so
 endif
 
+R2PM_PLUGDIR?=$(shell r2 -H USER_PLUGINS)/plugins
 CFLAGS+=-Icapstone/include
 CFLAGS+=$(shell pkg-config --cflags r_asm)
 LDFLAGS+=$(shell pkg-config --libs r_asm)
@@ -28,10 +29,10 @@ capstone:
 	git clone --depth=1 -b next https://github.com/fotisl/capstone
 
 install:
-	cp -f *.$(SO_EXT) $(shell r2 -H USER_PLUGINS)/plugins
+	cp -f *.$(SO_EXT) $(R2PM_PLUGDIR)
 
 uninstall:
-	cp -f $(shell r2 -H USER_PLUGINS)/plugins/*tms320*
+	rm -f $(R2PM_PLUGDIR)/*tms320*
 
 clean:
 	rm *.o *.$(SO_EXT)
