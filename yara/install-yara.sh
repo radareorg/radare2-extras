@@ -14,7 +14,8 @@ SUDO=sudo
 #fi
 
 if [ ! -d yara.git ]; then
-	git clone https://github.com/plusvic/yara.git yara.git|| exit 1
+	#git clone https://github.com/plusvic/yara.git yara.git|| exit 1
+	git clone https://github.com/VirusTotal/yara yara.git|| exit 1
 fi
 cd yara.git || exit 1
 # last commit in git
