@@ -33,7 +33,7 @@ static Dwarf_Debug dbg = 0;
 #define C_FORMAT    2
 
 static int is_declaration (Dwarf_Die die);
-static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentlevel, Dwarf_Unsigned startaddr, int isStruct, int type);
+static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentlevel, Dwarf_Unsigned startaddr, int isStruct, int type, int longlist);
 static int get_size (Dwarf_Die die, Dwarf_Unsigned *size, int *inbits);
 static int get_num_from_attr (Dwarf_Attribute attr, Dwarf_Unsigned *val);
 static int get_type_die (Dwarf_Die die, Dwarf_Die *typedie, Dwarf_Error *error);
@@ -45,7 +45,7 @@ static int get_type_die_offset (Dwarf_Die die, Dwarf_Off *offset, Dwarf_Error *e
 static ut64 arrlen = 0;
 static int c_format_arrlen_set = 0;
 
-static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel) {
+static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int longlist) {
 	int res = DW_DLV_ERROR;
 	int typedieres = DW_DLV_ERROR;
 	Dwarf_Half tag = 0;
@@ -95,7 +95,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel) {
 			} else if (typedieres == DW_DLV_NO_ENTRY) {
 				*nameref = r_str_concat (*nameref, "void *");
 			} else {
-				res = get_type_in_str (typedie, nameref, indentlevel);
+				res = get_type_in_str (typedie, nameref, indentlevel, longlist);
 				if (res == DW_DLV_ERROR) {
 					printf ("ERROR: get_type_in_str :: get_type_in_str :: %d\n", __LINE__);
 					return res;
@@ -122,7 +122,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel) {
 			} else if (res == DW_DLV_NO_ENTRY) {
 				dwarf_dealloc (dbg, name, DW_DLA_STRING);
 				if (typedieres == DW_DLV_OK) {
-					res = get_type_in_str (typedie, nameref, indentlevel);
+					res = get_type_in_str (typedie, nameref, indentlevel, longlist);
 					if (res == DW_DLV_ERROR) {
 						printf ("ERROR: get_type_in_str :: get_type_in_str :: %d\n", __LINE__);
 						return DW_DLV_ERROR;
@@ -162,7 +162,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel) {
 					return DW_DLV_ERROR;
 				}
 			} else if (typedieres == DW_DLV_OK) {
-				res = get_type_in_str (typedie, nameref, indentlevel);
+				res = get_type_in_str (typedie, nameref, indentlevel, longlist);
 				if (res == DW_DLV_ERROR) {
 					printf ("ERROR: get_type_in_str :: get_type_in_str :: %d\n", __LINE__);
 					return DW_DLV_ERROR;
@@ -180,7 +180,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel) {
 				dwarf_dealloc (dbg, name, DW_DLA_STRING);
 				printf ("ERROR: get_type_in_str :: dwarf_diename :: %d\n", __LINE__);
 				return res;
-			} else if (res == DW_DLV_NO_ENTRY) {
+			} else if (res == DW_DLV_NO_ENTRY || longlist) {
 				int isStruct = (tag == DW_TAG_structure_type) ? 1 : 0;
 				Dwarf_Off offset = 0;
 
@@ -190,7 +190,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel) {
 					printf ("ERROR: get_type_in_str :: dwarf_dieoffset :: %d\n", __LINE__);
 					return res;
 				}
-				res = print_struct_or_union_die (NULL, offset, indentlevel, 0, isStruct, C_FORMAT);
+				res = print_struct_or_union_die (NULL, offset, indentlevel, 0, isStruct, C_FORMAT, longlist);
 				if (res == DW_DLV_ERROR) {
 					printf ("ERROR: get_type_in_str :: print_struct_or_union_die :: %d\n", __LINE__);
 					return res;
@@ -227,7 +227,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel) {
 				if (typedieres == DW_DLV_NO_ENTRY) {
 					*nameref = r_str_concat (*nameref, "void ");
 				} else if (typedieres == DW_DLV_OK) {
-					res = get_type_in_str (typedie, nameref, indentlevel);
+					res = get_type_in_str (typedie, nameref, indentlevel, longlist);
 					if (res == DW_DLV_ERROR) {
 						printf ("ERROR: get_type_in_str :: get_type_in_str :: %d\n", __LINE__);
 						return DW_DLV_ERROR;
@@ -274,7 +274,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel) {
 						return DW_DLV_ERROR;
 					}
 				} else if (typedieres == DW_DLV_OK) {
-					res = get_type_in_str (typedie, nameref, indentlevel);
+					res = get_type_in_str (typedie, nameref, indentlevel, longlist);
 					if (res == DW_DLV_ERROR) {
 						printf ("ERROR: get_type_in_str :: get_type_in_str :: %d\n", __LINE__);
 						return DW_DLV_ERROR;
@@ -293,7 +293,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel) {
 					return DW_DLV_ERROR;
 				}
 			} else if (typedieres == DW_DLV_OK) {
-				res = get_type_in_str (typedie, nameref, indentlevel);
+				res = get_type_in_str (typedie, nameref, indentlevel, longlist);
 				if (res == DW_DLV_ERROR) {
 					printf ("ERROR: get_type_in_str :: get_type_in_str :: %d\n", __LINE__);
 					return DW_DLV_ERROR;
@@ -862,7 +862,7 @@ static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int ind
 			} else if (type == JSON_FORMAT) {
 				//printf ("{");
 			}
-			res = print_struct_or_union_die (core, offset, indentlevel + 1, addr, isStruct, type);
+			res = print_struct_or_union_die (core, offset, indentlevel + 1, addr, isStruct, type, 0); //longlist parameter does not matter here
 			if (type == NRM_FORMAT) {
 				for (i = 0; i < indentlevel; i++) {
 					printf ("  ");
@@ -1003,7 +1003,7 @@ static int print_member_name (Dwarf_Die die, int type) {
  **  1: json
  **  2: C-like format
  */
-static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentlevel, Dwarf_Unsigned startaddr, int isStruct, int type) {
+static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentlevel, Dwarf_Unsigned startaddr, int isStruct, int type, int longlist) {
 	int i = 0;
 	int res = DW_DLV_ERROR;
 	Dwarf_Die die = 0;
@@ -1066,7 +1066,7 @@ static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentl
 		if (type == C_FORMAT) {
 			char *typestr = malloc (8);
 			memset (typestr, 0, 8);
-			res = get_type_in_str (member, &typestr, indentlevel);
+			res = get_type_in_str (member, &typestr, indentlevel, longlist);
 			if (res == DW_DLV_ERROR) {
 				printf ("ERROR: print_struct_or_union_die :: get_type_in_str :: %d\n", __LINE__);
 				return res;
@@ -1388,7 +1388,7 @@ static int get_address_and_die (RCore *core, Dwarf_Die die, Dwarf_Unsigned start
 /*
  * Used to print when the input requires specific field from the struct. For example: abc.xyz
  */
-static int print_specific_stuff (RCore *core, ut64 offset, Dwarf_Unsigned startaddr, char *remain, int onlyaddr, int type) {
+static int print_specific_stuff (RCore *core, ut64 offset, Dwarf_Unsigned startaddr, char *remain, int onlyaddr, int type, int longlist) {
 	int res = DW_DLV_ERROR;
 	Dwarf_Die die = 0;
 	Dwarf_Die member = 0;
@@ -1438,7 +1438,7 @@ static int print_specific_stuff (RCore *core, ut64 offset, Dwarf_Unsigned starta
 			return DW_DLV_ERROR;
 		}
 		*nameref = 0;
-		res = get_type_in_str (member, &nameref, 0);
+		res = get_type_in_str (member, &nameref, 0, longlist);
 		if (res == DW_DLV_ERROR) {
 			printf ("ERROR: print_specific_stuff :: get_type_in_str :: %d\n", __LINE__);
 			return res;
@@ -1768,6 +1768,7 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 		ut64 oldoffset = 0;
 		ut64 sdboffset = 0;
 		int needaddr = 0;
+		int longlist = 0;
 		int type;
 
 		type = NRM_FORMAT;
@@ -1794,6 +1795,9 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 				needaddr = 1;
 			} else if (*(input+3) == 'd') {
 				type = C_FORMAT;
+				if (*(input+4) == 'l') {
+					longlist = 1;
+				}
 			}
 		}
 
@@ -1837,7 +1841,7 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 
 				oldblocksize = core->blocksize;
 				if (r_core_block_size (core, size)) {
-					res = print_specific_stuff (core, sdb_num_get (s, structname, 0), core->offset, temp, needaddr, type);
+					res = print_specific_stuff (core, sdboffset, core->offset, temp, needaddr, type, longlist);
 					if (res != DW_DLV_OK) {
 						printf ("ERROR: print_specific_stuff %d\n", __LINE__);
 					}
@@ -1870,7 +1874,7 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 
 				oldblocksize = core->blocksize;
 				if (r_core_block_size (core, size)) {
-					res = print_struct_or_union_die (core, sdb_num_get (s, structname, 0), 0, 0, 1, type);
+					res = print_struct_or_union_die (core, sdboffset, 0, 0, 1, type, longlist);
 					if (res != DW_DLV_OK) {
 						printf ("Error while printing structure\n");
 					}
