@@ -51,7 +51,7 @@ env:
   - TESTS="r2pm -i r2pipe-rb"
 #  - TESTS="r2pm -i r2pipe-vala" https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i radare2"
-  - TESTS="r2pm -i r2snow"
+#  - TESTS="r2pm -i r2snow" https://travis-ci.org/radare/radare2-extras/jobs/199500082
 #  - TESTS="r2pm -i radeco" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i retdec"
   - TESTS="r2pm -i swf && cd radare2-regressions && make swf && cd .."
