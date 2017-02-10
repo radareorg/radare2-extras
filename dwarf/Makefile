@@ -4,12 +4,8 @@ LIBDWARFPATH=../../libdwarf-code/
 LIBDWARFLIB=${LIBDWARFPATH}/libdwarf
 EXTRA_TARGETS+=-L$(LIBDWARFPATH)/libdwarf -ldwarf
 
-SDBPATH=../../shlr/sdb/src/
-SDBLIB=${SDBPATH}/libsdb.a
-EXTRA_TARGETS+=${SDBLIB}
-
 CFLAGS+=$(shell pkg-config --cflags r_util)
-CFLAGS+=-I${SDBPATH}/src  -I${LIBDWARFPATH}/libdwarf
+CFLAGS+=-I${LIBDWARFPATH}/libdwarf
 
 LDFLAGS+=-lelf -lz
 CC_LIB=$(CC) -shared $(CFLAGS) $(LDFLAGS) -fPIC
