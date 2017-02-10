@@ -38,7 +38,6 @@ static int get_size (Dwarf_Die die, Dwarf_Unsigned *size, int *inbits);
 static int get_num_from_attr (Dwarf_Attribute attr, Dwarf_Unsigned *val);
 static int get_type_die (Dwarf_Die die, Dwarf_Die *typedie, Dwarf_Error *error);
 static int get_array_length (Dwarf_Die die, Dwarf_Unsigned *len);
-static int struct_or_union_die (RCore *core, Dwarf_Off offset, int indentlevel, Dwarf_Unsigned startaddr, int isStruct, int type);
 static int get_type_die_offset (Dwarf_Die die, Dwarf_Off *offset, Dwarf_Error *error);
 
 //XXX: try to get rid of this global variable for proper array length printing at the end
@@ -49,7 +48,6 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 	int res = DW_DLV_ERROR;
 	int typedieres = DW_DLV_ERROR;
 	Dwarf_Half tag = 0;
-	Dwarf_Bool ret = 0;
 	Dwarf_Die typedie = 0;
 
 	res = dwarf_tag (die, &tag, NULL);
@@ -95,7 +93,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 			} else if (typedieres == DW_DLV_NO_ENTRY) {
 				*nameref = r_str_concat (*nameref, "void *");
 			} else {
-				res = get_type_in_str (typedie, nameref, indentlevel, longlist);
+				res = get_type_in_str (typedie, nameref, indentlevel, 0); // longlist == 1 may lead to infinite recursion since pointer to same struct is valid.
 				if (res == DW_DLV_ERROR) {
 					printf ("ERROR: get_type_in_str :: get_type_in_str :: %d\n", __LINE__);
 					return res;
@@ -195,6 +193,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 					printf ("ERROR: get_type_in_str :: print_struct_or_union_die :: %d\n", __LINE__);
 					return res;
 				}
+				printf (" ");
 			} else {
 				if (tag == DW_TAG_structure_type) {
 					*nameref = r_str_concatf (*nameref, "struct %s ", name);
@@ -317,7 +316,6 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 static int load_globals_or_functions (Dwarf_Die in_die, int load_globals) {
 	int res = DW_DLV_ERROR;
 	Dwarf_Die cur_die = in_die;
-	Dwarf_Die child = 0;
 	Dwarf_Die nextdie = 0;
 
 	res = dwarf_child (cur_die, &nextdie, NULL);
@@ -520,11 +518,6 @@ static int load_globals_or_functions (Dwarf_Die in_die, int load_globals) {
 	return res;
 }
 
-static int load_functions () {
-	int res = DW_DLV_ERROR;
-	return res;
-}
-
 static int get_type_die_offset (Dwarf_Die die, Dwarf_Off *offset, Dwarf_Error *error) {
 	int res = DW_DLV_ERROR;
 	Dwarf_Attribute attr = 0;
@@ -720,9 +713,7 @@ static int get_array_length (Dwarf_Die die, Dwarf_Unsigned *len) {
  */
 static int get_size (Dwarf_Die die, Dwarf_Unsigned *size, int *inbits) {
 	int res = DW_DLV_ERROR;
-	Dwarf_Bool ret;
 	Dwarf_Half tag;
-	Dwarf_Off offset;
 	Dwarf_Die typedie;
 
 	// Return size value if DW_AT_byte_size or DW_AT_bit_size entry, if present
@@ -1043,7 +1034,7 @@ static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentl
 		}
 
 		indentlevel += 1;
-		if (diename != "") {
+		if (strcmp (diename, "")) {
 			dwarf_dealloc (dbg, diename, DW_DLA_STRING);
 		}
 	}
@@ -1057,7 +1048,7 @@ static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentl
 	}
 
 	while (res != DW_DLV_NO_ENTRY) {
-		if (type == NRM_FORMAT | type == C_FORMAT) {
+		if (type == NRM_FORMAT || type == C_FORMAT) {
 			for (i = 0; i < indentlevel; i++) {
 				printf ("  ");
 			}
@@ -1245,6 +1236,7 @@ static int get_address_and_die (RCore *core, Dwarf_Die die, Dwarf_Unsigned start
 					return res;
 				}
 
+#if 0
 				res = dwarf_hasattr (die, DW_AT_data_member_location, &ret, NULL);
 				if (res == DW_DLV_ERROR) {
 					printf ("ERROR: dwarf_hasattr :: %d\n", __LINE__);
@@ -1266,6 +1258,7 @@ static int get_address_and_die (RCore *core, Dwarf_Die die, Dwarf_Unsigned start
 						return res;
 					}
 				}
+#endif
 
 				if (typesize == 2) {
 					ptraddress = (ut64)*((ut16 *)(core->block + startaddr + off - core->offset));
@@ -1424,7 +1417,6 @@ static int print_specific_stuff (RCore *core, ut64 offset, Dwarf_Unsigned starta
 	if (type == C_FORMAT) {
 		char *name = 0;
 		char *nameref = 0;
-		Dwarf_Half tag = 0;
 
 		res = dwarf_diename (member, &name, NULL);
 		if (res == DW_DLV_ERROR) {
@@ -1511,8 +1503,6 @@ static int store_die_offset (Dwarf_Die die) {
 	char *diename = NULL;
 	Dwarf_Off off;
 
-	char offset[32] = {0};
-
 	res = get_dwarf_diename (die, &diename, NULL);
 	if (res == DW_DLV_ERROR || res == DW_DLV_NO_ENTRY) {
 		return 1;
@@ -1527,7 +1517,6 @@ static int store_die_offset (Dwarf_Die die) {
 
 	sdb_num_add (s, (const char *)diename, off, 0);
 
-out:
 	dwarf_dealloc (dbg, diename, DW_DLA_STRING);
 	return 0;
 }
@@ -1556,7 +1545,6 @@ static int is_struct_type (Dwarf_Die die) {
  */
 static int first_parse (Dwarf_Die in_die) {
 	Dwarf_Die cur_die = in_die;
-	Dwarf_Die child = 0;
 	Dwarf_Die nextdie = 0;	//can be child or sibling
 	int res = DW_DLV_ERROR;
 

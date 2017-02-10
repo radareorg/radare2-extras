@@ -1,18 +1,17 @@
 include ../options.mk
 
 LIBDWARFPATH=../../libdwarf-code/
-LIBDWARFLIB=${LIBDWARFPATH}/libdwarf
-EXTRA_TARGETS+=-L$(LIBDWARFPATH)/libdwarf -ldwarf
+LIBDWARFLIB=${LIBDWARFPATH}/libdwarf/
+EXTRA_TARGETS+=${LIBDWARFLIB}/libdwarf.a -lelf -lz
 
 CFLAGS+=$(shell pkg-config --cflags r_util)
-CFLAGS+=-I${LIBDWARFPATH}/libdwarf
+CFLAGS+=-I${LIBDWARFLIB}
 
-LDFLAGS+=-lelf -lz
-CC_LIB=$(CC) -shared $(CFLAGS) $(LDFLAGS) -fPIC
-CC_COR=$(CC_LIB) $(shell pkg-config --libs r_core)
+CC_COR=$(CC) -shared $(CFLAGS) -fPIC
+CC_LIB=$(LDFLAGS) $(shell pkg-config --libs r_core) $(EXTRA_TARGETS)
 
 all:
-	$(CC_COR) -O2 -o dparser.$(LIBEXT) main.c $(EXTRA_TARGETS)
+	$(CC_COR) -O2 -o dparser.$(LIBEXT) main.c $(CC_LIB)
 
 install:
 	cp -f *.$(LIBEXT) $(R2PM_PLUGDIR)

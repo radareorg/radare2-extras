@@ -42,7 +42,6 @@ Things to do:
 -------------
 
  - Print type and size for structure or any of its member (`iddt`)
- - Long description of strucutre (`idddl`) (Instead of printing structures as `struct name var_name;`, it should print the nested definition of `struct name`)
  - Improve array output. GDB prints it in a more nicer way for situation like array of structs
  - Allow printing of array fields. For example: `struct->field[2]`
  - Issue with setting flags for stubs (they should be named differently)
