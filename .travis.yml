@@ -24,6 +24,8 @@ addons:
       - libboost-dev
       - libqt4-dev
       - exuberant-ctags
+      - libelf-dev
+      - zlib1g-dev
 env:
   - TESTS="r2pm -i armthumb"
   - TESTS="r2pm -i baleful"
@@ -34,6 +36,7 @@ env:
 #  - TESTS="r2pm -i dlang" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i dirtycow"
   - TESTS="r2pm -i duktape"
+  - TESTS="r2pm -i dwarf-parser"
   - TESTS="r2pm -i r2frida"
 #  - TESTS="r2pm -i io-ewf" # https://github.com/travis-ci/apt-package-whitelist/issues/3205
 #  - TESTS="r2pm -i keystone-lib && r2pm -i keystone && cd radare2-regressions && make keystone && cd .." [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
