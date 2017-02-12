@@ -1642,17 +1642,6 @@ static const char* getargpos (const char *buf, int pos) {
 	return buf;
 }
 
-static ut64 getvalue (const char *buf, int pos) {
-    ut64 ret;
-	buf = getargpos (buf, pos);
-	if (buf) {
-		ret = strtoull (buf, 0, 0);
-	} else {
-		ret = -1;
-	}
-	return ret;
-}
-
 static int r_cmd_dwarf_init (void *user, const char *input) {
 	if (!input) {
 		return false;
@@ -1686,202 +1675,220 @@ static int r_cmd_dwarf_init (void *user, const char *input) {
 	return true;
 }
 
-/*
- * r2 commands overwritten: idd, idda, iddi
- * Usage:
- *    idd structname[.abc.xyz] == ?:dwarf structname[.abc.xyz]
- *    idda structname[.abc.xyz] == ?:dwarfa structname[.abc.xyz]
- *    iddi filename == ?:dwarf init filename
- */
 static int r_cmd_dwarf_call (void *user, const char *input) {
 	const char *arg1 = getargpos (input, 1);
-	const char *arg2 = getargpos (input, 2);
-	const char *init = "init";
-	int call1 = 0;
-	int call2 = 0;
+	RCore *core = (RCore *) user;
+	int res = DW_DLV_ERROR;
+	char *structname = NULL;
+	char *temp = NULL;
+	ut64 sdboffset = 0;
+	Dwarf_Die die = 0;
+	ut64 size = 0;
+	int inbits = 0;
+	ut64 oldblocksize = 0;
+	int type = NRM_FORMAT;
 
 	if (!strncmp (input, "dwarf", 5)) {
-		call1 = 1;
+		input += 5;
+	} else if (!strncmp (input, "idd", 3)) {
+		input += 3;
+	} else {
+		return false;
 	}
 
-	if (!strncmp (input, "idd", 3)) {
-		call2 = 1;
-	}
-
-	if (!strncmp (input, "dwarf", 5) || !strncmp (input, "idd", 3)) {
-		if (!arg1 && strncmp (input, "iddl", 4)) {
-			printf ("DWARF: invalid command\n");
-			return false;
-		}
-
-		if (fd == -1) {
-			if (call1) {
-				if (arg1 && arg2) {
-					if (!strncmp (arg1, init, 4)) {
-						return r_cmd_dwarf_init (user, arg2);
-					}
-				}
-			} else if (call2) {
-				if (!strncmp (input, "iddi", 4) && arg1) {
-					return r_cmd_dwarf_init (user, arg1);
-				}
-			}
-			printf ("DWARF: sdb not initialised. Run: `?:dwarf init filename` OR `iddi filename`\n");
-			return false;
-		}
-
-		if (!strncmp (input, "iddlg", 5)) {
-			read_cu_list (1);
-			return true;
-		} else if (!strncmp (input, "iddlf", 5)) {
-			read_cu_list (2);
-			return true;
-		}
-
-		if (!strncmp (arg1, init, 4)) {
-			printf ("DWARF: don't do this to me. leave me alone.\n");
-			return false;
-		}
-
-		RCore *core = (RCore *) user;
-		int res = DW_DLV_ERROR;
-		char *structname = NULL;
-		char *temp = NULL;
-		//char *temp1 = NULL;
-		ut64 addr = 0;
-		int inbits = 0;
-		ut64 size = 0;
-		Dwarf_Die die = NULL;
-		ut64 oldblocksize = 0;
-		ut64 oldoffset = 0;
-		ut64 sdboffset = 0;
-		int needaddr = 0;
-		int longlist = 0;
-		int type;
-
-		type = NRM_FORMAT;
-		if (call1) {
-			char *t = NULL;
-			t = strchr (input, ' ');
-			if (t) {
-				if (*(t-1) == 'j') {
-					type = JSON_FORMAT;
-				}
-			}
-			if (!strncmp (input+5, "a", 1)) {
-				needaddr = 1;
-			}
-		} else if (call2) {
-			char *t = NULL;
-			t = strchr (input, ' ');
-			if (t) {
-				if (*(t-1) == 'j') {
-					type = JSON_FORMAT;
-				}
-			}
-			if (!strncmp (input+3, "a", 1)) {
-				needaddr = 1;
-			} else if (*(input+3) == 'd') {
-				type = C_FORMAT;
-				if (*(input+4) == 'l') {
-					longlist = 1;
-				}
-			}
-		}
-
+	if (arg1) {
 		structname = strdup (arg1);
 		temp = strchr (structname, ' ');
 		if (temp) {
-			*temp = 0;
-			if (arg2) {
-				*(temp+1) = 0;
-			}
+			*temp = 0; // Don't remember if *(temp+1) == 0 is required or not.
 		}
+		temp = NULL;
+	}
 
+	if (s && dbg && arg1) {
 		temp = strchr (structname, '.');
 		if (temp) {
 			*temp = 0;
 			temp += 1;
-			needaddr = 1; //Default print address in such cases
-
-			if (!strncmp (input+3, "v", 1) || !strncmp (input+3, "d", 1)) {
-				needaddr = 0;
-			}
-
-			sdboffset = sdb_num_get (s, structname, 0);
-			if (sdboffset != 0) {
-				addr = getvalue (input, 2);
-				if (addr != -1) {
-					oldoffset = core->offset;
-					core->offset = addr;
-				}
-
-				res = dwarf_offdie (dbg, sdb_num_get (s, structname, 0), &die, NULL);
-				if (res != DW_DLV_OK) {
-					printf ("ERROR: dwarf_offdie %d\n", __LINE__);
-					return false;
-				}
-				res = get_size (die, &size, &inbits);
-				if (res != DW_DLV_OK) {
-					printf ("ERROR: lulz :P No %d\n", __LINE__);
-					return false;
-				}
-
-				oldblocksize = core->blocksize;
-				if (r_core_block_size (core, size)) {
-					res = print_specific_stuff (core, sdboffset, core->offset, temp, needaddr, type, longlist);
-					if (res != DW_DLV_OK) {
-						printf ("ERROR: print_specific_stuff %d\n", __LINE__);
-					}
-				}
-
-				if (addr != -1) {
-					core->offset = oldoffset;
-				}
-				r_core_block_size (core, oldblocksize);
-			}
-		} else {
-			sdboffset = sdb_num_get (s, structname, 0);
-			if (sdboffset != 0) {
-				addr = getvalue (input, 2);
-				if (addr != -1) {
-					oldoffset = core->offset;
-					core->offset = addr;
-				}
-
-				res = dwarf_offdie (dbg, sdb_num_get (s, structname, 0), &die, NULL);
-				if (res != DW_DLV_OK) {
-					printf ("ERROR: dwarf_offdie %d\n", __LINE__);
-					return false;
-				}
-				res = get_size (die, &size, &inbits);
-				if (res != DW_DLV_OK) {
-					printf ("ERROR: lulz :P  No %d\n", __LINE__);
-					return false;
-				}
-
-				oldblocksize = core->blocksize;
-				if (r_core_block_size (core, size)) {
-					res = print_struct_or_union_die (core, sdboffset, 0, 0, 1, type, longlist);
-					if (res != DW_DLV_OK) {
-						printf ("Error while printing structure\n");
-					}
-					if (type == C_FORMAT) {
-						printf (";\n");
-					}
-				}
-
-				if (addr != -1) {
-					core->offset = oldoffset;
-				}
-				r_core_block_size (core, oldblocksize);
-			}
 		}
 
-		free (structname);
-		return res ? false : true;
+		sdboffset = sdb_num_get (s, structname, 0);
+		if (sdboffset == 0) {
+			printf ("DWARF: invalid offset for struct %s\n", structname);
+		    return true;
+		}
+
+		res = dwarf_offdie (dbg, sdboffset, &die, NULL);
+		if (res != DW_DLV_OK) {
+			printf ("ERROR: r_cmd_dwarf_call :: dwarf_offdie :: %d\n", __LINE__);
+		    return true;
+		}
+
+		res = get_size (die, &size, &inbits);
+		if (res != DW_DLV_OK) {
+			printf ("ERROR: r_cmd_dwarf_call :: get_size :: %d\n", __LINE__);
+		    return true;
+		}
 	}
-	return false;
+
+	switch (*input) {
+	case 'a': // idda: print address
+		{
+			if (fd == -1 || !dbg || !s) {
+				printf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
+				break;
+			}
+
+			if (!structname) {
+				printf ("Usage: idda structname[.member1[.submember.[..]]]\n");
+				break;
+			}
+
+			oldblocksize = core->blocksize;
+			if (r_core_block_size (core, size)) {
+				if (temp) {
+					res = print_specific_stuff (core, sdboffset, core->offset, temp, 1, type, 0);
+				} else {
+					res = print_struct_or_union_die (core, sdboffset, 0, 0, 1, type, 0);
+				}
+				if (res != DW_DLV_OK) {
+					dwarf_dealloc (dbg, die, DW_DLA_DIE);
+					printf ("ERROR: r_cmd_dwarf_call :: print_specific_stuff :: %d\n", __LINE__);
+					break;
+				}
+			}
+
+			r_core_block_size (core, oldblocksize);
+		}
+		break;
+	case 'd': // iddd: print c type declaration of strut
+		{
+			int longlist = 0;
+
+			if (fd == -1 || !dbg || !s) {
+				printf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
+				break;
+			}
+
+			if (!structname) {
+				printf ("Usage: iddd[l] structname[.member1[.submember.[..]]]\tprint C-type struct declaration\n");
+				break;
+			}
+
+			longlist = (*(input + 1) == 'l') ? 1 : 0;
+
+			oldblocksize = core->blocksize;
+			if (r_core_block_size (core, size)) {
+				if (temp) {
+					res = print_specific_stuff (core, sdboffset, core->offset, temp, 0, C_FORMAT, longlist);
+				} else {
+					res = print_struct_or_union_die (core, sdboffset, 0, 0, 1, C_FORMAT, longlist);
+					printf (";\n"); // TODO: fix this extra statement
+				}
+				if (res != DW_DLV_OK) {
+					dwarf_dealloc (dbg, die, DW_DLA_DIE);
+					printf ("ERROR: r_cmd_dwarf_call :: print_specific_stuff :: %d\n", __LINE__);
+					break;
+				}
+			}
+
+			r_core_block_size (core, oldblocksize);
+		}
+		break;
+	case 'i': // iddi: initialise sdb and dwarf_dbg
+		{
+			if (fd == -1) {
+				if (arg1) {
+					return r_cmd_dwarf_init (core, arg1);
+				} else {
+					printf ("Usage: (iddi | dwarfi) filename\n");
+					// return false;
+				}
+			}
+		}
+		break;
+	case 'l': // iddl*: print global functions or global variables that can be loaded as r2 flags
+		{
+			if (fd == -1 || !dbg || !s) {
+				printf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
+				break;
+			}
+
+			switch (*(input + 1)) {
+			case 'f':
+				read_cu_list (2);
+				break;
+			case 'g':
+				read_cu_list (1);
+				break;
+			default:
+				printf ("Usage:\n\tiddlf: load function in r2 flag format\n\tiddlg: load global variables in r2 flag format\n");
+				break;
+			}
+		}
+		break;
+	case 'v': // iddv: print value
+		{
+			if (fd == -1 || !dbg || !s) {
+				printf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
+				break;
+			}
+
+			if (!structname) {
+				printf ("Usage: iddv structname[.member1[.submember.[..]]]\n");
+				break;
+			}
+
+			oldblocksize = core->blocksize;
+			if (r_core_block_size (core, size)) {
+				if (temp) {
+					res = print_specific_stuff (core, sdboffset, core->offset, temp, 0, type, 0);
+				} else {
+					res = print_struct_or_union_die (core, sdboffset, 0, 0, 1, type, 0);
+				}
+				if (res != DW_DLV_OK) {
+					dwarf_dealloc (dbg, die, DW_DLA_DIE);
+					printf ("ERROR: r_cmd_dwarf_call :: print_specific_stuff :: %d\n", __LINE__);
+					break;
+				}
+			}
+
+			r_core_block_size (core, oldblocksize);
+		}
+		break;
+    default:
+		if (arg1) {
+			if (fd == -1 || !dbg || !s) {
+				printf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
+				break;
+			}
+
+			oldblocksize = core->blocksize;
+			if (r_core_block_size (core, size)) {
+				if (temp) {
+					res = print_specific_stuff (core, sdboffset, core->offset, temp, 1, type, 0);
+				} else {
+					res = print_struct_or_union_die (core, sdboffset, 0, 0, 1, type, 0);
+				}
+				if (res != DW_DLV_OK) {
+					dwarf_dealloc (dbg, die, DW_DLA_DIE);
+					printf ("ERROR: r_cmd_dwarf_call :: print_specific_stuff :: %d\n", __LINE__);
+					break;
+				}
+			}
+
+			r_core_block_size (core, oldblocksize);
+		} else {
+			return false;
+		}
+	}
+
+	free (structname);
+	if (dbg) {
+		dwarf_dealloc (dbg, die, DW_DLA_DIE);
+	}
+
+	return true;
 }
 
 static int r_cmd_dwarf_deinit () {
@@ -1895,13 +1902,17 @@ static int r_cmd_dwarf_deinit () {
 
 		sdb_close (s);
 		close (fd);
+
+		fd = -1;
+		s = NULL;
+		dbg = NULL;
 	}
 	return true;
 }
 
 RCorePlugin r_core_plugin_dwarf = {
 	.name = "dwarf",
-	.desc = "DWARF",
+	.desc = "DWARF parser to analyse various structure and set flags (global variables and function declaration)",
 	.license = "gpl",
 	.call = r_cmd_dwarf_call,
 	.deinit = r_cmd_dwarf_deinit
