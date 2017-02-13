@@ -28,6 +28,8 @@ idda  structname.member1.submember2      // Print address of submember2 struct w
 iddlg                                    // Print flags in r2 format for all global variables
 iddlf                                    // Print flags in r2 format for all functions
 iddd  structname[.members]*              // Print C-Type declaration
+idddl structname[.members]*              // Print C-Type declaration with sub structures shown
+iddt  structname[.members]*              // Print type and size
 ```
 
 Known problems:
@@ -41,7 +43,6 @@ Please file an issue if you find any
 Things to do:
 -------------
 
- - Print type and size for structure or any of its member (`iddt`)
  - Improve array output. GDB prints it in a more nicer way for situation like array of structs
  - Allow printing of array fields. For example: `struct->field[2]`
  - Issue with setting flags for stubs (they should be named differently)

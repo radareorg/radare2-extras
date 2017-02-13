@@ -39,6 +39,7 @@ static int get_num_from_attr (Dwarf_Attribute attr, Dwarf_Unsigned *val);
 static int get_type_die (Dwarf_Die die, Dwarf_Die *typedie, Dwarf_Error *error);
 static int get_array_length (Dwarf_Die die, Dwarf_Unsigned *len);
 static int get_type_die_offset (Dwarf_Die die, Dwarf_Off *offset, Dwarf_Error *error);
+static int get_dwarf_diename (Dwarf_Die die, char **diename, Dwarf_Error *error);
 
 //XXX: try to get rid of this global variable for proper array length printing at the end
 static ut64 arrlen = 0;
@@ -173,7 +174,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 		{
 			char *name = NULL;
 
-		    res = dwarf_diename (die, &name, NULL);
+		    res = get_dwarf_diename (die, &name, NULL);
 			if (res == DW_DLV_ERROR) {
 				dwarf_dealloc (dbg, name, DW_DLA_STRING);
 				printf ("ERROR: get_type_in_str :: dwarf_diename :: %d\n", __LINE__);
@@ -1405,7 +1406,6 @@ static int print_specific_stuff (RCore *core, ut64 offset, Dwarf_Unsigned starta
 	res = get_address_and_die (core, die, startaddr, remain, &member, &addr);
 	if (res != DW_DLV_OK) {
 		printf ("ERROR: print_specific_stuff :: get_address_and_die :: %d\n", __LINE__);
-		printf ("res = %d\n", res);
 		return res;
 	}
 
@@ -1472,6 +1472,58 @@ static int print_specific_stuff (RCore *core, ut64 offset, Dwarf_Unsigned starta
 		}
 	}
 	return 0;
+}
+
+static int print_type_and_size (RCore *core, ut64 sdboffset, ut64 startaddr, char *remain) {
+	int res = DW_DLV_ERROR;
+	Dwarf_Die die = 0;
+	Dwarf_Die member = 0;
+	char *nameref = NULL;
+	int inbits;
+	ut64 addr;
+
+	if (sdboffset == 0) {
+		printf ("TODO: implemente iddt for variables\n");
+		return DW_DLV_ERROR;
+	} else {
+		res = dwarf_offdie (dbg, sdboffset, &die, NULL);
+		if (res != DW_DLV_OK) {
+			dwarf_dealloc (dbg, die, DW_DLA_DIE);
+			return res;
+		}
+
+		res = get_address_and_die (core, die, startaddr, remain, &member, &addr);
+		if (res != DW_DLV_OK) {
+			printf ("ERROR: print_specific_stuff :: get_address_and_die :: %d\n", __LINE__);
+			return res;
+		}
+	}
+
+	dwarf_dealloc (dbg, die, DW_DLA_DIE);
+	die = member;
+
+	nameref = malloc (10);
+	if (!nameref) {
+		printf("ERROR: print_type_and_size :: malloc :: %d\n", __LINE__);
+		return DW_DLV_ERROR;
+	}
+
+	*nameref = 0;
+	res = get_type_in_str (die, &nameref, 0, 0);
+	if (res == DW_DLV_ERROR) {
+		printf ("ERROR: print_type_and_size :: get_type_in_str :: %d\n", __LINE__);
+		return res;
+	}
+
+	addr = 0; //use it as size
+	res = get_size (die, &addr, &inbits);
+	if (res == DW_DLV_ERROR) {
+		printf ("ERROR: print_specific_stuff :: get_size::%d\n", __LINE__);
+		return res;
+	}
+
+	printf ("%s - %"PFMT64u"\n", nameref, addr);
+	return DW_DLV_OK;
 }
 
 /* is_declaration
@@ -1713,7 +1765,7 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 		}
 
 		sdboffset = sdb_num_get (s, structname, 0);
-		if (sdboffset == 0) {
+		if ((*input != 't') && sdboffset == 0) {
 			printf ("DWARF: invalid offset for struct %s\n", structname);
 		    return true;
 		}
@@ -1827,7 +1879,21 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 			}
 		}
 		break;
-	case 'v': // iddv: print value
+	case 't':
+		{
+			if (fd == -1 || !dbg || !s) {
+				printf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
+				break;
+			}
+
+			res = print_type_and_size (core, sdboffset, core->offset, temp);
+			if (res != DW_DLV_OK) {
+				printf ("ERROR: r_cmd_dwarf_call :: print_type_and_size :: %d\n", __LINE__);
+				break;
+			}
+		}
+		break;
+	case 'v': // iddv: print value //TODO: update the output as "(type) value" instead of just "value"
 		{
 			if (fd == -1 || !dbg || !s) {
 				printf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
