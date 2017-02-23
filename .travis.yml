@@ -46,7 +46,7 @@ env:
   - TESTS="r2pm -i ppcdisasm"
   - TESTS="r2pm -i psosvm"
   - TESTS="r2pm -i pyc"
-#  - TESTS="r2pm -i python" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
+  - TESTS="r2pm -i valabind && r2pm -i r2api-python"
 #  - TESTS="r2pm -i r2pipe-cs" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i r2pipe-go"
   - TESTS="r2pm -i r2pipe-js"
@@ -59,12 +59,12 @@ env:
   - TESTS="r2pm -i retdec"
   - TESTS="r2pm -i swf && cd radare2-regressions && make swf && cd .."
   - TESTS="r2pm -i m68k-net && cd radare2-regressions && make m68k-extras && cd .."
-  - TESTS="r2pm -i swig" Sorry. This package cannot be installed in your home.
+#  - TESTS="r2pm -i swig" Sorry. This package cannot be installed in your home.
   - TESTS="r2pm -i syms2elf"
 #  - TESTS="r2pm -i tcc" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i unicorn-lib && r2pm -i unicorn"
-  - TESTS="r2pm -i vala" Sorry. This package cannot be installed at home.
-  - TESTS="r2pm -i valabind" Sorry. This package cannot be installed at home
+  - TESTS="r2pm -i vala"
+  - TESTS="r2pm -i valabind"
   - TESTS="r2pm -i vapi"
   - TESTS="r2pm -i vc4"
   - TESTS="r2pm -i winapi"
