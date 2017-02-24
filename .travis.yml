@@ -26,6 +26,7 @@ addons:
       - exuberant-ctags
       - libelf-dev
       - zlib1g-dev
+      - swig
 env:
   - TESTS="r2pm -i armthumb"
   - TESTS="r2pm -i baleful"
@@ -46,7 +47,7 @@ env:
   - TESTS="r2pm -i ppcdisasm"
   - TESTS="r2pm -i psosvm"
   - TESTS="r2pm -i pyc"
-  - TESTS="r2pm -i valabind && r2pm -i r2api-python"
+  - TESTS="r2pm -i vala && r2pm -i valabind && r2pm -i r2api-python"
 #  - TESTS="r2pm -i r2pipe-cs" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i r2pipe-go"
   - TESTS="r2pm -i r2pipe-js"
