@@ -26,6 +26,13 @@ static ut32 get_ut32(RBuffer *buffer, bool *error) {
 	return ret;
 }
 
+static ut64 get_ut64(RBuffer *buffer, bool *error) {
+	ut64 ret = 0;
+	int size = r_buf_read(buffer, (ut8 *)&ret, sizeof (ret));
+	if ( size < sizeof(ret) )
+		*error	= true;
+	return ret;
+}
 static ut8 *get_bytes(RBuffer *buffer, ut32 size) {
 	ut8 *ret = R_NEWS0 (ut8, size + 1);
 	if (!ret)
@@ -85,7 +92,56 @@ static pyc_object *get_int_object(RBuffer *buffer) {
 	return ret;
 }
 
+//treat stringref as int 
+static pyc_object *get_stringref_object(RBuffer *buffer) {
+	bool error = false;
+	ut32 i = get_ut32 (buffer, &error);
+	pyc_object *ret = R_NEW0 (pyc_object);
+	if (!ret || error) {
+		free (ret);
+		return NULL;
+	}
+	ret->type = TYPE_INT;
+	ret->data = r_str_newf ("%lu", i);
+	if (!ret->data)
+		R_FREE (ret);
+	return ret;
+}
+
+static pyc_object *get_int64_object(RBuffer *buffer) {
+	bool error = false;
+	ut64 i = get_ut64(buffer, &error);
+	pyc_object *ret = R_NEW0 (pyc_object);
+	if ( !ret ) return NULL;
+	if ( error ) {
+		free(ret);
+		return NULL;
+	}
+	ret->type = TYPE_INT64;
+	ret->data = r_str_newf("%llu", i);
+	if ( !ret->data ) 
+		R_FREE ( ret );
+	return ret;
+}
+
 static pyc_object *get_string_object(RBuffer *buffer) {
+	bool error = false;
+	ut32 size = get_ut32 (buffer, &error);
+	pyc_object *ret = R_NEW0 (pyc_object);
+	if (!ret || error) {
+		free (ret);
+		return NULL;
+	}
+	ret->type = TYPE_STRING;
+	ret->data = get_bytes (buffer, size);
+	if (!ret->data)
+		R_FREE (ret);
+	return ret;
+}
+
+
+//treat TYPE_INTERNED as string first
+static pyc_object *get_interned_object(RBuffer *buffer) {
 	bool error = false;
 	ut32 size = get_ut32 (buffer, &error);
 	pyc_object *ret = R_NEW0 (pyc_object);
@@ -353,11 +409,13 @@ static pyc_object *get_code_object(RBuffer *buffer) {
 	}
 	ret->type = TYPE_CODE_v1;
 	ret->data = cobj;
+
 	cobj->argcount = get_ut32 (buffer, &error);
-	cobj->kwonlyargcount = get_ut32 (buffer, &error);
+	//cobj->kwonlyargcount = get_ut32 (buffer, &error);
 	cobj->nlocals = get_ut32 (buffer, &error);
 	cobj->stacksize = get_ut32 (buffer, &error);
 	cobj->flags = get_ut32 (buffer, &error);
+
 	cobj->code = get_object (buffer);
 	cobj->consts = get_object (buffer);
 	cobj->names = get_object (buffer);
@@ -406,63 +464,85 @@ static pyc_object *get_object(RBuffer *buffer) {
 	}
 	switch (type) {
 	case TYPE_NULL:
+		printf("TYPE_NULL\n");
 		return NULL;
 	case TYPE_TRUE:
+		printf("TYPE_TRUE\n");
 		return get_true_object ();
 	case TYPE_FALSE:
+		printf("TYPE_FALSE\n");
 		return get_false_object ();
 	case TYPE_NONE:
+		printf("TYPE_NONE\n");
 		return get_none_object ();
 	case TYPE_REF:
+		printf("TYPE_REF\n");
 		return get_ref_object (buffer);
 	case TYPE_SMALL_TUPLE:
+		printf("TYPE_SMALL_TUPLE\n");
 		ret = get_small_tuple_object (buffer);
 		break;
 	case TYPE_TUPLE:
+		printf("TYPE_TUPLE\n");
 		ret = get_tuple_object (buffer);
 		break;
 	case TYPE_STRING:
+		printf("TYPE_STRING\n");
 		ret = get_string_object (buffer);
 		break;
 	case TYPE_CODE_v1:
+		printf("TYPE_CODE_v1\n");
 		ret = get_code_object (buffer);
 		break;
 	case TYPE_INT:
+		printf("TYPE_INT\n");
 		ret = get_int_object (buffer);
 		break;
 	case TYPE_ASCII_INTERNED:
+		printf("TYPE_ASCII_INTERNED\n");
 		ret = get_ascii_interned_object (buffer);
 		break;
 	case TYPE_SHORT_ASCII:
+		printf("TYPE_SHORT_ASCII\n");
 		ret = get_short_ascii_object (buffer);
 		break;
 	case TYPE_ASCII:
+		printf("TYPE_ASCII\n");
 		ret = get_ascii_object (buffer);
 		break;
 	case TYPE_SHORT_ASCII_INTERNED:
+		printf("TYPE_SHORT_ASCII_INTERNED\n");
 		ret = get_short_ascii_interned_object (buffer);
+		break;
+	case TYPE_INT64:
+		ret = get_int64_object(buffer);
+		break;
+	case TYPE_INTERNED:
+		ret = get_interned_object(buffer);
+		printf("TYPE_INTERNED\n");
+		break;
+	case TYPE_STRINGREF:
+		ret = get_stringref_object(buffer);
+		printf("TYPE_STRINGREF\n");
 		break;
 	case TYPE_BINARY_COMPLEX:
 	case TYPE_ELLIPSIS:
 	case TYPE_BINARY_FLOAT:
 	case TYPE_CODE_v0:
 	case TYPE_COMPLEX:
-	case TYPE_STRINGREF:
 	case TYPE_DICT:
 	case TYPE_FLOAT:
 	case TYPE_FROZENSET:
 	case TYPE_STOPITER:
-	case TYPE_INT64:
-	case TYPE_INTERNED:
 	case TYPE_LIST:
 	case TYPE_LONG:
 	case TYPE_SET:
 	case TYPE_UNICODE:
 	case TYPE_UNKNOWN:
-		eprintf ("Get not implemented for type %x\n", type);
+		eprintf ("Get not implemented for type 0x%x\n", type);
 		return NULL;
 	default:
-		eprintf ("Undefined type in get_object (%x)\n", type);
+		eprintf ("Undefined type in get_object (0x%x)\n", type);
 		return NULL;
 	}
 	if (flag) {
@@ -477,6 +557,7 @@ static bool extract_sections(pyc_object *obj, RList *sections, char *prefix) {
 	pyc_code_object *cobj;
 	RBinSection *section;
 
+	//each code object is a section
 	if (!obj || (obj->type != TYPE_CODE_v1))
 		return false;
 	cobj = obj->data;
