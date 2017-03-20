@@ -46,7 +46,7 @@ static st32 get_st32(RBuffer *buffer, bool *error) {
     return ret;
 }
 
-static ut64 get_st64(RBuffer *buffer, bool *error) {
+static st64 get_st64(RBuffer *buffer, bool *error) {
     st64 ret = 0;
     int size = r_buf_read(buffer, (ut8 *)&ret, sizeof (ret));
     if ( size < sizeof(ret) )
@@ -110,7 +110,7 @@ static pyc_object *get_true_object(void) {
 
 static pyc_object *get_int_object(RBuffer *buffer) {
     bool error = false;
-    ut32 i = get_st32 (buffer, &error);
+    st32 i = get_st32 (buffer, &error);
     if (error) 
         return NULL;
     pyc_object *ret = R_NEW0 (pyc_object);
@@ -125,7 +125,7 @@ static pyc_object *get_int_object(RBuffer *buffer) {
 
 static pyc_object *get_int64_object(RBuffer *buffer) {
     bool error = false;
-    ut64 i = get_st64(buffer, &error);
+    st64 i = get_st64(buffer, &error);
     if (error) 
         return NULL;
     pyc_object *ret = R_NEW0 (pyc_object);
@@ -188,7 +188,7 @@ static pyc_object *get_long_object(RBuffer *buffer) {
 static pyc_object *get_stringref_object(RBuffer *buffer) {
     pyc_object *ret;
     bool error = false;
-    ut32 n;
+    st32 n;
 
     n = get_st32 (buffer, &error);
     if (error) 
