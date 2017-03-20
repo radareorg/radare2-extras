@@ -74,14 +74,14 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 				return res;
 			} else if (res == DW_DLV_NO_ENTRY) {
 				dwarf_dealloc (dbg, name, DW_DLA_STRING);
-				*nameref = r_str_concat (*nameref, "void ");
+				*nameref = r_str_append (*nameref, "void ");
 			} else {
-				*nameref = r_str_concatf (*nameref, "%s ", name);
+				*nameref = r_str_appendf (*nameref, "%s ", name);
 				dwarf_dealloc (dbg, name, DW_DLA_STRING);
 			}
 
 			if (! *nameref) {
-				printf ("ERROR: get_type_in_str :: r_str_concat :: %d\n", __LINE__);
+				printf ("ERROR: get_type_in_str :: r_str_append :: %d\n", __LINE__);
 				return DW_DLV_ERROR;
 			}
 		}
@@ -92,7 +92,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 				printf ("ERROR: get_type_in_str :: get_type_die :: %d\n", __LINE__);
 				return res;
 			} else if (typedieres == DW_DLV_NO_ENTRY) {
-				*nameref = r_str_concat (*nameref, "void *");
+				*nameref = r_str_append (*nameref, "void *");
 			} else {
 				res = get_type_in_str (typedie, nameref, indentlevel, 0); // longlist == 1 may lead to infinite recursion since pointer to same struct is valid.
 				if (res == DW_DLV_ERROR) {
@@ -100,11 +100,11 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 					return res;
 				}
 
-				*nameref = r_str_concat (*nameref, "*");
+				*nameref = r_str_append (*nameref, "*");
 			}
 
 			if (! *nameref) {
-				printf ("ERROR: get_type_in_str :: r_str_concat :: %d\n", __LINE__);
+				printf ("ERROR: get_type_in_str :: r_str_append :: %d\n", __LINE__);
 				return DW_DLV_ERROR;
 			}
 		}
@@ -127,15 +127,15 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 						return DW_DLV_ERROR;
 					}
 				} else {
-					*nameref = r_str_concat (*nameref, "void ");
+					*nameref = r_str_append (*nameref, "void ");
 				}
 			} else {
-				*nameref = r_str_concatf (*nameref, "%s ", name);
+				*nameref = r_str_appendf (*nameref, "%s ", name);
 				dwarf_dealloc (dbg, name, DW_DLA_STRING);
 			}
 
 			if (! *nameref) {
-				printf ("ERROR: get_type_in_str :: r_str_concat :: %d\n", __LINE__);
+				printf ("ERROR: get_type_in_str :: r_str_append :: %d\n", __LINE__);
 				return DW_DLV_ERROR;
 			}
 		}
@@ -144,20 +144,20 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 	case DW_TAG_volatile_type:
 		{
 			if (tag == DW_TAG_const_type) {
-				*nameref = r_str_concat (*nameref, "const ");
+				*nameref = r_str_append (*nameref, "const ");
 			} else {
-				*nameref = r_str_concat (*nameref, "volatile ");
+				*nameref = r_str_append (*nameref, "volatile ");
 			}
 
 			if (! *nameref) {
-				printf ("ERROR: get_type_in_str :: r_str_concat :: %d\n", __LINE__);
+				printf ("ERROR: get_type_in_str :: r_str_append :: %d\n", __LINE__);
 				return DW_DLV_ERROR;
 			}
 
 			if (typedieres == DW_DLV_NO_ENTRY) {
-				*nameref = r_str_concat (*nameref, "void ");
+				*nameref = r_str_append (*nameref, "void ");
 			    if (! *nameref) {
-					printf ("ERROR: get_type_in_str :: r_str_concat :: %d\n", __LINE__);
+					printf ("ERROR: get_type_in_str :: r_str_append :: %d\n", __LINE__);
 					return DW_DLV_ERROR;
 				}
 			} else if (typedieres == DW_DLV_OK) {
@@ -197,14 +197,14 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 				printf (" ");
 			} else {
 				if (tag == DW_TAG_structure_type) {
-					*nameref = r_str_concatf (*nameref, "struct %s ", name);
+					*nameref = r_str_appendf (*nameref, "struct %s ", name);
 				} else if (tag == DW_TAG_union_type) {
-					*nameref = r_str_concatf (*nameref, "union %s ", name);
+					*nameref = r_str_appendf (*nameref, "union %s ", name);
 				}
 
 				if (! *nameref) {
 					dwarf_dealloc (dbg, name, DW_DLA_STRING);
-					printf ("ERROR: get_type_in_str :: r_str_concat :: %d\n", __LINE__);
+					printf ("ERROR: get_type_in_str :: r_str_append :: %d\n", __LINE__);
 					return DW_DLV_ERROR;
 				}
 
@@ -225,7 +225,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 				dwarf_dealloc (dbg, name, DW_DLA_STRING);
 
 				if (typedieres == DW_DLV_NO_ENTRY) {
-					*nameref = r_str_concat (*nameref, "void ");
+					*nameref = r_str_append (*nameref, "void ");
 				} else if (typedieres == DW_DLV_OK) {
 					res = get_type_in_str (typedie, nameref, indentlevel, longlist);
 					if (res == DW_DLV_ERROR) {
@@ -234,12 +234,12 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 					}
 				}
 			} else {
-				*nameref = r_str_concatf (*nameref, "%s ", name);
+				*nameref = r_str_appendf (*nameref, "%s ", name);
 				dwarf_dealloc (dbg, name, DW_DLA_STRING);
 			}
 
 			if (! *nameref) {
-				printf ("ERROR: get_type_in_str :: r_str_concat :: %d\n", __LINE__);
+				printf ("ERROR: get_type_in_str :: r_str_append :: %d\n", __LINE__);
 				return DW_DLV_ERROR;
 			}
 
@@ -255,9 +255,9 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 	case DW_TAG_enumeration_type:
 		{
 			char *name = NULL;
-			*nameref = r_str_concat (*nameref, "enum ");
+			*nameref = r_str_append (*nameref, "enum ");
 			if (! *nameref) {
-				printf ("ERROR: get_type_in_str :: r_str_concat :: %d\n", __LINE__);
+				printf ("ERROR: get_type_in_str :: r_str_append :: %d\n", __LINE__);
 				return DW_DLV_ERROR;
 			}
 
@@ -268,9 +268,9 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 				return res;
 			} else if (res == DW_DLV_NO_ENTRY) {
 				if (typedieres == DW_DLV_NO_ENTRY) {
-					*nameref = r_str_concat (*nameref, "void ");
+					*nameref = r_str_append (*nameref, "void ");
 					if (! *nameref) {
-						printf ("ERROR: get_type_in_str :: r_str_concat :: %d\n", __LINE__);
+						printf ("ERROR: get_type_in_str :: r_str_append :: %d\n", __LINE__);
 						return DW_DLV_ERROR;
 					}
 				} else if (typedieres == DW_DLV_OK) {
@@ -287,9 +287,9 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 	case DW_TAG_variable:
 		{
 			if (typedieres == DW_DLV_NO_ENTRY) {
-				*nameref = r_str_concat (*nameref, "void ");
+				*nameref = r_str_append (*nameref, "void ");
 				if (! *nameref) {
-					printf ("ERROR: get_type_in_str :: r_str_concat :: %d\n", __LINE__);
+					printf ("ERROR: get_type_in_str :: r_str_append :: %d\n", __LINE__);
 					return DW_DLV_ERROR;
 				}
 			} else if (typedieres == DW_DLV_OK) {
@@ -303,7 +303,7 @@ static int get_type_in_str (Dwarf_Die die, char **nameref, int indentlevel, int 
 		break;
 	case DW_TAG_subroutine_type:
 		{
-			*nameref = r_str_concat (*nameref, "FUNC_PTR ");
+			*nameref = r_str_append (*nameref, "FUNC_PTR ");
 		}
 		break;
 	default:
