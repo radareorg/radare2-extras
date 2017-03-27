@@ -5,6 +5,7 @@
 #include "pyc.h"
 
 static struct pyc_version version;
+RList *interned_table = NULL;
 
 static int check_bytes(const ut8 *buf, ut64 length) {
 	if (!buf || length < 8) // magic + timestamp
@@ -41,10 +42,17 @@ static RBinInfo *info(RBinFile *arch) {
 }
 
 static RList *sections(RBinFile *arch) {
+	RList *shared = r_list_new ();
+	RList *cobjs = r_list_new ();
+	
+	interned_table = r_list_new ();
+	r_list_append(shared, cobjs);
+	r_list_append(shared, interned_table);
+	arch->o->bin_obj = shared;
 	RList *sections = r_list_new ();
 	if (!sections)
 		return NULL;
-	pyc_get_sections (sections, arch->buf, version.magic);
+	pyc_get_sections (sections, cobjs, arch->buf, version.magic);
 	return sections;
 }
 

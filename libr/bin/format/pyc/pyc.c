@@ -3,8 +3,8 @@
 #include "pyc.h"
 #include "marshal.h"
 
-bool pyc_get_sections(RList *sections, RBuffer *buf, ut32 magic) {
-	return get_sections_from_code_objects (buf, sections);
+bool pyc_get_sections(RList *sections, RList *cobjs, RBuffer *buf, ut32 magic) {
+	return get_sections_from_code_objects (buf, sections, cobjs);
 }
 
 ut64 pyc_get_entrypoint(ut32 magic) {

@@ -14,6 +14,8 @@ ARCHS+=vc4.mk
 ARCHS+=mc6809.mk
 ARCHS+=z80_nc.mk
 ARCHS+=m68k_net.mk
+ARCHS+=pyc.mk
+
 
 include ../../plugs.mk
 
