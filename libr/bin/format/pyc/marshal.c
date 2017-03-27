@@ -8,6 +8,7 @@
 #define SIZE32_MAX  0x7FFFFFFF
 
 static RList *refs = NULL;
+extern RList *interned_table;
 
 static pyc_object *get_object(RBuffer *buffer);
 static pyc_object *copy_object(pyc_object *object);
@@ -278,9 +279,9 @@ static pyc_object *get_binary_complex_object(RBuffer *buffer) {
     pyc_object *ret;
     double a, b;
 
-    //b+aj
-    b = get_float64 (buffer, &error);
+    //a + bj
     a = get_float64 (buffer, &error);
+    b = get_float64 (buffer, &error);
     if (error) 
         return NULL;
     ret = R_NEW0 (pyc_object);
@@ -349,10 +350,12 @@ static pyc_object *get_interned_object(RBuffer *buffer) {
     if (error) 
         return NULL;
     ret = R_NEW0 (pyc_object);
-    if (!ret) 
+    if (!ret)
         return NULL;
-    ret->type = TYPE_STRING;
+    ret->type = TYPE_INTERNED;
     ret->data = get_bytes (buffer, n);
+    /* add data pointer to interned table */
+    r_list_append(interned_table, ret->data);
     if (!ret->data)
         R_FREE (ret);
     return ret;
@@ -373,6 +376,7 @@ static pyc_object *get_array_object_generic(RBuffer *buffer, ut32 size) {
     }
     for (i = 0; i < size; i++) {
         tmp = get_object (buffer);
+        if (tmp->type == 't')
         if (!tmp) {
             r_list_free (ret->data);
             R_FREE (ret);
@@ -696,6 +700,7 @@ pyc_object *copy_object(pyc_object *object) {
 
 static pyc_object *get_code_object(RBuffer *buffer) {
     bool error = false;
+    
     pyc_object *ret = R_NEW0 (pyc_object);
     pyc_code_object *cobj = R_NEW0 (pyc_code_object);
     if (!ret || !cobj) {
@@ -703,6 +708,7 @@ static pyc_object *get_code_object(RBuffer *buffer) {
         free (cobj);
         return NULL;
     }
+    
     ret->type = TYPE_CODE_v1;
     ret->data = cobj;
 
@@ -712,7 +718,11 @@ static pyc_object *get_code_object(RBuffer *buffer) {
     cobj->stacksize = get_ut32 (buffer, &error);
     cobj->flags = get_ut32 (buffer, &error);
 
+    //to help disassemble the code
+    cobj->start_offset = buffer->cur + 4; 
     cobj->code = get_object (buffer);
+    cobj->end_offset = buffer->cur;
+
     cobj->consts = get_object (buffer);
     cobj->names = get_object (buffer);
     cobj->varnames = get_object (buffer);
@@ -851,10 +861,10 @@ static pyc_object *get_object(RBuffer *buffer) {
 
     /*
     if (ret == NULL) {
-        printf("***%c***\n", type);
+        eprintf("***%d***\n", type);
     }
     */
-
+    
     if (flag) {
         free_object (ref_idx->data);
         ref_idx->data = copy_object (ret);
@@ -862,20 +872,24 @@ static pyc_object *get_object(RBuffer *buffer) {
     return ret;
 }
 
-static bool extract_sections(pyc_object *obj, RList *sections, char *prefix) {
+static bool extract_sections(pyc_object *obj, RList *sections, RList *cobjs, char *prefix) {
     RListIter *i;
     pyc_code_object *cobj;
     RBinSection *section;
+    
     //each code object is a section
     if (!obj || (obj->type != TYPE_CODE_v1))
         return false;
     cobj = obj->data;
     if (!cobj || !cobj->name)
         return false;
-    if (cobj->name->type != TYPE_ASCII && cobj->name->type != TYPE_STRING)
+    if (cobj->name->type != TYPE_ASCII && cobj->name->type != TYPE_STRING && cobj->name->type != TYPE_INTERNED)
         return false;
     if (!cobj->name->data)
         return false;
+    //add the cobj to objs list
+    if (!r_list_append (cobjs, cobj))
+        goto fail;
     section = R_NEW0 (RBinSection);
     prefix = r_str_newf ("%s%s%s", prefix ? prefix : "",
                 prefix ? "." : "", cobj->name->data);
@@ -883,25 +897,30 @@ static bool extract_sections(pyc_object *obj, RList *sections, char *prefix) {
         goto fail;
     if (!strncpy ((char*)&section->name, prefix, R_BIN_SIZEOF_STRINGS))
         goto fail;
+    section->paddr = cobj->start_offset+1;
+    section->vaddr = cobj->start_offset+1;
+    section->size = cobj->end_offset - cobj->start_offset- 1;
+    section->vsize = cobj->end_offset - cobj->start_offset - 1;
     if (!r_list_append (sections, section))
         goto fail;
     if (cobj->consts->type != TYPE_TUPLE)
         return false;
     r_list_foreach (((RList*)(cobj->consts->data)), i, obj)
-        extract_sections (obj, sections, prefix);
+        extract_sections (obj, sections, cobjs, prefix);
     free (prefix);
     return true;
 fail:
+
     free (section);
     free (prefix);
     return false;
 }
 
-bool get_sections_from_code_objects(RBuffer *buffer, RList *sections) {
+bool get_sections_from_code_objects(RBuffer *buffer, RList *sections, RList *cobjs) {
     bool ret;
     refs = r_list_new ();
     refs->free = (RListFree)free_object;
-    ret = extract_sections (get_object (buffer), sections, NULL);
+    ret = extract_sections (get_object (buffer), sections, cobjs, NULL);
     r_list_free (refs);
     return ret;
 }
