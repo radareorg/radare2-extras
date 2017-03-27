@@ -65,8 +65,10 @@ typedef struct {
 	pyc_object *name;
 	ut32 firstlineno;
 	pyc_object *lnotab;
+	st64 start_offset;
+	st64 end_offset;
 } pyc_code_object;
 
-bool get_sections_from_code_objects(RBuffer *buffer, RList *sections);
+bool get_sections_from_code_objects(RBuffer *buffer, RList *sections, RList *objs);
 
 #endif
