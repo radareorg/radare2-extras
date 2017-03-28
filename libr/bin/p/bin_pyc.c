@@ -44,7 +44,7 @@ static RBinInfo *info(RBinFile *arch) {
 static RList *sections(RBinFile *arch) {
 	RList *shared = r_list_new ();
 	RList *cobjs = r_list_new ();
-	
+
 	interned_table = r_list_new ();
 	r_list_append(shared, cobjs);
 	r_list_append(shared, interned_table);

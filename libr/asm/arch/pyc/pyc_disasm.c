@@ -1,6 +1,6 @@
 #include "pyc_dis.h"
 
-void init_opname_table() {
+void init_opname_table () {
     int i;
 
     for(i = 0; i < 0xff+1; i++)
@@ -128,16 +128,16 @@ void init_opname_table() {
     op_name[MAP_ADD] = "MAP_ADD";
 }
 
-int r_pyc_disasm(RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *interned_table, ut64 pc) {
+int r_pyc_disasm (RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *interned_table, ut64 pc) {
     pyc_code_object *cobj = NULL, *t = NULL;
     ut32 extended_arg = 0, i = 0, oparg;
     st64 start_offset, end_offset;
     RListIter *iter = NULL;
+    char *name = NULL;
+    char *arg = NULL;
     RList *varnames;
     RList *consts;
     RList *names;
-    char *name = NULL;
-    char *arg = NULL;
     ut8 op;
 
     r_list_foreach (cobjs, iter, t) {
@@ -150,6 +150,7 @@ int r_pyc_disasm(RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *interne
     }
 
     if (cobj != NULL) {
+        /* TODO: adding line number and offset */
         varnames = cobj->varnames->data;
         consts = cobj->consts->data;
         names = cobj->names->data;
@@ -167,9 +168,9 @@ int r_pyc_disasm(RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *interne
             i += 2;
             if (op == EXTENDED_ARG)
                   extended_arg = oparg*65536;
-              arg = parse_arg(op, oparg, names, consts, varnames, interned_table);
+              arg = parse_arg (op, oparg, names, consts, varnames, interned_table);
             if (arg != NULL) {
-                strcat (opstruct->buf_asm, r_str_newf ("\t(%s)", arg));
+                strcat (opstruct->buf_asm, r_str_newf ("%20s", arg));
             }   
         }       
         return i;
@@ -177,23 +178,56 @@ int r_pyc_disasm(RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *interne
     return 0;
 }
 
-char *parse_arg(ut8 op, ut32 oparg, RList *names, RList *consts, RList *varnames, RList *interned_table) {
+char *parse_arg (ut8 op, ut32 oparg, RList *names, RList *consts, RList *varnames, RList *interned_table) {
     pyc_object *t = NULL;
-    RListIter *iter = NULL;
     char *arg = NULL;
 
     switch (op) {
+    case DUP_TOPX:
+    case UNPACK_SEQUENCE:
+    case BUILD_TUPLE:
+    case BUILD_LIST: //checked
+    case BUILD_SET:
+    case JUMP_FORWARD:
+    case CONTINUE_LOOP:
+    case SETUP_LOOP:
+    case BUILD_SLICE:
+    case CALL_FUNCTION:
+    case POP_JUMP_IF_FALSE:
+    case POP_JUMP_IF_TRUE:
+    case JUMP_ABSOLUTE:
+    case JUMP_IF_TRUE_OR_POP:
+    case JUMP_IF_FALSE_OR_POP:
+    case LOAD_CLOSURE:
+    case LOAD_DEREF:
+    case CALL_FUNCTION_KW:
+        arg = r_str_newf ("%u", oparg);
+    break;
     case LOAD_FAST:
     case STORE_FAST:
     case DELETE_FAST:
         t = (pyc_object*)r_list_get_n (varnames, oparg);
+        if (t == NULL)
+            return NULL;
         arg = t->data;
     break;
     case LOAD_CONST:
         t = (pyc_object*)r_list_get_n (consts, oparg);
-        if (t->type == TYPE_CODE_v1) {
+        if (t == NULL)
+            return NULL;
+        switch (t->type) {
+        case TYPE_CODE_v1:
             arg = strdup("CodeObject");
-        } else {
+        break;
+        case TYPE_TUPLE:
+            arg = generic_array_obj_to_string (t->data);
+        break;
+        case TYPE_STRING:
+        case TYPE_INTERNED:
+        case TYPE_STRINGREF:
+            arg = r_str_newf ("'%s'", t->data);
+        break;
+        default:
             arg = t->data;
         }
     break;
@@ -205,33 +239,59 @@ char *parse_arg(ut8 op, ut32 oparg, RList *names, RList *consts, RList *varnames
     case IMPORT_FROM:
     case LOAD_GLOBAL:
         t = (pyc_object*)r_list_get_n (names, oparg);
-        if (t->type == TYPE_STRING || t->type == TYPE_INTERNED)
-            arg = t->data;
-        else if (t->type == TYPE_INT)
-            arg = r_list_get_n(interned_table, atoi(t->data));
+        if (t == NULL)
+            return NULL;
+        arg = t->data;
     break;
     }
     return arg;
 }
 
 /* for debugging purpose */
-void dump(RList *l) {
+void dump (RList *l) {
     RListIter *it;
     pyc_object *e = NULL;
 
-    r_list_foreach(l, it, e) {
-        if (e->type == TYPE_STRING || e->type == TYPE_INTERNED)
-            eprintf("[TYPE_STRING || TYPE_INTERNED] %s\n", (char*)e->data);
-
-        if(e->type == TYPE_INT) {
-            eprintf("[TYPE_INT] %s\n", (char *)e->data);
+    r_list_foreach (l, it, e) {
+        if (e->type == TYPE_TUPLE) {
+            eprintf ("[TYPE_TUPLE] %s\n", generic_array_obj_to_string(e->data));
+            return;
         }
+        eprintf("[DATA] %s\n", (char *)e->data);
     }
 }
 
-void dump_cobj(pyc_code_object *c) {
+char *generic_array_obj_to_string (RList *l) {
+    RListIter *iter = NULL;
+    pyc_object *e = NULL;
+    ut32 size = 256, used = 0;
+    char *r = NULL, *buf = NULL;
+
+    buf = (char*)calloc (1024, 0);
+    r_list_foreach (l, iter, e) {
+        while ( !(strlen (e->data) < size) ) {
+            size *= 2;
+            buf = realloc (buf, used + size);
+            if (!buf) {
+                eprintf ("generic_array_obj_to_string cannot request more memory");
+                return NULL;
+            }
+        }
+        strcat (buf, e->data);
+        strcat (buf, ",");
+        size -= strlen (e->data) + 1;
+        used += strlen (e->data) + 1;
+    }
+    /* remove last , */
+    buf[ strlen(buf)-1 ] = '\0';
+    r = r_str_newf ("(%s)", buf);
+    free(buf);
+    return r;
+}
+
+void dump_cobj (pyc_code_object *c) {
     eprintf("[DUMP]\n");
-    eprintf("name: %s\n", c->name->data);
+    eprintf("name: %s\n", (char *)c->name->data);
     eprintf("const_start\n");
     dump(c->consts->data);
     eprintf("consts_end\n");
