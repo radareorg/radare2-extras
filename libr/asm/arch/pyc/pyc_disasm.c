@@ -133,13 +133,14 @@ int r_pyc_disasm (RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *intern
     ut32 extended_arg = 0, i = 0, oparg;
     st64 start_offset, end_offset;
     RListIter *iter = NULL;
+
     char *name = NULL;
     char *arg = NULL;
     RList *varnames;
     RList *consts;
     RList *names;
     ut8 op;
-
+  
     r_list_foreach (cobjs, iter, t) {
         start_offset = t->start_offset;
         end_offset = t->end_offset;

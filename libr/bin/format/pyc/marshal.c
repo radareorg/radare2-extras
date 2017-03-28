@@ -436,7 +436,6 @@ static pyc_object *get_small_tuple_object (RBuffer *buffer) {
     }
     return NULL;
 }
-*/
 
 static pyc_object *get_tuple_object (RBuffer *buffer) {
     pyc_object *ret = NULL;

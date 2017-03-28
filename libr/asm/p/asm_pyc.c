@@ -12,6 +12,7 @@ static int disassemble (RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 
 	RBin *bin = a->binb.bin;
 	ut64 pc = a->pc;
+  
 	RBinPlugin *plugin = bin && bin->cur && bin->cur->o ?
 		bin->cur->o->plugin : NULL;
 
@@ -48,4 +49,5 @@ struct r_lib_struct_t radare_plugin = {
 	.data = &r_asm_plugin_pyc,
 	.version = R2_VERSION
 };
+
 #endif

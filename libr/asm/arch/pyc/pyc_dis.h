@@ -74,4 +74,3 @@ char *generic_array_obj_to_string (RList *l);
 void dump_cobj (pyc_code_object *c);
 void init_opname_table ();
 void dump (RList *l);
-

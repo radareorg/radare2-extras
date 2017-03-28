@@ -1,0 +1,39 @@
+#!/bin/sh
+
+s='$'
+showHelp() {
+	echo "Usage: r2kaitai [signature.ksy] [$s{R2_BLOCK}]"
+}
+[ "$1" = -h ] && showHelp && exit 0
+
+SIGN="$1"
+FILE="$2"
+R2PM_GITDIR=`r2pm -H R2PM_GITDIR`
+ROOT=${R2PM_GITDIR}/kaitai-struct-compiler/formats
+
+if [ ! -d "${ROOT}" ]; then
+	echo "Cannot find kaitai-struct-compiler"
+	echo '  $ r2pm -i kaitai-struct-compiler'
+	exit 1
+fi
+
+if [ -z "$SIGN" ]; then
+	( cd ${ROOT} && find * -iname '*.ksy' | sed -e 's,.ksy$,,' )
+	exit 0
+fi
+
+if [ ! -f "${ROOT}/${SIGN}.ksy" ]; then
+	echo "Invalid kaitai signature file"
+	exit 1
+fi
+
+if [ -z "${FILE}" ]; then
+	FILE="${R2_FILE}"
+	if [ -z "${FILE}" ]; then
+		showHelp
+		exit 1
+	fi
+fi
+
+echo r2pm -r ksv ${FILE} ${R2PM_GITDIR}/kaitai-struct-compiler/formats/${SIGN}.ksy
+exec r2pm -r ksv ${FILE} ${ROOT}/${SIGN}.ksy
