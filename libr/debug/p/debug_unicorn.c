@@ -212,7 +212,7 @@ static RList *r_debug_unicorn_map_get(RDebug *dbg) {
 		m = r_debug_map_new (sect->name,
 			sect->vaddr,
 			sect->vaddr + sect->vsize,
-			sect->rwx, 0);
+			sect->flags, 0);
 		if (m) {
 			r_list_append (list, m);
 		}
@@ -541,9 +541,9 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 
 	r_list_foreach (dbg->iob.io->sections, iter, sect) {
 		int perms = 0;
-		if (sect->rwx & R_IO_READ) perms |= UC_PROT_READ;
-		if (sect->rwx & R_IO_WRITE) perms |= UC_PROT_WRITE;
-		if (sect->rwx & R_IO_EXEC) perms |= UC_PROT_EXEC;
+		if (sect->flags & R_IO_READ) perms |= UC_PROT_READ;
+		if (sect->flags & R_IO_WRITE) perms |= UC_PROT_WRITE;
+		if (sect->flags & R_IO_EXEC) perms |= UC_PROT_EXEC;
 		ut64 mapbase = sect->vaddr >> 12 << 12;
 		int bufdelta = sect->vaddr - mapbase;
 		ut32 vsz = 64 * 1024;
@@ -551,14 +551,13 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		int i;
 		if (sect->vaddr < lastvaddr)
 			continue;
-		if (!(sect->rwx & 1))
+		if (!(sect->flags & 1))
 			continue;
 		if (!strstr (sect->name, "text"))
 			continue;
 		buf = calloc (vsz+bufdelta+1024, 1);
 		if (!buf) continue;
 		message ("[UNICORN] BASE 0x%08"PFMT64x"\n", mapbase);
-		dbg->iob.io->raw = 0;
 		//message ("DELTA = %d SIZE = %d\n", bufdelta,
 			//R_MIN (sect->vsize, (vsz - bufdelta)));
 		dbg->iob.read_at (dbg->iob.io, sect->vaddr, buf + bufdelta,
