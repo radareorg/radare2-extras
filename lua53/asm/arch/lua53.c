@@ -88,6 +88,7 @@ static int findNextWordStart(const char *str){
 			do {
 				++chars_skipped;
 				if (c == '\0') {
+					// XXX DEAD CODE
 					Dprintf ("Invalic Char 0x%02x\n", c);
 					return -1;
 				}

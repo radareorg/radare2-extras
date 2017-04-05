@@ -52,7 +52,7 @@ static void addSection(RList *list, const char *name, ut64 addr, ut32 size, bool
 		return;
 	}
 
-	strcpy (binSection->name, name);
+	strncpy (binSection->name, name, sizeof (binSection->name) - 1);
 
 	binSection->vaddr = binSection->paddr = addr;
 	binSection->size = binSection->vsize = size;
@@ -102,7 +102,13 @@ static void addSections(LuaFunction *func, ParseStruct *parseStruct){
 	r_str_free (string);
 }
 static RList *sections(RBinFile *arch) {
+	if (!arch) {
+		return NULL;
+	}
 	const ut8 *bytes = arch? r_buf_buffer (arch->buf): NULL;
+	if (!bytes) {
+		return NULL;
+	}
 	ut64 sz = arch? r_buf_size (arch->buf): 0;
 
 	Dprintf ("Sections\n");
@@ -181,9 +187,6 @@ static void handleFuncSymbol(LuaFunction *func, ParseStruct *parseStruct){
 		string[func->name_size] = '\0';
 	}
 	char string_buffer[R_BIN_SIZEOF_STRINGS + 1];
-
-
-
 	sprintf (string_buffer, "lineDefined.%s", string);
 	addSymbol (parseStruct->data, string_buffer, func->code_offset - 3 - 2 * lua53_data.intSize, lua53_data.intSize, "NUM");
 	sprintf (string_buffer, "lastLineDefined.%s", string);
@@ -214,7 +217,6 @@ static void handleFuncSymbol(LuaFunction *func, ParseStruct *parseStruct){
 }
 
 static RList *strings(RBinFile *arch) {
-
 	Dprintf ("Strings\n");
 	const ut8 *bytes = arch? r_buf_buffer (arch->buf): NULL;
 	ut64 sz = arch? r_buf_size (arch->buf): 0;
@@ -229,14 +231,17 @@ static RList *strings(RBinFile *arch) {
 	if (!parseStruct.data) {
 		return NULL;
 	}
-
 	lua53parseFunction (bytes, headersize, sz, 0, &parseStruct);
 
 	Dprintf ("End Strings\n");
 	return parseStruct.data;
 }
+
 static RList *symbols(RBinFile *arch) {
 	Dprintf ("Symbols\n");
+	if (!arch) {
+		return NULL;
+	}
 	const ut8 *bytes = arch? r_buf_buffer (arch->buf): NULL;
 	ut64 sz = arch? r_buf_size (arch->buf): 0;
 
@@ -270,6 +275,7 @@ static RList *symbols(RBinFile *arch) {
 	Dprintf ("End Symbols\n");
 	return parseStruct.data;
 }
+
 static RBinInfo *info(RBinFile *arch) {
 	RBinInfo *ret = NULL;
 	if (!(ret = R_NEW0 (RBinInfo))) {
@@ -285,9 +291,9 @@ static RBinInfo *info(RBinFile *arch) {
 	ret->big_endian = 0;
 	return ret;
 }
-static void addEntry(LuaFunction *func, ParseStruct *parseStruct){
 
-	if (func->parent_func == NULL) {
+static void addEntry(LuaFunction *func, ParseStruct *parseStruct){
+	if (!func->parent_func) {
 		RBinAddr *ptr = NULL;
 		if ((ptr = R_NEW0 (RBinAddr))) {
 			ptr->paddr = ptr->vaddr = func->code_offset + lua53_data.intSize;
@@ -295,9 +301,16 @@ static void addEntry(LuaFunction *func, ParseStruct *parseStruct){
 		}
 	}
 }
+
 static RList *entries(RBinFile *arch) {
+	if (!arch) {
+		return NULL;
+	}
 	Dprintf ("Entries\n");
 	const ut8 *bytes = arch? r_buf_buffer (arch->buf): NULL;
+	if (!bytes) {
+		return NULL;
+	}
 	ut64 sz = arch? r_buf_size (arch->buf): 0;
 
 	ut64 headersize = 4 + 1 + 1 + 6 + 5 + bytes[15] + bytes[16] + 1;// header + version + format + stringterminators + sizes + integer + number + upvalues
