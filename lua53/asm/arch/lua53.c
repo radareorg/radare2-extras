@@ -84,7 +84,7 @@ static int findNextWordStart(const char *str){
 		c = str[chars_skipped];
 		if (isAlpha (c) || isNumeric (c) || c == '-') {	// if alphanumeric character return position
 			return chars_skipped;
-		} else if (c == ';')  {	// skip comment
+		} else if (c == ';') {	// skip comment
 			do {
 				++chars_skipped;
 				if (c == '\0') {
@@ -93,10 +93,10 @@ static int findNextWordStart(const char *str){
 				}
 				comment_char = str[chars_skipped];
 			} while (comment_char != '\n');	// if no newline
-		} else if (c == '\n')  {// skip comment
+		} else if (c == '\n') {	// skip comment
 			++chars_skipped;
 			continue;
-		} else if (c == '\0')  {
+		} else if (c == '\0') {
 			break;
 		} else {
 			Dprintf ("Invalic Char 0x%02x\n", c);
