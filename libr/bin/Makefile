@@ -7,6 +7,9 @@ mdmp:
 pyc:
 	cd p ; $(MAKE) bin_pyc.$(LIBEXT)
 
+pcap:
+	cd p ; $(MAKE) bin_pcap.$(LIBEXT)
+
 clean:
 	rm -f p/*.$(LIBEXT)
 
