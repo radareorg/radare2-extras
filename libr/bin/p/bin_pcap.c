@@ -1,5 +1,6 @@
 #include <r_bin.h>
 #include <r_lib.h>
+#include <r_types.h>
 #include "pcap.h"
 
 #define OPP_ENDIAN  1
@@ -26,8 +27,10 @@ static RBinInfo* info(RBinFile *arch) {
 	}
 	pcap_file_hdr_t *header = &((pcap_obj_t*) arch->o->bin_obj)->header;
 	ret->file = strdup (arch->file);
-	ret->type = r_str_newf ("pcap v%d.%d file", header->version_major,
-							header->version_minor);
+	ret->type = r_str_newf ("tcpdump capture file - version %d.%d (%s, "
+							"capture length %"PFMT32u ")", header->version_major,
+							header->version_minor, pcap_net_type (header->network),
+							header->max_pkt_len);
 	ret->rclass = strdup ("pcap");
 	return ret;
 }
@@ -88,7 +91,15 @@ static void* load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, 
 		}
 		obj->endian = OPP_ENDIAN;
 	}
-	if (obj->endian == OPP_ENDIAN) {
+	// Reload file header
+	read_pcap_file_hdr (&obj->header, buf, obj->endian);
+	obj->pkts = r_list_new ();
+	ut64 i = sizeof (pcap_pktrec_hdr_t);
+	pcap_pktrec_hdr_t pkthdr;
+	while (i <= sz - sizeof (pcap_pktrec_hdr_t)) {
+		r_list_append (obj->pkts, (void*) i);
+		read_pcap_pktrec_hdr (&pkthdr, buf, obj->endian);
+		i += sizeof (pcap_pktrec_hdr_t) + pkthdr.cap_len;
 	}
 	return obj;
 }
@@ -102,7 +113,8 @@ static bool load(RBinFile *arch) {
 	}
 	const ut8 *bytes = r_buf_buffer (arch->buf);
 	ut64 size = r_buf_size (arch->buf);
-	return true;
+	arch->o->bin_obj = load_bytes (arch, bytes, size, arch->o->loadaddr, arch->sdb);
+	return arch->o->bin_obj != NULL;
 }
 
 RBinPlugin r_bin_plugin_pcap = {

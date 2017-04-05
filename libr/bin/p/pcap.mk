@@ -1,4 +1,4 @@
-OBJ_PCAP=bin_pcap.o
+OBJ_PCAP=bin_pcap.o ../format/pcap/pcap.o
 
 STATIC_OBJ+=${OBJ_PCAP}
 TARGET_PCAP=bin_pcap.${LIBEXT}
