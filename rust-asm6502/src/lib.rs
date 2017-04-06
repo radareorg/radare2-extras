@@ -5,10 +5,11 @@ use libc::*;
 use std::ffi::CString;
 
 const MY_NAME : *const c_char = b"6502.rs\0" as *const [u8] as *const c_char;
-const R2_VERSION: &'static [u8] = b"1.2.0-git\0";
+const R2_VERSION: &'static [u8] = b"1.4.0-git\0";
 const MY_ARCH : &'static [u8] = b"6502\0";
 const MY_DESC : &'static [u8] = b"6502 disassembler in Rust\0";
 const MY_LICENSE : &'static [u8] = b"MIT\0";
+const MY_AUTHOR : &'static [u8] = b"radare";
 
 // order matters because of libr/util/lib.c
 #[repr(C,i32)]
@@ -35,6 +36,8 @@ pub enum RLibType {
 pub struct RAsmPlugin {
     name: *const c_char,
     arch: *const c_char,
+    author: *const c_char,
+    version: *const c_char,
     cpus: *const c_char,
     desc: *const c_char,
     license: *const c_char, //c_char,
@@ -149,6 +152,8 @@ extern "C" fn _set_subarch (asm: *const c_void, arch: *const c_char) -> c_int {
 const r_asm_plugin_6502rs: RAsmPlugin = RAsmPlugin {
     name : MY_NAME,
     arch : MY_ARCH as *const [u8] as *const c_char,
+    author : MY_AUTHOR as *const [u8] as *const c_char,
+    version : MY_NAME,
     license : MY_LICENSE as *const [u8] as *const c_char,
     user : 0,
     cpus : b"\0" as *const [u8] as *const c_char,
