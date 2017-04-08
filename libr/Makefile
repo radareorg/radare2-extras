@@ -14,6 +14,9 @@ m68k:
 	$(MAKE) -C asm m68k_net
 	$(MAKE) -C anal m68k_net
 
+zyan:
+	$(MAKE) -C asm zyan
+
 clean:
 	$(MAKE) -C asm clean
 	$(MAKE) -C anal clean
@@ -31,5 +34,8 @@ olly-install:
 m68k-install:
 	cp -f asm/p/asm_m68k_net.$(LIBEXT) $(R2PM_PLUGDIR)
 	cp -f anal/p/anal_m68k_net.$(LIBEXT) $(R2PM_PLUGDIR)
+
+zyan-install:
+	cp -f asm/p/asm_x86_zyan.$(LIBEXT) $(R2PM_PLUGDIR)
 
 include ../options.mk
