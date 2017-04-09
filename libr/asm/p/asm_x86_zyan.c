@@ -1,4 +1,4 @@
-/* radare - GPL3 - Copyright 2009-2015 - pancake, nibble */
+/* radare - GPL3 - Copyright 2017 - mrexodia */
 
 #include <stdio.h>
 #include <string.h>
@@ -14,16 +14,13 @@ static int disassemble(RAsm *a, RAsmOp *aop, const ut8 *buf, int len) {
 	static ZydisInstructionDecoder decr;
 	static ZydisInstructionInfo info;
 	static ZydisInstructionFormatter fmtr;
-	ZydisStatus st;
 
-	ZydisDecoderInitInstructionDecoder(&decr, a->bits);
-	memset(&info, 0, sizeof(info));
-	st = ZydisDecoderDecodeInstruction(&decr, buf, len, a->pc, &info);
-	if (ZYDIS_SUCCESS(st)) {
-		ZydisFormatterInitInstructionFormatter(&fmtr,
-			ZYDIS_FORMATTER_STYLE_INTEL);
-		ZydisFormatterFormatInstruction(&fmtr, &info, aop->buf_asm,
-			R_ASM_BUFSIZE); 
+	ZydisDecoderInitInstructionDecoder (&decr, a->bits);
+	memset (&info, 0, sizeof (info));
+	ZydisStatus st = ZydisDecoderDecodeInstruction (&decr, buf, len, a->pc, &info);
+	if (ZYDIS_SUCCESS (st)) {
+		ZydisFormatterInitInstructionFormatter (&fmtr, ZYDIS_FORMATTER_STYLE_INTEL);
+		ZydisFormatterFormatInstruction (&fmtr, &info, aop->buf_asm, R_ASM_BUFSIZE);
 	}
 
 	return aop->size = info.length;
@@ -39,7 +36,7 @@ static RAsmPlugin r_asm_plugin_x86_zyan = {
 };
 
 #ifndef CORELIB
-struct r_lib_struct_t radare_plugin = {
+RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_ASM,
 	.data = &r_asm_plugin_x86_zyan,
 	.version = R2_VERSION

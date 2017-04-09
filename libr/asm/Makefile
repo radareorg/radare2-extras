@@ -1,3 +1,5 @@
+D=$(HOME)/.config/radare2/plugins
+
 bea:
 	cd p ; $(MAKE) asm_x86_bea.$(LIBEXT)
 
@@ -11,10 +13,16 @@ olly:
 	cd p ; $(MAKE) asm_x86_olly.$(LIBEXT)
 
 m68k_net:
-	cd p ; $(MAKE) asm_m68k_net.$(LIBEXT)
+	$(MAKE) -C p asm_m68k_net.$(LIBEXT)
 
 zyan:
-	cd p ; $(MAKE) asm_x86_zyan.$(LIBEXT)
+	$(MAKE) -C p asm_x86_zyan.$(LIBEXT)
+
+zyan-install: zyan
+	cp -f p/asm_x86_zyan.$(LIBEXT) $(D)
+
+zyan-uninstall:
+	$(RM) $(D)/asm_x86_zyan.$(LIBEXT)
 	
 clean:
 	rm -f p/asm_x86_bea.$(LIBEXT)
