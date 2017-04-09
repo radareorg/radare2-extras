@@ -5,12 +5,14 @@
 
 #include "pyc_dis.h"
 
-static int disassemble(RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
-	ut64 pc = a->pc;
-	RList *shared = NULL;
+static int disassemble (RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	RList *interned_table = NULL;
+	RList *shared = NULL;
 	RList *cobjs = NULL;
+
 	RBin *bin = a->binb.bin;
+	ut64 pc = a->pc;
+  
 	RBinPlugin *plugin = bin && bin->cur && bin->cur->o ?
 		bin->cur->o->plugin : NULL;
 
@@ -26,7 +28,7 @@ static int disassemble(RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	return r;
 }
 
-static int init(void *user) {
+static int init (void *user) {
 	init_opname_table ();
 	return 0;
 }
@@ -47,4 +49,5 @@ struct r_lib_struct_t radare_plugin = {
 	.data = &r_asm_plugin_pyc,
 	.version = R2_VERSION
 };
+
 #endif
