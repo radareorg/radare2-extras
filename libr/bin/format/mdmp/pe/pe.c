@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2008-2016 nibble, pancake, inisider */
+/* radare - LGPL - Copyright 2008-2017 nibble, pancake, inisider */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +11,6 @@
 
 #define PE_IMAGE_FILE_MACHINE_RPI2 452
 #define MAX_METADATA_STRING_LENGTH 256
-
 #define bprintf if(bin->verbose) eprintf
 
 struct SCV_NB10_HEADER;
@@ -117,6 +116,31 @@ struct r_bin_pe_addr_t *PE_(check_msvcseh) (struct PE_(r_bin_pe_obj_t) *bin) {
 				}
 			}
 
+		}
+	}
+	// MSVC AMD64
+	// 48 83 EC 28       sub     rsp, 0x28
+	// E8 xx xx xx xx    call    xxxxxxxx
+	// 48 83 C4 28       add     rsp, 0x28
+	// E9 xx xx xx xx    jmp     xxxxxxxx
+	if (b[4] == 0xe8 && b[13] == 0xe9) {
+		const st32 jmp_dst = b[14] | (b[15] << 8) | (b[16] << 16) | (b[17] << 24);
+		entry->paddr += (5 + 13 + jmp_dst);
+		entry->vaddr += (5 + 13 + jmp_dst);
+		if (r_buf_read_at (bin->b, entry->paddr, b, sizeof (b)) > 0) {
+			// from des address of jmp, search for 4C ... 48 ... 8B ... E8
+			// 4C 8B C0                    mov     r8, rax
+			// 48 8B 17                    mov     rdx, qword [rdi]
+			// 8B 0B                       mov     ecx, dword [rbx]
+			// E8 xx xx xx xx              call    main
+			for (n = 0; n < sizeof (b) - 13; n++) {
+				if (b[n] == 0x4c && b[n + 3] == 0x48 && b[n + 6] == 0x8b && b[n + 8] == 0xe8) {
+					const st32 call_dst = b[n + 9] | (b[n + 10] << 8) | (b[n + 11] << 16) | (b[n + 12] << 24);
+					entry->paddr += (n + 5 + 8 + call_dst);
+					entry->vaddr += (n + 5 + 8 + call_dst);
+					return entry;
+				}
+			}
 		}
 	}
 	//Microsoft Visual-C
@@ -240,13 +264,13 @@ struct r_bin_pe_addr_t *PE_(check_unknow) (struct PE_(r_bin_pe_obj_t) *bin) {
 }
 
 struct r_bin_pe_addr_t *PE_(r_bin_pe_get_main_vaddr)(struct PE_(r_bin_pe_obj_t) *bin) {
-	struct r_bin_pe_addr_t *entry;
-	entry = PE_(check_msvcseh) (bin);
-	if (entry == NULL)
+	struct r_bin_pe_addr_t *entry = PE_(check_msvcseh) (bin);
+	if (!entry) {
 		entry = PE_(check_mingw) (bin);
-	if (entry == NULL)
+	}
+	if (!entry) {
 		entry = PE_(check_unknow) (bin);
-
+	}
 	return entry;
 }
 
@@ -337,7 +361,7 @@ static int bin_pe_parse_imports(struct PE_(r_bin_pe_obj_t)* bin,
 		if (len != sizeof (PE_DWord)) {
 			bprintf ("Warning: read (import table)\n");
 			goto error;
-		}else if (import_table) {
+		} else if (import_table) {
 			if (import_table & ILT_MASK1) {
 				import_ordinal = import_table & ILT_MASK2;
 				import_hint = 0;
@@ -658,8 +682,9 @@ static int bin_pe_init_sections(struct PE_(r_bin_pe_obj_t)* bin) {
 		r_sys_perror ("malloc (section header)");
 		goto out_error;
 	}
-	if (r_buf_read_at (bin->b, bin->dos_header->e_lfanew + 4 + sizeof (PE_(image_file_header)) +
-		bin->nt_headers->file_header.SizeOfOptionalHeader,
+	bin->section_header_offset = bin->dos_header->e_lfanew + 4 + sizeof (PE_(image_file_header)) +
+		bin->nt_headers->file_header.SizeOfOptionalHeader;
+	if (r_buf_read_at (bin->b, bin->section_header_offset,
 		(ut8*) bin->section_header, sections_size) == -1) {
 		bprintf ("Warning: read (sections)\n");
 		R_FREE (bin->section_header);
@@ -874,27 +899,24 @@ static int bin_pe_init_metadata_hdr(struct PE_(r_bin_pe_obj_t)* bin) {
 		goto fail;
 	}
 
-
 	eprintf ("Metadata Signature: 0x%"PFMT64x" 0x%"PFMT64x" %d\n",
 		(ut64)metadata_directory, (ut64)metadata->Signature, (int)metadata->VersionStringLength);
 
 	// read the version string
 	int len = metadata->VersionStringLength; // XXX: dont trust this length
 	if (len > 0) {
-		metadata->VersionString = calloc (1, len);
+		metadata->VersionString = calloc (1, len + 1);
 		if (!metadata->VersionString) {
 			goto fail;
 		}
 
-		rr = r_buf_read_at (bin->b, metadata_directory + 16,
-			(ut8*) (metadata->VersionString), len);
+		rr = r_buf_read_at (bin->b, metadata_directory + 16, (ut8*)(metadata->VersionString),  len);
 		if (rr != len) {
 			eprintf ("Warning: read (metadata header) - cannot parse version string\n");
 			free (metadata->VersionString);
 			free (metadata);
 			return 0;
 		}
-
 		eprintf (".NET Version: %s\n", metadata->VersionString);
 	}
 
@@ -1326,13 +1348,14 @@ static Var* Pe_r_bin_pe_parse_var(struct PE_(r_bin_pe_obj_t)* bin, PE_DWord* cur
 		free_Var (var);
 		return NULL;
 	}
-	var->szKey = (ut16*) malloc (TRANSLATION_UTF_16_LEN);  //L"Translation"
+
+	var->szKey = (ut16*) malloc (UT16_ALIGN (TRANSLATION_UTF_16_LEN));  //L"Translation"
 	if (!var->szKey) {
 		bprintf ("Warning: malloc (Var szKey)\n");
 		free_Var (var);
 		return NULL;
 	}
-	if (r_buf_read_at (bin->b, *curAddr, (ut8*) var->szKey, TRANSLATION_UTF_16_LEN) != TRANSLATION_UTF_16_LEN) {
+	if (r_buf_read_at (bin->b, *curAddr, (ut8*) var->szKey, TRANSLATION_UTF_16_LEN) < 1) {
 		bprintf ("Warning: read (Var szKey)\n");
 		free_Var (var);
 		return NULL;
@@ -1404,7 +1427,7 @@ static VarFileInfo* Pe_r_bin_pe_parse_var_file_info(struct PE_(r_bin_pe_obj_t)* 
 		return NULL;
 	}
 
-	varFileInfo->szKey = (ut16*) malloc (VARFILEINFO_UTF_16_LEN);  //L"VarFileInfo"
+	varFileInfo->szKey = (ut16*) malloc (UT16_ALIGN(VARFILEINFO_UTF_16_LEN));  //L"VarFileInfo"
 	if (!varFileInfo->szKey) {
 		bprintf ("Warning: malloc (VarFileInfo szKey)\n");
 		free_VarFileInfo (varFileInfo);
@@ -1563,7 +1586,7 @@ static StringTable* Pe_r_bin_pe_parse_string_table(struct PE_(r_bin_pe_obj_t)* b
 		free_StringTable (stringTable);
 		return NULL;
 	}
-	stringTable->szKey = (ut16*) malloc (EIGHT_HEX_DIG_UTF_16_LEN);  //EIGHT_HEX_DIG_UTF_16_LEN
+	stringTable->szKey = (ut16*) malloc (UT16_ALIGN (EIGHT_HEX_DIG_UTF_16_LEN));  //EIGHT_HEX_DIG_UTF_16_LEN
 	if (!stringTable->szKey) {
 		bprintf ("Warning: malloc (stringTable szKey)\n");
 		free_StringTable (stringTable);
@@ -1645,7 +1668,7 @@ static StringFileInfo* Pe_r_bin_pe_parse_string_file_info(struct PE_(r_bin_pe_ob
 		return NULL;
 	}
 
-	stringFileInfo->szKey = (ut16*) malloc (STRINGFILEINFO_UTF_16_LEN);  //L"StringFileInfo"
+	stringFileInfo->szKey = (ut16*) malloc (UT16_ALIGN (STRINGFILEINFO_UTF_16_LEN));  //L"StringFileInfo"
 	if (!stringFileInfo->szKey) {
 		bprintf ("Warning: malloc (StringFileInfo szKey)\n");
 		free_StringFileInfo (stringFileInfo);
@@ -1733,7 +1756,7 @@ static PE_VS_VERSIONINFO* Pe_r_bin_pe_parse_version_info(struct PE_(r_bin_pe_obj
 		goto out_error;
 	}
 
-	vs_VersionInfo->szKey = (ut16*) malloc (VS_VERSION_INFO_UTF_16_LEN);  //L"VS_VERSION_INFO"
+	vs_VersionInfo->szKey = (ut16*) malloc (UT16_ALIGN (VS_VERSION_INFO_UTF_16_LEN));  //L"VS_VERSION_INFO"
 	if (!vs_VersionInfo->szKey) {
 		bprintf ("Warning: malloc (VS_VERSIONINFO szKey)\n");
 		goto out_error;
