@@ -23,14 +23,14 @@ static ut64 baddr(RBinFile *arch) {
 	return 0LL;
 }
 
-static Sdb *get_sdb(RBinObject *o) {
-	struct r_bin_mdmp_obj *bin;
+static Sdb *get_sdb(RBinFile *arch) {
+	struct r_bin_mdmp_obj *obj;
 
-	if (!o) return NULL;
+	if (!(arch)) return NULL;
 
-	bin = (struct r_bin_mdmp_obj *) o->bin_obj;
+	obj = (struct r_bin_mdmp_obj *)arch->o->bin_obj;
 
-	if (bin && bin->kv) return bin->kv;
+	if (obj && (obj->kv)) return obj->kv;
 
 	return NULL;
 }
@@ -197,7 +197,7 @@ static void *load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, 
 	return res;
 }
 
-static int load(RBinFile *arch) {
+static bool load(RBinFile *arch) {
 	const ut8 *bytes = arch ? r_buf_buffer (arch->buf) : NULL;
 	ut64 sz = arch ? r_buf_size (arch->buf) : 0;
 
@@ -461,19 +461,9 @@ static RList* symbols(RBinFile *arch) {
 	return ret;
 }
 
-static int check_bytes(const ut8 *buf, ut64 length) {
+static bool check_bytes(const ut8 *buf, ut64 length) {
 	return buf && (length > sizeof (struct minidump_header))
 		&& (!memcmp (buf, MDMP_MAGIC, 6));
-}
-
-static int check(RBinFile *arch) {
-	const ut8 *bytes;
-	ut64 sz;
-
-	bytes = arch ? r_buf_buffer (arch->buf) : NULL;
-	sz = arch ? r_buf_size (arch->buf) : 0;
-
-	return check_bytes (bytes, sz);
 }
 
 RBinPlugin r_bin_plugin_mdmp = {
@@ -481,7 +471,6 @@ RBinPlugin r_bin_plugin_mdmp = {
 	.desc = "Minidump format r_bin plugin",
 	.license = "LGPL3",
 	.baddr = &baddr,
-	.check = &check,
 	.check_bytes = &check_bytes,
 	.destroy = &destroy,
 	.entries = entries,
