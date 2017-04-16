@@ -32,14 +32,12 @@ void read_pcap_pktrec_ether(pcap_pktrec_ether_t *hdr, const ut8 *buf, int swap_e
 
 void read_pcap_pktrec_ipv4(pcap_pktrec_ipv4_t *hdr, const ut8 *buf, int swap_endian) {
 	memcpy (hdr, buf, sizeof (pcap_pktrec_ipv4_t));
-	if (swap_endian) {
-		hdr->tot_len = r_swap_ut16 (hdr->tot_len);
-		hdr->id = r_swap_ut16 (hdr->id);
-		hdr->flag_frag = r_swap_ut16 (hdr->flag_frag);
-		hdr->chksum = r_swap_ut16 (hdr->chksum);
-		hdr->src = r_swap_ut32 (hdr->src);
-		hdr->dst = r_swap_ut32 (hdr->dst);
-	}
+	hdr->tot_len = r_read_be16 (&hdr->tot_len);
+	hdr->src = r_read_be32 (&hdr->src);
+	hdr->dst = r_read_be32 (&hdr->dst);
+	hdr->id = r_read_be16 (&hdr->id);
+	hdr->flag_frag = r_read_be16 (&hdr->flag_frag);
+	hdr->chksum = r_read_be16 (&hdr->chksum);
 }
 
 void read_pcap_pktrec_tcp(pcap_pktrec_tcp_t *hdr, const ut8 *buf, int swap_endian) {
