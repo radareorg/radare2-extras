@@ -218,6 +218,104 @@ static RList *symbols(RBinFile *arch) {
 	return ret;
 }
 
+static RList *strings(RBinFile *arch) {
+	RBinString *ptr = NULL;
+	RList *ret = NULL;
+	RListIter *iter = NULL;
+	pcap_obj_t *obj = NULL;
+	const ut8 *buf = NULL;
+	char *tmp = NULL;
+	ut64 sz = 0;
+	ut64 off;
+	ut64 pkt_num = 0;
+	if (!arch || !arch->o || !arch->o->bin_obj || !arch->buf || !arch->buf->buf) {
+		return NULL;
+	}
+	obj = arch->o->bin_obj;
+	buf = r_buf_buffer (arch->buf);
+	sz = r_buf_size (arch->buf);
+	if (sz == 0 || sz == UT64_MAX) {
+		return NULL;
+	}
+	if (!(ret = r_list_new ())) {
+		return NULL;
+	}
+	if (!(tmp = malloc (obj->header.max_pkt_len + 1))) {
+		return ret;
+	}
+
+	// Go through each packet
+	r_list_foreach (obj->pkts, iter, off) {
+		pkt_num++;
+
+		// Frame header
+		pcap_pktrec_hdr_t pkthdr;
+		read_pcap_pktrec_hdr (&pkthdr, &buf[off], obj->endian);
+		if (off + sizeof (pcap_pktrec_hdr_t) + pkthdr.cap_len > sz) {
+			break;
+		}
+
+		// Ethernet data. For now, if not ethernet, continue. TODO others
+		if (obj->header.network != ETHERNET) {
+			continue;
+		}
+		off += sizeof (pcap_pktrec_hdr_t);
+		pcap_pktrec_ether_t ether;
+		read_pcap_pktrec_ether (&ether, &buf[off], obj->endian);
+
+		// IPV4 data. For now, if not IPV4, continue. TODO IPV6
+		if (ether.type != 0x08) {
+			continue;
+		}
+		off += sizeof (pcap_pktrec_ether_t);
+		pcap_pktrec_ipv4_t ipv4;
+		read_pcap_pktrec_ipv4 (&ipv4, &buf[off], obj->endian);
+		if (off + ipv4.tot_len > sz) {
+			continue;
+		}
+
+		// TCP header data. For now, if not TCP, continue. TODO others}
+		if (ipv4.protocol != 6) {
+			continue;
+		}
+		off += (ipv4.ver_len & 0x0F) * 4;
+		if (off + sizeof (pcap_pktrec_tcp_t) > sz) {
+			continue;
+		}
+		pcap_pktrec_tcp_t tcp;
+		read_pcap_pktrec_tcp (&tcp, &buf[off], obj->endian);
+		ut64 tcp_data_len = (ipv4.tot_len - ((ipv4.ver_len & 0x0F) * 4)) -
+				    (((tcp.hdr_len >> 4) & 0x0F) * 4);
+		if (tcp_data_len <= 1) {
+			continue;
+		}
+		off += ((tcp.hdr_len >> 4) & 0x0F) * 4;
+		if (tcp_data_len > obj->header.max_pkt_len || off + tcp_data_len > sz) {
+			continue;
+		}
+		size_t str_len;
+
+		memset (tmp, 0, obj->header.max_pkt_len);
+		strncpy (tmp, (const char *) &buf[off], tcp_data_len);
+		tmp[tcp_data_len] = '\0';
+		if (!(str_len = strlen (tmp))) {
+			continue;
+		}
+		if (!(ptr = R_NEW0 (RBinString))) {
+			break;
+		}
+		ptr->string = strdup (tmp);
+		ptr->paddr = ptr->vaddr = off;
+		ptr->length = str_len;
+		ptr->size = ptr->length + 1;
+		ptr->type = R_STRING_TYPE_DETECT;
+		r_list_append (ret, ptr);
+
+	}
+	free (tmp);
+	return ret;
+}
+
 static bool load(RBinFile *arch) {
 	if (!arch || !arch->o) {
 		return false;
@@ -237,6 +335,7 @@ RBinPlugin r_bin_plugin_pcap = {
 	.license = "LGPL3",
 	.info = info,
 	.load = load,
+	.strings = strings,
 	.symbols = symbols,
 	.load_bytes = load_bytes,
 	.check_bytes = check_bytes,
