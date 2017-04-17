@@ -42,16 +42,14 @@ void read_pcap_pktrec_ipv4(pcap_pktrec_ipv4_t *hdr, const ut8 *buf, int swap_end
 
 void read_pcap_pktrec_tcp(pcap_pktrec_tcp_t *hdr, const ut8 *buf, int swap_endian) {
 	memcpy (hdr, buf, sizeof (pcap_pktrec_tcp_t));
-	if (swap_endian) {
-		hdr->src_port = r_swap_ut16 (hdr->src_port);
-		hdr->dst_port = r_swap_ut16 (hdr->dst_port);
-		hdr->seq_num = r_swap_ut32 (hdr->seq_num);
-		hdr->ack_num = r_swap_ut32 (hdr->ack_num);
-		hdr->flags = r_swap_ut16 (hdr->flags);
-		hdr->win_sz = r_swap_ut16 (hdr->win_sz);
-		hdr->chksum = r_swap_ut16 (hdr->chksum);
-		hdr->urgnt_ptr = r_swap_ut16 (hdr->urgnt_ptr);
-	}
+	hdr->src_port = r_read_be16 (&hdr->src_port);
+	hdr->dst_port = r_read_be16 (&hdr->dst_port);
+	hdr->seq_num = r_read_be32 (&hdr->seq_num);
+	hdr->ack_num = r_read_be32 (&hdr->ack_num);
+	hdr->flags = r_read_be16 (&hdr->flags);
+	hdr->win_sz = r_read_be16 (&hdr->win_sz);
+	hdr->chksum = r_read_be16 (&hdr->chksum);
+	hdr->urgnt_ptr = r_read_be16 (&hdr->urgnt_ptr);
 }
 
 const char* pcap_net_type(ut32 net) {
