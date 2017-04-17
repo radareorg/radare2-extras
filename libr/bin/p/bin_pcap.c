@@ -98,6 +98,76 @@ static void *load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, 
 	return obj;
 }
 
+static void _read_tcp_sym(RList *list, const ut8 *buf, ut64 off, ut64 sz, ut64 tcplen, int endian) {
+	RBinSymbol *ptr = NULL;
+	if (off + sizeof (pcap_pktrec_tcp_t) > sz) {
+		return;
+	}
+	if (!(ptr = R_NEW0 (RBinSymbol))) {
+		return;
+	}
+	pcap_pktrec_tcp_t tcp;
+	read_pcap_pktrec_tcp (&tcp, &buf[off], endian);
+	ut64 tcp_data_len = tcplen - (((tcp.hdr_len >> 4) & 0x0F) * 4);
+	ptr->name = r_str_newf ("0x%x: Transmission Control Protocol, Src Port: %d, Dst"
+		" port: %d, Len: %d", off, tcp.src_port, tcp.dst_port,
+		tcp_data_len);
+	ptr->paddr = ptr->vaddr = off;
+	r_list_append (list, ptr);
+}
+
+static void _read_ipv4_sym(RList *list, const ut8 *buf, ut64 off, ut64 sz, int endian) {
+	RBinSymbol *ptr = NULL;
+	if (!(ptr = R_NEW0 (RBinSymbol))) {
+		return;
+	}
+	pcap_pktrec_ipv4_t ipv4;
+	read_pcap_pktrec_ipv4 (&ipv4, &buf[off], endian);
+	ptr->name = r_str_newf ("0x%x: IPV%d, Src: %d.%d.%d.%d, Dst: %d.%d.%d.%d",
+		off, (ipv4.ver_len >> 4) & 0x0F, (ipv4.src >> 24) & 0xFF,
+		(ipv4.src >> 16) & 0xFF, (ipv4.src >> 8) & 0xFF,
+		ipv4.src && 0xFF, (ipv4.dst >> 24) & 0xFF,
+		(ipv4.dst >> 16) & 0xFF, (ipv4.dst >> 8) & 0xFF,
+		ipv4.dst && 0xFF);
+	ptr->paddr = ptr->vaddr = off;
+	r_list_append (list, ptr);
+	if (off + ipv4.tot_len > sz) {
+		return;
+	}
+	off += (ipv4.ver_len & 0x0F) * 4;
+
+	// For now, if not TCP, continue. TODO others
+	switch (ipv4.protocol) {
+	case 6:
+		_read_tcp_sym (list, buf, off, sz, (ipv4.tot_len - ((ipv4.ver_len & 0x0F) * 4)), endian);
+	}
+}
+
+static void _read_ether_sym(RList *list, const ut8 *buf, ut64 off, ut64 sz, int endian) {
+	RBinSymbol *ptr = NULL;
+	if (!(ptr = R_NEW0 (RBinSymbol))) {
+		return;
+	}
+	pcap_pktrec_ether_t ether;
+	read_pcap_pktrec_ether (&ether, &buf[off], endian);
+	ptr->name = r_str_newf ("0x%x: Ethernet, Src: %02"PFMT32x ":%02"PFMT32x ":%02"PFMT32x
+		":%02"PFMT32x ":%02"PFMT32x ":%02"PFMT32x ", Dst: %02"PFMT32x
+		":%02"PFMT32x ":%02"PFMT32x ":%02"PFMT32x ":%02"PFMT32x
+		":%02"PFMT32x, off, ether.src[0], ether.src[1],
+		ether.src[2], ether.src[3], ether.src[4], ether.src[5],
+		ether.dst[0], ether.dst[1], ether.dst[2], ether.dst[3],
+		ether.dst[4], ether.dst[5]);
+	ptr->paddr = ptr->vaddr = off;
+	r_list_append (list, ptr);
+	off += sizeof (pcap_pktrec_ether_t);
+
+	// For now, if not IPV4, continue. TODO IPV6
+	switch (ether.type) {
+	case 0x08:
+		_read_ipv4_sym (list, buf, off, sz, endian);
+	}
+}
+
 static RList *symbols(RBinFile *arch) {
 	RBinSymbol *ptr = NULL;
 	RList *ret = NULL;
@@ -150,69 +220,15 @@ static RList *symbols(RBinFile *arch) {
 		if (off + sizeof (pcap_pktrec_hdr_t) + pkthdr.cap_len > sz) {
 			break;
 		}
-
-		// Ethernet data. For now, if not ethernet, continue. TODO others
-		if (obj->header.network != ETHERNET) {
-			continue;
-		}
 		off += sizeof (pcap_pktrec_hdr_t);
-		if (!(ptr = R_NEW0 (RBinSymbol))) {
-			break;
-		}
-		pcap_pktrec_ether_t ether;
-		read_pcap_pktrec_ether (&ether, &buf[off], obj->endian);
-		ptr->name = r_str_newf ("0x%x: Ethernet, Src: %02"PFMT32x ":%02"PFMT32x ":%02"PFMT32x
-			":%02"PFMT32x ":%02"PFMT32x ":%02"PFMT32x ", Dst: %02"PFMT32x
-			":%02"PFMT32x ":%02"PFMT32x ":%02"PFMT32x ":%02"PFMT32x
-			":%02"PFMT32x, off, ether.src[0], ether.src[1],
-			ether.src[2], ether.src[3], ether.src[4], ether.src[5],
-			ether.dst[0], ether.dst[1], ether.dst[2], ether.dst[3],
-			ether.dst[4], ether.dst[5]);
-		ptr->paddr = ptr->vaddr = off;
-		r_list_append (ret, ptr);
 
-		// IPV4 data. For now, if not IPV4, continue. TODO IPV6
-		if (ether.type != 0x08) {
+		// For now, if not ethernet, continue. TODO others
+		switch (obj->header.network) {
+		case ETHERNET:
+			_read_ether_sym (ret, buf, off, sz, obj->endian);
+		default:
 			continue;
 		}
-		off += sizeof (pcap_pktrec_ether_t);
-		if (!(ptr = R_NEW0 (RBinSymbol))) {
-			break;
-		}
-		pcap_pktrec_ipv4_t ipv4;
-		read_pcap_pktrec_ipv4 (&ipv4, &buf[off], obj->endian);
-		ptr->name = r_str_newf ("0x%x: IPV%d, Src: %d.%d.%d.%d, Dst: %d.%d.%d.%d",
-			off, (ipv4.ver_len >> 4) & 0x0F, (ipv4.src >> 24) & 0xFF,
-			(ipv4.src >> 16) & 0xFF, (ipv4.src >> 8) & 0xFF,
-			ipv4.src && 0xFF, (ipv4.dst >> 24) & 0xFF,
-			(ipv4.dst >> 16) & 0xFF, (ipv4.dst >> 8) & 0xFF,
-			ipv4.dst && 0xFF);
-		ptr->paddr = ptr->vaddr = off;
-		r_list_append (ret, ptr);
-		if (off + ipv4.tot_len > sz) {
-			continue;
-		}
-
-		// TCP header data. For now, if not TCP, continue. TODO others
-		if (ipv4.protocol != 6) {
-			continue;
-		}
-		off += (ipv4.ver_len & 0x0F) * 4;
-		if (off + sizeof (pcap_pktrec_tcp_t) > sz) {
-			continue;
-		}
-		if (!(ptr = R_NEW0 (RBinSymbol))) {
-			break;
-		}
-		pcap_pktrec_tcp_t tcp;
-		read_pcap_pktrec_tcp (&tcp, &buf[off], obj->endian);
-		ut64 tcp_data_len = (ipv4.tot_len - ((ipv4.ver_len & 0x0F) * 4)) -
-				    (((tcp.hdr_len >> 4) & 0x0F) * 4);
-		ptr->name = r_str_newf ("0x%x: Transmission Control Protocol, Src Port: %d, Dst"
-			" port: %d, Len: %d", off, tcp.src_port, tcp.dst_port,
-			tcp_data_len);
-		ptr->paddr = ptr->vaddr = off;
-		r_list_append (ret, ptr);
 	}
 
 	return ret;
