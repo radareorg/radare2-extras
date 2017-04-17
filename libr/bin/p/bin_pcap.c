@@ -11,7 +11,6 @@ typedef struct pcap_obj {
 	struct pcap_file_hdr header;	// File header
 	bool is_nsec;					// nsec timestamp resolution?
 	int endian;	// Relative endianness (same or different from host)
-	RList /*ut64*/ *pkts;			// Packet offsets
 } pcap_obj_t;
 
 
@@ -87,14 +86,6 @@ static void *load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, 
 	}
 	// Reload file header
 	read_pcap_file_hdr (&obj->header, buf, obj->endian);
-	obj->pkts = r_list_new ();
-	ut64 i = sizeof (pcap_file_hdr_t);
-	pcap_pktrec_hdr_t pkthdr;
-	while (i <= sz - sizeof (pcap_pktrec_hdr_t)) {
-		r_list_append (obj->pkts, (void *) i);
-		read_pcap_pktrec_hdr (&pkthdr, &buf[i], obj->endian);
-		i += sizeof (pcap_pktrec_hdr_t) + pkthdr.cap_len;
-	}
 	return obj;
 }
 
@@ -171,7 +162,6 @@ static void _read_ether_sym(RList *list, const ut8 *buf, ut64 off, ut64 sz, int 
 static RList *symbols(RBinFile *arch) {
 	RBinSymbol *ptr = NULL;
 	RList *ret = NULL;
-	RListIter *iter = NULL;
 	pcap_obj_t *obj = NULL;
 	const ut8 *buf = NULL;
 	ut64 sz = 0;
@@ -202,7 +192,8 @@ static RList *symbols(RBinFile *arch) {
 	r_list_append (ret, ptr);
 
 	// Go through each packet
-	r_list_foreach (obj->pkts, iter, off) {
+	off = sizeof (pcap_file_hdr_t);
+	while (off <= sz - sizeof (pcap_pktrec_hdr_t)) {
 		pkt_num++;
 
 		// Frame header
@@ -220,15 +211,15 @@ static RList *symbols(RBinFile *arch) {
 		if (off + sizeof (pcap_pktrec_hdr_t) + pkthdr.cap_len > sz) {
 			break;
 		}
-		off += sizeof (pcap_pktrec_hdr_t);
 
 		// For now, if not ethernet, continue. TODO others
 		switch (obj->header.network) {
 		case ETHERNET:
-			_read_ether_sym (ret, buf, off, sz, obj->endian);
+			_read_ether_sym (ret, buf, off + sizeof (pcap_pktrec_hdr_t), sz, obj->endian);
 		default:
-			continue;
+			break;
 		}
+		off += sizeof (pcap_pktrec_hdr_t) + pkthdr.cap_len;
 	}
 
 	return ret;
@@ -237,13 +228,11 @@ static RList *symbols(RBinFile *arch) {
 static RList *strings(RBinFile *arch) {
 	RBinString *ptr = NULL;
 	RList *ret = NULL;
-	RListIter *iter = NULL;
 	pcap_obj_t *obj = NULL;
 	const ut8 *buf = NULL;
 	char *tmp = NULL;
 	ut64 sz = 0;
 	ut64 off;
-	ut64 pkt_num = 0;
 	if (!arch || !arch->o || !arch->o->bin_obj || !arch->buf || !arch->buf->buf) {
 		return NULL;
 	}
@@ -261,32 +250,33 @@ static RList *strings(RBinFile *arch) {
 	}
 
 	// Go through each packet
-	r_list_foreach (obj->pkts, iter, off) {
-		pkt_num++;
-
+	off = sizeof (pcap_file_hdr_t);
+	while (off <= sz - sizeof (pcap_pktrec_hdr_t)) {
+		ut64 tmp_off = off;
 		// Frame header
 		pcap_pktrec_hdr_t pkthdr;
-		read_pcap_pktrec_hdr (&pkthdr, &buf[off], obj->endian);
-		if (off + sizeof (pcap_pktrec_hdr_t) + pkthdr.cap_len > sz) {
+		read_pcap_pktrec_hdr (&pkthdr, &buf[tmp_off], obj->endian);
+		if (tmp_off + sizeof (pcap_pktrec_hdr_t) + pkthdr.cap_len > sz) {
 			break;
 		}
+		off += sizeof (pcap_pktrec_hdr_t) + pkthdr.cap_len;
 
 		// Ethernet data. For now, if not ethernet, continue. TODO others
 		if (obj->header.network != ETHERNET) {
 			continue;
 		}
-		off += sizeof (pcap_pktrec_hdr_t);
+		tmp_off += sizeof (pcap_pktrec_hdr_t);
 		pcap_pktrec_ether_t ether;
-		read_pcap_pktrec_ether (&ether, &buf[off], obj->endian);
+		read_pcap_pktrec_ether (&ether, &buf[tmp_off], obj->endian);
 
 		// IPV4 data. For now, if not IPV4, continue. TODO IPV6
 		if (ether.type != 0x08) {
 			continue;
 		}
-		off += sizeof (pcap_pktrec_ether_t);
+		tmp_off += sizeof (pcap_pktrec_ether_t);
 		pcap_pktrec_ipv4_t ipv4;
-		read_pcap_pktrec_ipv4 (&ipv4, &buf[off], obj->endian);
-		if (off + ipv4.tot_len > sz) {
+		read_pcap_pktrec_ipv4 (&ipv4, &buf[tmp_off], obj->endian);
+		if (tmp_off + ipv4.tot_len > sz) {
 			continue;
 		}
 
@@ -294,25 +284,25 @@ static RList *strings(RBinFile *arch) {
 		if (ipv4.protocol != 6) {
 			continue;
 		}
-		off += (ipv4.ver_len & 0x0F) * 4;
-		if (off + sizeof (pcap_pktrec_tcp_t) > sz) {
+		tmp_off += (ipv4.ver_len & 0x0F) * 4;
+		if (tmp_off + sizeof (pcap_pktrec_tcp_t) > sz) {
 			continue;
 		}
 		pcap_pktrec_tcp_t tcp;
-		read_pcap_pktrec_tcp (&tcp, &buf[off], obj->endian);
+		read_pcap_pktrec_tcp (&tcp, &buf[tmp_off], obj->endian);
 		ut64 tcp_data_len = (ipv4.tot_len - ((ipv4.ver_len & 0x0F) * 4)) -
 				    (((tcp.hdr_len >> 4) & 0x0F) * 4);
 		if (tcp_data_len <= 1) {
 			continue;
 		}
-		off += ((tcp.hdr_len >> 4) & 0x0F) * 4;
-		if (tcp_data_len > obj->header.max_pkt_len || off + tcp_data_len > sz) {
+		tmp_off += ((tcp.hdr_len >> 4) & 0x0F) * 4;
+		if (tcp_data_len > obj->header.max_pkt_len || tmp_off + tcp_data_len > sz) {
 			continue;
 		}
 		size_t str_len;
 
 		memset (tmp, 0, obj->header.max_pkt_len);
-		strncpy (tmp, (const char *) &buf[off], tcp_data_len);
+		strncpy (tmp, (const char *) &buf[tmp_off], tcp_data_len);
 		tmp[tcp_data_len] = '\0';
 		if (!(str_len = strlen (tmp))) {
 			continue;
@@ -321,7 +311,7 @@ static RList *strings(RBinFile *arch) {
 			break;
 		}
 		ptr->string = strdup (tmp);
-		ptr->paddr = ptr->vaddr = off;
+		ptr->paddr = ptr->vaddr = tmp_off;
 		ptr->length = str_len;
 		ptr->size = ptr->length + 1;
 		ptr->type = R_STRING_TYPE_DETECT;
