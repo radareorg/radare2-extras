@@ -82,7 +82,7 @@ typedef struct pcap_pktrec_ether {
 	ut16 type;		// 0x0080 = IPV4, etc
 } pcap_pktrec_ether_t;
 
-// IPV4 header, always 20 bytes
+// IPV4 header, atleast 20 bytes
 typedef struct pcap_pktrec_ipv4 {
 	ut8  ver_len;	// Upper nibble = version, lower = header len in 4-byte words
 	ut8  diff_serv;	// Differentiated services field
