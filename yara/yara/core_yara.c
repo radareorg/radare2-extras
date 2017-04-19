@@ -383,7 +383,7 @@ static int r_cmd_yara_load_default_rules (const RCore* core) {
 
 	r_list_foreach (list, iter, filename) {
 		if (filename[0] != '.') { // skip '.', '..' and hidden files
-			complete_path = r_str_concat (strdup (YARA_PATH), filename);
+			complete_path = r_str_append (strdup (YARA_PATH), filename);
 			rules = (char*)r_file_gzslurp (complete_path, NULL, true);
 
 			free (complete_path);
