@@ -1,8 +1,8 @@
 #!/bin/sh
-PREFIX=/usr
-MAKE=make
-SUDO=sudo
 
+[ -z "${PREFIX}" ] && PREFIX=/usr
+[ -z "${MAKE}" ] && MAKE=make
+[ -z "${SUDO}" ] && SUDO=sudo
 
 # https://raw.githubusercontent.com/sroberts/peid4yara/master/peid.yar
 #if [ ! -f shlr/yara/peid.yar ]; then
@@ -15,7 +15,7 @@ SUDO=sudo
 
 if [ ! -d yara.git ]; then
 	#git clone https://github.com/plusvic/yara.git yara.git|| exit 1
-	git clone https://github.com/VirusTotal/yara yara.git|| exit 1
+	git clone https://github.com/VirusTotal/yara yara.git || exit 1
 fi
 cd yara.git || exit 1
 # last commit in git
@@ -26,4 +26,8 @@ export CFLAGS="-I/usr/local/opt/openssl/include"
 export LDFLAGS="-L/usr/local/opt/openssl/lib"
 ./configure --prefix=${PREFIX} || exit 1
 ${MAKE} -j8 || exit 1
-${SUDO} ${MAKE} install
+if [ -n "${NOSUDO}" ]; then
+	${MAKE} install
+else
+	${SUDO} ${MAKE} install
+fi
