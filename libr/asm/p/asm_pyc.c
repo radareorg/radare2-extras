@@ -28,9 +28,9 @@ static int disassemble (RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	return r;
 }
 
-static int init (void *user) {
+static bool init (void *user) {
 	init_opname_table ();
-	return 0;
+	return true;
 }
 
 RAsmPlugin r_asm_plugin_pyc = {
