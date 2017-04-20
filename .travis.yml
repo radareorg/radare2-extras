@@ -77,7 +77,7 @@ env:
   - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i x86tab"
   - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i x86olly && cd radare2-regressions && make olly-extras && cd .."
   - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i z80-nc"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i yara-lib && r2pm -i yara"
+  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i yara && r2pm -i yara-r2"
   - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i x86zyan"
 sudo:
   - false
