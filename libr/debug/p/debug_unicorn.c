@@ -196,7 +196,7 @@ static RList *r_debug_unicorn_tids(int pid) {
 
 static RList *r_debug_unicorn_pids(int pid) {
 	RList *list = r_list_new ();
-	r_list_append (list, r_debug_pid_new ("???", pid, 's', 0));
+	r_list_append (list, r_debug_pid_new ("???", pid, 0, 's', 0));
 	return list;
 }
 
