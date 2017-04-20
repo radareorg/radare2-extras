@@ -25,6 +25,7 @@ addons:
       - libqt4-dev
       - exuberant-ctags
       - libelf-dev
+      - libgmp-dev
       - zlib1g-dev
       - swig
 env:
