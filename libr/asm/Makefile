@@ -9,6 +9,12 @@ msil:
 tab:
 	cd p ; $(MAKE) asm_x86_tab.$(LIBEXT)
 
+swf:
+	cd p ; $(MAKE) asm_swf.$(LIBEXT)
+
+pyc:
+	cd p ; $(MAKE) asm_pyc.$(LIBEXT)
+
 olly:
 	cd p ; $(MAKE) asm_x86_olly.$(LIBEXT)
 
