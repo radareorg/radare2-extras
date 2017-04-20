@@ -1,7 +1,7 @@
 OBJ_PYC=bin_pyc.o
-OBJ_PYC+=../format/pyc/pyc_magic.o \
-         ../format/pyc/pyc.o \
-         ../format/pyc/marshal.o \
+OBJ_PYC+=../format/pyc/marshal.o
+OBJ_PYC+=../format/pyc/pyc_magic.o
+OBJ_PYC+=../format/pyc/pyc.o
 
 STATIC_OBJ+=${OBJ_PYC}
 TARGET_PYC=bin_pyc.${LIBEXT}
