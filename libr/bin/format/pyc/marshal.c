@@ -420,8 +420,8 @@ static pyc_object *get_array_object_generic (RBuffer *buffer, ut32 size) {
 }
 
 /* small TYPE_SMALL_TUPLE doesn't exist in python2 */
-/*
-static pyc_object *get_small_tuple_object (RBuffer *buffer) {
+/* */
+pyc_object *get_small_tuple_object (RBuffer *buffer) {
     pyc_object *ret = NULL;
     bool error = false; 
     ut8 n = 0;
@@ -437,7 +437,7 @@ static pyc_object *get_small_tuple_object (RBuffer *buffer) {
     return NULL;
 }
 
-static pyc_object *get_tuple_object (RBuffer *buffer) {
+pyc_object *get_tuple_object (RBuffer *buffer) {
     pyc_object *ret = NULL;
     bool error = false;
     ut32 n = 0;
@@ -457,7 +457,7 @@ static pyc_object *get_tuple_object (RBuffer *buffer) {
     return NULL;
 }
 
-static pyc_object *get_list_object (RBuffer *buffer) {
+pyc_object *get_list_object (RBuffer *buffer) {
     pyc_object* ret = NULL; 
     bool error = false;
     ut32 n = 0;
@@ -474,7 +474,7 @@ static pyc_object *get_list_object (RBuffer *buffer) {
     return ret;
 }
 
-static pyc_object *get_dict_object (RBuffer *buffer) {
+pyc_object *get_dict_object (RBuffer *buffer) {
     pyc_object  *ret = NULL, 
                 *key = NULL,
                 *val = NULL;
@@ -507,7 +507,7 @@ static pyc_object *get_dict_object (RBuffer *buffer) {
     return ret;
 }
 
-static pyc_object *get_set_object (RBuffer *buffer) {
+pyc_object *get_set_object (RBuffer *buffer) {
     pyc_object *ret = NULL;
     bool error = false;
     ut32 n = 0;

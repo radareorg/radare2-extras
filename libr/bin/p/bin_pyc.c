@@ -4,12 +4,17 @@
 #include "pyc_magic.h"
 #include "pyc.h"
 
+// XXX: to not use globals
+
 static struct pyc_version version;
+/* used from marshall.c */
 RList *interned_table = NULL;
 
-static int check_bytes(const ut8 *buf, ut64 length) {
-	if (!buf || length < 8) // magic + timestamp
+static bool check_bytes(const ut8 *buf, ut64 length) {
+	if (!buf || length < 8) {
+		// magic + timestamp 
 		return false;
+	}
 	version = get_pyc_version (*(ut32*)buf);
 	return version.magic != -1;
 }
@@ -37,25 +42,38 @@ static RBinInfo *info(RBinFile *arch) {
 
 static RList *sections(RBinFile *arch) {
 	RList *shared = r_list_new ();
+	if (!shared) {
+		return NULL;
+	}
 	RList *cobjs = r_list_new ();
-
+	if (!cobjs) {
+		return NULL;
+	}
 	interned_table = r_list_new ();
-	r_list_append(shared, cobjs);
-	r_list_append(shared, interned_table);
+	if (!interned_table) {
+		return NULL;
+	}
+	r_list_append (shared, cobjs);
+	r_list_append (shared, interned_table);
 	arch->o->bin_obj = shared;
 	RList *sections = r_list_new ();
-	if (!sections)
+	if (!sections) {
 		return NULL;
+	}
 	pyc_get_sections (sections, cobjs, arch->buf, version.magic);
 	return sections;
 }
 
 static RList *entries(RBinFile *arch) {
 	RList *entries = r_list_new ();
-	RBinAddr *addr = R_NEW0 (RBinAddr);
-	ut64 entrypoint = pyc_get_entrypoint (version.magic);
-	if (!entries || !addr)
+	if (!entries) {
 		return NULL;
+	}
+	RBinAddr *addr = R_NEW0 (RBinAddr);
+	if (!addr) {
+		return NULL;
+	}
+	ut64 entrypoint = pyc_get_entrypoint (version.magic);
 	addr->paddr = entrypoint;
 	addr->vaddr = entrypoint;
 	r_buf_seek (arch->buf, entrypoint, R_IO_SEEK_CUR);
@@ -75,7 +93,7 @@ RBinPlugin r_bin_plugin_pyc = {
 };
 
 #ifndef CORELIB
-struct r_lib_struct_t radare_plugin = {
+RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_BIN,
 	.data = &r_bin_plugin_pyc,
 	.version = R2_VERSION,
