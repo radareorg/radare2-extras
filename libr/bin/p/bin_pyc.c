@@ -1,4 +1,4 @@
-/* radare - LGPL3 - Copyright 2016 - Matthieu (c0riolis) Tardy */
+/* radare - LGPL3 - Copyright 2016-2017 - Matthieu (c0riolis) Tardy */
 
 #include <r_bin.h>
 #include "pyc_magic.h"
@@ -12,12 +12,6 @@ static int check_bytes(const ut8 *buf, ut64 length) {
 		return false;
 	version = get_pyc_version (*(ut32*)buf);
 	return version.magic != -1;
-}
-
-static int check(RBinFile *arch) {
-	const ut8 *bytes = arch ? r_buf_buffer (arch->buf) : NULL;
-	ut64 size = arch ? r_buf_size (arch->buf) : 0;
-	return check_bytes (bytes, size);
 }
 
 static void *load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb) {
@@ -75,7 +69,6 @@ RBinPlugin r_bin_plugin_pyc = {
 	.license = "LGPL3",
 	.info = &info,
 	.load_bytes = &load_bytes,
-	.check = &check,
 	.check_bytes = &check_bytes,
 	.entries = &entries,
 	.sections = &sections,
