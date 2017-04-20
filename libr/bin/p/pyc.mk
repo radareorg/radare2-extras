@@ -3,15 +3,12 @@ OBJ_PYC+=../format/pyc/pyc_magic.o \
          ../format/pyc/pyc.o \
          ../format/pyc/marshal.o \
 
-
 STATIC_OBJ+=${OBJ_PYC}
 TARGET_PYC=bin_pyc.${LIBEXT}
 CFLAGS+=-I../format/pyc/
 
-
 ALL_TARGETS+=${TARGET_PYC}
 
-
 ${TARGET_PYC}: ${OBJ_PYC}
-	${CC} ${CFLAGS} -o ${TARGET_PYC} ${OBJ_PYC} $(R2_CFLAGS) $(R2_LDFLAGS) -lr_util
+	${CC} ${CFLAGS} -o ${TARGET_PYC} ${OBJ_PYC} $(R2_CFLAGS) $(R2_LDFLAGS) -lr_util -lgmp
 
