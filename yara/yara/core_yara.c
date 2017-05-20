@@ -20,8 +20,8 @@ static int r_cmd_yara_add (const RCore* core, const char* input);
 static int r_cmd_yara_add_file (const char* rules_path);
 static int r_cmd_yara_call(void *user, const char *input);
 static int r_cmd_yara_clear();
+static int r_cmd_yara_init(void *user, const char *cmd);
 static int r_cmd_yara_help(const RCore* core);
-static int r_cmd_yara_init(const RCore* core);
 static int r_cmd_yara_process(const RCore* core, const char* input);
 static int r_cmd_yara_scan(const RCore* core);
 static int r_cmd_yara_load_default_rules (const RCore* core);
@@ -104,7 +104,7 @@ static int r_cmd_yara_tags() {
 	RListIter *tags_it;
 	YR_RULES* rules;
 	YR_RULE* rule;
-	char* tag_name;
+	const char* tag_name;
 	RList *tag_list = r_list_new();
 	tag_list->free = free;
 
@@ -134,7 +134,7 @@ static int r_cmd_yara_tag (const char * search_tag) {
 	RListIter* rules_it;
 	YR_RULES* rules;
 	YR_RULE* rule;
-	char* tag_name;
+	const char* tag_name;
 
 	r_list_foreach (rules_list, rules_it, rules) {
 		yr_rules_foreach (rules, rule) {
@@ -344,7 +344,7 @@ static int r_cmd_yara_process(const RCore* core, const char* input) {
 
 static int r_cmd_yara_call(void *user, const char *input) {
 	const char *args;
-	const RCore* core = (RCore*) user;
+	RCore* core = (RCore*) user;
 	if (strncmp (input, "yara", 4)) {
 		return false;
 	}
@@ -352,7 +352,7 @@ static int r_cmd_yara_call(void *user, const char *input) {
 		return r_cmd_yara_help (core);
 	}
 	args = input + 4;
-	if (! initialized && !r_cmd_yara_init (core)) {
+	if (! initialized && !r_cmd_yara_init (core, NULL)) {
 		return false;
 	}
 	if (*args) {
@@ -421,7 +421,8 @@ err_exit:
 	return false;
 }
 
-static int r_cmd_yara_init(const RCore* core) {
+static int r_cmd_yara_init(void *user, const char *cmd) {
+	RCore* core = (RCore *)user;
 	rules_list = r_list_newf((RListFree) yr_rules_destroy);
 	yr_initialize ();
 	r_cmd_yara_load_default_rules (core);
