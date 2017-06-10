@@ -52,7 +52,7 @@ def prot(x):
 # 
 def r2angr_cmd(cmd):
 	if cmd == "?":
-		print "=!angr  - plugin"
+		print "=!?     - angr plugin help"
 		print " aa     - analyze program"
 		print " afl    - list all functions"
 		print " afl*   - list all functions as r2 commands"
