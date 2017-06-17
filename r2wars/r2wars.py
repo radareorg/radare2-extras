@@ -3,20 +3,32 @@
 import r2pipe
 import sys
 import time
+import random
 
 
 uidx = 0
 user = []
 
-r2 = r2pipe.open('malloc://4096')
+r2 = r2pipe.open('malloc://1024')
 #r2 = r2pipe.open('/bin/ls')
 r2.cmd("e asm.arch=x86")
 r2.cmd("e asm.bits=32")
 r2.cmd("e scr.color=true")
 r2.cmd("aei")
 r2.cmd("aeim")
-addr = 0
+
+
+rand = []
+addr = random.randint(0, 800)
 for a in sys.argv[1:]:
+	rand.append(addr)
+	addr = addr + random.randint(100, 500)
+random.shuffle(rand)
+
+idx = 0
+for a in sys.argv[1:]:
+	addr = rand[idx]
+	idx = idx + 1
 	src = r2.syscmd("rasm2 -f %s"%(a)).strip()
 	if src == "":
 		print("Invalid source")
@@ -27,6 +39,7 @@ for a in sys.argv[1:]:
 	r2.cmd("aer SP =SP+%s"%(addr))
 	initRegs = r2.cmd("aeR")
 	user.append (initRegs)
+	#addr += 100 # must be random
 	addr += 100 # must be random
 	print a
 
@@ -46,8 +59,8 @@ print r2.cmd("b 1024")
 def showMemory():
 	print r2.cmd("?eg 0 0")
 	#print r2.cmd("e hex.cols=32")
-	#res = r2.cmd("px 200 @ 0") + "\n"
-	res = r2.cmd("prc 200 @ 0") + "\n"
+	#res = r2.cmd("pxa 200 @ 0") + "\n"
+	res = r2.cmd("prc 1024 @ 0") + "\n"
 	res += r2.cmd("aer")
 	print "\x1b[2J %s"%(uidx)
 	print res
@@ -72,17 +85,19 @@ def switchUser():
 def shell():
 	while True: print(r2.cmd(raw_input()))
 
+ctr = 0
 while True:
 	te = r2.cmd("?v 1+theend").strip()
+	ctr = ctr +1
 	print "TE %s %s"%(uidx, te)
 	if te != "" and te != "0x1":
 		print ("USER %s DIE at %s"%(uidx, te))
 		del user[uidx]
 		if len(user) < 2:
-			print ("LAST USER WON")
+			print ("LAST USER WON %d"%(ctr))
 			break
 		#shell()
 	showMemory()
 	stepIn()
 	switchUser()
-	time.sleep(0.2)
+	#time.sleep(0.2)
