@@ -17,11 +17,15 @@
 #define C_FORMAT    2
 
 #define NONE_DEF     0
-#define TYPEDEF_DEF  1
-#define CONST_DEF    2
-#define VOLATILE_DEF 4
-#define POINTER_DEF  8
-#define ENUM_DEF     16
+#define TYPEDEF_DEF  (1 << 0)
+#define CONST_DEF    (1 << 1)
+#define VOLATILE_DEF (1 << 2)
+#define POINTER_DEF  (1 << 3)
+#define ENUM_DEF     (1 << 4)
+#define STRUCT_DEF   (1 << 5)
+#define FUNCTION_DEF (1 << 6)
+#define UNION_DEF    (1 << 7)
+#define ARRAY_DEF    (1 << 8)
 
 #define DEBUG_MODE 1
 
@@ -32,11 +36,56 @@ static int fd = -1;
 
 //baseoff in below two is ignored unless type == (JSON_FORMAT | C_FORMAT) == 3
 static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentlevel, Dwarf_Unsigned startaddr, int baseoff, int isStruct, int type, int longlist, int printmemberonly);
-static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int baseoff, int indentlevel, int type, int flags);
+static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int baseoff, int indentlevel, int type);
 
 void print_error (const char *str, int line) {
 	if (DEBUG_MODE) {
 		printf ("ERROR: %s :: %d\n", str, line);
+	}
+}
+
+static void show_help(RCore *core) {
+	const char *help_msg[] = {
+		"Usage: idd", "", "commands for dwarf plugin. replacing idd can be replaced with \"?:dwarf\"",
+		"iddi", " <path to dwarf file>", "initialise sdb and dbg entries for dwarf_info",
+		"idd", " structname", "print struct data for their respective members",
+		"iddv", " structname[.member[.member[...]]]", "print value for specific member of structure if \"structname.member..\" else it is same as idd",
+		"idda", " structname[.member[.member[...]]]", "print address for requested  member of structure or structure itself",
+		"iddlg", "", "print flags in r2 format for all global variables",
+		"iddlf", "", "print flags in r2 format for all functions",
+		"iddd", " structname[.member[.member[...]]]", "print c type declaration",
+		"idddl", " structname[.member[.member[...]]]", "print c type declaration including members of structure/union type",
+		"iddt", " structname[.member[.member[...]]]", "print type and size",
+		NULL
+	};
+	r_core_cmd_help (core, help_msg);
+}
+
+static void print_c_json_format (char *name, char *typestr, int pointer, int flags, RList *l) {
+	RListIter *iter;
+	ut64 *num = 0;
+
+	r_cons_printf ("\"name\":\"%s\"", name);
+	r_cons_printf (",\"type\":\"%s\"", typestr);
+	r_cons_printf (",\"typedef\":%s", (flags & TYPEDEF_DEF) ? "true" : "false");
+	r_cons_printf (",\"struct\":%s", (flags & STRUCT_DEF) ? "true" : "false");
+	r_cons_printf (",\"union\":%s", (flags & UNION_DEF) ? "true" : "false");
+	r_cons_printf (",\"pointer\":%d", pointer);
+	r_cons_printf (",\"const\":%s", (flags & CONST_DEF) ? "true" : "false");
+	r_cons_printf (",\"volatile\":%s", (flags & VOLATILE_DEF) ? "true" : "false");
+	r_cons_printf (",\"function\":%s", (flags & FUNCTION_DEF) ? "true" : "false");
+	r_cons_printf (",\"enum\":%s", (flags & ENUM_DEF) ? "true" : "false");
+	r_cons_printf (",\"array\":%s", (flags & ARRAY_DEF) ? "true" : "false");
+	if (l) {
+		r_cons_printf (",\"array_dimension\":[");
+		iter = r_list_iterator (l);
+		num = r_list_iter_get (iter);
+		r_cons_printf ("%"PFMT64u, *num);
+		while (r_list_iter_next (iter)) {
+			num = r_list_iter_get (iter);
+			r_cons_printf (",%"PFMT64u, *num);
+		}
+		r_cons_printf ("]");
 	}
 }
 
@@ -134,25 +183,48 @@ static int get_type_tag_and_die (Dwarf_Die die, Dwarf_Half *tag, Dwarf_Die *type
  * Return Value:
  *   DW_DLV_OK: Success
  *   DW_DLV_ERROR: Error
+ * Idea: https://stackoverflow.com/a/25049304/3863903
  */
 static int get_num_from_attr (Dwarf_Attribute attr, Dwarf_Unsigned *val, Dwarf_Error *error) {
-	int res = DW_DLV_ERROR;
-	Dwarf_Signed sval = 0;
-	Dwarf_Unsigned uval = 0;
+	Dwarf_Half form;
+	Dwarf_Unsigned offset = 0;
+	dwarf_whatform(attr, &form, error);
+	if (form == DW_FORM_data1 || form == DW_FORM_data2 || form == DW_FORM_data4 ||
+		form == DW_FORM_data8 || form == DW_FORM_udata) {
+		dwarf_formudata(attr, &offset, 0);
+	} else if (form == DW_FORM_sdata) {
+		Dwarf_Signed soffset;
+		dwarf_formsdata(attr, &soffset, error);
+#if 0
+		if (soffset < 0) {
+			eprintf("unsupported negative offset\n");
+			return DW_DLV_ERROR;
+		}
+#endif
+		offset = (Dwarf_Unsigned) soffset;
+	} else {
+		Dwarf_Locdesc *locdescs;
+		Dwarf_Signed len;
+		Dwarf_Signed i;
+		if (dwarf_loclist(attr, &locdescs, &len,  error) == DW_DLV_ERROR) {
+			eprintf("unsupported member offset\n");
+			return DW_DLV_ERROR;
+		}
+		if (len != 1
+			|| locdescs[0].ld_cents != 1
+			|| (locdescs[0].ld_s[0]).lr_atom != DW_OP_plus_uconst) {
+			eprintf("unsupported location expression\n");
+			return DW_DLV_ERROR;
+		}
+		offset = (locdescs[0].ld_s[0]).lr_number;
 
-	res = dwarf_formudata (attr, &uval, error);
-	if (res ==  DW_DLV_OK) {
-		*val = uval;
-		return res;
+		for (i = 0; i < len; i++) {
+			dwarf_dealloc (dbg, locdescs[i].ld_s, DW_DLA_LOC_BLOCK);
+		}
+		dwarf_dealloc (dbg, locdescs, DW_DLA_LOCDESC);
 	}
-
-	res = dwarf_formsdata (attr, &sval, error);
-	if (res == DW_DLV_OK) {
-		*val = (Dwarf_Unsigned) sval;
-		return res;
-	}
-
-	return DW_DLV_ERROR;
+	*val = offset;
+	return DW_DLV_OK;
 }
 
 /* get_dwarf_diename
@@ -374,7 +446,7 @@ static int get_size (Dwarf_Die die, Dwarf_Unsigned *size, int *inbits) {
 	return DW_DLV_OK;
 }
 
-static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indentlevel, int type, int longlist) {
+static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indentlevel, int type, int longlist, int *pointer, int *flags) {
 	int res = DW_DLV_ERROR;
 	int typedieres = DW_DLV_ERROR;
 	Dwarf_Half tag = 0;
@@ -412,10 +484,12 @@ static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indent
 		}
 	case DW_TAG_pointer_type:
 		{
+			*pointer += 1;
+			*flags |= POINTER_DEF;
 			if (typedieres == DW_DLV_NO_ENTRY) {
 				*nameref = r_str_append (*nameref, "void *");
 			} else {
-				res = get_type_in_str (l, typedie, nameref, indentlevel, type, 0); // longlist == 1 may lead to infinite recursion since pointer to same struct is valid.
+				res = get_type_in_str (l, typedie, nameref, indentlevel, type, 0, pointer, flags); // longlist == 1 may lead to infinite recursion since pointer to same struct is valid.
 				if (res == DW_DLV_ERROR) {
 					print_error (" ", __LINE__);
 				    goto out;
@@ -430,6 +504,7 @@ static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indent
 		{
 			char *name = NULL;
 
+			*flags |= TYPEDEF_DEF;
 			res = get_dwarf_diename (die, &name, NULL);
 			if (res == DW_DLV_ERROR) {
 				print_error (" ", __LINE__);
@@ -437,7 +512,7 @@ static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indent
 			    goto out;
 			} else if (res == DW_DLV_NO_ENTRY) {
 				if (typedieres == DW_DLV_OK) {
-					res = get_type_in_str (l, typedie, nameref, indentlevel, type, longlist);
+					res = get_type_in_str (l, typedie, nameref, indentlevel, type, longlist, pointer, flags);
 					if (res == DW_DLV_ERROR) {
 						print_error (" ", __LINE__);
 					    goto out;
@@ -456,8 +531,10 @@ static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indent
 	case DW_TAG_volatile_type:
 		{
 			if (tag == DW_TAG_const_type) {
+				*flags |= CONST_DEF;
 				*nameref = r_str_append (*nameref, "const ");
 			} else if (tag == DW_TAG_volatile_type) {
+				*flags |= VOLATILE_DEF;
 				*nameref = r_str_append (*nameref, "volatile ");
 			}
 
@@ -469,8 +546,8 @@ static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indent
 
 			if (typedieres == DW_DLV_NO_ENTRY) {
 				*nameref = r_str_append (*nameref, "void ");
-			} else if (typedie == DW_DLV_OK) {
-				res = get_type_in_str (l, typedie, nameref, indentlevel, type, longlist);
+			} else if (typedieres == DW_DLV_OK) {
+				res = get_type_in_str (l, typedie, nameref, indentlevel, type, longlist, pointer, flags);
 				if (res == DW_DLV_ERROR) {
 					print_error (" ", __LINE__);
 					goto out;
@@ -485,6 +562,7 @@ static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indent
 		    char *name = NULL;
 			int isStruct = (tag == DW_TAG_structure_type) ? 1 : 0;
 
+			*flags |= (isStruct ? STRUCT_DEF : UNION_DEF);
 			res = get_dwarf_diename (die, &name, NULL);
 			if (res == DW_DLV_ERROR) {
 				print_error (" ", __LINE__);
@@ -529,6 +607,7 @@ static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indent
 		{
 			char *name = NULL;
 
+			*flags |= ARRAY_DEF;
 			if (*l) { // Seems like an impossible case
 				print_error (" ", __LINE__);
 				res = DW_DLV_ERROR;
@@ -548,7 +627,7 @@ static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indent
 				if (typedieres == DW_DLV_NO_ENTRY) {
 					*nameref = r_str_append (*nameref, "void ");
 				} else if (typedieres == DW_DLV_OK) {
-					res = get_type_in_str (l, typedie, nameref, indentlevel, type, longlist);
+					res = get_type_in_str (l, typedie, nameref, indentlevel, type, longlist, pointer, flags);
 					if (res == DW_DLV_ERROR) {
 						print_error (" ", __LINE__);
 						goto out;
@@ -574,6 +653,7 @@ static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indent
 		{
 			char *name = NULL;
 
+			*flags |= ENUM_DEF;
 			res = get_dwarf_diename (die, &name, NULL);
 			if (res == DW_DLV_ERROR) {
 				print_error (" ", __LINE__);
@@ -582,7 +662,7 @@ static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indent
 			} else if (res == DW_DLV_NO_ENTRY) {
 				dwarf_dealloc (dbg, name, DW_DLA_STRING);
 				if (typedieres == DW_DLV_OK) {
-					res = get_type_in_str (l, typedie, nameref, indentlevel, type, longlist);
+					res = get_type_in_str (l, typedie, nameref, indentlevel, type, longlist, pointer, flags);
 					if (res == DW_DLV_ERROR) {
 						print_error (" ", __LINE__);
 					    goto out;
@@ -609,7 +689,7 @@ static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indent
 			if (typedieres == DW_DLV_NO_ENTRY) {
 				*nameref = r_str_append (*nameref, "void ");
 			} else if (typedieres == DW_DLV_OK) {
-				res = get_type_in_str (l, typedie, nameref, indentlevel, type, longlist);
+				res = get_type_in_str (l, typedie, nameref, indentlevel, type, longlist, pointer, flags);
 				if (res == DW_DLV_ERROR) {
 					print_error (" ", __LINE__);
 					goto out;
@@ -619,6 +699,7 @@ static int get_type_in_str (RList **l, Dwarf_Die die, char **nameref, int indent
 		}
 	case DW_TAG_subroutine_type:
 		{
+			*flags |= FUNCTION_DEF;
 			*nameref = r_str_append (*nameref, "FUNC_PTR ");
 			break;
 		}
@@ -1121,7 +1202,7 @@ static int print_arr_val (RCore *core, RList *l, Dwarf_Die die, Dwarf_Unsigned *
 		}
 
 		if ((idx + 1) == r_list_length (l)) {
-			print_value (core, die, *addr, 0, indentlevel, type, NONE_DEF);
+			print_value (core, die, *addr, 0, indentlevel, type);
 			*addr += (inbits ? (typesz % 8) : typesz); //XXX: Inproper use of inbits
 		} else {
 			print_arr_val (core, l, die, addr, indentlevel, type, idx + 1);
@@ -1133,7 +1214,7 @@ static int print_arr_val (RCore *core, RList *l, Dwarf_Die die, Dwarf_Unsigned *
 /*
  *
  */
-static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int baseoff, int indentlevel, int type, int flags) {
+static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int baseoff, int indentlevel, int type) {
 	int res = DW_DLV_ERROR;
 	Dwarf_Half tag = 0;
 	Dwarf_Die typedie = 0;
@@ -1173,11 +1254,6 @@ static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int bas
 			}
 
 			if (type == (C_FORMAT | JSON_FORMAT)) {
-				if (isStruct) {
-					r_cons_printf (",\"struct\":true");
-				} else {
-					r_cons_printf (",\"union\":true");
-				}
 				r_cons_printf (",\"members\":[");
 			}
 
@@ -1198,19 +1274,7 @@ static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int bas
 	case DW_TAG_typedef:
 	case DW_TAG_volatile_type:
 	case DW_TAG_const_type:
-	    if (type == (C_FORMAT | JSON_FORMAT)) {
-			if (tag == DW_TAG_typedef && (flags & TYPEDEF_DEF)) {
-				flags |= TYPEDEF_DEF;
-				r_cons_printf (",\"typedef\":true", flags);
-			} else if (tag == DW_TAG_volatile_type && !(flags & VOLATILE_DEF)) {
-				r_cons_printf (",\"volatile\":true");
-				flags |= VOLATILE_DEF;
-			} else if (tag == DW_TAG_const_type && !(flags & CONST_DEF)) {
-				r_cons_printf (",\"const\":true");
-				flags |= CONST_DEF;
-			}
-		}
-		res = print_value (core, typedie, addr, baseoff, indentlevel, type, flags);
+		res = print_value (core, typedie, addr, baseoff, indentlevel, type);
 		break;
 	case DW_TAG_base_type:
 	case DW_TAG_pointer_type:
@@ -1238,27 +1302,10 @@ static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int bas
 			}
 		}
 
-		if (type == (C_FORMAT | JSON_FORMAT)) {
-			if (tag == DW_TAG_pointer_type && !(flags & POINTER_DEF)) {
-				r_cons_printf (",\"pointer\":true");
-				flags |= POINTER_DEF;
-			} else if (tag == DW_TAG_enumeration_type && !(flags & ENUM_DEF)) {
-				r_cons_printf (",\"enum\":true");
-				flags |= ENUM_DEF;
-			}
-		}
-
 		break;
 	case DW_TAG_array_type:
 		{
-			int i = 0;
 			RList *l = r_list_new ();
-			RListIter *iter;
-			ut64 typesz = 0;
-			ut64 totalelem = 1;
-			ut64 listlen = 0;
-			int in_bits = 0;
-			ut64 *num = 0;
 
 			// res = get_size (typedie, &typesz, &in_bits);
 			// if (res == DW_DLV_ERROR) {
@@ -1271,20 +1318,6 @@ static int print_value (RCore *core, Dwarf_Die die, Dwarf_Unsigned addr, int bas
 				print_error (" ", __LINE__);
 				r_list_free (l);
 				goto out;
-			}
-
-			listlen = r_list_length (l);
-
-			if (type == (C_FORMAT | JSON_FORMAT)) {
-				r_cons_printf (",\"array\":true,\"dimension\":[");
-				iter = r_list_iterator (l);
-				num = r_list_iter_get (iter);
-				r_cons_printf ("%"PFMT64u, *num);
-				while (r_list_iter_next (iter)) {
-					num = r_list_iter_get (iter);
-					r_cons_printf (",%"PFMT64u, *num);
-				}
-				r_cons_printf ("]");
 			}
 
 			if (type == NRM_FORMAT || type == JSON_FORMAT) {
@@ -1379,6 +1412,8 @@ static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentl
 		char *typestr = malloc (8);
 		ut64 size = 0;
 		int inbits = 0;
+		int pointer = 0;
+		int flags = NONE_DEF;
 		Dwarf_Half tag = 0;
 		RList *l = NULL;
 
@@ -1390,7 +1425,7 @@ static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentl
 
 		if ((type & C_FORMAT) == C_FORMAT) {
 			memset (typestr, 0, 8);
-			res = get_type_in_str (&l, member, &typestr, indentlevel, type, longlist);
+			res = get_type_in_str (&l, member, &typestr, indentlevel, type, longlist, &pointer, &flags);
 		}
 
 		if (type == C_FORMAT) {
@@ -1403,8 +1438,8 @@ static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentl
 			r_cons_printf ("%s = ", (res == DW_DLV_OK) ? diename : "");
 		} else if ((type & JSON_FORMAT) == JSON_FORMAT) {
 			if ((type & C_FORMAT) == C_FORMAT) {
-				r_cons_printf ("{\"name\":\"%s\"", (res == DW_DLV_OK) ? diename : "");
-				r_cons_printf (",\"type\":\"%s\"", typestr);
+				r_cons_printf ("{");
+				print_c_json_format ((res == DW_DLV_OK) ? diename : "", typestr, pointer, flags, l);
 				free (typestr);
 			} else {
 				r_cons_printf ("\"%s\":", (res == DW_DLV_OK) ? diename : "");
@@ -1417,14 +1452,17 @@ static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentl
 			    r_list_foreach (l, iter, num) {
 					r_cons_printf ("[%"PFMT64u"]", *num);
 				}
-				r_list_free (l);
-				l = NULL;
 			}
+		}
+
+		if (l) {
+			r_list_free (l);
+			l = NULL;
 		}
 		dwarf_dealloc (dbg, diename, DW_DLA_STRING);
 
 		/*res = get_type_tag_and_die (member, &tag, NULL, NULL);
-		/*if (res == DW_DLV_OK && (type == (C_FORMAT | JSON_FORMAT))) {
+		if (res == DW_DLV_OK && (type == (C_FORMAT | JSON_FORMAT))) {
 			if (tag == DW_TAG_structure_type) {
 				r_cons_printf (",\"struct\":true");
 			} else if (tag == DW_TAG_union_type) {
@@ -1466,7 +1504,7 @@ static int print_struct_or_union_die (RCore *core, Dwarf_Off offset, int indentl
 		}
 
 		if (type != C_FORMAT) {
-			print_value (core, member, startaddr + off, baseoff + off, indentlevel, type, NONE_DEF);
+			print_value (core, member, startaddr + off, baseoff + off, indentlevel, type);
 		}
 
 		if (type == (JSON_FORMAT | C_FORMAT)) {
@@ -1558,7 +1596,7 @@ static int print_specific_stuff (RCore *core, ut64 offset, Dwarf_Unsigned starta
 
 	res = get_address_and_die (core, die, startaddr, remain, &member, &addr, &retoff);
 	if (res != DW_DLV_OK) {
-		print_error (" ", __LINE__);
+		print_error ("print_specific_stuff :: get_address_and_die", __LINE__);
 		dwarf_dealloc (dbg, die, DW_DLA_DIE);
 		dwarf_dealloc (dbg, member, DW_DLA_DIE);
 		return res;
@@ -1586,6 +1624,8 @@ static int print_specific_stuff (RCore *core, ut64 offset, Dwarf_Unsigned starta
 		RList *l = NULL;
 		char *name = 0;
 		char *typestr = 0;
+		int pointer = 0;
+		int flags = NONE_DEF;
 
 		res = get_dwarf_diename (member, &name, NULL);
 		if (res == DW_DLV_ERROR) {
@@ -1606,7 +1646,7 @@ static int print_specific_stuff (RCore *core, ut64 offset, Dwarf_Unsigned starta
 		}
 
 		*typestr = 0;
-		res = get_type_in_str (&l, member, &typestr, 0, type, longlist);
+		res = get_type_in_str (&l, member, &typestr, 0, type, longlist, &pointer, &flags);
 		if (res == DW_DLV_ERROR) {
 			print_error (" ", __LINE__);
 			free (typestr);
@@ -1641,97 +1681,64 @@ static int print_specific_stuff (RCore *core, ut64 offset, Dwarf_Unsigned starta
 				return res;
 			}
 
-		    r_cons_printf ("{\"name\":\"%s\"", name);
-			r_cons_printf (",\"type\":\"%s\"", typestr);
+			r_cons_printf ("{");
+			print_c_json_format (name, typestr, pointer, flags, l);
 			r_cons_printf (",\"size\":\"%"PFMT64u"\"", size);
 			r_cons_printf (",\"inbits\":%s", inbits ? "true" : "false");
 		    if ((st64)retoff != -1) {
 				r_cons_printf (",\"offset\":%"PFMT64u, retoff);
 			}
-			switch (tag) {
-			case DW_TAG_structure_type:
-			case DW_TAG_union_type:
-				{
-					int isStruct = (tag == DW_TAG_structure_type) ? 1 : 0;
-					Dwarf_Off off;
 
-					res = dwarf_dieoffset (member, &off, NULL);
-					if (res == DW_DLV_ERROR) {
-						print_error (" ", __LINE__);
-						dwarf_dealloc (dbg, die, DW_DLA_DIE);
-						dwarf_dealloc (dbg, member, DW_DLA_DIE);
-						dwarf_dealloc (dbg, name, DW_DLA_STRING);
-						return res;
-					}
+			if (flags & (STRUCT_DEF | UNION_DEF)) {
+				int isStruct = (tag == DW_TAG_structure_type) ? 1 : 0;
+				Dwarf_Off off;
 
-					if (isStruct) {
-						r_cons_printf (",\"struct\":true");
-					} else {
-						r_cons_printf (",\"union\":true");
-					}
-					r_cons_printf (",\"members\":[");
-					res = print_struct_or_union_die (core, off, 0, startaddr, retoff, isStruct, type, 0, 1);
-					r_cons_printf ("]");
-					break;
+				res = dwarf_dieoffset (member, &off, NULL);
+				if (res == DW_DLV_ERROR) {
+					print_error (" ", __LINE__);
+					dwarf_dealloc (dbg, die, DW_DLA_DIE);
+					dwarf_dealloc (dbg, member, DW_DLA_DIE);
+					dwarf_dealloc (dbg, name, DW_DLA_STRING);
+					return res;
 				}
-			case DW_TAG_array_type:
+
+				//using pointer as flag
 				{
-					RListIter *iter;
-					ut64 *num;
-					r_cons_printf (",\"array\":true,\"dimension\":[");
-					iter = r_list_iterator (l);
-					num = r_list_iter_get (iter);
-					r_cons_printf ("%"PFMT64u, *num);
-					while (r_list_iter_next (iter)) {
-						num = r_list_iter_get (iter);
-						r_cons_printf (",%"PFMT64u, *num);
+					Dwarf_Half tag = 0;
+					Dwarf_Die typedie = 0;
+					Dwarf_Die tempdie = member;
+					res = get_type_tag_and_die (tempdie, &tag, &typedie, NULL);
+					if (res != DW_DLV_OK) {
+						goto close;
 					}
-					r_cons_printf ("]");
-					r_list_free (l);
-					l = NULL;
-					break;
-				}
-			case DW_TAG_pointer_type:
-			case DW_TAG_enumeration_type:
-			case DW_TAG_typedef:
-			case DW_TAG_volatile_type:
-			case DW_TAG_const_type:
-			case DW_TAG_member:
-				{
-					int flags = NONE_DEF;
-					if (tag == DW_TAG_typedef && (flags & TYPEDEF_DEF)) {
-						flags |= TYPEDEF_DEF;
-						r_cons_printf (",\"typedef\":true", flags);
-					} else if (tag == DW_TAG_volatile_type && !(flags & VOLATILE_DEF)) {
-						r_cons_printf (",\"volatile\":true");
-						flags |= VOLATILE_DEF;
-					} else if (tag == DW_TAG_const_type && !(flags & CONST_DEF)) {
-						r_cons_printf (",\"const\":true");
-						flags |= CONST_DEF;
-					} else if (tag == DW_TAG_pointer_type && !(flags & POINTER_DEF) ) {
-						r_cons_printf (",\"pointer\":true");
-						flags |= POINTER_DEF;
-					} else if (tag == DW_TAG_enumeration_type && !(flags & ENUM_DEF)) {
-						r_cons_printf (",\"enum\":true");
-						flags |= ENUM_DEF;
+					while ((tag != DW_TAG_structure_type) && (tag != DW_TAG_union_type)) {
+						if (tempdie != member) {
+							dwarf_dealloc (dbg, tempdie, DW_DLA_DIE);
+						}
+						tempdie = typedie;
+						res = get_type_tag_and_die (tempdie, &tag, &typedie, NULL);
+						if (res != DW_DLV_OK) {
+							goto close;
+						}
 					}
 
-					if (tag != DW_TAG_pointer_type && tag != DW_TAG_enumeration_type) {
-						res = print_value (core, member, addr, retoff, 0, C_FORMAT | JSON_FORMAT, flags);
+					res = get_type_die_offset (tempdie, &off, NULL);
+					if (res == DW_DLV_OK) {
+						r_cons_printf (",\"members\":[");
+						res = print_struct_or_union_die (core, off, 0, startaddr, retoff, isStruct, type, 0, 1);
+						r_cons_printf ("]");
 					}
-					break;
+					dwarf_dealloc (dbg, typedie, DW_DLA_DIE);
+					dwarf_dealloc (dbg, tempdie, DW_DLA_DIE);
 				}
-			case DW_TAG_base_type:
-				break;
-			default:
-				eprintf ("[!] Unhandled tag: %d\n");
 			}
+		close:
 			r_cons_printf ("}\n");
 		}
 
 		free (typestr);
 		dwarf_dealloc (dbg, name, DW_DLA_STRING);
-	} else {
+	} else { // if (type & C_FORMAT != C_FORMAT)
 		oldoffset = core->offset;
 		oldblocksize = core->blocksize;
 		if (addr < core->offset || (addr + size) > (core->offset + core->blocksize)) {
@@ -1744,8 +1751,7 @@ static int print_specific_stuff (RCore *core, ut64 offset, Dwarf_Unsigned starta
 			}
 		}
 
-		//r_cons_printf ("adfasdgsadgdsgadfhadfhafh\n");
-		print_value (core, member, addr - core->offset, 0, 0, type, NONE_DEF);
+		print_value (core, member, addr - core->offset, 0, 0, type);
 		r_cons_printf ("\n");
 		if (core->offset != oldoffset || core->blocksize != oldblocksize) {
 			core->offset = oldoffset;
@@ -1771,6 +1777,8 @@ static int print_type_and_size (RCore *core, ut64 sdboffset, ut64 startaddr, cha
 	ut64 addr;
 	RList *l = NULL;
 	ut64 retoff = 0;
+	int pointer = 0;
+	int flags = NONE_DEF;
 
     res = dwarf_offdie (dbg, sdboffset, &die, NULL);
 	if (res != DW_DLV_OK) {
@@ -1794,7 +1802,7 @@ static int print_type_and_size (RCore *core, ut64 sdboffset, ut64 startaddr, cha
 	}
 
 	memset (nameref, 0, 8);
-	res = get_type_in_str (&l, die, &nameref, 0, type, 0);
+	res = get_type_in_str (&l, die, &nameref, 0, type, 0, &pointer, &flags);
 	if (res == DW_DLV_ERROR) {
 		print_error (" ", __LINE__);
 		return res;
@@ -2019,6 +2027,16 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 		return false;
 	}
 
+	if (strchr (input, ' ')) {
+		if (*(strchr (input, ' ') - 1) == '?') {
+			show_help (core);
+			return true;
+		}
+	} else if (strchr (input, '?')) {
+		show_help (core);
+		return true;
+	}
+
 	if (strchr (input, ' ') && *(strchr (input, ' ') - 1) == 'j') {
 		type = JSON_FORMAT;
 	}
@@ -2058,19 +2076,19 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 		}
 	}
 
+	if (*input != 'i' && (fd == -1 || !dbg || !s)) {
+		eprintf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
+		return false;
+	}
+
+	if (*input != 'i' && *input != 'l' && !structname) {
+		eprintf ("invalid usage\n");
+		return false;
+	}
+
 	switch (*input) {
 	case 'a': // idda: print address
 		{
-			if (fd == -1 || !dbg || !s) {
-				printf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
-				break;
-			}
-
-			if (!structname) {
-				printf ("Usage: idda structname[.member1[.submember.[..]]]\n");
-				break;
-			}
-
 			oldblocksize = core->blocksize;
 			if (r_core_block_size (core, size)) {
 				if (temp) {
@@ -2090,19 +2108,7 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 		break;
 	case 'd': // iddd: print c type declaration of strut
 		{
-			int longlist = 0;
-
-			if (fd == -1 || !dbg || !s) {
-				printf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
-				break;
-			}
-
-			if (!structname) {
-				printf ("Usage: iddd[l] structname[.member1[.submember.[..]]]\tprint C-type struct declaration\n");
-				break;
-			}
-
-			longlist = (*(input + 1) == 'l') ? 1 : 0;
+			int longlist = (*(input + 1) == 'l') ? 1 : 0;
 
 			oldblocksize = core->blocksize;
 			if (r_core_block_size (core, size)) {
@@ -2127,7 +2133,7 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 				if (arg1) {
 					return r_cmd_dwarf_init (core, arg1);
 				} else {
-					printf ("Usage: (iddi | dwarfi) filename\n");
+					eprintf ("invalid usage\n");
 					// return false;
 				}
 			}
@@ -2135,11 +2141,6 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 		break;
 	case 'l': // iddl*: print global functions or global variables that can be loaded as r2 flags
 		{
-			if (fd == -1 || !dbg || !s) {
-				printf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
-				break;
-			}
-
 			switch (*(input + 1)) {
 			case 'f':
 				read_cu_list (2);
@@ -2148,18 +2149,13 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 				read_cu_list (1);
 				break;
 			default:
-				printf ("Usage:\n\tiddlf: load function in r2 flag format\n\tiddlg: load global variables in r2 flag format\n");
+				eprintf ("invalid usage\n");
 				break;
 			}
 		}
 		break;
 	case 't':
 		{
-			if (fd == -1 || !dbg || !s) {
-				printf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
-				break;
-			}
-
 			res = print_type_and_size (core, sdboffset, core->offset, temp, type);
 			if (res != DW_DLV_OK) {
 				printf ("ERROR: r_cmd_dwarf_call :: print_type_and_size :: %d\n", __LINE__);
@@ -2169,16 +2165,6 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 		break;
 	case 'v': // iddv: print value //TODO: update the output as "(type) value" instead of just "value"
 		{
-			if (fd == -1 || !dbg || !s) {
-				printf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
-				break;
-			}
-
-			if (!structname) {
-				printf ("Usage: iddv structname[.member1[.submember.[..]]]\n");
-				break;
-			}
-
 			oldblocksize = core->blocksize;
 			if (r_core_block_size (core, size)) {
 				if (temp) {
@@ -2198,11 +2184,6 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 		break;
     default:
 		if (arg1) {
-			if (fd == -1 || !dbg || !s) {
-				printf ("DWARF: initialise sdb and dbg entries with iddi filename\n");
-				break;
-			}
-
 			oldblocksize = core->blocksize;
 			if (r_core_block_size (core, size)) {
 				if (temp) {
