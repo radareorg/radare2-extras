@@ -140,11 +140,12 @@ static int get_num_from_attr (Dwarf_Attribute attr, Dwarf_Unsigned *val, Dwarf_E
 	Dwarf_Signed sval = 0;
 	Dwarf_Unsigned uval = 0;
 
-	res = dwarf_formudata (attr, &uval, error);
-	if (res ==  DW_DLV_OK) {
-		*val = uval;
-		return res;
-	}
+	//TODO: depending on subrange type, use appropriate function to retrieve val
+	//res = dwarf_formudata (attr, &uval, error);
+	//if (res ==  DW_DLV_OK) {
+	//	*val = uval;
+	//	return res;
+	//}
 
 	res = dwarf_formsdata (attr, &sval, error);
 	if (res == DW_DLV_OK) {
