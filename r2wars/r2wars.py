@@ -47,7 +47,6 @@ if len(user) < 2:
 	print("You need at least 2 users")
 	sys.exit(1)
 
-
 r2.cmd("e cmd.esil.todo=f theend=1")
 r2.cmd("e cmd.esil.trap=f theend=1")
 r2.cmd("e cmd.esil.intr=f theend=1")
@@ -57,39 +56,43 @@ r2.cmd("f theend=0")
 print r2.cmd("b 1024")
 
 def showMemory():
-	print r2.cmd("?eg 0 0")
+	#print r2.cmd("?eg 0 0")
 	#print r2.cmd("e hex.cols=32")
 	#res = r2.cmd("pxa 200 @ 0") + "\n"
 	res = r2.cmd("prc 1024 @ 0") + "\n"
 	res += r2.cmd("aer")
-	print "\x1b[2J %s"%(uidx)
+	print "\x1b[2J\x1b[0;0H %s"%(uidx)
 	print res
 	#print r2.cmd("e hex.cols=16")
 
 def stepIn():
-	global uidx
+	global user, uidx
 	print r2.cmd("pi 1 @r:PC")
 	r2.cmd("aes")
 	user[uidx] = r2.cmd("aerR").replace("\n", ";")
+	#print("USER %s ENDUSER"%(user[uidx]))
 
 def loadUserCode():
 	print "LOAD"
 
 def switchUser():
-	global uidx
+	global user, uidx
 	uidx = uidx + 1
 	if uidx >= len(user):
 		uidx = 0
-	r2.cmd(user[uidx])
+	#print("(((%s)))"%(user[uidx]))
+	if user[uidx][0] != '|':
+		r2.cmd(user[uidx])
 
 def shell():
 	while True: print(r2.cmd(raw_input()))
 
 ctr = 0
 while True:
+	global user
 	te = r2.cmd("?v 1+theend").strip()
 	ctr = ctr +1
-	print "TE %s %s"%(uidx, te)
+	#print "TE %s %s"%(uidx, te)
 	if te != "" and te != "0x1":
 		print ("USER %s DIE at %s"%(uidx, te))
 		del user[uidx]
@@ -100,4 +103,4 @@ while True:
 	showMemory()
 	stepIn()
 	switchUser()
-	#time.sleep(0.2)
+	time.sleep(0.2)
