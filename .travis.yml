@@ -107,6 +107,5 @@ before_script:
 script:
   - ./configure --prefix=`pwd`/radare2/install
   - r2pm init
-  - r2pm update
   - eval $TESTS
 
