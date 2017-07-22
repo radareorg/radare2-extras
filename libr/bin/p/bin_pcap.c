@@ -114,7 +114,7 @@ static void _read_ipv4_sym(RList *list, const ut8 *buf, ut64 off, ut64 sz, int e
 	}
 	pcap_pktrec_ipv4_t ipv4;
 	read_pcap_pktrec_ipv4 (&ipv4, &buf[off], endian);
-	ptr->name = r_str_newf ("0x%x: IPV%d, Src: %d.%d.%d.%d, Dst: %d.%d.%d.%d",
+	ptr->name = r_str_newf ("0x%"PFMT64x": IPV%d, Src: %d.%d.%d.%d, Dst: %d.%d.%d.%d",
 		off, (ipv4.ver_len >> 4) & 0x0F, (ipv4.src >> 24) & 0xFF,
 		(ipv4.src >> 16) & 0xFF, (ipv4.src >> 8) & 0xFF,
 		ipv4.src && 0xFF, (ipv4.dst >> 24) & 0xFF,
@@ -131,6 +131,89 @@ static void _read_ipv4_sym(RList *list, const ut8 *buf, ut64 off, ut64 sz, int e
 	switch (ipv4.protocol) {
 	case 6:
 		_read_tcp_sym (list, buf, off, sz, (ipv4.tot_len - ((ipv4.ver_len & 0x0F) * 4)), endian);
+	}
+}
+
+static void _write_ipv6_addr(const ut8 *addr, char *buf, int len) {
+	struct { int start, len; } best, cur;
+	ut16 words[8] = { 0 };
+	int i;
+	char *ptr = buf;
+	best.start = cur.start = -1;
+	best.len = cur.len = 0;
+	for (i = 0; i < 8; i++) {
+		words[i] = (addr[i * 2] << 4) | addr[i * 2 + 1];
+		if (words[i] == 0) {
+			if (cur.start == -1) {
+				cur.start = i;
+				cur.len = 1;
+			} else {
+				cur.len++;
+			}
+			continue;
+		}
+		if (cur.start != -1) {
+			if (best.start == -1 || cur.len > best.len) {
+				best.start = cur.start;
+				best.len = cur.len;
+			}
+			cur.start = -1;
+		}
+	}
+	if (best.start == -1 || cur.len > best.len) {
+		best.start = cur.start;
+		best.len = cur.len;
+	}
+	if (best.len < 2) {
+		best.start = -1;
+	}
+	for (i = 0; i < 8; i++) {
+		if (i == best.start) {
+			*ptr++ = ':';
+			continue;
+		}
+		if (best.start != -1 && i > best.start && i < best.start + best.len) {
+			continue;
+		}
+		if (i != 0) {
+			*ptr++ = ':';
+		}
+		ptr += snprintf (ptr, len - (ptr - buf), "%x", words[i]);
+	}
+}
+
+static void _read_ipv6_sym(RList *list, const ut8 *buf, ut64 off, ut64 sz, int endian) {
+	RBinSymbol *ptr = NULL;
+	if (!(ptr = R_NEW0 (RBinSymbol))) {
+		return;
+	}
+	char write_buf[256] = { 0 };
+	pcap_pktrec_ipv6_t ipv6;
+	int len;
+	read_pcap_pktrec_ipv6 (&ipv6, &buf[off], endian);
+	snprintf (write_buf, sizeof (write_buf) - 1, "0x%"PFMT64x": IPV6, Src: ", off);
+	len = strlen (write_buf);
+	_write_ipv6_addr (ipv6.src, write_buf + len, sizeof (write_buf) - len);
+	len += strlen (write_buf + len);
+	strcpy (write_buf + len, ", Dst: ");
+	len += strlen (write_buf + len);
+	_write_ipv6_addr (ipv6.dest, write_buf + len, sizeof (write_buf) - len);
+
+	if (!(ptr->name = strdup (write_buf))) {
+		free (ptr);
+		return;
+	}
+	ptr->paddr = ptr->vaddr = off;
+	r_list_append (list, ptr);
+	if (off + ipv6.plen + sizeof (pcap_pktrec_ipv6_t) > sz) {
+		return;
+	}
+	off += sizeof (pcap_pktrec_ipv6_t);
+
+	// For now, if not TCP, continue. TODO others
+	switch (ipv6.nxt) {
+	case 6:
+		_read_tcp_sym (list, buf, off, sz, ipv6.plen, endian);
 	}
 }
 
@@ -156,6 +239,9 @@ static void _read_ether_sym(RList *list, const ut8 *buf, ut64 off, ut64 sz, int 
 	switch (ether.type) {
 	case 0x08:
 		_read_ipv4_sym (list, buf, off, sz, endian);
+		break;
+	case 0xdd86:
+		_read_ipv6_sym (list, buf, off, sz, endian);
 	}
 }
 

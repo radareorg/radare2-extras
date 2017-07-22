@@ -40,6 +40,13 @@ void read_pcap_pktrec_ipv4(pcap_pktrec_ipv4_t *hdr, const ut8 *buf, int swap_end
 	hdr->chksum = r_read_be16 (&hdr->chksum);
 }
 
+void read_pcap_pktrec_ipv6(pcap_pktrec_ipv6_t *hdr, const ut8 *buf, int swap_endian) {
+	memcpy (hdr, buf, sizeof (pcap_pktrec_ipv6_t));
+	if (swap_endian) {
+		hdr->plen = r_swap_ut16 (hdr->plen);
+	}
+}
+
 void read_pcap_pktrec_tcp(pcap_pktrec_tcp_t *hdr, const ut8 *buf, int swap_endian) {
 	memcpy (hdr, buf, sizeof (pcap_pktrec_tcp_t));
 	hdr->src_port = r_read_be16 (&hdr->src_port);

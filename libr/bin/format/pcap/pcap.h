@@ -79,7 +79,7 @@ typedef struct pcak_pktrec_hdr {
 typedef struct pcap_pktrec_ether {
 	ut8  dst[6];	// Destination MAC address
 	ut8  src[6];	// Source MAC address
-	ut16 type;		// 0x0080 = IPV4, etc
+	ut16 type;	// 0x0080 = IPV4, 0xdd86 = IPV6 etc
 } pcap_pktrec_ether_t;
 
 // IPV4 header, atleast 20 bytes
@@ -95,6 +95,16 @@ typedef struct pcap_pktrec_ipv4 {
 	ut32 src;		// Source IP
 	ut32 dst;		// Destination IP
 } pcap_pktrec_ipv4_t;
+
+// IPV6 header
+typedef struct pcap_pktrec_ipv6 {
+	ut32 vc_flow;   // version, class, flow
+	ut16 plen;      // payload length
+	ut8  nxt;       // next header
+	ut8  hlim;      // hop limit
+	ut8  src[16];   // source address
+	ut8  dest[16];  // destination address
+} pcap_pktrec_ipv6_t;
 
 // TCP header, 20 - 60 bytes
 typedef struct pcap_pktrec_tcp {
@@ -115,6 +125,7 @@ void read_pcap_file_hdr(pcap_file_hdr_t *hdr, const ut8 *buf, int swap_endian);
 void read_pcap_pktrec_hdr(pcap_pktrec_hdr_t *hdr, const ut8 *buf, int swap_endian);
 void read_pcap_pktrec_ether(pcap_pktrec_ether_t *hdr, const ut8 *buf, int swap_endian);
 void read_pcap_pktrec_ipv4(pcap_pktrec_ipv4_t *hdr, const ut8 *buf, int swap_endian);
+void read_pcap_pktrec_ipv6(pcap_pktrec_ipv6_t *hdr, const ut8 *buf, int swap_endian);
 void read_pcap_pktrec_tcp(pcap_pktrec_tcp_t *hdr, const ut8 *buf, int swap_endian);
 
 const char* pcap_net_type (ut32 net);
