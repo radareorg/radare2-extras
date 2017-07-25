@@ -12,34 +12,9 @@ static void * load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr,
 	if (!buf || !sz || sz == UT64_MAX) {
 		return NULL;
 	}
-eprintf ("-> %s\n", arch->file);
-	//RBuffer *tbuf = r_buf_new ();
-	// r_buf_set_bytes (tbuf, buf, sz);
-	Elf_Binary_t *elf = elf_parse(arch->file);
-
-eprintf ("-> %s\n", elf->interpreter);
-/*
-	struct Elf_(r_bin_elf_obj_t) *res;
-	res = Elf_(r_bin_elf_new_buf) (tbuf, arch->rbin->verbose);
-	if (res) {
-		sdb_ns_set (sdb, "info", res->kv);
-	}
-
-	char *elf_type = Elf_(r_bin_elf_get_file_type (res));
-	if (elf_type && !strncmp (elf_type, "CORE", 4)) {
-		int len = 0;
-		ut8 *regs = Elf_(r_bin_elf_grab_regstate)(res, &len);
-		if (regs && len > 0) {
-			char *hexregs = r_hex_bin2strdup (regs, len);
-			eprintf ("arw %s\n", hexregs);
-			free (hexregs);
-		}
-		free (regs);
-	}
-	free (elf_type);
-*/
-	/// r_buf_free (tbuf);
-	return elf;
+	// in case of fail, LIEF throws a c++ exception, so everybody dies
+	// LIEF doesnt supports parsing binaries from buffers wtf
+	return elf_parse (arch->file);
 }
 
 static bool load(RBinFile *arch) {
@@ -109,68 +84,22 @@ static RBinInfo* info(RBinFile *arch) {
 				ret->rpath = strdup (e->runpath);;
 			}
 			break;
-default:
-break;
+		default:
+			break;
 		}
 	}
 	ret->has_lit = true;
 #if 0
-	if ((str = Elf_(r_bin_elf_get_rpath)(arch->o->bin_obj))) {
-		ret->rpath = strdup (str);
-		free (str);
-	} else {
-		ret->rpath = strdup ("NONE");
-	}
-	if (!(str = Elf_(r_bin_elf_get_file_type) (arch->o->bin_obj))) {
-		free (ret);
-		return NULL;
-	}
 	ret->type = str;
 	ret->has_pi = (strstr (str, "DYN"))? 1: 0;
 	ret->has_canary = has_canary (arch);
-	if (!(str = Elf_(r_bin_elf_get_elf_class) (arch->o->bin_obj))) {
-		free (ret);
-		return NULL;
-	}
 	ret->bclass = str;
-	if (!(str = Elf_(r_bin_elf_get_osabi_name) (arch->o->bin_obj))) {
-		free (ret);
-		return NULL;
-	}
 	ret->os = str;
-	if (!(str = Elf_(r_bin_elf_get_osabi_name) (arch->o->bin_obj))) {
-		free (ret);
-		return NULL;
-	}
 	ret->subsystem = str;
-	if (!(str = Elf_(r_bin_elf_get_machine_name) (arch->o->bin_obj))) {
-		free (ret);
-		return NULL;
-	}
 	ret->machine = str;
-	if (!(str = Elf_(r_bin_elf_get_arch) (arch->o->bin_obj))) {
-		free (ret);
-		return NULL;
-	}
-	ret->arch = str;
-	ret->rclass = strdup ("elf");
-	ret->bits = Elf_(r_bin_elf_get_bits) (arch->o->bin_obj);
-	if (!strcmp (ret->arch, "avr")) {
-		ret->bits = 16;
-	}
 	ret->big_endian = Elf_(r_bin_elf_is_big_endian) (arch->o->bin_obj);
-	ret->has_va = Elf_(r_bin_elf_has_va) (arch->o->bin_obj);
 	ret->has_nx = Elf_(r_bin_elf_has_nx) (arch->o->bin_obj);
-	ret->intrp = Elf_(r_bin_elf_intrp) (arch->o->bin_obj);
 	ret->dbg_info = 0;
-	if (!Elf_(r_bin_elf_get_stripped) (arch->o->bin_obj)) {
-		ret->dbg_info |= R_BIN_DBG_LINENUMS | R_BIN_DBG_SYMS | R_BIN_DBG_RELOCS;
-	} else {
-		ret->dbg_info |= R_BIN_DBG_STRIPPED;
-	}
-	if (Elf_(r_bin_elf_get_static) (arch->o->bin_obj)) {
-		ret->dbg_info |= R_BIN_DBG_STATIC;
-	}
 #endif
 	return ret;
 }
