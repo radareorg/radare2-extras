@@ -18,3 +18,5 @@ install:
 	cp -f mach0/bin_mach0_lief.$(SO_EXT) $(USER_PLUGINS)
 
 uninstall:
+	rm -f $(USER_PLUGINS)/bin_elf_lief.$(SO_EXT)
+	rm -f $(USER_PLUGINS)/mach0/bin_mach0_lief.$(SO_EXT)
