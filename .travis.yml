@@ -42,7 +42,7 @@ env:
   - TESTS="r2pm -i r2frida"
 #  - TESTS="r2pm -i io-ewf" # https://github.com/travis-ci/apt-package-whitelist/issues/3205
 #  - TESTS="r2pm -i keystone-lib && r2pm -i keystone && cd radare2-regressions && make keystone && cd .." [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i mdmp" && cd radare2-regressions && make extras.mdmp && cd .."
+  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i mdmp && cd radare2-regressions && ./r2r mdmp && cd .."
   - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i microblaze"
   - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i msil"
   - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i ppcdisasm"

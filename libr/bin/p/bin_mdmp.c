@@ -84,6 +84,9 @@ static RBinInfo *info(RBinFile *arch) {
 	ret->rpath = strdup ("NONE");
 	ret->type = strdup ("MDMP (MiniDump crash report data)");
 
+	// FIXME: Needed to fix issue with PLT resolving. Can we get away with setting this for all children bins?
+	ret->has_lit = true;
+
 	if (obj->streams.system_info)
 	{
 		switch (obj->streams.system_info->processor_architecture) {
