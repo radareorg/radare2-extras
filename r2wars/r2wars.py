@@ -28,15 +28,17 @@ r2.cmd("aei")
 r2.cmd("aeim")
 
 def get_random_offsets():
-	rand = []
-	addr = random.randint(0, memsize - maxprogsize)
-	for a in sys.argv[1:]:
-		rand.append(addr)
-		addr = addr + random.randint(maxprogsize, maxprogsize + 300)
-		if addr + maxprogsize > memsize:
-			print "ERROR: Not enough memory"
-			sys.exit(1)
-	random.shuffle(rand)
+	while True:
+		rand = []
+		addr = random.randint(0, memsize - maxprogsize)
+		for a in sys.argv[1:]:
+			rand.append(addr)
+			addr = addr + random.randint(maxprogsize, maxprogsize + 300)
+			if addr + maxprogsize > memsize:
+				print "ERROR: Not enough memory"
+				continue # sys.exit(1)
+		random.shuffle(rand)
+		break
 	return rand
 
 def userScreen(c):
