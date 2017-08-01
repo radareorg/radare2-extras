@@ -7,6 +7,9 @@ import sys
 import time
 import random
 
+useCurses = True
+useArch = "x86"
+useBits = "32"
 
 ctr = 0
 uidx = 0
@@ -21,8 +24,8 @@ memsize = 1024
 maxprogsize = 64
 r2 = r2pipe.open('malloc://%d'%(memsize))
 #r2 = r2pipe.open('/bin/ls')
-r2.cmd("e asm.arch=x86")
-r2.cmd("e asm.bits=32")
+r2.cmd("e asm.arch=%s"%(useArch))
+r2.cmd("e asm.bits=%s"%(useBits))
 r2.cmd("e scr.color=true")
 r2.cmd("aei")
 r2.cmd("aeim")
@@ -223,6 +226,8 @@ if __name__ == '__main__':
 	r2.cmd("f theend=0")
 
 	print r2.cmd("b %d"%(memsize))
-	r2wars_curses()
-	#r2wars_plain()
+	if useCurses:
+		r2wars_curses()
+	else:
+		r2wars_plain()
 
