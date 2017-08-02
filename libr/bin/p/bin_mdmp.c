@@ -81,11 +81,15 @@ static RBinInfo *info(RBinFile *arch) {
 	ret->claimed_checksum = strdup (sdb_fmt (0, "0x%08x", obj->hdr->check_sum));
 	ret->file = arch->file ? strdup (arch->file) : NULL;
 	ret->has_va = true;
+	ret->rclass = strdup ("mdmp");
 	ret->rpath = strdup ("NONE");
 	ret->type = strdup ("MDMP (MiniDump crash report data)");
 
 	// FIXME: Needed to fix issue with PLT resolving. Can we get away with setting this for all children bins?
 	ret->has_lit = true;
+
+	sdb_set (arch->sdb, "mdmp.flags", sdb_fmt (0, "0x%08x", obj->hdr->flags), 0);
+	sdb_num_set (arch->sdb, "mdmp.streams", obj->hdr->number_of_streams, 0);
 
 	if (obj->streams.system_info)
 	{
