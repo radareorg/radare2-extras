@@ -1,7 +1,7 @@
 r2wars
 ======
 
-r2wars is a game similar to `codewars` (or pMARS)
+r2wars is a game similar to [Core War](https://en.wikipedia.org/wiki/Core_War) (or pMARS)
 
 ![](show.jpg)
 
@@ -10,9 +10,9 @@ r2wars is a game similar to `codewars` (or pMARS)
 How it works
 ------------
 
-codewar-style games are basically a competition between two programs to survive as much time as possible by sharing the memory space with other programs.
+Core War-style games are basically a competition between two programs to survive as much time as possible by sharing the memory space with other programs.
 
-In codewars or pmars, the code you run is from a specific artificial architecture, the differences with r2wars are the following:
+In Core War or pmars, the code you run is from a specific artificial architecture, the differences with r2wars are the following:
 
 * Use any arch supported by ESIL
 * More than 2 programs can run at the same time
