@@ -10,7 +10,7 @@ r2wars is a game similar to [Core War](https://en.wikipedia.org/wiki/Core_War) (
 How it works
 ------------
 
-Core Car-style games are basically a competition between two programs to survive as much time as possible by sharing the memory space with other programs.
+Core War-style games are basically a competition between two programs to survive as much time as possible by sharing the memory space with other programs.
 
 In Core War or pmars, the code you run is from a specific artificial architecture, the differences with r2wars are the following:
 
