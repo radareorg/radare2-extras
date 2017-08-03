@@ -157,3 +157,29 @@ z80: call me;me:;pop bc
 arm64: bl, adrp.. but its a pain
 mips: blx and then mov t0, ra
 arm32: pc is r15 and can be accessed like any other reg
+
+How to debug ur warriors
+==
+
+Assemble ur bot:
+---------------
+1) Use rasm2 to encode ur warrior:
+   - mips: rasm2 -a mips -b 32 -f warrior.asm
+   - arm : rasm2 -a arm  -b 64 -f warrior.asm
+   - gb  : rasm2 -a gb   -b 16 -f warrior.asm
+   - x82 : rasm2 -a x86  -b 32 -f warrior.asm
+
+2) Copy the output to use into radare2.
+
+Load into radare2:
+------------------
+1) radare2 malloc://1024
+2) select ur arch: e asm.arch = mips|arm|x86|gb
+3) select ur bits: e asm.bits = 8|16|32|64
+4) type theses commands:
+   - aei
+   - aeim
+   - wo <paste output from rasm2> @ 100 
+   - aer PC=100
+   - aer SP=SP+100
+5) now u can use visual mode or "aes" to debug ur warrior.
