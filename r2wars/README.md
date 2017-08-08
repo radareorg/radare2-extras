@@ -179,7 +179,7 @@ Load into radare2:
 4) type theses commands:
    - aei
    - aeim
-   - wo <paste output from rasm2> @ 100 
+   - wx "paste output from rasm2" @ 100 
    - aer PC=100
    - aer SP=SP+100
 5) now u can use visual mode or "aes" to debug ur warrior.
