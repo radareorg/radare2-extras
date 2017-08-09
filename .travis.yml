@@ -29,25 +29,25 @@ addons:
       - zlib1g-dev
       - swig
 env:
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i armthumb"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i baleful"
+  - TESTS="r2pm -i armthumb"
+  - TESTS="r2pm -i baleful"
 #  - TESTS="r2pm -i bcl" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i blackfin"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i blessr2"
+  - TESTS="r2pm -i blackfin"
+  - TESTS="r2pm -i blessr2"
 #  - TESTS="r2pm -i bpf" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
 #  - TESTS="r2pm -i dlang" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i dirtycow"
   - TESTS="r2pm -i lang-duktape"
-  - TESTS="cd .. && export R2PM_GITDIR=$(pwd) && git clone git://git.code.sf.net/p/libdwarf/code libdwarf-code && cd libdwarf-code && ./configure && make && cd .. && r2pm -i dwarf-parser && cd radare2-extras && cd radare2-regressions && make dwarf && cd .. && cd .. && r2pm -u libdwarf && rm -rf libdwarf-code" #need to remove libdwarf? or travis destroys the vm so no issue in that?
+  - TESTS="git clone git://git.code.sf.net/p/libdwarf/code libdwarf-code && cd libdwarf-code && ./configure && make && cd .. && r2pm -i dwarf-parser && cd radare2-regressions && ./r2r dwarf && cd .. && r2pm -u libdwarf && rm -rf libdwarf-code" #need to remove libdwarf? or travis destroys the vm so no issue in that?
   - TESTS="r2pm -i r2frida"
 #  - TESTS="r2pm -i io-ewf" # https://github.com/travis-ci/apt-package-whitelist/issues/3205
 #  - TESTS="r2pm -i keystone-lib && r2pm -i keystone && cd radare2-regressions && make keystone && cd .." [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
-  - TESTS="export R2PM_GITDIR='/home/travis/build/radare' && r2pm -i mdmp && cd radare2-regressions && ./r2r mdmp && cd .."
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i microblaze"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i msil"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i ppcdisasm"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i psosvm"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i pyc"
+  - TESTS="r2pm -i mdmp && cd radare2-regressions && ./r2r mdmp && cd .."
+  - TESTS="r2pm -i microblaze"
+  - TESTS="r2pm -i msil"
+  - TESTS="r2pm -i ppcdisasm"
+  - TESTS="r2pm -i psosvm"
+  - TESTS="r2pm -i pyc"
   - TESTS="r2pm -i vala && r2pm -i valabind && r2pm -i r2api-python"
 #  - TESTS="r2pm -i r2pipe-cs" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i r2pipe-go"
@@ -59,8 +59,8 @@ env:
 #  - TESTS="r2pm -i r2snow" https://travis-ci.org/radare/radare2-extras/jobs/199500082
 #  - TESTS="r2pm -i radeco" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i retdec"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i swf && cd radare2-regressions && make swf && cd .."
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i m68k-net && cd radare2-regressions && make m68k-extras && cd .."
+  - TESTS="r2pm -i swf && cd radare2-regressions && make swf && cd .."
+  - TESTS="r2pm -i m68k-net && cd radare2-regressions && make m68k-extras && cd .."
 #  - TESTS="r2pm -i swig" Sorry. This package cannot be installed in your home.
   - TESTS="r2pm -i syms2elf"
 #  - TESTS="r2pm -i tcc" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
@@ -68,18 +68,18 @@ env:
   - TESTS="r2pm -i vala"
   - TESTS="r2pm -i valabind"
   - TESTS="r2pm -i vapi"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i vc4"
+  - TESTS="r2pm -i vc4"
   - TESTS="r2pm -i winapi"
   - TESTS="r2pm -i www-enyo"
 #  - TESTS="r2pm -i www-m" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i www-p"
   - TESTS="r2pm -i www-t"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i x86bea"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i x86tab"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i x86olly && cd radare2-regressions && make olly-extras && cd .."
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i z80-nc"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i yara && r2pm -i yara-r2"
-  - TESTS="export R2PM_GITDIR=${TRAVIS_BUILD_DIR} && r2pm -i x86zyan"
+  - TESTS="r2pm -i x86bea"
+  - TESTS="r2pm -i x86tab"
+  - TESTS="r2pm -i x86olly && cd radare2-regressions && make olly-extras && cd .."
+  - TESTS="r2pm -i z80-nc"
+  - TESTS="r2pm -i yara && r2pm -i yara-r2"
+  - TESTS="r2pm -i x86zyan"
 sudo:
   - false
 language:
@@ -89,23 +89,27 @@ cache:
   - apt
 
 before_script:
+  - export WORKING_DIR=${TRAVIS_BUILD_DIR}/..
+  - cd ${WORKING_DIR}
   - rm -rf ~/.nvm && git clone https://github.com/creationix/nvm.git ~/.nvm && (cd ~/.nvm && git checkout `git describe --abbrev=0 --tags`) && source ~/.nvm/nvm.sh && nvm install 7
   - git clone https://github.com/radare/radare2-regressions
   - git clone https://github.com/radare/radare2 && cd radare2
-  - ./configure --prefix=`pwd`/install > /dev/null
+  - ./configure --prefix=${WORKING_DIR}/install > /dev/null
   - make -s -j2 > /dev/null
   - make install > /dev/null
-  - export PATH=${TRAVIS_BUILD_DIR}/radare2/install/bin:${PATH}
-  - export LD_LIBRARY_PATH=${TRAVIS_BUILD_DIR}/radare2/install/lib:${LD_LIBRARY_PATH}
-  - export LIBR_INCLUDE=${TRAVIS_BUILD_DIR}/radare2/libr/include
-  - export LIBR_UTIL=${TRAVIS_BUILD_DIR}/radare2/libr/util
-  - export PKG_CONFIG_PATH=${TRAVIS_BUILD_DIR}/radare2/pkgcfg
-  - export GOPATH=${TRAVIS_BUILD_DIR}/radare2/
+  - cd ..
+  - export PATH=${WORKING_DIR}/install/bin:${PATH}
+  - export LD_LIBRARY_PATH=${WORKING_DIR}/install/lib:${LD_LIBRARY_PATH}
+  - export LIBR_INCLUDE=${WORKING_DIR}/radare2/libr/include
+  - export LIBR_UTIL=${WORKING_DIR}/radare2/libr/util
+  - export PKG_CONFIG_PATH=${WORKING_DIR}/radare2/pkgcfg
+  - export GOPATH=${WORKING_DIR}/
   - curl -sSf https://static.rust-lang.org/rustup.sh | sh
+  - r2pm init
+  - export R2PM_GITDIR=${WORKING_DIR}
+  - cd radare2-extras
+  - ./configure --prefix=${WORKING_DIR}/install
   - cd ..
 
 script:
-  - ./configure --prefix=`pwd`/radare2/install
-  - r2pm init
   - eval $TESTS
-
