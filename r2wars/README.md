@@ -91,20 +91,19 @@ This is, instructions accessing memory are slower than the ones just messing wit
 
 * Which architectures will be used in the competition?
 
-x86, mips, arm, gb
+x86, mips, arm
 
 * That's cool, but which specific models of cpu?
 
 x86: -a x86 -b 32
 mips: -a mips -b 32
 arm: -a arm -b 64
-gb: -a gb -b 8
 
 I think arm64 is better than arm32/16 for the competition, but thumb/arm switches could be really tricky.
 
-* Will x86 programs compete against gb or arm ones?
+* Will x86 programs compete against mips or arm ones?
 
-No, despite being possible, because ESIL abstracts the execution of machine code. But in this tournament we will only make x86 programs fight against other x86 programs, and the same goes for arm, mips and gb.
+No, despite being possible, because ESIL abstracts the execution of machine code. But in this tournament we will only make x86 programs fight against other x86 programs, and the same goes for arm and mips.
 
 Maybe this can be an interesting option for next year. But not this time.
 
@@ -153,7 +152,6 @@ To acomplish this objetives u only need know a fews instructions, especially tho
 The first thing most programs will do is to locate themselves in memory, but this is not a mandatory requirement.
 
 x86: call me;me:;pop eax
-z80: call me;me:;pop bc
 arm64: bl, adrp.. but its a pain
 mips: blx and then mov t0, ra
 arm32: pc is r15 and can be accessed like any other reg
