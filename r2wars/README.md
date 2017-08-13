@@ -169,8 +169,7 @@ Assemble ur bot:
 1) Use rasm2 to encode ur warrior:
    - mips: rasm2 -a mips -b 32 -f warrior.asm
    - arm : rasm2 -a arm  -b 64 -f warrior.asm
-   - gb  : rasm2 -a gb   -b 16 -f warrior.asm
-   - x82 : rasm2 -a x86  -b 32 -f warrior.asm
+   - x86 : rasm2 -a x86  -b 32 -f warrior.asm
 
 2) Copy the output to use into radare2.
 
