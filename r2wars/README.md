@@ -18,7 +18,7 @@ In Core War or pmars, the code you run is from a specific artificial architectur
 * More than 2 programs can run at the same time
 * Cyclic execution cost matters for the turns
 
-Two or more programs written in assembly for Z80, MIPS, ARM, X86, are assembled with rasm2 and then emulated using ESIL.
+Two or more programs written in assembly for MIPS, ARM, X86, are assembled with rasm2 and then emulated using ESIL.
 
 The program counter and stack pointers are initialized at random positions in a common shared memory address space for both programs.
 
@@ -168,7 +168,7 @@ Assemble ur bot:
 Load into radare2:
 ------------------
 1) radare2 malloc://1024
-2) select ur arch: e asm.arch = mips|arm|x86|gb
+2) select ur arch: e asm.arch = mips|arm|x86
 3) select ur bits: e asm.bits = 8|16|32|64
 4) type theses commands:
    - aei
