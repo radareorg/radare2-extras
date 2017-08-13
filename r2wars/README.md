@@ -96,7 +96,9 @@ x86, mips, arm
 * That's cool, but which specific models of cpu?
 
 x86: -a x86 -b 32
+
 mips: -a mips -b 32
+
 arm: -a arm -b 64
 
 I think arm64 is better than arm32/16 for the competition, but thumb/arm switches could be really tricky.
@@ -152,8 +154,11 @@ To acomplish this objetives u only need know a fews instructions, especially tho
 The first thing most programs will do is to locate themselves in memory, but this is not a mandatory requirement.
 
 x86: call me;me:;pop eax
+
 arm64: bl, adrp.. but its a pain
+
 mips: blx and then mov t0, ra
+
 arm32: pc is r15 and can be accessed like any other reg
 
 How to debug ur warriors
