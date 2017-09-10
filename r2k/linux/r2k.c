@@ -1,3 +1,5 @@
+/* Copyright 2016-2017 - radare2 - MIT - nighterman + pancake */
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/ioctl.h>
@@ -13,7 +15,6 @@
 #include <linux/vmalloc.h>
 #include <asm/io.h>
 #include "r2k.h"
-
 
 /*
 	- Oscar Salvador <leberus>
@@ -48,8 +49,7 @@ static struct r2k_map g_r2k_map = {
 	NULL,
 };
 
-static void clean_mmap (void)
-{
+static void clean_mmap (void) {
 	unsigned long start_addr;
 	unsigned long end_addr;
 	unsigned long addr;
@@ -68,8 +68,7 @@ static void clean_mmap (void)
 	}
 }
 
-static int mmap_struct (struct file *filp, struct vm_area_struct *vma)
-{
+static int mmap_struct (struct file *filp, struct vm_area_struct *vma) {
 	int n_pages;
 	unsigned long start_addr;
 	unsigned long end_addr;
@@ -102,33 +101,25 @@ static int mmap_struct (struct file *filp, struct vm_area_struct *vma)
 	return 0;
 }
 
-static int is_from_module_or_vmalloc (unsigned long addr)
-{
-	if (is_vmalloc_addr ((void *)addr) ||
-		__module_address (addr))
-			return 1;
-	return 0;
+static bool is_from_module_or_vmalloc (unsigned long addr) {
+	return (is_vmalloc_addr ((void *)addr) || __module_address (addr));
 }
 
-static int check_kernel_addr (unsigned long addr)
-{
-	return virt_addr_valid (addr) == 0
-			? is_from_module_or_vmalloc (addr)
-			: 1;
+static bool check_kernel_addr (unsigned long addr) {
+	return virt_addr_valid (addr) ? true : is_from_module_or_vmalloc (addr);
 }
 
-static int get_nr_pages (unsigned long addr, unsigned long next_aligned_addr,
-							unsigned long len)
-{
+static int get_nr_pages (unsigned long addr, unsigned long next_aligned_addr, unsigned long len) {
 	int nr_pages;
 
 	if (addr & (PAGE_SIZE - 1)) {
-		if (addr + len > next_aligned_addr)
+		if (addr + len > next_aligned_addr) {
 			nr_pages = len < PAGE_SIZE
 					? (len / PAGE_SIZE) + 2
 					: (len / PAGE_SIZE) + 1;
-		else
+		} else {
 			nr_pages = 1;
+		}
 	} else {
 		 nr_pages = (len & (PAGE_SIZE - 1))
 				? len / PAGE_SIZE + 1
@@ -137,28 +128,23 @@ static int get_nr_pages (unsigned long addr, unsigned long next_aligned_addr,
 	return nr_pages;
 }
 
-static inline int get_bytes_to_rw (unsigned long addr, unsigned long len,
-						unsigned long next_aligned_addr)
-{
+static inline int get_bytes_to_rw (unsigned long addr, unsigned long len, unsigned long next_aligned_addr) {
 	return (len > (next_aligned_addr - addr))
 			? next_aligned_addr - addr
 			: len;
 }
 
-static unsigned long get_next_aligned_addr (unsigned long addr)
-{
+static unsigned long get_next_aligned_addr (unsigned long addr) {
 	return (addr & (PAGE_SIZE - 1))
 			? PAGE_ALIGN (addr)
 			: addr + PAGE_SIZE;
 }
 
-static inline void *map_addr (struct page *pg, unsigned long addr)
-{
+static inline void *map_addr (struct page *pg, unsigned long addr) {
 	return r2kmap_atomic (pg) + ADDR_OFFSET (addr);
 }
 
-static inline void unmap_addr (void *kaddr, unsigned long addr)
-{
+static inline void unmap_addr (void *kaddr, unsigned long addr) {
 	r2kunmap_atomic (kaddr - ADDR_OFFSET (addr));
 }
 
@@ -204,11 +190,11 @@ static int write_vmareastruct (struct vm_area_struct *vma, struct mm_struct *mm,
 		}
 	}
 #endif
-	data->vmareastruct[counter+2] = vma->vm_flags;
-	data->vmareastruct[counter+3] = (unsigned long)pgoff;
-	data->vmareastruct[counter+4] = MAJOR(dev);
-	data->vmareastruct[counter+5] = MINOR(dev);
-	data->vmareastruct[counter+6] = ino;
+	data->vmareastruct[counter + 2] = vma->vm_flags;
+	data->vmareastruct[counter + 3] = (unsigned long)pgoff;
+	data->vmareastruct[counter + 4] = MAJOR (dev);
+	data->vmareastruct[counter + 5] = MINOR (dev);
+	data->vmareastruct[counter + 6] = ino;
 	counter += 7;
 
 	if (file) {
@@ -254,9 +240,7 @@ write_name:
 	return 0;
 }
 
-static long io_ioctl (struct file *file, unsigned int cmd,
-					unsigned long data_addr)
-{
+static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_addr) {
 	struct r2k_memory_transf *m_transf;
 	struct r2k_map k_map;
 	struct r2k_proc_info *proc_inf;
@@ -726,13 +710,11 @@ out:
 	return ret;
 }
 
-static int io_open (struct inode *inode, struct file *file)
-{
+static int io_open (struct inode *inode, struct file *file) {
 	return 0;
 }
 
-static int io_close (struct inode *inode, struct file *file)
-{
+static int io_close (struct inode *inode, struct file *file) {
 	return 0;
 }
 
@@ -744,23 +726,19 @@ static struct file_operations fops = {
 	.mmap = mmap_struct,
 };
 
-static char *r2k_devnode (struct device *dev_ph, umode_t *mode)
-{
+static char *r2k_devnode (struct device *dev_ph, umode_t *mode) {
 	if (mode) {
-		if (dev_ph->devt == devno)
+		if (dev_ph->devt == devno) {
 			*mode = 0600;
+		}
 	}
 	return NULL;
 }
 
-
-static int __init r2k_init (void)
-{
-	int ret;
-
+static int __init r2k_init (void) {
 	pr_info ("%s: loading driver\n", r2_devname);
 
-	ret = alloc_chrdev_region (&devno, 0, 1, r2_devname);
+	int ret = alloc_chrdev_region (&devno, 0, 1, r2_devname);
 	if (ret < 0) {
 		pr_info ("%s: alloc_chrdev_region failed\n", r2_devname);
 		goto out;
@@ -819,17 +797,15 @@ out:
 	return ret;
 }
 
-static void __exit r2k_exit (void)
-{
+static void __exit r2k_exit (void) {
 	clean_mmap ();
 	device_destroy (r2k_class, devno);
 	class_unregister (r2k_class);
-
 	class_destroy (r2k_class);
 	cdev_del (r2k_dev);
 	unregister_chrdev_region (devno, 1);
-	pr_info ("%s: unloading driver, /dev/%s deleted\n", r2_devname,
-								r2_devname);
+	pr_info ("%s: unloading driver, /dev/%s deleted\n",
+			r2_devname, r2_devname);
 }
 
 module_init (r2k_init);

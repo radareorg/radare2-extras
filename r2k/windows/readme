@@ -35,6 +35,3 @@
 
 - Also you can disable Integrity checks:
   bcdedit /set loadoptions DISABLE_INTEGRITY_CHECKS
-  
-
-
