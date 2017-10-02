@@ -1,7 +1,6 @@
 ARCHS=
 
 ARCHS+=dlang.mk
-ARCHS+=mdmp.mk
 ARCHS+=swf.mk
 ARCHS+=pyc.mk
 ARCHS+=pcap.mk
