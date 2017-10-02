@@ -11,6 +11,7 @@
 #define PE_IMAGE_FILE_MACHINE_RPI2 452
 #define MAX_METADATA_STRING_LENGTH 256
 #define bprintf if(bin->verbose) eprintf
+#define COFF_SYMBOL_SIZE 18
 
 struct SCV_NB10_HEADER;
 typedef struct {
@@ -106,7 +107,7 @@ struct r_bin_pe_addr_t *PE_(check_msvcseh) (struct PE_(r_bin_pe_obj_t) *bin) {
 			//FF 35 0C E2 40 00                          push    xxxxxxxx
 			//FF 35 08 E2 40 00                          push    xxxxxxxx
 			//E8 2B FD FF FF                             call    _main
-			for (n = 0; n < sizeof (b) - 17; n++) {
+			for (n = 0; n < sizeof (b) - 20; n++) {
 				if (b[n] == 0x50 && b[n + 1] == 0xff && b[n + 7] == 0xff && b[n + 13] == 0xe8) {
 					const st32 call_dst = r_read_ble32 (b + n + 14, bin->big_endian);
 					entry->paddr += (n + 5 + 13 + call_dst);
@@ -605,7 +606,7 @@ typedef struct {
 
 static struct r_bin_pe_export_t* parse_symbol_table(struct PE_(r_bin_pe_obj_t)* bin, struct r_bin_pe_export_t* exports, int sz) {
 	ut64 sym_tbl_off, num = 0;
-	const int srsz = 18; // symbol record size
+	const int srsz = COFF_SYMBOL_SIZE; // symbol record size
 	struct r_bin_pe_section_t* sections;
 	struct r_bin_pe_export_t* exp;
 	int bufsz, i, shsz;
@@ -877,6 +878,7 @@ int PE_(bin_pe_get_overlay)(struct PE_(r_bin_pe_obj_t)* bin, ut64* size) {
 
 	if ((ut64) bin->size > largest_offset + largest_size) {
 		*size = bin->size - largest_offset - largest_size;
+		free (sects);
 		return largest_offset + largest_size;
 	}
 	free (sects);
@@ -973,11 +975,13 @@ static int bin_pe_init_metadata_hdr(struct PE_(r_bin_pe_obj_t)* bin) {
 	while (count < metadata->NumberOfStreams) {
 		stream = R_NEW0 (PE_(image_metadata_stream));
 		if (!stream) {
+			free (streams);
 			goto fail;
 		}
 
 		if (r_buf_fread_at (bin->b, start_of_stream, (ut8*) stream, bin->big_endian? "2I": "2i", 1) < 1) {
 			free (stream);
+			free (streams);
 			goto fail;
 		}
 		eprintf ("DirectoryAddress: %x Size: %x\n", stream->Offset, stream->Size);
@@ -985,12 +989,14 @@ static int bin_pe_init_metadata_hdr(struct PE_(r_bin_pe_obj_t)* bin) {
 
 		if (!stream_name) {
 			free (stream);
+			free (streams);
 			goto fail;
 		}
 
 		if (r_buf_size (bin->b) < (start_of_stream + 8 + MAX_METADATA_STRING_LENGTH)) {
 			free (stream_name);
 			free (stream);
+			free (streams);
 			goto fail;
 		}
 		int c = bin_pe_read_metadata_string (stream_name,
@@ -998,6 +1004,7 @@ static int bin_pe_init_metadata_hdr(struct PE_(r_bin_pe_obj_t)* bin) {
 		if (c == 0) {
 			free (stream_name);
 			free (stream);
+			free (streams);
 			goto fail;
 		}
 		eprintf ("Stream name: %s %d\n", stream_name, c);
@@ -1011,7 +1018,6 @@ static int bin_pe_init_metadata_hdr(struct PE_(r_bin_pe_obj_t)* bin) {
 fail:
 	eprintf ("Warning: read (metadata header)\n");
 	free (metadata);
-	free (streams);
 	return 0;
 }
 
@@ -1027,7 +1033,7 @@ static int bin_pe_init_overlay(struct PE_(r_bin_pe_obj_t)* bin) {
 
 static int bin_pe_init_clr_hdr(struct PE_(r_bin_pe_obj_t)* bin) {
 	PE_(image_data_directory) * clr_dir = &bin->data_directory[PE_IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR];
-	PE_DWord image_clr_hdr_paddr = clr_dir? bin_pe_rva_to_paddr (bin, clr_dir->VirtualAddress): 0;
+	PE_DWord image_clr_hdr_paddr = bin_pe_rva_to_paddr (bin, clr_dir->VirtualAddress);
 	// int clr_dir_size = clr_dir? clr_dir->Size: 0;
 	PE_(image_clr_header) * clr_hdr = R_NEW0 (PE_(image_clr_header));
 	int rr, len = sizeof (PE_(image_clr_header));
@@ -2283,7 +2289,7 @@ static void _store_resource_sdb(struct PE_(r_bin_pe_obj_t) *bin) {
 	RListIter *iter;
 	r_pe_resource *rs;
 	int index = 0;
-	ut64 paddr = 0;
+	ut64 vaddr = 0;
 	char *key;
 	Sdb *sdb = sdb_new0 ();
 	if (!sdb) {
@@ -2292,9 +2298,9 @@ static void _store_resource_sdb(struct PE_(r_bin_pe_obj_t) *bin) {
 	r_list_foreach (bin->resources, iter, rs) {
 		key = sdb_fmt (0, "resource.%d.timestr", index);
 		sdb_set (sdb, key, rs->timestr, 0);
-		key = sdb_fmt (0, "resource.%d.paddr", index);
-		paddr = bin_pe_rva_to_paddr (bin, rs->data->OffsetToData);
-		sdb_num_set (sdb, key, paddr, 0);
+		key = sdb_fmt (0, "resource.%d.vaddr", index);
+		vaddr = bin_pe_rva_to_va (bin, rs->data->OffsetToData);
+		sdb_num_set (sdb, key, vaddr, 0);
 		key = sdb_fmt (0, "resource.%d.name", index);
 		sdb_num_set (sdb, key, rs->name, 0);
 		key = sdb_fmt (0, "resource.%d.size", index);
@@ -3250,6 +3256,24 @@ struct r_bin_pe_section_t* PE_(r_bin_pe_get_sections)(struct PE_(r_bin_pe_obj_t)
 			char* new_name = r_str_newf ("sect_%d", j);
 			strncpy ((char*) sections[j].name, new_name, R_ARRAY_SIZE (sections[j].name) - 1);
 			free (new_name);
+		} else if (shdr[i].Name[0] == '/') {
+			//long name is something deprecated but still used
+			int idx = atoi ((const char *)shdr[i].Name + 1);
+			ut64 sym_tbl_off = bin->nt_headers->file_header.PointerToSymbolTable;
+			int num_symbols = bin->nt_headers->file_header.NumberOfSymbols;
+			int off = num_symbols * COFF_SYMBOL_SIZE;
+			if (sym_tbl_off &&
+			    sym_tbl_off + off + idx < bin->size &&
+			    sym_tbl_off + off + idx > off) {
+				int sz = PE_IMAGE_SIZEOF_SHORT_NAME * 3;
+				char* buf[64] = {0};
+				if (r_buf_read_at (bin->b,
+						   sym_tbl_off + off + idx,
+						   (ut8*)buf, 64)) {
+					memcpy (sections[j].name, buf, sz);
+					sections[j].name[sz - 1] = '\0';
+				}
+			}
 		} else {
 			memcpy (sections[j].name, shdr[i].Name, PE_IMAGE_SIZEOF_SHORT_NAME);
 			sections[j].name[PE_IMAGE_SIZEOF_SHORT_NAME - 1] = '\0';
