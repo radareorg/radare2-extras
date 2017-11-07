@@ -2319,7 +2319,7 @@ typedef struct {
 int cbCat(void *user, const unsigned char *buf, int len) {
 	catUser *cu = user;
 	if (!buf || len < 1) {
-		write (1, cu->buf, cu->len);
+//		write (1, cu->buf, cu->len);
 		return false;
 	}
 	if (cu->buf) {
@@ -2343,11 +2343,13 @@ unsigned char *sq_cat(const char *path, int *len) {
 	catUser cu = { NULL, 0 };
 	global_cat = cbCat;
         global_user = &cu;
-	catMode = path;
+	catMode = strdup (path);
 	scan ();
 	if (len) {
 		*len = cu.len;
 	}
+	free((char *)catMode);
+	catMode = NULL;
 	return cu.buf;
 }
 

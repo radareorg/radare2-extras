@@ -21,7 +21,7 @@ SOURCES+=xz_wrapper.c
 
 BIN=unsquashfs
 
-EXT_SO?=dylib
+EXT_SO?=$(shell r2 -H LIBEXT)
 
 all: fs_squashfs.$(EXT_SO)
 	$(CC) ${CFLAGS} $(SOURCES) $(LDFLAGS) -o $(BIN)

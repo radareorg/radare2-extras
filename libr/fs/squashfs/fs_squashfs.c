@@ -17,6 +17,7 @@ static RFSFile *fs_squash_open(RFSRoot *root, const char *path) {
 		if (!file) {
 			return NULL;
 		}
+		file->path = strdup (path);
 		file->ptr = NULL;
 		file->p = root->p;
 		file->size = size;
@@ -100,6 +101,7 @@ static void fs_squash_umount(RFSRoot *root) {
 RFSPlugin r_fs_plugin_io = {
 	.name = "squashfs",
 	.desc = "SquashFS filesystem (XZ + LZMA)",
+	.license = "GPL",
 	.open = fs_squash_open,
 	.read = fs_squash_read,
 	.close = fs_squash_close,
