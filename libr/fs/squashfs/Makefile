@@ -3,6 +3,8 @@ CFLAGS+=-D GZIP_SUPPORT=1
 CFLAGS+=-D XZ_SUPPORT=1
 CFLAGS+=-D XATTR_SUPPORT=1
 CFLAGS+=-I. -I/usr/local/include 
+CFLAGS+=-Ilzma/include
+CFLAGS+=-g
 LDFLAGS+=-llzma
 LDFLAGS+=-lz
 

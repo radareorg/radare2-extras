@@ -59,8 +59,6 @@
 #define TRACE(s, args...) \
 		do { \
 			pthread_mutex_lock(&screen_mutex); \
-			if(progress_enabled) \
-				printf("\n"); \
 			printf("unsquashfs: "s, ## args); \
 			pthread_mutex_unlock(&screen_mutex);\
 		} while(0)
@@ -71,8 +69,6 @@
 #define ERROR(s, args...) \
 		do { \
 			pthread_mutex_lock(&screen_mutex); \
-			if(progress_enabled) \
-				fprintf(stderr, "\n"); \
 			fprintf(stderr, s, ## args); \
 			pthread_mutex_unlock(&screen_mutex);\
 		} while(0)
@@ -258,7 +254,6 @@ extern struct hash_table_entry *inode_table_hash[65536],
 	*directory_table_hash[65536];
 extern unsigned int *uid_table, *guid_table;
 extern pthread_mutex_t screen_mutex;
-extern int progress_enabled;
 extern int inode_number;
 extern int lookup_type[];
 extern int fd;

@@ -52,6 +52,8 @@ struct super_block sBlk;
 squashfs_operations s_ops;
 struct compressor *comp;
 
+
+static const char *catMode = NULL;
 int bytes = 0, swap, file_count = 0, dir_count = 0, sym_count = 0,
 	dev_count = 0, fifo_count = 0;
 char *inode_table = NULL, *directory_table = NULL;
@@ -71,8 +73,6 @@ int root_process;
 int columns;
 int rotate = 0;
 pthread_mutex_t	screen_mutex;
-pthread_cond_t progress_wait;
-int progress = TRUE, progress_enabled = FALSE;
 unsigned int total_blocks = 0, total_files = 0, total_inodes = 0;
 unsigned int cur_blocks = 0;
 int inode_number = 1;
@@ -122,7 +122,6 @@ struct test table[] = {
 };
 
 void progress_bar(long long current, long long max, int columns);
-void update_progress_bar();
 
 void sigwinch_handler()
 {
@@ -199,22 +198,18 @@ void *queue_get(struct queue *queue)
 
 
 /* Called with the cache mutex held */
-void insert_hash_table(struct cache *cache, struct cache_entry *entry)
-{
+void insert_hash_table(struct cache *cache, struct cache_entry *entry) {
 	int hash = CALCULATE_HASH(entry->block);
-
-fprintf (stderr, "insert hashtable\n");
 	entry->hash_next = cache->hash_table[hash];
 	cache->hash_table[hash] = entry;
 	entry->hash_prev = NULL;
-	if(entry->hash_next)
+	if (entry->hash_next) {
 		entry->hash_next->hash_prev = entry;
+	}
 }
 
-
 /* Called with the cache mutex held */
-void remove_hash_table(struct cache *cache, struct cache_entry *entry)
-{
+void remove_hash_table(struct cache *cache, struct cache_entry *entry) {
 	if(entry->hash_prev)
 		entry->hash_prev->hash_next = entry->hash_next;
 	else
@@ -361,9 +356,7 @@ struct cache_entry *cache_get(struct cache *cache, long long block, int size)
 	return entry;
 }
 
-	
-void cache_block_ready(struct cache_entry *entry, int error)
-{
+void cache_block_ready(struct cache_entry *entry, int error) {
 	/*
 	 * mark cache entry as being complete, reading and (if necessary)
  	 * decompression has taken place, and the buffer is valid for use.
@@ -471,7 +464,8 @@ int print_filename(char *pathname, struct inode *inode)
 	} else
 		groupstr = group->gr_name;
 
-	printf("%s %s/%s ", modestr(str, inode->mode), userstr, groupstr);
+	// printf("%s %s/%s ", modestr(str, inode->mode), userstr, groupstr);
+	printf("%s %s ", modestr(str, inode->mode), groupstr);
 
 	switch(inode->mode & S_IFMT) {
 		case S_IFREG:
@@ -510,7 +504,6 @@ int print_filename(char *pathname, struct inode *inode)
 void add_entry(struct hash_table_entry *hash_table[], long long start, int bytes) {
 	int hash = CALCULATE_HASH(start);
 	struct hash_table_entry *hash_table_entry;
-printf ("ADD ENTRY\n");
 
 	hash_table_entry = malloc(sizeof(struct hash_table_entry));
 	if(hash_table_entry == NULL)
@@ -527,12 +520,10 @@ int lookup_entry(struct hash_table_entry *hash_table[], long long start) {
 	struct hash_table_entry *hte;
 
 	for (hte = hash_table[hash]; hte; hte = hte->next) {
-printf ("FINDING IN HASH %lld %lld\n", hte->start, start);
 		if (hte->start == start) {
 			return hte->bytes;
 		}
 	}
-printf ("NOT FOUND\n");
 	return -1;
 }
 
@@ -540,7 +531,7 @@ int read_fs_bytes(int fd, long long byte, int bytes, void *buff) {
 	off_t off = byte;
 	int res, count;
 
-	fprintf(stderr, "read fs bytes from fd %d\n", fd);
+	// fprintf(stderr, "read fs bytes from fd %d\n", fd);
 	TRACE("read_bytes: reading from position 0x%llx, bytes %d\n", byte, bytes);
 
 	if(lseek(fd, off, SEEK_SET) == -1) {
@@ -793,17 +784,21 @@ int write_file(struct inode *inode, char *pathname)
 
 	TRACE("write_file: regular file, blocks %d\n", inode->blocks);
 
+#if 0
 	file_fd = open(pathname, O_CREAT | O_WRONLY | (force ? O_TRUNC : 0),
 		(mode_t) inode->mode & 0777);
+#endif
+file_fd = 1;
 	if(file_fd == -1) {
 		ERROR("write_file: failed to create file %s, because %s\n",
 			pathname, strerror(errno));
 		return FALSE;
 	}
 
-	block_list = malloc(inode->blocks * sizeof(unsigned int));
-	if(block_list == NULL)
+	block_list = calloc (inode->blocks, sizeof (unsigned int));
+	if (block_list == NULL) {
 		EXIT_UNSQUASH("write_file: unable to malloc block list\n");
+	}
 
 	s_ops.read_block_list(block_list, inode->block_ptr, inode->blocks);
 
@@ -828,7 +823,7 @@ int write_file(struct inode *inode, char *pathname)
 	file->xattr = inode->xattr;
 	queue_put(to_writer, file);
 
-	for(i = 0; i < inode->blocks; i++) {
+	for (i = 0; i < inode->blocks; i++) {
 		int c_byte = SQUASHFS_COMPRESSED_SIZE_BLOCK(block_list[i]);
 		struct file_entry *block = malloc(sizeof(struct file_entry));
 
@@ -872,8 +867,10 @@ int create_inode(char *pathname, struct inode *i)
 
 	if(created_inode[i->inode_number - 1]) {
 		TRACE("create_inode: hard link\n");
+#if 0
 		if(force)
 			unlink(pathname);
+#endif
 
 		if(link(created_inode[i->inode_number - 1], pathname) == -1) {
 			ERROR("create_inode: failed to create hardlink, "
@@ -883,24 +880,29 @@ int create_inode(char *pathname, struct inode *i)
 
 		return TRUE;
 	}
-
-	switch(i->type) {
+	switch (i->type) {
 		case SQUASHFS_FILE_TYPE:
 		case SQUASHFS_LREG_TYPE:
 			TRACE("create_inode: regular file, file_size %lld, "
 				"blocks %d\n", i->data, i->blocks);
-
-			if(write_file(i, pathname))
-				file_count ++;
+			if (catMode) {
+				if (!strcmp (catMode, pathname + 2)) {
+					if (write_file (i, pathname))
+						file_count ++;
+				}
+			} else {
+				printf ("%s\n", pathname);
+			}
 			break;
 		case SQUASHFS_SYMLINK_TYPE:
 		case SQUASHFS_LSYMLINK_TYPE:
-			TRACE("create_inode: symlink, symlink_size %lld\n",
-				i->data);
+			TRACE("create_inode: symlink, symlink_size %lld\n", i->data);
 
 			if(force)
 				unlink(pathname);
 
+			printf ("%s\n", i->symlink);
+#if 0
 			if(symlink(i->symlink, pathname) == -1) {
 				ERROR("create_inode: failed to create symlink "
 					"%s, because %s\n", pathname,
@@ -917,13 +919,15 @@ int create_inode(char *pathname, struct inode *i)
 						"%s\n", pathname,
 						strerror(errno));
 			}
-
+#endif
 			sym_count ++;
 			break;
  		case SQUASHFS_BLKDEV_TYPE:
 	 	case SQUASHFS_CHRDEV_TYPE:
  		case SQUASHFS_LBLKDEV_TYPE:
 	 	case SQUASHFS_LCHRDEV_TYPE: {
+			printf ("block: %d %d\n", (int)((i->data >> 8) & 0xff), (int)(i->data & 0xff));
+#if 0
 			int chrdev = i->type == SQUASHFS_CHRDEV_TYPE;
 			TRACE("create_inode: dev, rdev 0x%llx\n", i->data);
 
@@ -948,6 +952,7 @@ int create_inode(char *pathname, struct inode *i)
 					"device %s, because you're not "
 					"superuser!\n", chrdev ? "character" :
 					"block", pathname);
+#endif
 			break;
 		}
 		case SQUASHFS_FIFO_TYPE:
@@ -979,7 +984,6 @@ int create_inode(char *pathname, struct inode *i)
 	}
 
 	created_inode[i->inode_number - 1] = strdup(pathname);
-
 	return TRUE;
 }
 
@@ -1312,7 +1316,7 @@ void dir_scan(char *parent_name, unsigned int start_block, unsigned int offset,
 
 	if(lsonly || info)
 		print_filename(parent_name, i);
-
+#if 0
 	if(!lsonly && mkdir(parent_name, (mode_t) dir->mode) == -1 &&
 			(!force || errno != EEXIST)) {
 		ERROR("dir_scan: failed to make directory %s, because %s\n",
@@ -1320,6 +1324,7 @@ void dir_scan(char *parent_name, unsigned int start_block, unsigned int offset,
 		squashfs_closedir(dir);
 		return;
 	}
+#endif
 
 	while(squashfs_readdir(dir, &name, &start_block, &offset, &type)) {
 		TRACE("dir_scan: name %s, start_block %d, offset %d, type %d\n",
@@ -1331,22 +1336,33 @@ void dir_scan(char *parent_name, unsigned int start_block, unsigned int offset,
 
 		strcat(strcat(strcpy(pathname, parent_name), "/"), name);
 
-		if(type == SQUASHFS_DIR_TYPE)
+		if(type == SQUASHFS_DIR_TYPE) {
+			if (!catMode || !*catMode) {
+				printf ("%c %s\n", 'd', pathname + 2);
+			}
 			dir_scan(pathname, start_block, offset, new);
-		else if(new == NULL) {
+		} else if (new == NULL) {
 			i = s_ops.read_inode(start_block, offset);
 
-			if(lsonly || info)
+			if(lsonly || info) {
 				print_filename(pathname, i);
-
-			if(!lsonly) {
-				create_inode(pathname, i);
-				update_progress_bar();
+			}
+			if (catMode && *catMode) {
+				if (!strcmp (catMode, pathname + 2)) {
+				//if (!lsonly) {
+					create_inode (pathname, i);
+					// update_progress_bar();
 				}
-
-			if(i->type == SQUASHFS_SYMLINK_TYPE ||
-					i->type == SQUASHFS_LSYMLINK_TYPE)
-				free(i->symlink);
+			} else {
+				int type = (i->mode & S_IFMT);
+				int typeChar = (type == S_IFIFO || type == S_IFSOCK) ? 's':
+					(type == S_IFLNK)? 'l': 
+					(type == S_IFCHR || type == S_IFBLK)? 'b': 'f';
+				printf ("%c %s\n", typeChar, pathname + 2);
+			}
+			if (i->type == SQUASHFS_SYMLINK_TYPE || i->type == SQUASHFS_LSYMLINK_TYPE) {
+				free (i->symlink);
+			}
 		}
 
 		free_subdir(new);
@@ -1711,14 +1727,17 @@ void *writer(void *arg)
 						"data block\n");
 					failed = TRUE;
 				}
-			} else if(ftruncate(file_fd, file->file_size) == -1) {
+			} 
+#if 0
+else if(ftruncate(file_fd, file->file_size) == -1) {
 				ERROR("writer: failed to write sparse data "
 					"block\n");
 				failed = TRUE;
 			}
+#endif
 		}
 
-		close(file_fd);
+		// close(file_fd);
 		if(failed == FALSE)
 			set_attributes(file->pathname, file->mode, file->uid,
 				file->gid, file->time, file->xattr, force);
@@ -1786,8 +1805,6 @@ void *progress_thread(void *arg)
 	itimerval.it_interval.tv_usec = 250000;
 	setitimer(ITIMER_REAL, &itimerval, NULL);
 
-	pthread_cond_init(&progress_wait, NULL);
-
 	pthread_mutex_lock(&screen_mutex);
 	while(1) {
 		gettimeofday(&timeval, NULL);
@@ -1796,12 +1813,6 @@ void *progress_thread(void *arg)
 			timespec.tv_sec++;
 		timespec.tv_nsec = ((timeval.tv_usec + 250000) % 1000000) *
 			1000;
-		pthread_cond_timedwait(&progress_wait, &screen_mutex,
-			&timespec);
-		if(progress_enabled)
-			progress_bar(sym_count + dev_count +
-				fifo_count + cur_blocks, total_inodes -
-				total_files + total_blocks, columns);
 	}
 }
 
@@ -1863,8 +1874,7 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size)
 			EXIT_UNSQUASH("Failed to create thread\n");
 	}
 
-	printf("Parallel unsquashfs: Using %d processor%s\n", processors,
-			processors == 1 ? "" : "s");
+	// printf("Parallel unsquashfs: Using %d processor%s\n", processors, processors == 1 ? "" : "s");
 
 	if(sigprocmask(SIG_SETMASK, &old_mask, NULL) == -1)
 		EXIT_UNSQUASH("Failed to set signal mask in intialise_threads"
@@ -1875,7 +1885,6 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size)
 void enable_progress_bar()
 {
 	pthread_mutex_lock(&screen_mutex);
-	progress_enabled = TRUE;
 	pthread_mutex_unlock(&screen_mutex);
 }
 
@@ -1883,7 +1892,6 @@ void enable_progress_bar()
 void disable_progress_bar()
 {
 	pthread_mutex_lock(&screen_mutex);
-	progress_enabled = FALSE;
 	pthread_mutex_unlock(&screen_mutex);
 }
 
@@ -1891,7 +1899,6 @@ void disable_progress_bar()
 void update_progress_bar()
 {
 	pthread_mutex_lock(&screen_mutex);
-	pthread_cond_signal(&progress_wait);
 	pthread_mutex_unlock(&screen_mutex);
 }
 
@@ -1968,7 +1975,7 @@ void progress_bar(long long current, long long max, int columns)
 #if HAVE_MAIN
 int main(int argc, char *argv[])
 {
-	char *dest = "squashfs-root";
+	char *dest = ".";
 	int i, stat_sys = FALSE, version = FALSE;
 	int n;
 	struct pathnames *paths = NULL;
@@ -1995,9 +2002,6 @@ int main(int argc, char *argv[])
 		else if(strcmp(argv[i], "-ls") == 0 ||
 				strcmp(argv[i], "-l") == 0)
 			lsonly = TRUE;
-		else if(strcmp(argv[i], "-no-progress") == 0 ||
-				strcmp(argv[i], "-n") == 0)
-			progress = FALSE;
 		else if(strcmp(argv[i], "-no-xattrs") == 0 ||
 				strcmp(argv[i], "-no") == 0)
 			no_xattrs = TRUE;
@@ -2083,12 +2087,6 @@ int main(int argc, char *argv[])
 			goto options;
 	}
 
-	if(lsonly || info)
-		progress = FALSE;
-
-#ifdef SQUASHFS_TRACE
-	progress = FALSE;
-#endif
 
 	if(i == argc) {
 		if(!version) {
@@ -2139,11 +2137,18 @@ options:
 		}
 		exit(1);
 	}
-
-	for(n = i + 1; n < argc; n++)
+#if 1
+	if (i + 1 < argc) {
+		catMode = strdup (argv[i + 1]);
+	} else {
+		catMode = NULL;
+	}
+#else
+	for(n = i + 1; n < argc; n++) {
 		path = add_path(path, argv[n], argv[n]);
-
-	if((fd = open(argv[i], O_RDONLY)) == -1) {
+	}
+#endif
+	if ((fd = open(argv[i], O_RDONLY)) == -1) {
 		ERROR("Could not open %s, because %s\n", argv[i],
 			strerror(errno));
 		exit(1);
@@ -2223,11 +2228,8 @@ options:
 	memset(created_inode, 0, sBlk.s.inodes * sizeof(char *));
 	inode_number = 1;
 
-	printf("%d inodes (%d blocks) to write\n\n", total_inodes,
-		total_inodes - total_files + total_blocks);
-
-	if(progress)
-		enable_progress_bar();
+	// printf("%d inodes (%d blocks) to write\n\n", total_inodes,
+	//	total_inodes - total_files + total_blocks);
 
 	dir_scan(dest, SQUASHFS_INODE_BLK(sBlk.s.root_inode),
 		SQUASHFS_INODE_OFFSET(sBlk.s.root_inode), paths);
@@ -2235,12 +2237,7 @@ options:
 	queue_put(to_writer, NULL);
 	queue_get(from_writer);
 
-	if(progress) {
-		disable_progress_bar();
-		progress_bar(sym_count + dev_count + fifo_count + cur_blocks,
-			total_inodes - total_files + total_blocks, columns);
-	}
-
+#if 0
 	if(!lsonly) {
 		printf("\n");
 		printf("created %d files\n", file_count);
@@ -2249,6 +2246,7 @@ options:
 		printf("created %d devices\n", dev_count);
 		printf("created %d fifos\n", fifo_count);
 	}
+#endif
 
 	return 0;
 }
