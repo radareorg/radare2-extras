@@ -8,10 +8,33 @@ CFLAGS+=-g
 LDFLAGS+=-llzma
 LDFLAGS+=-lz
 
+R2_FLAGS+=$(shell pkg-config --cflags --libs r_fs)
+
+SOURCES+=compressor.c
+SOURCES+=gzip_wrapper.c
+SOURCES+=unsquash-1.c
+SOURCES+=unsquash-2.c
+SOURCES+=unsquash-3.c
+SOURCES+=unsquash-4.c
+SOURCES+=unsquashfs.c
+SOURCES+=xz_wrapper.c
+
 BIN=unsquashfs
 
-all:
-	gcc ${CFLAGS} *.c $(LDFLAGS) -o $(BIN)
+EXT_SO?=dylib
+
+all: fs_squashfs.$(EXT_SO)
+	$(CC) ${CFLAGS} $(SOURCES) $(LDFLAGS) -o $(BIN)
+
+LIB=fs_squashfs.$(EXT_SO)
+R2PLUGDIR=$(shell r2 -H USER_PLUGINS)
+
+$(LIB):
+	$(CC) -DAPIMODE=1 -fPIC -shared $(R2_FLAGS) $(CFLAGS) $(LDFLAGS) -o $(LIB) fs_squashfs.c $(SOURCES)
+	cp -f $(LIB) $(R2PLUGDIR)
+	cp -rf $(LIB)* $(R2PLUGDIR)
+
+.PHONY: $(LIB)
 
 clean:
 	rm -f $(BIN)

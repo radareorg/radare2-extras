@@ -34,6 +34,11 @@
 #define HAVE_MAIN 1
 #endif
 
+#if APIMODE
+#include <r_fs.h>
+#undef HAVE_MAIN
+#endif
+
 #if __linux__
 #include <sys/sysinfo.h>
 #endif
@@ -52,13 +57,24 @@ struct super_block sBlk;
 squashfs_operations s_ops;
 struct compressor *comp;
 
-
 static const char *catMode = NULL;
 int bytes = 0, swap, file_count = 0, dir_count = 0, sym_count = 0,
 	dev_count = 0, fifo_count = 0;
 char *inode_table = NULL, *directory_table = NULL;
 struct hash_table_entry *inode_table_hash[65536], *directory_table_hash[65536];
 int fd = -1;
+
+// APIMODE
+#if APIMODE
+typedef int (*SquashDirCallback)(void *user, const char *name, int type, int size);
+typedef int (*SquashCatCallback)(void *user, const unsigned char *buf, int len);
+SquashDirCallback global_cb = NULL;
+SquashCatCallback global_cat = NULL;
+void *global_user = NULL;
+ut64 global_delta = 0LL;
+RFSRoot *global_root = NULL;
+#endif
+
 unsigned int *uid_table, *guid_table;
 unsigned int cached_frag = SQUASHFS_INVALID_FRAG;
 char *fragment_data;
@@ -72,7 +88,6 @@ char **created_inode;
 int root_process;
 int columns;
 int rotate = 0;
-pthread_mutex_t	screen_mutex;
 unsigned int total_blocks = 0, total_files = 0, total_inodes = 0;
 unsigned int cur_blocks = 0;
 int inode_number = 1;
@@ -135,7 +150,6 @@ void sigwinch_handler()
 	} else
 		columns = winsize.ws_col;
 }
-
 
 void sigalrm_handler()
 {
@@ -530,6 +544,15 @@ int lookup_entry(struct hash_table_entry *hash_table[], long long start) {
 int read_fs_bytes(int fd, long long byte, int bytes, void *buff) {
 	off_t off = byte;
 	int res, count;
+#if APIMODE
+	if (global_root) {
+		RIO *io = global_root->iob.io;
+		if (global_root->iob.read_at (io, byte + global_delta, buff, bytes)) {
+			return bytes;
+		}
+		return -1;
+	}
+#endif
 
 	// fprintf(stderr, "read fs bytes from fd %d\n", fd);
 	TRACE("read_bytes: reading from position 0x%llx, bytes %d\n", byte, bytes);
@@ -557,9 +580,7 @@ int read_fs_bytes(int fd, long long byte, int bytes, void *buff) {
 	return TRUE;
 }
 
-
-int read_block(int fd, long long start, long long *next, void *block)
-{
+int read_block(int fd, long long start, long long *next, void *block) {
 	unsigned short c_byte;
 	int offset = 2;
 	
@@ -734,6 +755,12 @@ char *zero_data = NULL;
 
 int write_block(int file_fd, char *buffer, int size, long long hole, int sparse)
 {
+#if APIMODE
+	if (global_cat) {
+		global_cat (global_user, (unsigned char *)buffer, size);
+	}
+	return TRUE;
+#else
 	off_t off = hole;
 
 	if(hole) {
@@ -771,6 +798,7 @@ int write_block(int file_fd, char *buffer, int size, long long hole, int sparse)
 
 failure:
 	return FALSE;
+#endif
 }
 
 
@@ -886,7 +914,7 @@ int create_inode(char *pathname, struct inode *i)
 			TRACE("create_inode: regular file, file_size %lld, "
 				"blocks %d\n", i->data, i->blocks);
 			if (catMode) {
-				if (!strcmp (catMode, pathname + 2)) {
+				if (!strcmp (catMode, pathname + 1)) {
 					if (write_file (i, pathname))
 						file_count ++;
 				}
@@ -901,7 +929,11 @@ int create_inode(char *pathname, struct inode *i)
 			if(force)
 				unlink(pathname);
 
+#if APIMODE
+			write_file (i, i->symlink);
+#else
 			printf ("%s\n", i->symlink);
+#endif
 #if 0
 			if(symlink(i->symlink, pathname) == -1) {
 				ERROR("create_inode: failed to create symlink "
@@ -1334,11 +1366,20 @@ void dir_scan(char *parent_name, unsigned int start_block, unsigned int offset,
 		if(!matches(paths, name, &new))
 			continue;
 
+		int size = 0; // TODO: i->size;
 		strcat(strcat(strcpy(pathname, parent_name), "/"), name);
 
 		if(type == SQUASHFS_DIR_TYPE) {
-			if (!catMode || !*catMode) {
-				printf ("%c %s\n", 'd', pathname + 2);
+			if ((!catMode || !*catMode) && pathname[1]) {
+#if APIMODE
+				if (global_cb) {
+					global_cb (global_user, pathname + 1, 'd', 0);
+				} else {
+					printf ("%c %s\n", 'd', pathname + 1);
+				}
+#else
+				printf ("%c %s\n", 'd', pathname + 1);
+#endif
 			}
 			dir_scan(pathname, start_block, offset, new);
 		} else if (new == NULL) {
@@ -1348,7 +1389,7 @@ void dir_scan(char *parent_name, unsigned int start_block, unsigned int offset,
 				print_filename(pathname, i);
 			}
 			if (catMode && *catMode) {
-				if (!strcmp (catMode, pathname + 2)) {
+				if (!strcmp (catMode, pathname + 1)) {
 				//if (!lsonly) {
 					create_inode (pathname, i);
 					// update_progress_bar();
@@ -1358,7 +1399,15 @@ void dir_scan(char *parent_name, unsigned int start_block, unsigned int offset,
 				int typeChar = (type == S_IFIFO || type == S_IFSOCK) ? 's':
 					(type == S_IFLNK)? 'l': 
 					(type == S_IFCHR || type == S_IFBLK)? 'b': 'f';
-				printf ("%c %s\n", typeChar, pathname + 2);
+#if APIMODE
+				if (global_cb) {
+					global_cb (global_user, pathname + 1, typeChar, size);
+				} else {
+					printf ("%c %s\n", typeChar, pathname + 1);
+				}
+#else
+				printf ("%c %s\n", typeChar, pathname + 1);
+#endif
 			}
 			if (i->type == SQUASHFS_SYMLINK_TYPE || i->type == SQUASHFS_LSYMLINK_TYPE) {
 				free (i->symlink);
@@ -1632,7 +1681,7 @@ void *reader(void *arg)
 	while(1) {
 		struct cache_entry *entry = queue_get(to_reader);
 		int res = read_fs_bytes(fd, entry->block,
-			SQUASHFS_COMPRESSED_SIZE_BLOCK(entry->size),
+			SQUASHFS_COMPRESSED_SIZE_BLOCK (entry->size),
 			entry->data);
 
 		if(res && SQUASHFS_COMPRESSED_BLOCK(entry->size))
@@ -1738,6 +1787,9 @@ else if(ftruncate(file_fd, file->file_size) == -1) {
 		}
 
 		// close(file_fd);
+#if APIMODE
+		global_cat (global_user, NULL, 0);
+#endif
 		if(failed == FALSE)
 			set_attributes(file->pathname, file->mode, file->uid,
 				file->gid, file->time, file->xattr, force);
@@ -1805,7 +1857,6 @@ void *progress_thread(void *arg)
 	itimerval.it_interval.tv_usec = 250000;
 	setitimer(ITIMER_REAL, &itimerval, NULL);
 
-	pthread_mutex_lock(&screen_mutex);
 	while(1) {
 		gettimeofday(&timeval, NULL);
 		timespec.tv_sec = timeval.tv_sec;
@@ -1867,91 +1918,16 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size)
 	pthread_create(&thread[1], NULL, writer, NULL);
 	pthread_create(&thread[2], NULL, progress_thread, NULL);
 	pthread_mutex_init(&fragment_mutex, NULL);
-
-	for(i = 0; i < processors; i++) {
+	for (i = 0; i < processors; i++) {
 		if(pthread_create(&deflator_thread[i], NULL, deflator, NULL) !=
 				 0)
 			EXIT_UNSQUASH("Failed to create thread\n");
 	}
-
 	// printf("Parallel unsquashfs: Using %d processor%s\n", processors, processors == 1 ? "" : "s");
-
 	if(sigprocmask(SIG_SETMASK, &old_mask, NULL) == -1)
 		EXIT_UNSQUASH("Failed to set signal mask in intialise_threads"
 			"\n");
 }
-
-
-void enable_progress_bar()
-{
-	pthread_mutex_lock(&screen_mutex);
-	pthread_mutex_unlock(&screen_mutex);
-}
-
-
-void disable_progress_bar()
-{
-	pthread_mutex_lock(&screen_mutex);
-	pthread_mutex_unlock(&screen_mutex);
-}
-
-
-void update_progress_bar()
-{
-	pthread_mutex_lock(&screen_mutex);
-	pthread_mutex_unlock(&screen_mutex);
-}
-
-
-void progress_bar(long long current, long long max, int columns)
-{
-	char rotate_list[] = { '|', '/', '-', '\\' };
-	int max_digits, used, hashes, spaces;
-	static int tty = -1;
-
-	if(max == 0)
-		return;
-
-	max_digits = floor(log10(max)) + 1;
-	used = max_digits * 2 + 11;
-	hashes = (current * (columns - used)) / max;
-	spaces = columns - used - hashes;
-
-	if((current > max) || (columns - used < 0))
-		return;
-
-	if(tty == -1)
-		tty = isatty(STDOUT_FILENO);
-	if(!tty) {
-		static long long previous = -1;
-
-		/*
-		 * Updating much more frequently than this results in huge
-		 * log files.
-		 */
-		if((current % 100) != 0 && current != max)
-			return;
-		/* Don't update just to rotate the spinner. */
-		if(current == previous)
-			return;
-		previous = current;
-	}
-
-	printf("\r[");
-
-	while (hashes --)
-		putchar('=');
-
-	putchar(rotate_list[rotate]);
-
-	while(spaces --)
-		putchar(' ');
-
-	printf("] %*lld/%*lld", max_digits, current, max_digits, max);
-	printf(" %3lld%%", current * 100 / max);
-	fflush(stdout);
-}
-
 
 #define VERSION() \
 	printf("unsquashfs version 4.2-CVS (2012/01/18)\n");\
@@ -1984,7 +1960,6 @@ int main(int argc, char *argv[])
 	int data_buffer_size = DATA_BUFFER_DEFAULT;
 	char *b;
 
-	pthread_mutex_init(&screen_mutex, NULL);
 	root_process = geteuid() == 0;
 	if(root_process)
 		umask(0);
@@ -2247,7 +2222,138 @@ options:
 		printf("created %d fifos\n", fifo_count);
 	}
 #endif
-
 	return 0;
+}
+#endif
+
+#if APIMODE
+
+int scan() {
+	block_size = sBlk.s.block_size;
+	block_log = sBlk.s.block_log;
+	int fragment_buffer_size = FRAGMENT_BUFFER_DEFAULT;
+	int data_buffer_size = DATA_BUFFER_DEFAULT;
+	struct pathnames *paths = NULL;
+
+	fragment_buffer_size <<= 20 - block_log;
+	data_buffer_size <<= 20 - block_log;
+	initialise_threads(fragment_buffer_size, data_buffer_size);
+
+	fragment_data = malloc(block_size);
+	if(fragment_data == NULL)
+		EXIT_UNSQUASH("failed to allocate fragment_data\n");
+
+	file_data = malloc(block_size);
+	if(file_data == NULL)
+		EXIT_UNSQUASH("failed to allocate file_data");
+
+	data = malloc(block_size);
+	if(data == NULL)
+		EXIT_UNSQUASH("failed to allocate data\n");
+
+	created_inode = malloc(sBlk.s.inodes * sizeof(char *));
+	if(created_inode == NULL)
+		EXIT_UNSQUASH("failed to allocate created_inode\n");
+
+	memset(created_inode, 0, sBlk.s.inodes * sizeof(char *));
+
+	if(s_ops.read_uids_guids() == FALSE)
+		EXIT_UNSQUASH("failed to uid/gid table\n");
+
+	if(s_ops.read_fragment_table() == FALSE)
+		EXIT_UNSQUASH("failed to read fragment table\n");
+
+	uncompress_inode_table(sBlk.s.inode_table_start,
+		sBlk.s.directory_table_start);
+
+	uncompress_directory_table(sBlk.s.directory_table_start,
+		sBlk.s.fragment_table_start);
+
+//	if(no_xattrs)
+//		sBlk.s.xattr_id_table_start = SQUASHFS_INVALID_BLK;
+
+#if 0
+	if(read_xattrs_from_disk(fd, &sBlk.s) == 0) {
+		//EXIT_UNSQUASH("failed to read the xattr table\n");
+		return 1;
+	}
+#endif
+
+#if 0
+	if (path) {
+		paths = init_subdir();
+		paths = add_subdir(paths, path);
+	}
+#endif
+
+	char *dest = ".";
+	pre_scan(dest, SQUASHFS_INODE_BLK(sBlk.s.root_inode),
+		SQUASHFS_INODE_OFFSET(sBlk.s.root_inode), paths);
+
+	memset(created_inode, 0, sBlk.s.inodes * sizeof(char *));
+	inode_number = 1;
+
+	// printf("%d inodes (%d blocks) to write\n\n", total_inodes,
+	//	total_inodes - total_files + total_blocks);
+
+	dir_scan(dest, SQUASHFS_INODE_BLK(sBlk.s.root_inode),
+		SQUASHFS_INODE_OFFSET(sBlk.s.root_inode), paths);
+
+	queue_put(to_writer, NULL);
+	queue_get(from_writer);
+	return 0;
+}
+
+int sq_dir(const char *path, SquashDirCallback cb, void *user) {
+	global_cb = cb;
+	global_user = user;
+	scan ();
+	return 0;
+}
+
+typedef struct {
+	unsigned char *buf;
+	int len;
+} catUser;
+
+int cbCat(void *user, const unsigned char *buf, int len) {
+	catUser *cu = user;
+	if (!buf || len < 1) {
+		write (1, cu->buf, cu->len);
+		return false;
+	}
+	if (cu->buf) {
+		ut8 *b = realloc (cu->buf, cu->len + len);
+		if (b) {
+			cu->buf = b;
+			memcpy (cu->buf + cu->len, buf, len);
+			cu->len = len;
+		}
+	} else {
+		cu->buf = malloc (len);
+		if (cu->buf) {
+			cu->len = len;
+			memcpy (cu->buf, buf, len);
+		}
+	}
+	return true;
+}
+
+unsigned char *sq_cat(const char *path, int *len) {
+	catUser cu = { NULL, 0 };
+	global_cat = cbCat;
+        global_user = &cu;
+	catMode = path;
+	scan ();
+	if (len) {
+		*len = cu.len;
+	}
+	return cu.buf;
+}
+
+int sq_mount(RFSRoot *root) {
+	global_root = root;
+	int res = read_super ("");
+	return res;
 }
 #endif

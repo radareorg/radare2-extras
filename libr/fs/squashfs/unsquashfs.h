@@ -58,9 +58,7 @@
 #ifdef SQUASHFS_TRACE
 #define TRACE(s, args...) \
 		do { \
-			pthread_mutex_lock(&screen_mutex); \
 			printf("unsquashfs: "s, ## args); \
-			pthread_mutex_unlock(&screen_mutex);\
 		} while(0)
 #else
 #define TRACE(s, args...)
@@ -68,16 +66,12 @@
 
 #define ERROR(s, args...) \
 		do { \
-			pthread_mutex_lock(&screen_mutex); \
 			fprintf(stderr, s, ## args); \
-			pthread_mutex_unlock(&screen_mutex);\
 		} while(0)
 
 #define EXIT_UNSQUASH(s, args...) \
 		do { \
-			pthread_mutex_lock(&screen_mutex); \
 			fprintf(stderr, "FATAL ERROR aborting: "s, ## args); \
-			pthread_mutex_unlock(&screen_mutex); \
 		} while(0)
 
 //exit(1); 
@@ -253,7 +247,6 @@ extern char *inode_table, *directory_table;
 extern struct hash_table_entry *inode_table_hash[65536],
 	*directory_table_hash[65536];
 extern unsigned int *uid_table, *guid_table;
-extern pthread_mutex_t screen_mutex;
 extern int inode_number;
 extern int lookup_type[];
 extern int fd;
