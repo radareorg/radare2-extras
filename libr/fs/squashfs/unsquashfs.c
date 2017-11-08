@@ -1038,9 +1038,11 @@ void uncompress_directory_table(long long start, long long end)
 				start);
 		add_entry(directory_table_hash, start, bytes);
 		res = read_block(fd, start, &start, directory_table + bytes);
-		if(res == 0)
+		if(res == 0) {
+			break;
 			EXIT_UNSQUASH("uncompress_directory_table: failed to "
 				"read block\n");
+		}
 		bytes += res;
 	}
 }
