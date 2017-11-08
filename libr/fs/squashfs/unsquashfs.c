@@ -1527,9 +1527,7 @@ void squashfs_stat(char *source)
 	}
 }
 
-
-int read_super(char *source)
-{
+int read_super(char *source) {
 	squashfs_super_block_3 sBlk_3;
 	struct squashfs_super_block sBlk_4;
 

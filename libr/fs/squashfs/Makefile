@@ -29,10 +29,13 @@ all: fs_squashfs.$(EXT_SO)
 LIB=fs_squashfs.$(EXT_SO)
 R2PLUGDIR=$(shell r2 -H USER_PLUGINS)
 
+RHOMEBIN=$(shell r2 -H RHOMEDIR)/prefix/bin
+
 $(LIB):
 	$(CC) -DAPIMODE=1 -fPIC -shared $(R2_FLAGS) $(CFLAGS) $(LDFLAGS) -o $(LIB) fs_squashfs.c $(SOURCES)
 	cp -f $(LIB) $(R2PLUGDIR)
 	cp -rf $(LIB)* $(R2PLUGDIR)
+	cp -f unsquashfs $(RHOMEBIN)
 
 .PHONY: $(LIB)
 

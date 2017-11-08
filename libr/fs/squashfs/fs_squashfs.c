@@ -90,8 +90,7 @@ static RList *fs_squash_dir(RFSRoot *root, const char *path, int view /*ignored*
 
 static int fs_squash_mount(RFSRoot *root) {
 	root->ptr = NULL;
-	sq_mount (root, 0);
-	return true;
+	return sq_mount (root, 0);
 }
 
 static void fs_squash_umount(RFSRoot *root) {

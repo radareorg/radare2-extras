@@ -20,6 +20,8 @@
  * compressor.h
  */
 
+#include <stdio.h>
+
 struct compressor {
 	int id;
 	char *name;
@@ -58,7 +60,11 @@ static inline int compressor_compress(struct compressor *comp, void *strm,
 static inline int compressor_uncompress(struct compressor *comp, void *dest,
 	void *src, int size, int block_size, int *error)
 {
-	return comp->uncompress(dest, src, size, block_size, error);
+	if (comp && comp->uncompress) {
+		return comp->uncompress(dest, src, size, block_size, error);
+	}
+	printf ("Unknown decompression method\n");
+	return -1;
 }
 
 
