@@ -1,9 +1,6 @@
 bea:
 	cd p ; $(MAKE) bin_dlang.$(LIBEXT)
 
-mdmp:
-	cd p ; $(MAKE) bin_mdmp.$(LIBEXT)
-
 pyc:
 	cd p ; $(MAKE) bin_pyc.$(LIBEXT)
 
