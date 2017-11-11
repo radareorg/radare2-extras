@@ -2355,6 +2355,7 @@ unsigned char *sq_cat(const char *path, int *len) {
 
 int sq_mount(RFSRoot *root) {
 	global_root = root;
+	global_delta = root->delta;
 	int res = read_super ("");
 	return res;
 }
