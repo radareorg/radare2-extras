@@ -1897,25 +1897,16 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size) {
 		EXIT_UNSQUASH("Failed to set signal mask in intialise_threads"
 			"\n");
 
-	if(processors == -1) {
+	if (processors == -1) {
 #if __linux__
 		processors = sysconf(_SC_NPROCESSORS_ONLN);
-#else // OS X
-		int mib[2];
-		size_t len = sizeof(processors);
-
-		mib[0] = CTL_HW;
-#if defined(HW_AVAILCPU)
-		mib[1] = HW_AVAILCPU;
-#elif defined(HW_NCPU)
-		mib[1] = HW_NCPU;
-#endif
-
 		if(sysctl(mib, 2, &processors, &len, NULL, 0) == -1) {
 			ERROR("Failed to get number of available processors.  "
 				"Defaulting to 1\n");
 			processors = 1;
 		}
+#else
+		processors = 1;
 #endif
 	}
 	thread = malloc((3 + processors) * sizeof(pthread_t));
