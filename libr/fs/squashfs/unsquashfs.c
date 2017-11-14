@@ -44,10 +44,10 @@
 #endif
 #include <sys/types.h>
 
-struct cache *fragment_cache, *data_cache;
+struct cache *fragment_cache = NULL, *data_cache = NULL;
 struct queue *to_reader, *to_deflate, *to_writer, *from_writer;
 pthread_t *thread, *deflator_thread;
-pthread_mutex_t	fragment_mutex;
+pthread_mutex_t        fragment_mutex;
 
 // TODO: make all this stuff static
 /* user options that control parallelisation */
@@ -159,7 +159,7 @@ void sigalrm_handler()
 
 struct queue *queue_init(int size)
 {
-	struct queue *queue = malloc(sizeof(struct queue));
+	struct queue *queue = calloc(1, sizeof (struct queue));
 
 	if(queue == NULL)
 		EXIT_UNSQUASH("Out of memory in queue_init\n");
@@ -177,25 +177,20 @@ struct queue *queue_init(int size)
 	return queue;
 }
 
-
-void queue_put(struct queue *queue, void *data)
-{
+void queue_put(struct queue *queue, void *data) {
 	int nextp;
-
-	pthread_mutex_lock(&queue->mutex);
-
-	while((nextp = (queue->writep + 1) % queue->size) == queue->readp)
+	pthread_mutex_lock (&queue->mutex);
+	// printf ("PUT %p %p\n", queue, data);
+	while((nextp = (queue->writep + 1) % queue->size) == queue->readp) {
 		pthread_cond_wait(&queue->full, &queue->mutex);
-
+	}
 	queue->data[queue->writep] = data;
 	queue->writep = nextp;
 	pthread_cond_signal(&queue->empty);
 	pthread_mutex_unlock(&queue->mutex);
 }
 
-
-void *queue_get(struct queue *queue)
-{
+void *queue_get(struct queue *queue) {
 	void *data;
 	pthread_mutex_lock(&queue->mutex);
 
@@ -204,12 +199,13 @@ void *queue_get(struct queue *queue)
 
 	data = queue->data[queue->readp];
 	queue->readp = (queue->readp + 1) % queue->size;
+
 	pthread_cond_signal(&queue->full);
 	pthread_mutex_unlock(&queue->mutex);
 
+	// printf ("GET %p %p\n", queue, data);
 	return data;
 }
-
 
 /* Called with the cache mutex held */
 void insert_hash_table(struct cache *cache, struct cache_entry *entry) {
@@ -224,22 +220,23 @@ void insert_hash_table(struct cache *cache, struct cache_entry *entry) {
 
 /* Called with the cache mutex held */
 void remove_hash_table(struct cache *cache, struct cache_entry *entry) {
-	if(entry->hash_prev)
+	if(entry->hash_prev) {
 		entry->hash_prev->hash_next = entry->hash_next;
-	else
+	} else {
 		cache->hash_table[CALCULATE_HASH(entry->block)] =
 			entry->hash_next;
-	if(entry->hash_next)
+	}
+	if (entry->hash_next) {
 		entry->hash_next->hash_prev = entry->hash_prev;
+	}
 
 	entry->hash_prev = entry->hash_next = NULL;
 }
 
 
 /* Called with the cache mutex held */
-void insert_free_list(struct cache *cache, struct cache_entry *entry)
-{
-	if(cache->free_list) {
+void insert_free_list(struct cache *cache, struct cache_entry *entry) {
+	 if(cache->free_list) {
 		entry->free_next = cache->free_list;
 		entry->free_prev = cache->free_list->free_prev;
 		cache->free_list->free_prev->free_next = entry;
@@ -249,7 +246,6 @@ void insert_free_list(struct cache *cache, struct cache_entry *entry)
 		entry->free_prev = entry->free_next = entry;
 	}
 }
-
 
 /* Called with the cache mutex held */
 void remove_free_list(struct cache *cache, struct cache_entry *entry) {
@@ -270,21 +266,20 @@ void remove_free_list(struct cache *cache, struct cache_entry *entry) {
 	entry->free_prev = entry->free_next = NULL;
 }
 
-
-struct cache *cache_init(int buffer_size, int max_buffers)
-{
-	struct cache *cache = malloc(sizeof(struct cache));
-
-	if(cache == NULL)
+struct cache *cache_init(int buffer_size, int max_buffers) {
+	struct cache *cache = calloc (1, sizeof (struct cache));
+	if (!cache) {
 		EXIT_UNSQUASH("Out of memory in cache_init\n");
-
+		return NULL;
+	}
 	cache->max_buffers = max_buffers;
 	cache->buffer_size = buffer_size;
 	cache->count = 0;
 	cache->free_list = NULL;
-	memset(cache->hash_table, 0, sizeof(struct cache_entry *) * 65536);
+	memset (cache->hash_table, 0, sizeof (struct cache_entry *) * 65536);
 	cache->wait_free = FALSE;
 	cache->wait_pending = FALSE;
+
 	pthread_mutex_init(&cache->mutex, NULL);
 	pthread_cond_init(&cache->wait_for_free, NULL);
 	pthread_cond_init(&cache->wait_for_pending, NULL);
@@ -302,14 +297,18 @@ struct cache_entry *cache_get(struct cache *cache, long long block, int size)
  	 * is reached, once this occurs existing discarded blocks on the free
  	 * list are reused
  	 */
-	int hash = CALCULATE_HASH(block);
-	struct cache_entry *entry;
-
+	int hash = CALCULATE_HASH (block);
+	struct cache_entry *entry = NULL;
+	if (!cache) {
+		return NULL;
+	}
 	pthread_mutex_lock(&cache->mutex);
 
-	for(entry = cache->hash_table[hash]; entry; entry = entry->hash_next)
-		if(entry->block == block)
+	for (entry = cache->hash_table[hash]; entry; entry = entry->hash_next) {
+		if (!entry || entry->block == block) {
 			break;
+		}
+	}
 
 	if(entry) {
 		/*
@@ -341,8 +340,7 @@ struct cache_entry *cache_get(struct cache *cache, long long block, int size)
 			 */
 			while(cache->free_list == NULL) {
 				cache->wait_free = TRUE;
-				pthread_cond_wait(&cache->wait_for_free,
-					&cache->mutex);
+				pthread_cond_wait(&cache->wait_for_free, &cache->mutex);
 			}
 			entry = cache->free_list;
 			remove_free_list(cache, entry);
@@ -389,25 +387,20 @@ void cache_block_ready(struct cache_entry *entry, int error) {
 		entry->cache->wait_pending = FALSE;
 		pthread_cond_broadcast(&entry->cache->wait_for_pending);
 	}
-
 	pthread_mutex_unlock(&entry->cache->mutex);
 }
 
-
-void cache_block_wait(struct cache_entry *entry)
-{
+void cache_block_wait(struct cache_entry *entry) {
 	/*
 	 * wait for this cache entry to become ready, when reading and (if
 	 * necessary) decompression has taken place
 	 */
 	pthread_mutex_lock(&entry->cache->mutex);
-
 	while(entry->pending) {
 		entry->cache->wait_pending = TRUE;
 		pthread_cond_wait(&entry->cache->wait_for_pending,
-			&entry->cache->mutex);
+				&entry->cache->mutex);
 	}
-
 	pthread_mutex_unlock(&entry->cache->mutex);
 }
 
@@ -433,7 +426,6 @@ void cache_block_put(struct cache_entry *entry) {
 			pthread_cond_broadcast(&entry->cache->wait_for_free);
 		}
 	}
-
 	pthread_mutex_unlock(&entry->cache->mutex);
 }
 
@@ -802,8 +794,7 @@ failure:
 }
 
 
-int write_file(struct inode *inode, char *pathname)
-{
+static int write_file(struct inode *inode, char *pathname) {
 	unsigned int file_fd, i;
 	unsigned int *block_list;
 	int file_end = inode->data / block_size;
@@ -831,8 +822,10 @@ file_fd = 1;
 	s_ops.read_block_list(block_list, inode->block_ptr, inode->blocks);
 
 	file = malloc(sizeof(struct squashfs_file));
-	if(file == NULL)
+	if (!file) { 
 		EXIT_UNSQUASH("write_file: unable to malloc file\n");
+		return FALSE;
+	}
 
 	/*
 	 * the writer thread is queued a squashfs_file structure describing the
@@ -878,7 +871,7 @@ file_fd = 1;
 		if(block == NULL)
 			EXIT_UNSQUASH("write_file: unable to malloc file\n");
 		s_ops.read_fragment(inode->fragment, &start, &size);
-		block->buffer = cache_get(fragment_cache, start, size);
+		block->buffer = cache_get (fragment_cache, start, size);
 		block->offset = inode->offset;
 		block->size = inode->frag_bytes;
 		queue_put(to_writer, block);
@@ -887,7 +880,6 @@ file_fd = 1;
 	free(block_list);
 	return TRUE;
 }
-
 
 int create_inode(char *pathname, struct inode *i)
 {
@@ -1676,28 +1668,33 @@ struct pathname *process_extract_files(struct pathname *path, char *filename)
  * reader thread.  This thread processes read requests queued by the
  * cache_get() routine.
  */
-void *reader(void *arg)
-{
-	while(1) {
-		struct cache_entry *entry = queue_get(to_reader);
-		int res = read_fs_bytes(fd, entry->block,
-			SQUASHFS_COMPRESSED_SIZE_BLOCK (entry->size),
-			entry->data);
+void *reader_once(void *arg) {
+	struct cache_entry *entry = queue_get(to_reader);
+	int res = read_fs_bytes(fd, entry->block,
+		SQUASHFS_COMPRESSED_SIZE_BLOCK (entry->size),
+		entry->data);
 
-		if(res && SQUASHFS_COMPRESSED_BLOCK(entry->size))
-			/*
-			 * queue successfully read block to the deflate
-			 * thread(s) for further processing
- 			 */
-			queue_put(to_deflate, entry);
-		else
-			/*
-			 * block has either been successfully read and is
-			 * uncompressed, or an error has occurred, clear pending
-			 * flag, set error appropriately, and wake up any
-			 * threads waiting on this buffer
-			 */
-			cache_block_ready(entry, !res);
+	if(res && SQUASHFS_COMPRESSED_BLOCK(entry->size)) {
+		/*
+		 * queue successfully read block to the deflate
+		 * thread(s) for further processing
+		 */
+		queue_put(to_deflate, entry);
+	} else {
+		/*
+		 * block has either been successfully read and is
+		 * uncompressed, or an error has occurred, clear pending
+		 * flag, set error appropriately, and wake up any
+		 * threads waiting on this buffer
+		 */
+		cache_block_ready(entry, !res);
+	}
+	return NULL;
+}
+
+void *reader(void *arg) {
+	while(1) {
+		reader_once (arg);
 	}
 }
 
@@ -1706,108 +1703,111 @@ void *reader(void *arg)
  * writer thread.  This processes file write requests queued by the
  * write_file() routine.
  */
-void *writer(void *arg)
-{
+static void *writer_once(void *arg) {
 	int i;
 
-	while(1) {
-		struct squashfs_file *file = queue_get(to_writer);
-		int file_fd;
-		long long hole = 0;
-		int failed = FALSE;
-		int error;
+	struct squashfs_file *file = queue_get(to_writer);
+	int file_fd;
+	long long hole = 0;
+	int failed = FALSE;
+	int error;
 
-		if(file == NULL) {
-			queue_put(from_writer, NULL);
+	if (!file) {
+		queue_put(from_writer, NULL);
+		return NULL;
+	}
+
+	TRACE("writer: regular file, blocks %d\n", file->blocks);
+
+	file_fd = file->fd;
+
+	for(i = 0; i < file->blocks; i++, cur_blocks ++) {
+		struct file_entry *block = queue_get(to_writer);
+
+cache_block_wait(block->buffer);
+		if(block->buffer == 0) { /* sparse file */
+			hole += block->size;
+			free(block);
 			continue;
 		}
 
-		TRACE("writer: regular file, blocks %d\n", file->blocks);
+		cache_block_wait(block->buffer);
 
-		file_fd = file->fd;
+		if(block->buffer->error)
+			failed = TRUE;
 
-		for(i = 0; i < file->blocks; i++, cur_blocks ++) {
-			struct file_entry *block = queue_get(to_writer);
+		if(failed)
+			continue;
 
-			if(block->buffer == 0) { /* sparse file */
-				hole += block->size;
-				free(block);
-				continue;
-			}
+		error = write_block(file_fd, block->buffer->data +
+			block->offset, block->size, hole, file->sparse);
 
-			cache_block_wait(block->buffer);
-
-			if(block->buffer->error)
-				failed = TRUE;
-
-			if(failed)
-				continue;
-
-			error = write_block(file_fd, block->buffer->data +
-				block->offset, block->size, hole, file->sparse);
-
-			if(error == FALSE) {
-				ERROR("writer: failed to write data block %d\n",
-					i);
-				failed = TRUE;
-			}
-
-			hole = 0;
-			cache_block_put(block->buffer);
-			free(block);
+		if (!error) {
+			ERROR("writer: failed to write data block %d\n",
+				i);
+			failed = TRUE;
 		}
 
-		if(hole && failed == FALSE) {
+		hole = 0;
+		cache_block_put(block->buffer);
+		free(block);
+	}
+
+	if(hole && failed == FALSE) {
+		/*
+		 * corner case for hole extending to end of file
+		 */
+		if(file->sparse == FALSE ||
+				lseek(file_fd, hole, SEEK_CUR) == -1) {
 			/*
-			 * corner case for hole extending to end of file
+			 * for files which we don't want to write
+			 * sparsely, or for broken lseeks which cannot
+			 * seek beyond end of file, write_block will do
+			 * the right thing
 			 */
-			if(file->sparse == FALSE ||
-					lseek(file_fd, hole, SEEK_CUR) == -1) {
-				/*
-				 * for files which we don't want to write
-				 * sparsely, or for broken lseeks which cannot
-				 * seek beyond end of file, write_block will do
-				 * the right thing
-				 */
-				hole --;
-				if(write_block(file_fd, "\0", 1, hole,
-						file->sparse) == FALSE) {
-					ERROR("writer: failed to write sparse "
-						"data block\n");
-					failed = TRUE;
-				}
-			} 
+			hole --;
+			if(write_block(file_fd, "\0", 1, hole,
+					file->sparse) == FALSE) {
+				ERROR("writer: failed to write sparse "
+					"data block\n");
+				failed = TRUE;
+			}
+		} 
 #if 0
 else if(ftruncate(file_fd, file->file_size) == -1) {
-				ERROR("writer: failed to write sparse data "
-					"block\n");
-				failed = TRUE;
-			}
-#endif
+			ERROR("writer: failed to write sparse data "
+				"block\n");
+			failed = TRUE;
 		}
-
-		// close(file_fd);
-#if APIMODE
-		global_cat (global_user, NULL, 0);
 #endif
-		if(failed == FALSE)
-			set_attributes(file->pathname, file->mode, file->uid,
-				file->gid, file->time, file->xattr, force);
-		else {
-			ERROR("Failed to write %s, skipping\n", file->pathname);
-			unlink(file->pathname);
-		}
-		free(file->pathname);
-		free(file);
 	}
+
+	// close(file_fd);
+#if APIMODE
+	global_cat (global_user, NULL, 0);
+#endif
+	if(failed == FALSE)
+		set_attributes(file->pathname, file->mode, file->uid,
+			file->gid, file->time, file->xattr, force);
+	else {
+		ERROR("Failed to write %s, skipping\n", file->pathname);
+		unlink(file->pathname);
+	}
+	free(file->pathname);
+	free(file);
+	return NULL;
 }
 
+static void *writer(void *arg) {
+	while (1) {
+		writer_once (arg);
+	}
+}
 
 /*
  * decompress thread.  This decompresses buffers queued by the read thread
  */
-void *deflator(void *arg)
-{
+void *deflator(void *arg) {
 	char tmp[block_size];
 
 	while (1) {
@@ -1818,11 +1818,12 @@ void *deflator(void *arg)
 			SQUASHFS_COMPRESSED_SIZE_BLOCK(entry->size), block_size,
 			&error);
 
-		if(res == -1)
+		if(res == -1) {
 			ERROR("%s uncompress failed with error code %d\n",
 				comp->name, error);
-		else
-			memcpy(entry->data, tmp, res);
+			break;
+		}
+		memcpy(entry->data, tmp, res);
 
 		/*
 		 * block has been either successfully decompressed, or an error
@@ -1831,11 +1832,10 @@ void *deflator(void *arg)
  		 */ 
 		cache_block_ready(entry, res == -1);
 	}
+	return NULL;
 }
 
-
-void *progress_thread(void *arg)
-{
+void *progress_thread(void *arg) {
 	struct timeval timeval;
 	struct timespec timespec;
 	struct itimerval itimerval;
@@ -1868,11 +1868,27 @@ void *progress_thread(void *arg)
 }
 
 
-void initialise_threads(int fragment_buffer_size, int data_buffer_size)
-{
+void initialise_threads(int fragment_buffer_size, int data_buffer_size) {
 	int i;
 	sigset_t sigmask, old_mask;
 	int all_buffers_size = fragment_buffer_size + data_buffer_size;
+#if 0
+	fragment_cache = cache_init(block_size, fragment_buffer_size);
+	data_cache = cache_init(block_size, data_buffer_size);
+	thread = malloc((3 + processors) * sizeof(pthread_t));
+	if(thread == NULL)
+		EXIT_UNSQUASH("Out of memory allocating thread descriptors\n");
+	deflator_thread = &thread[3];
+	pthread_create(&thread[0], NULL, reader, NULL);
+	pthread_create(&thread[1], NULL, writer, NULL);
+	pthread_create(&thread[2], NULL, progress_thread, NULL);
+	pthread_mutex_init(&fragment_mutex, NULL);
+	for (i = 0; i < processors; i++) {
+		if(pthread_create(&deflator_thread[i], NULL, deflator, NULL) !=
+				0)
+			EXIT_UNSQUASH("Failed to create thread\n");
+	}
+#endif
 
 	sigemptyset(&sigmask);
 	sigaddset(&sigmask, SIGINT);
@@ -1902,7 +1918,6 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size)
 		processors = sysconf(_SC_NPROCESSORS_ONLN);
 #endif
 	}
-
 	thread = malloc((3 + processors) * sizeof(pthread_t));
 	if(thread == NULL)
 		EXIT_UNSQUASH("Out of memory allocating thread descriptors\n");
@@ -1912,6 +1927,7 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size)
 	to_deflate = queue_init(all_buffers_size);
 	to_writer = queue_init(1000);
 	from_writer = queue_init(1);
+
 	fragment_cache = cache_init(block_size, fragment_buffer_size);
 	data_cache = cache_init(block_size, data_buffer_size);
 	pthread_create(&thread[0], NULL, reader, NULL);
@@ -1920,13 +1936,14 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size)
 	pthread_mutex_init(&fragment_mutex, NULL);
 	for (i = 0; i < processors; i++) {
 		if(pthread_create(&deflator_thread[i], NULL, deflator, NULL) !=
-				 0)
+				0)
 			EXIT_UNSQUASH("Failed to create thread\n");
 	}
+
 	// printf("Parallel unsquashfs: Using %d processor%s\n", processors, processors == 1 ? "" : "s");
-	if(sigprocmask(SIG_SETMASK, &old_mask, NULL) == -1)
-		EXIT_UNSQUASH("Failed to set signal mask in intialise_threads"
-			"\n");
+       if(sigprocmask(SIG_SETMASK, &old_mask, NULL) == -1)
+               EXIT_UNSQUASH("Failed to set signal mask in intialise_threads"
+                       "\n");
 }
 
 #define VERSION() \
@@ -2150,7 +2167,6 @@ options:
 
 	fragment_buffer_size <<= 20 - block_log;
 	data_buffer_size <<= 20 - block_log;
-	initialise_threads(fragment_buffer_size, data_buffer_size);
 
 	fragment_data = malloc(block_size);
 	if(fragment_data == NULL)
@@ -2212,6 +2228,7 @@ options:
 	queue_put(to_writer, NULL);
 	queue_get(from_writer);
 
+	// initialise_threads (fragment_buffer_size, data_buffer_size);
 #if 0
 	if(!lsonly) {
 		printf("\n");

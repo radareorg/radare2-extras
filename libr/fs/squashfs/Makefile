@@ -1,3 +1,7 @@
+LIB=fs_squashfs.$(EXT_SO)
+R2PLUGDIR=$(shell r2 -H USER_PLUGINS)
+RHOMEBIN=$(shell r2 -H RHOMEDIR)/prefix/bin
+
 #CFLAGS+=-D LZMA_SUPPORT=1
 CFLAGS+=-D GZIP_SUPPORT=1
 CFLAGS+=-D XZ_SUPPORT=1
@@ -7,6 +11,7 @@ CFLAGS+=-Ilzma/include
 CFLAGS+=-g
 LDFLAGS+=-llzma
 LDFLAGS+=-lz
+LDFLAGS+=-lpthread
 
 R2_FLAGS+=$(shell pkg-config --cflags --libs r_fs)
 
@@ -23,21 +28,19 @@ BIN=unsquashfs
 
 EXT_SO?=$(shell r2 -H LIBEXT)
 
-all: fs_squashfs.$(EXT_SO)
-	$(CC) ${CFLAGS} $(SOURCES) $(LDFLAGS) -o $(BIN)
-
-LIB=fs_squashfs.$(EXT_SO)
-R2PLUGDIR=$(shell r2 -H USER_PLUGINS)
-
-RHOMEBIN=$(shell r2 -H RHOMEDIR)/prefix/bin
-
-$(LIB):
-	$(CC) -DAPIMODE=1 -fPIC -shared $(R2_FLAGS) $(CFLAGS) $(LDFLAGS) -o $(LIB) fs_squashfs.c $(SOURCES)
+#all: fs_squashfs.$(EXT_SO) $(BIN)
+all: $(LIB) $(BIN)
 	cp -f $(LIB) $(R2PLUGDIR)
 	cp -rf $(LIB)* $(R2PLUGDIR)
 	cp -f unsquashfs $(RHOMEBIN)
 
-.PHONY: $(LIB)
+$(BIN):
+	$(CC) ${CFLAGS} $(SOURCES) $(LDFLAGS) -o $(BIN)
+
+$(LIB):
+	$(CC) -DAPIMODE=1 -fPIC -shared $(R2_FLAGS) $(CFLAGS) $(LDFLAGS) -o $(LIB) fs_squashfs.c $(SOURCES)
+
+.PHONY: $(LIB) $(BIN)
 
 clean:
 	rm -f $(BIN)
