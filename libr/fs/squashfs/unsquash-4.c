@@ -102,7 +102,7 @@ struct inode *read_inode_4(unsigned int start_block, unsigned int offset)
 
 	if (bytes == -1) {
 		fprintf (stderr, "read_inode: inode table block %lld not found\n", start);
-		fprintf (stderr, "::: bytes -1 offset = %lld\n", (uint64_t)offset);
+		fprintf (stderr, "::: bytes -1 offset = %lld\n", (long long)offset);
 		return NULL;
 	}
 

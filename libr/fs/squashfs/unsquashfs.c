@@ -41,6 +41,7 @@
 
 #if __linux__
 #include <sys/sysinfo.h>
+#include <sys/sysctl.h>
 #endif
 #include <sys/types.h>
 
@@ -1867,7 +1868,6 @@ void *progress_thread(void *arg) {
 	}
 }
 
-
 void initialise_threads(int fragment_buffer_size, int data_buffer_size) {
 	int i;
 	sigset_t sigmask, old_mask;
@@ -1902,10 +1902,12 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size) {
 		int mib[2];
 		size_t len = sizeof(processors);
 
+#if defined(CTL_HW)
 		mib[0] = CTL_HW;
-#ifdef HW_AVAILCPU
+#endif
+#if defined(HW_AVAILCPU)
 		mib[1] = HW_AVAILCPU;
-#else
+#elif defined(HW_NCPU)
 		mib[1] = HW_NCPU;
 #endif
 
@@ -2254,6 +2256,7 @@ int scan() {
 
 	fragment_buffer_size <<= 20 - block_log;
 	data_buffer_size <<= 20 - block_log;
+
 	initialise_threads(fragment_buffer_size, data_buffer_size);
 
 	fragment_data = malloc(block_size);
