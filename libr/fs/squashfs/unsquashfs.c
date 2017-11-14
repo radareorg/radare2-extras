@@ -1899,12 +1899,12 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size) {
 
 	if(processors == -1) {
 #if __linux__
+		processors = sysconf(_SC_NPROCESSORS_ONLN);
+#else // OS X
 		int mib[2];
 		size_t len = sizeof(processors);
 
-#if defined(CTL_HW)
 		mib[0] = CTL_HW;
-#endif
 #if defined(HW_AVAILCPU)
 		mib[1] = HW_AVAILCPU;
 #elif defined(HW_NCPU)
@@ -1916,8 +1916,6 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size) {
 				"Defaulting to 1\n");
 			processors = 1;
 		}
-#else
-		processors = sysconf(_SC_NPROCESSORS_ONLN);
 #endif
 	}
 	thread = malloc((3 + processors) * sizeof(pthread_t));
