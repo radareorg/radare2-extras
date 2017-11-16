@@ -1,50 +1,52 @@
-/* radare - LGPL3 - 2016 - xarkes */
+/* radare - LGPL3 - 2016-2017 - xarkes */
 
 #include "swf.h"
 #include "swfdis.h"
 #include "swf_op_names.h"
 
 char* get_swf_file_type(char compression, char flashVersion) {
-	char* type = malloc(sizeof(SWF_FILE_TYPE) + sizeof(SWF_FILE_TYPE_ZLIB));
+	char* type = calloc (0, sizeof(SWF_FILE_TYPE) + sizeof(SWF_FILE_TYPE_ZLIB));
 
 	switch (compression) {
-		case ISWF_MAGIC_0_0:
-			sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_SWF);
-			break;
-		case ISWF_MAGIC_0_1:
-			if (flashVersion < 6)
-				sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_ERROR);
-			else
-				sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_ZLIB);
-			break;
-		case ISWF_MAGIC_0_2:
-			if (flashVersion < 13)
-				sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_ERROR);
-			else
-				sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_LZMA);
-			break;
-		default:
-			sprintf(type, SWF_FILE_TYPE, flashVersion, "");
-			break;
+	case ISWF_MAGIC_0_0:
+		sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_SWF);
+		break;
+	case ISWF_MAGIC_0_1:
+		if (flashVersion < 6) {
+			sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_ERROR);
+		} else {
+			sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_ZLIB);
+		}
+		break;
+	case ISWF_MAGIC_0_2:
+		if (flashVersion < 13) {
+			sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_ERROR);
+		} else {
+			sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_LZMA);
+		}
+		break;
+	default:
+		sprintf (type, SWF_FILE_TYPE, flashVersion, "");
+		break;
 	}
-
 	return type;
 }
 
 swf_hdr r_bin_swf_get_header(RBinFile *arch) {
-	swf_hdr header;
-	ut8 nBits;
+	swf_hdr header = {{0}};
+	ut8 nBits = 0;
 
 	/* First, get the rect size */
 	r_buf_read_at (arch->buf, 8, (ut8*)&nBits, 1);
 	nBits = (nBits & 0xf8) >> 3;
 	ut32 rect_size_bits = nBits*4 + 5;
 	ut32 rect_size_bytes = rect_size_bits / 8;
-	if (rect_size_bits % 8) rect_size_bytes++;
+	if (rect_size_bits % 8) {
+		rect_size_bytes++;
+	}
 
 	/* Read the whole header */
-	memset(&header, 0, SWF_HDR_MIN_SIZE + rect_size_bytes);
-	r_buf_read_at(arch->buf, 0, (ut8*)&header, 8);
+	r_buf_read_at (arch->buf, 0, (ut8*)&header, R_MIN (8, sizeof (header)));
 	header.rect_size = rect_size_bytes;
 
 	/* TODO: Record rectangle with xmin xmax ymin ymax if needed */
@@ -58,11 +60,9 @@ swf_hdr r_bin_swf_get_header(RBinFile *arch) {
 	return header;
 }
 
-
 /* http://www.homer.com.au/webdoc/flash_file_format_specification.pdf */
 int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
-	swf_hdr header;
-	header = r_bin_swf_get_header (arch);
+	swf_hdr header = r_bin_swf_get_header (arch);
 
 	if (header.signature[0] == ISWF_MAGIC_0_1) {
 		// CWS file compression is not supported !
@@ -71,11 +71,10 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 
 		/* Header section */
 		RBinSection *head_sect;
-		if (!(head_sect = R_NEW0 (RBinSection)))
+		if (!(head_sect = R_NEW0 (RBinSection))) {
 			return false;
-
-		memset(head_sect, 0, sizeof(*head_sect));
-		snprintf(head_sect->name, R_BIN_SIZEOF_STRINGS, "Header");
+		}
+		strcpy (head_sect->name, "Header");
 		head_sect->paddr = 0;
 		head_sect->vaddr = 0;
 		ut8 start = 0x8; // signature + version + size
@@ -105,11 +104,10 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 
 		/* Header section */
 		RBinSection *head_sect;
-		if (!(head_sect = R_NEW0 (RBinSection)))
+		if (!(head_sect = R_NEW0 (RBinSection))) {
 			return false;
-
-		memset(head_sect, 0, sizeof(*head_sect));
-		snprintf(head_sect->name, R_BIN_SIZEOF_STRINGS, "Header");
+		}
+		strcpy (head_sect->name, "Header");
 		head_sect->paddr = 0;
 		head_sect->vaddr = 0;
 		ut8 start = 0x8; // signature + version + size
@@ -119,11 +117,10 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 		r_list_append (list, head_sect);
 
 		/* LzmaData section */
-		RBinSection *data;
-
-		if (!(data = R_NEW(RBinSection)))
+		RBinSection *data = R_NEW0 (RBinSection);
+		if (!data) {
 			return false;
-
+		}
 		snprintf(data->name, R_BIN_SIZEOF_STRINGS, "LzmaData");
 		data->paddr = start;
 		data->vaddr = start;
@@ -135,10 +132,10 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 	} else {
 		/* Header section */
 		RBinSection *head_sect;
-		if (!(head_sect = R_NEW0 (RBinSection)))
+		if (!(head_sect = R_NEW0 (RBinSection))) {
 			return false;
-
-		strncpy(head_sect->name, "Header", 6);
+		}
+		strcpy(head_sect->name, "Header");
 		head_sect->paddr = 0;
 		head_sect->vaddr = 0;
 		ut32 start = header.rect_size + SWF_HDR_MIN_SIZE; // rect + min_size
@@ -171,18 +168,17 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 				end = start + 2 + tagLengthShort;
 			}
 
-			RBinSection *new;
-
-			if (!(new = R_NEW0 (RBinSection)))
+			RBinSection *new = R_NEW0 (RBinSection);
+			if (!new) {
 				return false;
-
+			}
 			swf_tag_t tag = r_asm_swf_gettag (tagCode);
-			sprintf(new->name, "%s", tag.name);
+			strcpy (new->name, tag.name);
 			new->paddr = start;
 			new->vaddr = start;
 
-			new->size = end-start;
-			new->vsize = end-start;
+			new->size = end - start;
+			new->vsize = end - start;
 
 			switch (tagCode) {
 			case TAG_DOACTION:

@@ -1,4 +1,4 @@
-/* radare - LGPL3 - Copyright 2016 - xarkes */
+/* radare - LGPL3 - Copyright 2016-2017 - xarkes */
 
 #include "swfdis.h"
 #include "swf_op.h"
@@ -25,7 +25,7 @@ swf_tag_t r_asm_swf_gettag(ut16 tagCode) {
 
 int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut64 pc) {
 	ut8 isTag = false;
-	int dlen;
+	int dlen = 0;
 	RListIter *it;
 	RBinSection *sect;
 
@@ -238,11 +238,10 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 			dlen = 2;
 			break;
 		}
-		default: {
+		default:
 			strcpy (buf_asm, op.name);
 			dlen = 1;
 			break;
-		}
 		}
 	}
 

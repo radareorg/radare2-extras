@@ -31,17 +31,14 @@ static int check_bytes(const ut8 *buf, ut64 length) {
 }
 
 static RBinInfo* info(RBinFile *arch) {
-	RBinInfo *ret = NULL;
-
-	if(!(ret = R_NEW0 (RBinInfo)))
+	RBinInfo *ret = R_NEW0 (RBinInfo);
+	if (!ret) {
 		return NULL;
-
+	}
 	ret->file = strdup (arch->file);
 	ret->bclass = strdup ("SWF");
 	ret->rclass = strdup ("swf");
-
 	ret->type = get_swf_file_type (compression, flashVersion);
-
 	ret->machine = strdup ("i386");
 	ret->os = strdup ("any");
 	ret->arch = strdup ("swf");
