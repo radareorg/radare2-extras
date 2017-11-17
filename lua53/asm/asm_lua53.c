@@ -1,6 +1,7 @@
 
 #include <r_asm.h>
 #include <stdio.h>
+#include <r_lib.h>
 #include "lua53.h"
 
 #define isAlpha(x) (('a' <= (x) && 'z' >= (x)) || ('A' <= (x) && 'Z' >= (x)))
@@ -415,3 +416,25 @@ int main(int argc, char **argv) {
 	return 0;
 }
 #endif	// MAIN_ASM
+
+static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
+	return lua53dissasm(op, buf, len);
+}
+
+RAsmPlugin r_asm_plugin_lua53= {
+	.name = "lua53",
+	.desc = "LUA53 Bytecode disassembler",
+	.arch = "lua",
+	.bits = 32,
+	.endian = R_SYS_ENDIAN_LITTLE,
+	.license = "LGPL3",
+	.disassemble = &disassemble,
+};
+
+#ifndef CORELIB
+RLibStruct radare_plugin = {
+	.type = R_LIB_TYPE_ASM,
+	.data = &r_asm_plugin_lua53,
+	.version = R2_VERSION
+};
+#endif
