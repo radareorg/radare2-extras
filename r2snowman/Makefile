@@ -18,4 +18,4 @@ cmakeVersion:
 	cmake --version
 
 snowman: cmakeVersion
-	git clone -b feature/output-ranges https://github.com/fabianfreyer/snowman.git
+	(test -d snowman && rm -rf snowman/*) || git clone -b feature/output-ranges https://github.com/fabianfreyer/snowman.git
