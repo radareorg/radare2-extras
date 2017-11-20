@@ -17,6 +17,7 @@ help:
 	@echo "  all                - build everything"
 	@echo "  baleful            - build baleful r2 plugin"
 	@echo "  asm                - build armthumb, ppc, psosvm, x86bea, m68k plugins"
+	@echo "  io                 - build io plugins"
 	@echo "  anal               - build analysis plugins (RAnal)"
 	@echo "  bin                - build binary plugins (RBin)"
 	@echo "  debug              - build debugger plugins (RDebug)"
@@ -41,6 +42,10 @@ bin:
 	$(MAKE) -C libr/bin/p
 bin-install:
 	$(MAKE) -C libr/bin/p install DESTDIR=$(DESTDIR)
+io:
+	$(MAKE) -C libr/io/p
+io-install:
+	$(MAKE) -C libr/io/p install DESTDIR=$(DESTDIR)
 yara:
 	cd yara/$@ ; ./configure --prefix=$(PREFIX)
 	$(MAKE) -C yara/$@
