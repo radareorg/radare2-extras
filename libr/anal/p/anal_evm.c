@@ -190,7 +190,7 @@ static int evm_oplen(ut8 opcode) {
 	case EVM_OP_PUSH31:
 	case EVM_OP_PUSH32:
 	{
-		int i, pushSize = opcode - EVM_OP_PUSH1;
+		int pushSize = opcode - EVM_OP_PUSH1;
 		/*
 		            op->imm = 0;
 		            for (i = 0; i < pushSize + 1; i++) {
@@ -219,7 +219,6 @@ static int evm_oplen(ut8 opcode) {
 	case EVM_OP_DUP15:
 	case EVM_OP_DUP16:
 	{
-		int dupSize = opcode - EVM_OP_DUP1 + 1;
 		// settxtf (op, "dup%d", dupSize);
 		ret = dupSize + 1;
 	}
@@ -241,7 +240,6 @@ static int evm_oplen(ut8 opcode) {
 	case EVM_OP_SWAP15:
 	case EVM_OP_SWAP16:
 	{
-		int swapSize = opcode - EVM_OP_SWAP1 + 1;
 		// settxtf (op, "swap%d", swapSize);
 		ret = 1;
 	}
@@ -252,7 +250,6 @@ static int evm_oplen(ut8 opcode) {
 	case EVM_OP_LOG3:
 	case EVM_OP_LOG4:
 	{
-		int logSize = opcode - EVM_OP_LOG0;
 		// settxtf (op, "log%d", logSize);
 		ret = 1;
 	}
@@ -306,10 +303,8 @@ static int evm_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len) 
 	case EVM_OP_JUMPDEST:
 		break;
 	case EVM_OP_PUSH1:
-		a = buf[1];
 		break;
 	case EVM_OP_PUSH2:
-		a = buf[1] << 8 | buf[2];
 		break;
 	default:
 		break;
