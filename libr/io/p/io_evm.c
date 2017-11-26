@@ -313,6 +313,7 @@ static size_t read_response_cb(void *ptr, size_t size, size_t nmemb, void *data)
 }
 
 static int init_curl(RIOEvm *rioe) {
+	curl_global_init(CURL_GLOBAL_ALL);
 	rioe->curl = curl_easy_init ();
 	return 0;
 }
@@ -348,13 +349,19 @@ static int evm_read_tx_trace(RIOEvm *rioe) {
 
 	// printf("post body is %s\n", postfields);
 
-	curl_global_init (CURL_GLOBAL_ALL);
 
 	struct resp_data dat = {
 		&rioe->response, 0
 	};
 
+
+	struct curl_slist *headers = NULL;
+	headers = curl_slist_append (headers, "Accept: application/json");
+	headers = curl_slist_append (headers, "Content-Type: application/json");
+	headers = curl_slist_append (headers, "charsets: utf-8");
+
 	curl_easy_setopt (rioe->curl, CURLOPT_URL, url);
+	curl_easy_setopt (rioe->curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt (rioe->curl, CURLOPT_POSTFIELDS, postfields);
 	curl_easy_setopt (rioe->curl, CURLOPT_WRITEFUNCTION, read_response_cb);
 	curl_easy_setopt (rioe->curl, CURLOPT_WRITEDATA, &dat);
@@ -413,7 +420,14 @@ static int evm_read_tx(RIOEvm *rioe) {
 	struct resp_data dat = {
 		&rioe->tx_full, 0
 	};
+
+	struct curl_slist *headers = NULL;
+	headers = curl_slist_append (headers, "Accept: application/json");
+	headers = curl_slist_append (headers, "Content-Type: application/json");
+	headers = curl_slist_append (headers, "charsets: utf-8");
+
 	curl_easy_setopt (rioe->curl, CURLOPT_URL, url);
+	curl_easy_setopt (rioe->curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt (rioe->curl, CURLOPT_POSTFIELDS, postfields);
 	curl_easy_setopt (rioe->curl, CURLOPT_WRITEFUNCTION, read_response_cb);
 	curl_easy_setopt (rioe->curl, CURLOPT_WRITEDATA, &dat);
@@ -475,7 +489,14 @@ static int evm_read_code(RIOEvm *rioe) {
 	struct resp_data dat = {
 		&rioe->to_code_resp, 0
 	};
+
+	struct curl_slist *headers = NULL;
+	headers = curl_slist_append (headers, "Accept: application/json");
+	headers = curl_slist_append (headers, "Content-Type: application/json");
+	headers = curl_slist_append (headers, "charsets: utf-8");
+
 	curl_easy_setopt (rioe->curl, CURLOPT_URL, url);
+	curl_easy_setopt (rioe->curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt (rioe->curl, CURLOPT_POSTFIELDS, postfields);
 	curl_easy_setopt (rioe->curl, CURLOPT_WRITEFUNCTION, read_response_cb);
 	curl_easy_setopt (rioe->curl, CURLOPT_WRITEDATA, &dat);
