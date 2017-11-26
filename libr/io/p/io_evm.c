@@ -120,38 +120,35 @@ static int parse_memory(uint8_t **res, size_t *res_length, json_t *mem) {
 
 static int parse_trace(RIOEvm *rioe) {
 	size_t i;
-	json_t *root;
-	json_t *result, *structLogs;
+	int ret = -1;
+	json_t *root = 0;
+	json_t *result = 0, *structLogs = 0;
 	json_error_t error;
 
 	root = json_loads (rioe->response, 0, &error);
 
-	free (rioe->response);
-
 	if (!root) {
-		eprintf ("Failed to parse response from ETH node on line %d: %s\n",
-			error.line, error.text);
+		eprintf ("Failed to parse response from ETH node on line %d: %s,"
+			"response: [%s]\n", error.line, error.text, rioe->response);
 
-		return -1;
-	} else {
-		// printf("Parsed correctly\n");
+		goto out_free;
 	}
 
 	result = json_object_get (root, "result");
 
 	if (!result) {
 		eprintf ("Response contains no result section\n");
-		return -1;
+
+		goto out_free;
 	}
 
 	structLogs = json_object_get (result, "structLogs");
 
 	if (!structLogs) {
 		eprintf ("Results sectiont doesn't contain structLogs section\n");
-		return -1;
-	}
 
-	// printf("Found structLogs session of size %u\n", json_array_size(structLogs));
+		goto out_free;
+	}
 
 	rioe->ops = malloc (sizeof(RIOEvmOp) * json_array_size (structLogs));
 	memset (rioe->ops, 0, sizeof(RIOEvmOp) * json_array_size (structLogs));
@@ -182,9 +179,24 @@ static int parse_trace(RIOEvm *rioe) {
 		parse_memory (&rioe->ops[i].memory, &rioe->ops[i].memory_length, memory);
 	}
 
-	json_decref (root);
+	ret = 0;
 
-	return 0;
+out_free:
+	if (root) {
+		json_decref (root);
+	}
+
+	if (result) {
+		json_decref (result);
+	}
+
+	if (structLogs) {
+		json_decref (structLogs);
+	}
+
+	free(rioe->response);
+
+	return ret;
 }
 
 static int parse_transaction(RIOEvm *rioe) {
@@ -355,7 +367,7 @@ static int evm_read_tx_trace(RIOEvm *rioe) {
 
 		ret = -1;
 	} else {
-		parse_trace (rioe);
+		ret = parse_trace (rioe);
 	}
 
 	/*
@@ -487,8 +499,9 @@ out:
 }
 
 static RIODesc *__open(RIO *io, const char *file, int rw, int mode) {
-	RIOEvm *rioe;
+	int rc;
 	size_t i;
+	RIOEvm *rioe;
 	int i_port = -1;
 	RIODesc *ret = NULL;
 	char *host, *port, *tx;
@@ -563,11 +576,27 @@ static RIODesc *__open(RIO *io, const char *file, int rw, int mode) {
 	init_curl (rioe);
 
 	if (strlen (tx) == EVM_TXHASH_LENGTH) {
-		evm_read_tx_trace (rioe);
-		evm_read_tx (rioe);
+		rc = evm_read_tx_trace (rioe);
+
+		if (rc < 0) {
+			ret = NULL;
+			goto out_free;
+		}
+
+		rc = evm_read_tx (rioe);
+
+		if (rc < 0) {
+			ret = NULL;
+			goto out_free;
+		}
 	}
 
-	evm_read_code (rioe);
+	rc = evm_read_code (rioe);
+
+	if (rc < 0) {
+		ret = NULL;
+		goto out_free;
+	}
 
 	ret = r_io_desc_new (io, &r_io_plugin_evm, file, R_IO_RWX, mode, rioe);
 	rioevm = ret;
