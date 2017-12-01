@@ -14,7 +14,7 @@
 
 
 static unsigned opcodes_types[] = {
-	[EVM_OP_STOP] = R_ANAL_OP_TYPE_TRAP,
+	[EVM_OP_STOP] = R_ANAL_OP_TYPE_RET,
 	[EVM_OP_ADD] = R_ANAL_OP_TYPE_ADD,
 	[EVM_OP_MUL] = R_ANAL_OP_TYPE_MUL,
 	[EVM_OP_SUB] = R_ANAL_OP_TYPE_SUB,
@@ -148,9 +148,9 @@ static unsigned opcodes_types[] = {
 	[EVM_OP_CREATE] = R_ANAL_OP_TYPE_CRYPTO,
 	[EVM_OP_CALL] = R_ANAL_OP_TYPE_CRYPTO,
 	[EVM_OP_CALLCODE] = R_ANAL_OP_TYPE_CRYPTO,
-	[EVM_OP_RETURN] = R_ANAL_OP_TYPE_CRYPTO,
+	[EVM_OP_RETURN] = R_ANAL_OP_TYPE_RET,
 	[EVM_OP_DELEGATECALL] = R_ANAL_OP_TYPE_CRYPTO,
-	[EVM_OP_REVERT] = R_ANAL_OP_TYPE_CRYPTO,
+	[EVM_OP_REVERT] = R_ANAL_OP_TYPE_RET,
 	[EVM_OP_SELFDESTRUCT] = R_ANAL_OP_TYPE_CRYPTO,
 };
 
@@ -312,7 +312,8 @@ static int evm_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len) 
 	case EVM_OP_JUMPI:
 		op->fail = addr + 1;
 		op->jump = buf[-1];
-		op->type = R_ANAL_OP_TYPE_JMP;
+		op->type = R_ANAL_OP_TYPE_CJMP;
+		op->eob = true;
 		break;
 	case EVM_OP_PC:
 		break;
