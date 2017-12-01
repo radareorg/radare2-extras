@@ -238,7 +238,7 @@ static int evm_oplen(ut8 opcode) {
 	case EVM_OP_DUP16:
 	{
 		// settxtf (op, "dup%d", dupSize);
-		ret = dupSize + 1;
+		ret = 1;
 	}
 	break;
 	case EVM_OP_SWAP1:
