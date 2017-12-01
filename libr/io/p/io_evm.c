@@ -205,7 +205,7 @@ static int parse_trace(RIOEvm *rioe) {
 
 		json_t *stack = json_object_get (curr_log, "stack");
 
-		parse_memory (&rioe->ops[i].stack, &rioe->ops[i].stack_length, stack);
+		parse_memory_backwards (&rioe->ops[i].stack, &rioe->ops[i].stack_length, stack);
 
 		json_t *memory = json_object_get (curr_log, "memory");
 
