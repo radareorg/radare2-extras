@@ -1,5 +1,5 @@
 OBJ_evm=anal_evm.o
-CFLAGS+=-I../asm/arch/evm/
+CFLAGS+=-I../../asm/arch/evm/
 
 STATIC_OBJ+=${OBJ_evm}
 TARGET_evm=anal_evm.${LIBEXT}

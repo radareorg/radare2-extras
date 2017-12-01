@@ -289,7 +289,6 @@ static int evm_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len) 
 	char sig[64] = {0};
 
 	opcode = buf[0];
-	anal->addrmy = op->addr;
 
 	memset (op, 0, sizeof(RAnalOp));
 
@@ -546,3 +545,11 @@ RAnalPlugin r_anal_plugin_evm = {
 	.esil = false,
 	.cmd_ext = evm_cmd_ext,
 };
+
+#ifndef CORELIB
+struct r_lib_struct_t radare_plugin = {
+	.type = R_LIB_TYPE_ANAL,
+	.data = &r_anal_plugin_evm,
+	.version = R2_VERSION
+};
+#endif
