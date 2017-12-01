@@ -282,9 +282,7 @@ static int evm_oplen(ut8 opcode) {
 }
 
 static int evm_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len) {
-	static ut16 a = 0;
 	ut32 *push4op;
-	int ret;
 	ut8 opcode;
 	char sig[64] = {0};
 
@@ -414,7 +412,7 @@ static int evm_load_symbol_map (RAnal *anal, const char *file) {
 
 			printf("Read %d\n", (int)ret);
 
-			sigs_info->root = json_loads (sigs_info->contents, 0, &error);
+			sigs_info->root = json_loads ((const char*)sigs_info->contents, 0, &error);
 
 			if (!sigs_info->root) {
 				printf ("Failed to parse json document on line %d: %s\n",
