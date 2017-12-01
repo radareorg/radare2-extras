@@ -39,16 +39,16 @@ const char *code_req_pattern = "{\"jsonrpc\":\"2.0\","
 RIOPlugin r_io_plugin_evm;
 
 typedef struct {
-	uint8_t depth;
-	uint8_t error;
+	ut8 depth;
+	ut8 error;
 	unsigned pc;
 	unsigned gas;
 	unsigned gas_cost;
 
-	uint8_t *stack;
+	ut8 *stack;
 	size_t stack_length;
 
-	uint8_t *memory;
+	ut8 *memory;
 	size_t memory_length;
 
 	char *op;
@@ -65,7 +65,7 @@ typedef struct {
 	char *to_code_resp;
 	char *to_code;
 
-	uint8_t *code;
+	ut8 *code;
 	size_t code_size;
 
 	char *response;
@@ -90,7 +90,40 @@ static void evm_help() {
 		"It is important that the tx hash starts with '0x'\n");
 }
 
-static int parse_memory(uint8_t **res, size_t *res_length, json_t *mem) {
+static int parse_memory_backwards(ut8 **res, size_t *res_length, json_t *mem) {
+	size_t len = 0;
+	ssize_t i, j;
+
+	if (!json_array_size (mem)) {
+		*res_length = 0;
+		return 0;
+	}
+
+	for (i = json_array_size (mem) - 1; i >= 0; i--) {
+		json_t *array_elem = json_array_get (mem, i);
+		char *elem_str = strdup (json_string_value (array_elem));
+		char *elem_ptr = elem_str;
+
+		*res = realloc (*res, len + strlen (elem_str) + 1);
+
+		for (j = 0; j < strlen (elem_str); j++) {
+			sscanf (elem_ptr, "%2hhx", &((*res)[len + j]));
+			elem_ptr += 2;
+		}
+
+		len += strlen (elem_str) / 2;
+
+		free (elem_str);
+	}
+
+	// printf("Parsed stack of length %u\n", (unsigned)len);
+
+	*res_length = len;
+
+	return 0;
+}
+
+static int parse_memory(ut8 **res, size_t *res_length, json_t *mem) {
 	size_t len = 0;
 	size_t i, j;
 
@@ -276,7 +309,7 @@ static int parse_code(RIOEvm *rioe) {
 
 	rioe->code_size = strlen (code_ptr) / 2;
 
-	rioe->code = (uint8_t *) malloc (rioe->code_size);
+	rioe->code = (ut8 *) malloc (rioe->code_size);
 
 	for (i = 0; i < rioe->code_size; i++) {
 		sscanf (code_ptr, "%2hhx", &rioe->code[i]);

@@ -12,16 +12,16 @@ typedef struct {
 } RIOEvmState;
 
 typedef struct {
-	uint8_t	depth;
-	uint8_t error;
+	ut8 depth;
+	ut8 error;
 	unsigned pc;
 	unsigned gas;
 	unsigned gas_cost;
 
-	uint8_t *memory;
+	ut8 *memory;
 	size_t memlength;
 
-	uint8_t *stack;
+	ut8 *stack;
 	size_t stack_length;
 	char *op;
 } RIOEvmOp;
@@ -37,7 +37,7 @@ typedef struct {
 	char *to_code_resp;
 	char *to_code;
 
-	uint8_t *code;
+	ut8 *code;
 	size_t code_size;
 
 	char *response;
@@ -71,8 +71,8 @@ static int r_debug_evm_reg_read(RDebug *dbg, int type, ut8 *buf, int size) {
 	if (!rios || !rio || !rio->ops_size) {
 		return 0;
 	}
-	((uint16_t*)(buf))[0] = (uint16_t)rio->ops[rios->curr_instruction].pc;
-	((uint16_t*)(buf))[1] = (uint16_t)0x8fff;
+	((ut16*)(buf))[0] = (ut16)rio->ops[rios->curr_instruction].pc;
+	((ut16*)(buf))[1] = (ut16)0x8fff;
 	return 4;
 }
 
