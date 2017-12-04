@@ -12,6 +12,11 @@
 
 #include "evm.h"
 
+struct evm_anal_info {
+	Sdb *pushs_db;
+};
+
+static struct evm_anal_info *evm_ai = NULL;
 
 static unsigned opcodes_types[] = {
 	[EVM_OP_STOP] = R_ANAL_OP_TYPE_RET,
@@ -281,8 +286,59 @@ static int evm_oplen(ut8 opcode) {
 	return ret;
 }
 
+/* Jumps/calls in EVM are done via first pushing dst value
+ * on the stack, and then calling a jump/jumpi instruction, for example:
+ *   0x0000000d push 0x42
+ *   0x0000000f jumpi
+ *
+ * we are storing the value in push instruction to db, but not at the
+ * addr of the push instruction, but at the addr of next jumpi instruction.
+ * So in our example we are inserting (0xf, 0x42)
+ */
+static int evm_add_push_to_db(ut64 addr, const ut8 *buf, int len) {
+	ut8 opcode = buf[0];
+	ut64 next_cmd_addr = addr + evm_oplen (opcode);
+	ut64 dst_addr = 0;
+	size_t i, push_size;
+	char key[16] = {0}, value[16] = {0};
+
+	push_size = opcode - EVM_OP_PUSH1;
+
+	for (i = 0; i < push_size + 1; i++) {
+		dst_addr <<= 8;
+		dst_addr |= buf[i + 1];
+	}
+
+	if (evm_ai) {
+		snprintf (key, sizeof(key) - 1, "%08x", (unsigned) next_cmd_addr);
+		snprintf (value, sizeof(value) - 1, "%08x", (unsigned) dst_addr);
+		sdb_set (evm_ai->pushs_db, key, value, 0);
+	}
+
+	return 0;
+}
+
+static st64 evm_get_jmp_addr(ut64 addr) {
+	char key[16] = {0};
+	const char *value;
+	unsigned ret;
+
+	snprintf (key, sizeof(key) - 1, "%08x", (unsigned) addr);
+
+	value = sdb_get (evm_ai->pushs_db, key, 0);
+
+	if (value) {
+		sscanf(value, "%08x", &ret);
+
+		return ret;
+	} else {
+		return -1;
+	}
+}
+
 static int evm_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len) {
 	ut32 *push4op;
+	st64 ret;
 	ut8 opcode;
 	char sig[64] = {0};
 
@@ -302,14 +358,23 @@ static int evm_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len) 
 
 	switch (opcode) {
 	case EVM_OP_JUMP:
-		op->fail = addr + 1;
-		op->jump = buf[-1];
-		op->type = R_ANAL_OP_TYPE_JMP;
-		break;
 	case EVM_OP_JUMPI:
 		op->fail = addr + 1;
-		op->jump = buf[-1];
-		op->type = R_ANAL_OP_TYPE_CJMP;
+
+		if (opcode == EVM_OP_JUMP) {
+			op->type = R_ANAL_OP_TYPE_JMP;
+		} else {
+			op->type = R_ANAL_OP_TYPE_CJMP;
+		}
+
+		ret = evm_get_jmp_addr(addr);
+
+		if (ret >= 0) {
+			op->jump = ret;
+		} else {
+			op->type = R_ANAL_OP_TYPE_UJMP;
+		}
+
 		op->eob = true;
 		break;
 	case EVM_OP_PC:
@@ -321,11 +386,12 @@ static int evm_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len) 
 	case EVM_OP_JUMPDEST:
 		break;
 	case EVM_OP_PUSH1:
-		break;
 	case EVM_OP_PUSH2:
-		break;
+	case EVM_OP_PUSH3:
 	case EVM_OP_PUSH4:
-		if (sigs_info && sigs_info->sigs_db) {
+		evm_add_push_to_db (addr, buf, len);
+
+		if (opcode == EVM_OP_PUSH4 && sigs_info && sigs_info->sigs_db) {
 			push4op = (ut32 *)(buf + 1);
 
 			snprintf(sig, sizeof(sig) - 1, "0x%08x", ntohl((unsigned)(*push4op)));
@@ -533,6 +599,29 @@ static int evm_cmd_ext (RAnal *anal, const char *input) {
 	return 0;
 }
 
+static int evm_anal_init (void *user) {
+	if (!evm_ai) {
+		evm_ai = (struct evm_anal_info*)malloc (sizeof(*evm_ai));
+
+		evm_ai->pushs_db = sdb_new0 ();
+	}
+
+	return 0;
+}
+
+static int evm_anal_fini (void *user) {
+	if (evm_ai) {
+		if (evm_ai->pushs_db) {
+			sdb_free (evm_ai->pushs_db);
+		}
+
+		free(evm_ai);
+		evm_ai = NULL;
+	}
+
+	return 0;
+}
+
 RAnalPlugin r_anal_plugin_evm = {
 	.name = "evm",
 	.desc = "ETHEREUM VM code analysis plugin",
@@ -540,6 +629,8 @@ RAnalPlugin r_anal_plugin_evm = {
 	.arch = "evm",
 	.bits = 8,
 	.op = evm_op,
+	.init = evm_anal_init,
+	.fini = evm_anal_fini,
 	.esil = false,
 	.cmd_ext = evm_cmd_ext,
 };
