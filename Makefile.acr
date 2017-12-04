@@ -32,6 +32,8 @@ debug unicorn:
 	$(MAKE) -C libr/debug/p
 anal:
 	$(MAKE) -C libr/anal/p
+anal-install:
+	$(MAKE) -C libr/anal/p install DESTDIR=$(DESTDIR)
 asm:
 	$(MAKE) -C libr/asm/p
 asm-install:
