@@ -396,9 +396,7 @@ static int evm_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len) 
 
 			snprintf(sig, sizeof(sig) - 1, "0x%08x", ntohl((unsigned)(*push4op)));
 
-			printf("push 4 %s\n", sig);
 			const char *data = sdb_get(sigs_info->sigs_db, sig, 0);
-			printf("Data %s\n", data);
 
 			if (data) {
 				char addr_str[16];
@@ -476,8 +474,6 @@ static int evm_load_symbol_map (RAnal *anal, const char *file) {
 
 			sigs_info->contents[sigs_info->contents_len] = '\0';
 
-			printf("Read %d\n", (int)ret);
-
 			sigs_info->root = json_loads ((const char*)sigs_info->contents, 0, &error);
 
 			if (!sigs_info->root) {
@@ -517,11 +513,7 @@ static int evm_load_symbol_map (RAnal *anal, const char *file) {
 
 					snprintf(value, value_size - 1, "%s(%s)", name_str, args_str);
 
-					//printf("sig %s value %s\n", sig_str, value);
-
 					sdb_set (sigs_info->sigs_db, sig_str, value, 0);
-
-					//printf("sdb %s\n", sdb_get (sigs_info->sigs_db, sig_str, 0));
 
 					free (value);
 
