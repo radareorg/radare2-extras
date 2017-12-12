@@ -39,16 +39,16 @@ const char *code_req_pattern = "{\"jsonrpc\":\"2.0\","
 RIOPlugin r_io_plugin_evm;
 
 typedef struct {
-	uint8_t depth;
-	uint8_t error;
+	ut8 depth;
+	ut8 error;
 	unsigned pc;
 	unsigned gas;
 	unsigned gas_cost;
 
-	uint8_t *stack;
+	ut8 *stack;
 	size_t stack_length;
 
-	uint8_t *memory;
+	ut8 *memory;
 	size_t memory_length;
 
 	char *op;
@@ -65,7 +65,7 @@ typedef struct {
 	char *to_code_resp;
 	char *to_code;
 
-	uint8_t *code;
+	ut8 *code;
 	size_t code_size;
 
 	char *response;
@@ -90,7 +90,40 @@ static void evm_help() {
 		"It is important that the tx hash starts with '0x'\n");
 }
 
-static int parse_memory(uint8_t **res, size_t *res_length, json_t *mem) {
+static int parse_memory_backwards(ut8 **res, size_t *res_length, json_t *mem) {
+	size_t len = 0;
+	ssize_t i, j;
+
+	if (!json_array_size (mem)) {
+		*res_length = 0;
+		return 0;
+	}
+
+	for (i = json_array_size (mem) - 1; i >= 0; i--) {
+		json_t *array_elem = json_array_get (mem, i);
+		char *elem_str = strdup (json_string_value (array_elem));
+		char *elem_ptr = elem_str;
+
+		*res = realloc (*res, len + strlen (elem_str) + 1);
+
+		for (j = 0; j < strlen (elem_str); j++) {
+			sscanf (elem_ptr, "%2hhx", &((*res)[len + j]));
+			elem_ptr += 2;
+		}
+
+		len += strlen (elem_str) / 2;
+
+		free (elem_str);
+	}
+
+	// printf("Parsed stack of length %u\n", (unsigned)len);
+
+	*res_length = len;
+
+	return 0;
+}
+
+static int parse_memory(ut8 **res, size_t *res_length, json_t *mem) {
 	size_t len = 0;
 	size_t i, j;
 
@@ -120,38 +153,35 @@ static int parse_memory(uint8_t **res, size_t *res_length, json_t *mem) {
 
 static int parse_trace(RIOEvm *rioe) {
 	size_t i;
-	json_t *root;
-	json_t *result, *structLogs;
+	int ret = -1;
+	json_t *root = 0;
+	json_t *result = 0, *structLogs = 0;
 	json_error_t error;
 
 	root = json_loads (rioe->response, 0, &error);
 
-	free (rioe->response);
-
 	if (!root) {
-		eprintf ("Failed to parse response from ETH node on line %d: %s\n",
-			error.line, error.text);
+		eprintf ("Failed to parse response from ETH node on line %d: %s,"
+			"response: [%s]\n", error.line, error.text, rioe->response);
 
-		return -1;
-	} else {
-		// printf("Parsed correctly\n");
+		goto out_free;
 	}
 
 	result = json_object_get (root, "result");
 
 	if (!result) {
 		eprintf ("Response contains no result section\n");
-		return -1;
+
+		goto out_free;
 	}
 
 	structLogs = json_object_get (result, "structLogs");
 
 	if (!structLogs) {
 		eprintf ("Results sectiont doesn't contain structLogs section\n");
-		return -1;
-	}
 
-	// printf("Found structLogs session of size %u\n", json_array_size(structLogs));
+		goto out_free;
+	}
 
 	rioe->ops = malloc (sizeof(RIOEvmOp) * json_array_size (structLogs));
 	memset (rioe->ops, 0, sizeof(RIOEvmOp) * json_array_size (structLogs));
@@ -175,16 +205,31 @@ static int parse_trace(RIOEvm *rioe) {
 
 		json_t *stack = json_object_get (curr_log, "stack");
 
-		parse_memory (&rioe->ops[i].stack, &rioe->ops[i].stack_length, stack);
+		parse_memory_backwards (&rioe->ops[i].stack, &rioe->ops[i].stack_length, stack);
 
 		json_t *memory = json_object_get (curr_log, "memory");
 
 		parse_memory (&rioe->ops[i].memory, &rioe->ops[i].memory_length, memory);
 	}
 
-	json_decref (root);
+	ret = 0;
 
-	return 0;
+out_free:
+	if (root) {
+		json_decref (root);
+	}
+
+	if (result) {
+		json_decref (result);
+	}
+
+	if (structLogs) {
+		json_decref (structLogs);
+	}
+
+	free(rioe->response);
+
+	return ret;
 }
 
 static int parse_transaction(RIOEvm *rioe) {
@@ -264,7 +309,7 @@ static int parse_code(RIOEvm *rioe) {
 
 	rioe->code_size = strlen (code_ptr) / 2;
 
-	rioe->code = (uint8_t *) malloc (rioe->code_size);
+	rioe->code = (ut8 *) malloc (rioe->code_size);
 
 	for (i = 0; i < rioe->code_size; i++) {
 		sscanf (code_ptr, "%2hhx", &rioe->code[i]);
@@ -301,6 +346,7 @@ static size_t read_response_cb(void *ptr, size_t size, size_t nmemb, void *data)
 }
 
 static int init_curl(RIOEvm *rioe) {
+	curl_global_init(CURL_GLOBAL_ALL);
 	rioe->curl = curl_easy_init ();
 	return 0;
 }
@@ -336,13 +382,19 @@ static int evm_read_tx_trace(RIOEvm *rioe) {
 
 	// printf("post body is %s\n", postfields);
 
-	curl_global_init (CURL_GLOBAL_ALL);
 
 	struct resp_data dat = {
 		&rioe->response, 0
 	};
 
+
+	struct curl_slist *headers = NULL;
+	headers = curl_slist_append (headers, "Accept: application/json");
+	headers = curl_slist_append (headers, "Content-Type: application/json");
+	headers = curl_slist_append (headers, "charsets: utf-8");
+
 	curl_easy_setopt (rioe->curl, CURLOPT_URL, url);
+	curl_easy_setopt (rioe->curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt (rioe->curl, CURLOPT_POSTFIELDS, postfields);
 	curl_easy_setopt (rioe->curl, CURLOPT_WRITEFUNCTION, read_response_cb);
 	curl_easy_setopt (rioe->curl, CURLOPT_WRITEDATA, &dat);
@@ -355,7 +407,7 @@ static int evm_read_tx_trace(RIOEvm *rioe) {
 
 		ret = -1;
 	} else {
-		parse_trace (rioe);
+		ret = parse_trace (rioe);
 	}
 
 	/*
@@ -401,7 +453,14 @@ static int evm_read_tx(RIOEvm *rioe) {
 	struct resp_data dat = {
 		&rioe->tx_full, 0
 	};
+
+	struct curl_slist *headers = NULL;
+	headers = curl_slist_append (headers, "Accept: application/json");
+	headers = curl_slist_append (headers, "Content-Type: application/json");
+	headers = curl_slist_append (headers, "charsets: utf-8");
+
 	curl_easy_setopt (rioe->curl, CURLOPT_URL, url);
+	curl_easy_setopt (rioe->curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt (rioe->curl, CURLOPT_POSTFIELDS, postfields);
 	curl_easy_setopt (rioe->curl, CURLOPT_WRITEFUNCTION, read_response_cb);
 	curl_easy_setopt (rioe->curl, CURLOPT_WRITEDATA, &dat);
@@ -463,7 +522,14 @@ static int evm_read_code(RIOEvm *rioe) {
 	struct resp_data dat = {
 		&rioe->to_code_resp, 0
 	};
+
+	struct curl_slist *headers = NULL;
+	headers = curl_slist_append (headers, "Accept: application/json");
+	headers = curl_slist_append (headers, "Content-Type: application/json");
+	headers = curl_slist_append (headers, "charsets: utf-8");
+
 	curl_easy_setopt (rioe->curl, CURLOPT_URL, url);
+	curl_easy_setopt (rioe->curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt (rioe->curl, CURLOPT_POSTFIELDS, postfields);
 	curl_easy_setopt (rioe->curl, CURLOPT_WRITEFUNCTION, read_response_cb);
 	curl_easy_setopt (rioe->curl, CURLOPT_WRITEDATA, &dat);
@@ -487,8 +553,9 @@ out:
 }
 
 static RIODesc *__open(RIO *io, const char *file, int rw, int mode) {
-	RIOEvm *rioe;
+	int rc;
 	size_t i;
+	RIOEvm *rioe;
 	int i_port = -1;
 	RIODesc *ret = NULL;
 	char *host, *port, *tx;
@@ -563,11 +630,27 @@ static RIODesc *__open(RIO *io, const char *file, int rw, int mode) {
 	init_curl (rioe);
 
 	if (strlen (tx) == EVM_TXHASH_LENGTH) {
-		evm_read_tx_trace (rioe);
-		evm_read_tx (rioe);
+		rc = evm_read_tx_trace (rioe);
+
+		if (rc < 0) {
+			ret = NULL;
+			goto out_free;
+		}
+
+		rc = evm_read_tx (rioe);
+
+		if (rc < 0) {
+			ret = NULL;
+			goto out_free;
+		}
 	}
 
-	evm_read_code (rioe);
+	rc = evm_read_code (rioe);
+
+	if (rc < 0) {
+		ret = NULL;
+		goto out_free;
+	}
 
 	ret = r_io_desc_new (io, &r_io_plugin_evm, file, R_IO_RWX, mode, rioe);
 	rioevm = ret;
