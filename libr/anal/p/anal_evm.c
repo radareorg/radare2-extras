@@ -325,7 +325,7 @@ static st64 evm_get_jmp_addr(ut64 addr) {
 
 	snprintf (key, sizeof(key) - 1, "%08x", (unsigned) addr);
 
-	value = sdb_get (evm_ai->pushs_db, key, 0);
+	value = sdb_const_get (evm_ai->pushs_db, key, 0);
 
 	if (value) {
 		sscanf(value, "%08x", &ret);
@@ -396,7 +396,7 @@ static int evm_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len) 
 
 			snprintf(sig, sizeof(sig) - 1, "0x%08x", ntohl((unsigned)(*push4op)));
 
-			const char *data = sdb_get(sigs_info->sigs_db, sig, 0);
+			const char *data = sdb_const_get (sigs_info->sigs_db, sig, 0);
 
 			if (data) {
 				char addr_str[16];
