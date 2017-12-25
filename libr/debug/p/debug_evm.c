@@ -105,6 +105,7 @@ static int r_debug_evm_reg_write(RDebug *dbg, int type, const ut8 *buf, int size
 static ssize_t find_breakpoint(ut64 addr, ut64 *addrs, size_t addrs_len);
 
 static int r_debug_evm_continue(RDebug *dbg, int pid, int tid, int sig) {
+	size_t i;
 	ssize_t bpt_addr;
 
     if (!rio->ops_size) {
@@ -118,7 +119,7 @@ static int r_debug_evm_continue(RDebug *dbg, int pid, int tid, int sig) {
 		rios->curr_instruction++;
 	}
 
-	for (size_t i = rios->curr_instruction; i < rio->ops_size; i++) {
+	for (i = rios->curr_instruction; i < rio->ops_size; i++) {
 		bpt_addr = find_breakpoint(rio->ops[i].pc, rios->breakpoints, rios->breakpoints_length);
 
 		if (bpt_addr >= 0) {
@@ -217,13 +218,14 @@ static int r_debug_evm_breakpoint (void *bp, RBreakpointItem *b, bool set) {
 		qsort(rios->breakpoints, rios->breakpoints_length, sizeof(ut64), compare_addrs);
 
 	} else {
+		size_t i;
 		ssize_t idx = find_breakpoint(b->addr, rios->breakpoints, rios->breakpoints_length);
 
 		if (idx < 0) {
 			return false;
 		}
 
-		for (size_t i = idx; i < rios->breakpoints_length - 1; i++) {
+		for (i = idx; i < rios->breakpoints_length - 1; i++) {
 			rios->breakpoints[i] = rios->breakpoints[i + 1];
 		}
 
