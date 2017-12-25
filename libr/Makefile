@@ -17,6 +17,12 @@ m68k:
 zyan:
 	$(MAKE) -C asm zyan
 
+evm:
+	$(MAKE) -C asm evm
+	$(MAKE) -C anal evm
+	$(MAKE) -C io evm
+	$(MAKE) -C debug evm
+
 clean:
 	$(MAKE) -C asm clean
 	$(MAKE) -C anal clean
@@ -37,5 +43,11 @@ m68k-install:
 
 zyan-install:
 	cp -f asm/p/asm_x86_zyan.$(LIBEXT) $(R2PM_PLUGDIR)
+
+evm-install:
+	cp -f asm/p/asm_evm.$(LIBEXT) $(R2PM_PLUGDIR)
+	cp -f anal/p/anal_evm.$(LIBEXT) $(R2PM_PLUGDIR)
+	cp -f io/p/io_evm.$(LIBEXT) $(R2PM_PLUGDIR)
+	cp -f debug/p/debug_evm.$(LIBEXT) $(R2PM_PLUGDIR)
 
 include ../options.mk
