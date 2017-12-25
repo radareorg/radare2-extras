@@ -24,6 +24,9 @@ m68k_net:
 zyan:
 	$(MAKE) -C p asm_x86_zyan.$(LIBEXT)
 
+evm:
+	$(MAKE) -C p asm_evm.$(LIBEXT)
+
 zyan-install: zyan
 	cp -f p/asm_x86_zyan.$(LIBEXT) $(D)
 
