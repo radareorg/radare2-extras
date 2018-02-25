@@ -42,6 +42,8 @@ typedef enum {
 	EVM_OP_GASPRICE,
 	EVM_OP_EXTCODESIZE,
 	EVM_OP_EXTCODECOPY,
+	EVM_OP_RETURNDATASIZE,
+	EVM_OP_RETURNDATACOPY,
 
 	EVM_OP_BLOCKHASH = 0x40,
 	EVM_OP_COINBASE,
@@ -196,6 +198,8 @@ static EvmOpDef opcodes[256] = {
 	[EVM_OP_GASPRICE] = { "gasprice", 1 },
 	[EVM_OP_EXTCODESIZE] = { "extcodesize", 1 },
 	[EVM_OP_EXTCODECOPY] = { "extcodecopy", 1 },
+	[EVM_OP_RETURNDATASIZE] = { "returndatasize", 1},
+	[EVM_OP_RETURNDATACOPY] = { "returndatacopy", 1},
 	[EVM_OP_BLOCKHASH] = { "blockhash", 1 },
 	[EVM_OP_COINBASE] = { "coinbase", 1 },
 	[EVM_OP_TIMESTAMP] = { "timestamp", 1 },
