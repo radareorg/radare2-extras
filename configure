@@ -4,6 +4,7 @@
 # @url:    http://www.nopcode.org
 # @repo:   git clone https://github.com/radare/acr
 
+[ -z "${AWK}" ] && AWK=awk
 do_remove() {
 if [ "${ACR_RMFILES}" ]; then
   printf "cleaning temporally files... "
@@ -25,7 +26,7 @@ while : ; do
 ENVWORDS="${ENVWORDS} $1_CPU $1_OS"
 STR=`eval "echo ${S}$1"`
 SPLIT_CPU="`echo "$STR" | cut -d - -f 1`"
-SPLIT_OS="`echo "$STR" | awk -F - '{
+SPLIT_OS="`echo "$STR" | $AWK -F - '{
 	if ($2=="unknown"){
 		if (NF<3) { print $2; } else { print $3; }
 	} else {
@@ -103,12 +104,12 @@ done
 : ${INSTALL_PROGRAM_STRIP:=${INSTALL} -m 755 -s}
 : ${INSTALL_MAN:=${INSTALL} -m 444}
 : ${INSTALL_LIB:=${INSTALL} -m 755 -c}
- PKGNAME='radare2-extras' ; VERSION='2.3.0' ; CONTACT_MAIL="pancake@nopcode.org" ; CONTACT_NAME="pancake" ; CONTACT="pancake <pancake@nopcode.org>" ;
+ PKGNAME='radare2-extras' ; VERSION='2.4.0' ; CONTACT_MAIL="pancake@nopcode.org" ; CONTACT_NAME="pancake" ; CONTACT="pancake <pancake@nopcode.org>" ;
 }
 
 show_usage() {
 cat <<EOF2
-'configure' configures radare2-extras-2.3.0 to adapt to many kinds of systems.
+'configure' configures radare2-extras-2.4.0 to adapt to many kinds of systems.
 
 Usage: ./configure [OPTION]... [VAR=VALUE]...
 
@@ -178,7 +179,7 @@ take_environ() {
 }
 
 show_version() {
-echo "radare2-extras-2.3.0 configuration script done with acr v1.4.
+echo "radare2-extras-2.4.0 configuration script done with acr v1.4.
 The 'Free Software Foundation' message is only for autodetection.
 Originally written by pancake <nopcode.org>."
 exit 0
@@ -186,7 +187,7 @@ exit 0
 
 parse_options() {
 flag=`echo $1| cut -d = -f 1`
-value=`echo $1| awk 'BEGIN{FS="=";}{print $2}'`
+value=`echo $1| $AWK 'BEGIN{FS="=";}{print $2}'`
 flag2=`echo $flag|cut -f2- -d -| sed -e 's,-,_,g' -e 's,^_,,g'|tr '[a-z]' '[A-Z]'`
 
 if [ "${TARGET_OS}" = "darwin" ]; then
@@ -202,9 +203,9 @@ case $flag in
 	show_version ; ;;
 -r|--r|--report)
 echo "PKGNAME:   radare2-extras"
-echo "VERSION:   2.3.0"
+echo "VERSION:   2.4.0"
 echo "LANGS:     c"
-echo "OPTIONAL:  libewf"
+echo "OPTIONAL:  libewf libyara"
 echo "PKG-CONFIG:  r_core libewf unicorn yara"
 echo "FLAGS:     --with-ostype=auto --without-ewf"
 	exit 0
@@ -329,7 +330,15 @@ if [ $? = 0 ]; then
 	echo yes
 else
 	eval ${VAR}=0
-	echo no  ; fi }
+	echo no
+	if [ "${_REQUIRED}" = 1 ]; then
+	  echo "this library is required."
+	  do_remove
+	  exit 1
+	fi
+fi
+}
+
 check_library HAVE_LIB_EWF ewf 0
 [ -z "${PKGCONFIG}" ] && PKGCONFIG=pkg-config
 printf 'checking pkg-config flags for libewf... '
@@ -403,7 +412,7 @@ if [ "$VALUE" = 0 ]; then ## FALSE
  MARK="##${A}##"
 if [ -n "`grep \"${MARK}\" ${SD_TARGET}.tmp`" ]; then
  mv ${SD_TARGET}.tmp ${SD_TARGET}.tmp2
- cat ${SD_TARGET}.tmp2 | MARK=$MARK awk 'BEGIN{a=0;}{if($1==ENVIRON["MARK"]){if(a)a=0;else a=1}else{if(!a)print;}}' > ${SD_TARGET}.tmp
+ cat ${SD_TARGET}.tmp2 | MARK=$MARK $AWK 'BEGIN{a=0;}{if($1==ENVIRON["MARK"]){if(a)a=0;else a=1}else{if(!a)print;}}' > ${SD_TARGET}.tmp
  fi
 fi
 done
