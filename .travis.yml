@@ -73,6 +73,7 @@ env:
 #  - TESTS="r2pm -i www-m" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i www-p"
   - TESTS="r2pm -i www-t"
+  - TESTS="r2pm -i x86udis"
   - TESTS="r2pm -i x86bea"
   - TESTS="r2pm -i x86tab"
   - TESTS="r2pm -i x86olly && cd radare2-regressions && make olly-extras && cd .."
