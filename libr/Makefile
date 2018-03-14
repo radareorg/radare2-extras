@@ -4,6 +4,9 @@ bea:
 	$(MAKE) -C asm bea
 	$(MAKE) -C anal bea
 
+blackfin:
+	$(MAKE) -C asm blackfin
+
 tab:
 	$(MAKE) -C asm tab
 

@@ -1,5 +1,8 @@
 D=$(HOME)/.config/radare2/plugins
 
+blackfin:
+	cd p ; $(MAKE) asm_blackfin.$(LIBEXT)
+
 bea:
 	cd p ; $(MAKE) asm_x86_bea.$(LIBEXT)
 
