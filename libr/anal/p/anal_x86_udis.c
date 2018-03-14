@@ -584,13 +584,13 @@ static int set_reg_profile(RAnal *anal) {
 		"seg	cs	.16	52	0\n"
 		"gpr	flags	.16	56	0\n"
 		"gpr	cf	.1	.448	0\n"
-		"flg	flag_p	.1	.449	0\n"
-		"flg	flag_a	.1	.450	0\n"
+		"flg	pf	.1	.449	0\n"
+		"flg	af	.1	.450	0\n"
 		"gpr	zf	.1	.451	0\n"
 		"gpr	sf	.1	.452	0\n"
-		"flg	flag_t	.1	.453	0\n"
-		"flg	flag_i	.1	.454	0\n"
-		"flg	flag_d	.1	.455	0\n"
+		"flg	tf	.1	.453	0\n"
+		"flg	if	.1	.454	0\n"
+		"flg	df	.1	.455	0\n"
 		"flg	of	.1	.456	0\n"
 		"flg	flag_r	.1	.457	0\n";
 #if 0
