@@ -1,7 +1,7 @@
 bea:
 	cd p ; $(MAKE) anal_x86_bea.$(LIBEXT)
 
-udis udis86:
+x86_udis udis udis86:
 	cd p ; $(MAKE) anal_x86_udis.$(LIBEXT)
 
 m68k_net:
