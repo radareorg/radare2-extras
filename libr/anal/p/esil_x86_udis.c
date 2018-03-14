@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2013-2014 - batchdrake */
+/* radare - LGPL - Copyright 2013-2018 - batchdrake */
 
 #include <r_lib.h>
 #include <r_types.h>
@@ -7,7 +7,7 @@
 
 #include "udis86/types.h"
 #include "udis86/extern.h"
-#include "esil.h"
+#include "esil_x86_udis.h"
 
 #define RPN 
 
@@ -255,7 +255,8 @@ UDis86Esil udis86_esil_callback_table[ UD_MAX_MNEMONIC_CODE ] = {
 };
 
 UDis86Esil * udis86_esil_get_handler (enum ud_mnemonic_code code) {
-	if (!udis86_esil_callback_table[code].callback)
+	if (!udis86_esil_callback_table[code].callback) {
 		return NULL;
+	}
 	return udis86_esil_callback_table + code;
 }
