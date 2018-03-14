@@ -6,6 +6,9 @@ bea:
 msil:
 	cd p ; $(MAKE) asm_msil.$(LIBEXT)
 
+udis86:
+	cd p ; $(MAKE) asm_x86_udis.$(LIBEXT)
+
 tab:
 	cd p ; $(MAKE) asm_x86_tab.$(LIBEXT)
 
