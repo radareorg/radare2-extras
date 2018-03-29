@@ -7,7 +7,7 @@ all: c-toxcore client r2tox.$(LIBEXT)
 
 r2tox.$(LIBEXT): r2tox.c
 	$(CC) -o r2tox.$(LIBEXT) -g -shared $(R2_CFLAGS) $(R2_LDFLAGS) -fPIC -I c-toxcore r2tox.c c-toxcore/libtoxcore.a -lsodium
-	cp -f r2tox.$(LIBEXT) $(USER_PLUGINS)
+	$(MAKE) install
 
 client: client.c
 	$(CC) -o client -g -I c-toxcore client.c c-toxcore/libtoxcore.a -lsodium
@@ -21,6 +21,12 @@ clean:
 	rm -f client
 	rm -rf client.dSYM
 	rm -rf a.out*
+
+install:
+	cp -rf r2tox.$(LIBEXT)* $(USER_PLUGINS)
+
+uninstall:
+	rm -rf $(USER_PLUGINS)/r2tox.*
 
 mrproper: clean
 	rm -f tox.data
