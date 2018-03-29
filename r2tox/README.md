@@ -7,6 +7,13 @@ Tox should work everywhere, in LAN, with or without internet, behind a router, e
 
 --pancake 2018
 
+How to build
+------------
+
+You need cmake, make, gcc, git, libsodium and radare2. c-toxcore is built in here.
+
+	$ make
+
 How to use
 ----------
 
