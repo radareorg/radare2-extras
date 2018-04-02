@@ -1,9 +1,10 @@
-/* Copyright 2016-2017 - radare2 - MIT - nighterman + pancake */
+/* Copyright 2016-2018 - radare2 - MIT - nighterman + pancake + panda + leberus */
 
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/ioctl.h>
 #include <linux/device.h>
+#include <linux/sched/task.h>
 #include <linux/cdev.h>
 #include <linux/fs.h>
 #include <linux/page-flags.h>
@@ -176,7 +177,7 @@ static int write_vmareastruct (struct vm_area_struct *vma, struct mm_struct *mm,
 
 	data->vmareastruct[counter]   = vma->vm_start;
 	data->vmareastruct[counter+1] = vma->vm_end;
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38)
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38) && LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)
 	if (stack_guard_page_start (vma, vma->vm_start)) {
 		data->vmareastruct[counter] += PAGE_SIZE;
 	}
@@ -405,16 +406,18 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 
 		down_read (&task->mm->mmap_sem);
 		for (page_i = 0 ; page_i < nr_pages ; page_i++ ) {
-
-			struct page *pg = NULL;;
+			struct page *pg = NULL;
 			void *kaddr;
 			int bytes;
-
+#if LINUX_VERSION_CODE > KERNEL_VERSION(4,0,0)
+			ret = get_user_pages_remote (task, task->mm, m_transf->addr, 1, 0, &pg, NULL, NULL);
+#else
 			ret = get_user_pages (task, task->mm, m_transf->addr, 1,
 									0,
 									0,
 									&pg,
 									NULL);
+#endif
 			if (!ret) {
 				pr_info ("%s: could not retrieve page"
 							"from pid (%d)\n",
@@ -610,8 +613,10 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 #if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
 		regs.cr0 = native_read_cr0 ();
 		regs.cr2 = native_read_cr2 ();
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)
 		regs.cr3 = native_read_cr3 ();
 		regs.cr4 = native_read_cr4_safe ();
+#endif
 #ifdef CONFIG_X86_64
 		regs.cr8 = native_read_cr8 ();
 #endif
