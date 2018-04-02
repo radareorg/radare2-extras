@@ -149,17 +149,20 @@ static inline void enable_wp(void)
 static inline int
 r2k_copy_from_user(void *dst, const void __user *src, unsigned size, bool wp)
 {
-    if (!wp) disable_wp();
-	memcpy(dst, src, size);
-    if (!wp) enable_wp();
-
+	if (!wp) {
+		disable_wp();
+	}
+	memcpy (dst, src, size);
+	if (!wp) {
+		enable_wp();
+	}
 	return 0;
 }
 
 static inline int
-r2k_copy_to_user(void *dst, const void __user *src, unsigned size)
+r2k_copy_to_user(__user void *dst, const void *src, unsigned size)
 {
-	memcpy(dst, src, size);
+	copy_to_user (dst, src, size);
 	return 0;
 }
 
@@ -178,7 +181,7 @@ r2k_copy_from_user(void *dst, const void __user *src, unsigned size, bool wp)
 }
 
 static inline int
-r2k_copy_to_user(void *dst, const void __user *src, unsigned size)
+r2k_copy_to_user(__user void *dst, const void *src, unsigned size)
 {
 	return copy_to_user(dst, src, size);
 }

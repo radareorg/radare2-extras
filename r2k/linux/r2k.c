@@ -277,19 +277,18 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 
 		len = m_transf->len;
 		if (!check_kernel_addr (m_transf->addr)) {
-			pr_info ("%s: 0x%lx invalid addr\n", r2_devname,
+			pr_info ("%s: bad kernel address 0x%lx invalid addr\n", r2_devname,
 								m_transf->addr);
 			ret = -EFAULT;
 			goto out;
 		}
-
 		if (!addr_is_mapped (m_transf->addr)) {
 			pr_info ("%s: addr is not mapped\n", r2_devname);
 			ret = -EFAULT;
 			goto out;
 		}
 
-		ret = r2k_copy_to_user (m_transf->buff, (void *)m_transf->addr, len);
+		ret = r2k_copy_to_user (m_transf->buff, (void*)(size_t)m_transf->addr, len);
 		if (ret) {
 			pr_info ("%s: copy_to_user failed\n", r2_devname);
 			ret = -EFAULT;
