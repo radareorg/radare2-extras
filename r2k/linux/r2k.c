@@ -613,9 +613,16 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 #if defined(CONFIG_X86_32) || defined(CONFIG_X86_64)
 		regs.cr0 = native_read_cr0 ();
 		regs.cr2 = native_read_cr2 ();
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,0,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,13,0)
 		regs.cr3 = native_read_cr3 ();
+#else
+		regs.cr3 = __native_read_cr3 ();
+#endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,9,0)
 		regs.cr4 = native_read_cr4_safe ();
+#else
+		regs.cr4 = native_read_cr4 ();
+#endif
 #endif
 #ifdef CONFIG_X86_64
 		regs.cr8 = native_read_cr8 ();
