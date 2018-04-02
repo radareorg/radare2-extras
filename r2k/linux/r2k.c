@@ -51,15 +51,15 @@ static struct r2k_map g_r2k_map = {
 };
 
 static void clean_mmap (void) {
-	unsigned long start_addr;
-	unsigned long end_addr;
-	unsigned long addr;
+	void *start_addr;
+	void *end_addr;
+	void *addr;
 	int n_pages;
 
 	if (g_r2k_map.map_info) {
 		n_pages = g_r2k_map.kernel_maps_info.size / PAGE_SIZE;
 
-		start_addr = (unsigned long)g_r2k_map.map_info;
+		start_addr = g_r2k_map.map_info;
 		end_addr = start_addr + (n_pages * PAGE_SIZE);
 		for(addr = start_addr; addr < end_addr; addr += PAGE_SIZE)
 			ClearPageReserved (vmalloc_to_page ((void*)addr));
@@ -71,15 +71,15 @@ static void clean_mmap (void) {
 
 static int mmap_struct (struct file *filp, struct vm_area_struct *vma) {
 	int n_pages;
-	unsigned long start_addr;
-	unsigned long end_addr;
-	unsigned long u_addr;
-	unsigned long k_addr;
+	void *start_addr;
+	void *end_addr;
+	void *u_addr;
+	void *k_addr;
 	unsigned long length;
 
 	n_pages = g_r2k_map.kernel_maps_info.size / PAGE_SIZE;
 
-	start_addr = (unsigned long)g_r2k_map.map_info;
+	start_addr = (void *)g_r2k_map.map_info;
 	end_addr = start_addr + (n_pages * PAGE_SIZE);
 
 	length = vma->vm_end - vma->vm_start;
@@ -89,16 +89,15 @@ static int mmap_struct (struct file *filp, struct vm_area_struct *vma) {
 		return -1;
 	}
 
-	for (k_addr = start_addr, u_addr = vma->vm_start;
+	for (k_addr = start_addr, u_addr = (void*)(size_t)vma->vm_start;
 		k_addr < end_addr; k_addr += PAGE_SIZE) {
-		unsigned long pfn = vmalloc_to_pfn ((void *)k_addr);
-		int ret = remap_pfn_range (vma, u_addr, pfn, PAGE_SIZE, PAGE_SHARED);
+		unsigned long pfn = vmalloc_to_pfn (k_addr);
+		int ret = remap_pfn_range (vma, (size_t)u_addr, pfn, PAGE_SIZE, PAGE_SHARED);
 		if (ret < 0) {
 			pr_info ("%s: remap_pfn_range failed\n", r2_devname);
 		}
 		u_addr += PAGE_SIZE;
 	}
-
 	return 0;
 }
 
@@ -508,7 +507,6 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 		nr_pages = get_nr_pages (m_transf->addr, next_aligned_addr, len);
 
 		for (page_i = 0 ; page_i < nr_pages ; page_i++) {
-
 			struct page *pg;
 			void *kaddr;
 			int bytes;
@@ -549,16 +547,14 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 			len -= bytes;
 		}
 #else
-		void *kaddr = phys_to_virt (m_transf->addr);
+		void *kaddr;
+		kaddr = phys_to_virt (m_transf->addr);
 
-		if (_IOC_NR (cmd) == IOCTL_READ_PHYSICAL_ADDR)
+		if (_IOC_NR (cmd) == IOCTL_READ_PHYSICAL_ADDR) {
 			ret = r2k_copy_to_user (buffer_r, kaddr, len);
-		else {
-			if (!addr_is_writeable((unsigned long)kaddr) && m_transf->wp) {
-				pr_info ("%s: cannot write at addr "
-							"0x%lx\n",
-							r2_devname,
-							(unsigned long)kaddr);
+		} else {
+			if (!addr_is_writeable ((unsigned long)kaddr) && m_transf->wp) {
+				pr_info ("%s: cannot write at addr %p\n", r2_devname, kaddr);
 				ret = -EPERM;
 				goto out;
 			}
@@ -566,8 +562,7 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 		}
 
 		if (ret) {
-			pr_info ("%s: failed while copying\n",
-							r2_devname);
+			pr_info ("%s: failed while copying\n", r2_devname);
 			ret = -EFAULT;
 			goto out;
 		}
@@ -622,7 +617,6 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 		regs.cr4 = native_read_cr4_safe ();
 #else
 		regs.cr4 = native_read_cr4 ();
-#endif
 #endif
 #ifdef CONFIG_X86_64
 		regs.cr8 = native_read_cr8 ();
@@ -748,9 +742,10 @@ static char *r2k_devnode (struct device *dev_ph, umode_t *mode) {
 }
 
 static int __init r2k_init (void) {
+	int ret;
 	pr_info ("%s: loading driver\n", r2_devname);
 
-	int ret = alloc_chrdev_region (&devno, 0, 1, r2_devname);
+	ret = alloc_chrdev_region (&devno, 0, 1, r2_devname);
 	if (ret < 0) {
 		pr_info ("%s: alloc_chrdev_region failed\n", r2_devname);
 		goto out;
