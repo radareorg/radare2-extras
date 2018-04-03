@@ -152,7 +152,8 @@ r2k_copy_from_user(void *dst, const void __user *src, unsigned size, bool wp)
 	if (!wp) {
 		disable_wp();
 	}
-	memcpy (dst, src, size);
+	// memcpy (dst, src, size);
+	copy_from_user (dst, src, size);
 	if (!wp) {
 		enable_wp();
 	}
@@ -162,7 +163,13 @@ r2k_copy_from_user(void *dst, const void __user *src, unsigned size, bool wp)
 static inline int
 r2k_copy_to_user(__user void *dst, const void *src, unsigned size)
 {
-	copy_to_user (dst, src, size);
+	uint8_t *p = vmalloc(size);
+	// intermediate copy to avoid kernel protection mechanisms to get triggered
+	if (p) {
+		memcpy (p, src, size);
+		copy_to_user (dst, p, size);
+		vfree(p);
+	}
 	return 0;
 }
 
@@ -175,6 +182,7 @@ r2k_copy_from_user(void *dst, const void __user *src, unsigned size, bool wp)
 
     if (!wp) disable_wp();
 	res = copy_from_user(dst, src, size);
+	// res = memcpy (dst, src, size);
     if (!wp) enable_wp();
 
     return res;

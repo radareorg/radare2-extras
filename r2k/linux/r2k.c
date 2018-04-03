@@ -372,12 +372,12 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 
 		task = pid_task (find_vpid (m_transf->pid), PIDTYPE_PID);
 		if (!task) {
-			pr_info ("%s: could not retrieve task_struct"
-							"from pid (%d)\n",
-							r2_devname, m_transf->pid);
+			pr_info ("%s: could not retrieve task_struct from pid (%d)\n",
+					r2_devname, m_transf->pid);
 			ret = -ESRCH;
 			goto out;
 		}
+		printk("Task %p + %d\n", task, ((void*)&task->cred - (void*)task));
 
 		vma = find_vma (task->mm, m_transf->addr);
 		if (!vma) {
