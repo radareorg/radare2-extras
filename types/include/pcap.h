@@ -2,9 +2,11 @@
 #define _PCAP_H_
 
 // Definitions
-#define PCAP_MAGIC      0xa1b2c3d4 // Magic number for pcap files
-#define PCAP_NSEC_MAGIC 0xa1b23c4d // Modified pcap with nsec resolution
-#define LIBPCAP_MAGIC   0xa1b2cd34 // "libpcap" with Alexey Kuznetsoc's patches
+enum pcap_const {
+	PCAP_MAGIC      = 0xa1b2c3d4, // Magic number for pcap files
+	PCAP_NSEC_MAGIC = 0xa1b23c4d, // Modified pcap with nsec resolution
+	LIBPCAP_MAGIC   = 0xa1b2cd34  // "libpcap" with Alexey Kuznetsoc's patches
+};
 
 // The network field in the pcap file header
 typedef enum pcap_net {
