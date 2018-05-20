@@ -3,7 +3,7 @@ include ../../../options.mk
 CFLAGS+=$(R2_CFLAGS)
 LDFLAGS+=$(R2_LDFLAGS)
 
-CFLAGS+=-I$(TOP)/shlr -I../../include -I../arch/ -I../arch/include
+CFLAGS+=-g -I$(TOP)/shlr -I../../include -I../arch/ -I../arch/include
 CFLAGS+=-Wall -shared -fPIC ${LDFLAGS_LIB}
 # ${LDFLAGS_LINKPATH}..
 # XXX

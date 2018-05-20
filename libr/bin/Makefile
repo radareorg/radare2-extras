@@ -10,6 +10,9 @@ swf:
 pcap:
 	cd p ; $(MAKE) bin_pcap.$(LIBEXT)
 
+atombios:
+	cd p ; $(MAKE) bin_atombios.$(LIBEXT)
+
 clean:
 	rm -f p/*.$(LIBEXT)
 
