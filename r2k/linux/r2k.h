@@ -118,6 +118,7 @@ struct r2k_proc_info {
         char comm[16]; //TASK_COMM_LEN = 16 include/linux/sched.h
         unsigned long vmareastruct[4096];
         unsigned long stack;
+        unsigned long task;
 };
 
 /**********************/

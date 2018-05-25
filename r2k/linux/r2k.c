@@ -689,6 +689,7 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 #else
 		proc_inf->stack = (unsigned long)task->stack + THREAD_SIZE - sizeof (unsigned long);
 #endif
+		proc_inf->task = (size_t)task;
 
 		ret = copy_to_user ((void *)data_addr, proc_inf, sizeof (*proc_inf));
 		if (ret) {
