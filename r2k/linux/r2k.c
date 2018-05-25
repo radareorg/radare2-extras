@@ -377,7 +377,7 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 			ret = -ESRCH;
 			goto out;
 		}
-		printk("Task %p + %d\n", task, ((void*)&task->cred - (void*)task));
+		printk("Task %p + %d\n", task, (int)(size_t)((void*)&task->cred - (void*)task));
 
 		vma = find_vma (task->mm, m_transf->addr);
 		if (!vma) {
