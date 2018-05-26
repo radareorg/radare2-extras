@@ -10,31 +10,30 @@
 static ut16 header;
 static ut16 mastercmdoffset;
 static ut16 masterdataoffset;
-static ut16 cmdtableoffs[N_TABLES_CMD];
-static ut16 cmdtablesize[N_TABLES_CMD];
+static ut32 cmdtableoffs[N_TABLES_CMD];
+static ut32 cmdtablesize[N_TABLES_CMD];
+static ut32 datatableoffs[N_TABLES_DATA];
+static ut32 datatablesize[N_TABLES_DATA];
 
-static int check_bytes(const ut8 *buf, ut64 length) {
-	ut8 i;
-
+static bool check_bytes(const ut8 *buf, ut64 length) {
 	if (!buf || length < 0x70)
 		return false;
 
+	header = r_read_at_le16(buf, HEADER_OFFSET);
 	if (memcmp (buf + header + 4, ATOM_MAGIC, 4))
 		return false;
-
-	for (i = 0; i < N_TABLES_CMD; i++) {
-		if (cmdtableoffs[i] + cmdtablesize[i] > length)
-			return false;
-	}
 
 	return true;
 }
 
-static void * load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb){
+static void *load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb){
 	ut8 i;
-	header = r_read_at_le16(buf, HEADER_OFFSET);
+	if (!check_bytes(buf, sz))
+		return R_NOTNULL;
+
 	mastercmdoffset = r_read_at_le16(buf, header + 30) + 4;
 	masterdataoffset = r_read_at_le16(buf, header + 32) + 4;
+
 
 	for (i = 0; i < N_TABLES_CMD; i++) {
 		cmdtableoffs[i] = r_read_at_le16 (buf, mastercmdoffset + i * sizeof (ut16));
@@ -45,7 +44,16 @@ static void * load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr,
 			cmdtableoffs[i] += 6;
 		}
 	}
-	check_bytes(buf, sz);
+
+	for (i = 0; i < N_TABLES_DATA; i++) {
+		datatableoffs[i] = r_read_at_le16 (buf, masterdataoffset + i * sizeof (ut16));
+		if (!datatableoffs[i]) {
+			datatablesize[i] = 0;
+		} else {
+			datatablesize[i] = r_read_at_le16 (buf, datatableoffs[i]) - 4;
+			datatableoffs[i] += 4;
+		}
+	}
 	return R_NOTNULL;
 }
 
@@ -80,61 +88,93 @@ static RBinInfo* info(RBinFile *arch) {
 	return ret;
 }
 
+static void addsym(RList *ret, const char *name, ut64 addr, ut32 size) {
+        RBinSymbol *ptr = R_NEW0 (RBinSymbol);
+        if (!ptr) return;
+        ptr->name = strdup (name? name: "");
+        ptr->paddr = ptr->vaddr = addr;
+        ptr->size = size;
+        ptr->ordinal = 0;
+        r_list_append (ret, ptr);
+}
+
+static RList* symbols(RBinFile *bf) {
+	ut8 i;
+        RList *ret = NULL;
+        if (!(ret = r_list_newf (free))) {
+                return NULL;
+        }
+
+	/* Data table symbols */
+	for (i = 0; i < N_TABLES_DATA; i++) {
+		if (datatableoffs[i])
+			addsym (ret, index_data_table[i], datatableoffs[i], datatablesize[i]);
+	}
+	return ret;
+}
+
 static RList* sections(RBinFile *arch) {
 	ut8 i;
 	ut16 sz = 0;
 	RList *ret = NULL;
+	RBinSection *sect;
 
 	if (!(ret = r_list_new()))
 		return NULL;
 
-	/* Command table section */
-	RBinSection *cmd_sect;
-
+	/* Command table sections */
 	for (i = 0; i < N_TABLES_CMD; i++) {
 		sz = cmdtablesize[i];
-		if (!(cmd_sect = R_NEW0 (RBinSection))) {
+		if (!(sect = R_NEW0 (RBinSection))) {
 			return false;
 		}
 		if (cmdtableoffs[i]) {
-			strcpy (cmd_sect->name, index_command_table[i]);
-			cmd_sect->paddr = cmdtableoffs[i];
-			cmd_sect->vaddr = cmdtableoffs[i];
-			cmd_sect->size = sz; 
-			cmd_sect->vsize = sz;
-			cmd_sect->srwx = R_BIN_SCN_READABLE | R_BIN_SCN_EXECUTABLE;
-			r_list_append (ret, cmd_sect);
+			strcpy (sect->name, index_command_table[i]);
+			sect->paddr = cmdtableoffs[i];
+			sect->vaddr = cmdtableoffs[i];
+			sect->size = sz;
+			sect->vsize = sz;
+			sect->srwx = R_BIN_SCN_READABLE | R_BIN_SCN_EXECUTABLE;
+			r_list_append (ret, sect);
 		} else {
-			strcpy (cmd_sect->name, index_command_table[i]);
-			cmd_sect->paddr = 0;
-			cmd_sect->vaddr = 0;
-			cmd_sect->size = 0;
-			cmd_sect->vsize = 0;
-			cmd_sect->srwx = 0;
-			r_list_append (ret, cmd_sect);
+			strcpy (sect->name, "dummy");
+			sect->paddr = 0;
+			sect->vaddr = 0;
+			sect->size = 0;
+			sect->vsize = 0;
+			sect->srwx = 0;
+			r_list_append (ret, sect);
 		}
 	}
 
-	/*
-	 * Data table section
-	RBinSection *data_sect;
-	if (!(data_sect = R_NEW0 (RBinSection))) {
-		return false;
+	/* Data table sections */
+	for (i = 0; i < N_TABLES_DATA; i++) {
+		sz = datatablesize[i];
+		if (!(sect = R_NEW0 (RBinSection))) {
+			return false;
+		}
+		if (datatableoffs[i]) {
+			strcpy (sect->name, index_data_table[i]);
+			sect->paddr = datatableoffs[i];
+			sect->vaddr = datatableoffs[i];
+			sect->size = sz;
+			sect->vsize = sz;
+			sect->srwx = R_BIN_SCN_READABLE;
+			r_list_append (ret, sect);
+		} else {
+			strcpy (sect->name, "dummy");
+			sect->paddr = 0;
+			sect->vaddr = 0;
+			sect->size = 0;
+			sect->vsize = 0;
+			sect->srwx = 0;
+			r_list_append (ret, sect);
+		}
 	}
-	strcpy (data_sect->name, "Data tables");
-	data_sect->paddr = HEADER_OFFSET + masterdataoffset;
-	data_sect->vaddr = HEADER_OFFSET + masterdataoffset;
-	ut8 sz = 0x2;
-	data_sect->size = sz;
-	data_sect->vsize = sz;
-	data_sect->srwx = R_BIN_SCN_READABLE;
-	r_list_append (ret, data_sect);
-	*/
-
 	return ret;
 }
 
-static RList* entries(RBinFile *arch) { 
+static RList* entries(RBinFile *arch) {
 	RList *ret = NULL;
 	RBinAddr *ptr = NULL;
 
@@ -143,7 +183,7 @@ static RList* entries(RBinFile *arch) {
 	if (!(ptr = R_NEW0 (RBinAddr)))
 		return ret;
 
-	ptr->paddr = cmdtableoffs[0]; 
+	ptr->paddr = cmdtableoffs[0];
 	ptr->vaddr = cmdtableoffs[0];
 	r_list_append(ret, ptr);
 
@@ -159,6 +199,7 @@ RBinPlugin r_bin_plugin_atombios = {
 	.check_bytes = &check_bytes,
 	.entries = &entries,
 	.sections = &sections,
+	.symbols = &symbols,
 	.info = &info,
 };
 

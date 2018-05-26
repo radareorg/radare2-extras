@@ -159,6 +159,7 @@ static int atombios_analyze_fns(RAnal *anal, ut64 start, ut64 end, int reftype, 
 	ut8 i;
 	const RList *sects;
 	char name[256] = {0};
+	char namesym[256] = {0};
 
 	if (!(sects = r_bin_get_sections(anal->binb.bin))) {
 		return 0;
@@ -173,6 +174,36 @@ static int atombios_analyze_fns(RAnal *anal, ut64 start, ut64 end, int reftype, 
 
 		sprintf (name, "fcn.%s", index_command_table[i]);
 		r_anal_fcn_add(anal, sect->paddr, sect->size, name, R_ANAL_FCN_TYPE_FCN, NULL);
+
+		// Add locs for local data blocks:
+		// eg:
+		// 0x0000c236      5b             ret
+		// 0x0000c237      7a2600000000.  bindata  38 bytes
+		// ;end section
+
+		ut32 paddr = 0;
+		ut32 size = 0;
+		ut8 *buf = r_buf_get_at (anal->binb.bin->cur->buf, sect->paddr + sect->size - 1, NULL);
+		ut8 *orig = r_buf_get_at (anal->binb.bin->cur->buf, 0, NULL);
+		if (*buf == 0x5b) {
+			// No data here
+			continue;
+		} else {
+			// We have a data block at the end of the fcn.
+			while (r_read_le16(buf) != 0x7a5b) {
+				--buf;
+				++size;
+			}
+			if (buf - orig < sect->paddr) {
+				// WTF not in function
+				continue;
+			}
+			buf += 2;
+			--size;
+			paddr = buf - orig;
+			sprintf (namesym, "sym.%s", index_command_table[i]);
+			r_anal_fcn_add (anal, paddr, size, namesym, R_ANAL_FCN_TYPE_SYM, NULL);
+		}
 	}
 	return 0;
 }
@@ -201,7 +232,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 	case 0x25:
 	case 0x2b:
 	case 0x31:
-	case 0x3c:
+	//case 0x3c:
 	case 0x4a:
 	case 0x54:
 	case 0x5c:
@@ -236,7 +267,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			ut8 szsrc = 0;
 			ut8 attr = b[1];
 			ut8 srctype = attr & 0x7;
-			ut8 srcalign = (attr & 0x38) >> 3;
+			ut8 srcalign = size_align[(attr & 0x38) >> 3];
 			ut32 val = 0;
 			const char *idx;
 			char tmpsrc[256] = {0};
@@ -246,7 +277,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			t = &tmpsrc[0];
 			switch (srctype) {
 			case D_IM:
-				szsrc = size_align[srcalign];
+				szsrc = srcalign;
 				break;
 			case D_PS:
 			case D_WS:
@@ -263,7 +294,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 
 			switch (szsrc) {
 			case 1:
-				val = b[2];
+				val = (ut8)b[2];
 				break;
 			case 2:
 				val = r_read_at_le16(b, 2);
@@ -274,14 +305,14 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			}
 
 			if (srctype == D_IM) {
-				t += sprintf (t, addrtypes_im[szsrc], val);
+				t += sprintf (t, addrtypes_im[srcalign], val);
 			} else if(srctype == D_WS) {
 				idx = get_index (INDEX_WORK_REG, val);
 				t += sprintf (t, "%s", idx);
-				t += sprintf (t, "%s", align_source[srcalign]);
+				t += sprintf (t, "%s", align_source_esil[srcalign]);
 			} else {
-				t += sprintf (t, addrtypes[srctype], val << addrtypes_shift[srctype]);
-				t += sprintf (t, "%s", align_source[srcalign]);
+				t += sprintf (t, addrtypes_esil[srctype], val << addrtypes_shift[srctype]);
+				t += sprintf (t, "%s", align_source_esil[srcalign]);
 			}
 			if (srctype == D_REG || srctype == D_FB || srctype == D_PLL || srctype == D_MC)
 				op->type = R_ANAL_OP_TYPE_IO;
@@ -307,6 +338,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			ut8 attr = b[1];
 			ut8 dsttype = optable[*b].desttype;
 			ut8 dstalign = (attr & 0x38) >> 3;
+			ut8 size = size_align[dstalign];
 			ut32 val = 0;
 			const char *idx;
 			char tmpdst[256] = {0};
@@ -316,7 +348,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			t = &tmpdst[0];
 			switch (dsttype) {
 			case D_IM:
-				szdst = size_align[dstalign];
+				szdst = size;
 				break;
 			case D_PS:
 			case D_WS:
@@ -344,14 +376,14 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			}
 
 			if (dsttype == D_IM) {
-				t += sprintf (t, addrtypes_im[szdst], val);
+				t += sprintf (t, addrtypes_im[dstalign], val);
 			} else if(dsttype == D_WS) {
 				idx = get_index (INDEX_WORK_REG, val);
 				t += sprintf (t, "%s", idx);
-				t += sprintf (t, "%s", align_source[dstalign]);
+				t += sprintf (t, "%s", align_source_esil[dstalign]);
 			} else {
-				t += sprintf (t, addrtypes[dsttype], val << addrtypes_shift[dsttype]);
-				t += sprintf (t, "%s", align_source[dstalign]);
+				t += sprintf (t, addrtypes_esil[dsttype], val << addrtypes_shift[dsttype]);
+				t += sprintf (t, "%s", align_source_esil[dstalign]);
 			}
 			if (dsttype == D_REG || dsttype == D_FB || dsttype == D_PLL || dsttype == D_MC)
 				op->type = R_ANAL_OP_TYPE_IO;
@@ -381,6 +413,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 
 	case 0x5b: // ret
 		op->eob = true;
+		esilprintf (op, "sp,[4],pc,=,4,sp,+=");
 		break;
 
 	// op ds (imm data table)
@@ -418,6 +451,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->cond = R_ANAL_COND_AL;
 			op->jump = sect->paddr;
 			op->eob = true;
+			esilprintf (op, "0x%08x,pc,4,sp,-=,sp,=[],pc,=", op->jump);
 		} break;
 
 	// jmp imm16
@@ -431,6 +465,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->cond = R_ANAL_COND_AL;
 			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
 			op->eob = true;
+			esilprintf (op, "0x%08x,pc,=", op->jump);
 		} break;
 	case 0x44:
 		{
@@ -443,6 +478,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
+			esilprintf (op, "$z,?{,0x%08x,pc,=,}", op->jump);
 		} break;
 	case 0x45:
 		{
@@ -455,6 +491,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
+			esilprintf (op, "$of,$sf,!=,?{,0x%08x,pc,=,}", op->jump);
 		} break;
 	case 0x46:
 		{
@@ -467,6 +504,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
+			esilprintf (op, "$z,!,$of,$sf,==,&,?{,0x%08x,pc,=,}", op->jump);
 		} break;
 	case 0x47:
 		{
@@ -479,6 +517,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
+			esilprintf (op, "$z,$of,$sf,!=,|,?{,0x%08x,pc,=,}", op->jump);
 		} break;
 	case 0x48:
 		{
@@ -491,6 +530,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
+			esilprintf (op, "$of,$sf,==,?{,0x%08x,pc,=,}", op->jump);
 		} break;
 	case 0x49:
 		{
@@ -503,13 +543,13 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
+			esilprintf (op, "$z,!,?{,0x%08x,pc,=,}", op->jump);
 		} break;
 
 	// SET DATA BLOCK imm8 dataptr = &data[datatable[imm8]]
 	case 0x66:
-		{
-
-		} break;
+		esilprintf (op, "0x%02x,db,=", b[1]);
+		break;
 
 	// shift imm
 	//case 0x13:
@@ -525,8 +565,101 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 	case 0x1d:
 	case 0x1e:
 		{
+			ut8 szdst = 0;
+			ut8 attr = b[1];
+			ut8 dsttype = optable[*b].desttype;
+			ut8 dstalign = (attr & 0x38) >> 3;
+			ut8 size = size_align[dstalign];
 
-		} break;
+			ut32 val = 0;
+			const char *idx;
+			char tmpdst[256] = {0};
+			char *t;
+
+			// DESTINATION
+			t = &tmpdst[0];
+			switch (dsttype) {
+			case D_IM:
+				szdst = size;
+				break;
+			case D_PS:
+			case D_WS:
+			case D_FB:
+			case D_PLL:
+			case D_MC:
+				szdst = 1;
+				break;
+			case D_REG:
+			case D_ID:
+				szdst = 2;
+				break;
+			}
+
+			switch (szdst) {
+			case 1:
+				val = b[2];
+				break;
+			case 2:
+				val = r_read_at_le16(b, 2);
+				break;
+			case 4:
+				val = r_read_at_le32(b, 2);
+				break;
+			}
+
+			if (dsttype == D_IM) {
+				t += sprintf (t, addrtypes_im[size], val);
+			} else if (dsttype == D_WS) {
+				idx = get_index (INDEX_WORK_REG, val);
+				t += sprintf (t, "%s", idx);
+				t += sprintf (t, "%s", align_source_esil[dstalign]);
+			} else if (dsttype == D_ID) {
+				const RList *sects;
+				RBinSection *sect;
+				ut32 dataimm;
+				ut64 datablock;
+				if (!(sects = r_bin_get_sections(anal->binb.bin))) {
+					op->type = R_ANAL_OP_TYPE_ILL;
+					return op->size;
+				}
+				r_anal_esil_reg_read (anal->esil, "db", &datablock, NULL);
+
+				if (datablock != 0xff) {
+					// Access a global data table
+					sect = (RBinSection *)r_list_get_n (sects, datablock + N_TABLES_CMD);
+					if (!sect) {
+						op->type = R_ANAL_OP_TYPE_ILL;
+						return op->size;
+					} else if (!sect->paddr) {
+						op->type = R_ANAL_OP_TYPE_ILL;
+						return op->size;
+					}
+					dataimm = sect->paddr;
+					t += sprintf (t, "0x%08x,[4],dt,=", dataimm + val);
+					t += sprintf (t, ",dt%s", align_source_esil[dstalign]);
+				} else {
+					// Access the local data table in this function
+					sect = (RBinSection *)r_bin_get_section_at (anal->binb.bin->cur->o, addr, false);
+					if (!sect) {
+						op->type = R_ANAL_OP_TYPE_ILL;
+						return op->size;
+					} else if (!sect->paddr) {
+						op->type = R_ANAL_OP_TYPE_ILL;
+						return op->size;
+					}
+					dataimm = sect->paddr + sect->size;
+					t += sprintf (t, "0x%08x,[4],dt,=", dataimm + val);
+					t += sprintf (t, ",dt%s", align_source_esil[dstalign]);
+				}
+			}
+			if (dsttype == D_REG || dsttype == D_FB || dsttype == D_PLL || dsttype == D_MC)
+				op->type = R_ANAL_OP_TYPE_IO;
+			else {
+				esilprintf (op, "0x%02x,%s,%s", (ut8)b[2 + szdst], tmpdst, optable[*b].esilop);
+				//eprintf ("0x%02x,%s,%s", b[2 + szdst], tmpdst, optable[*b].esilop);
+			}
+		}
+		break;
 
 	// op dest src
 	//case 0x01:
@@ -571,7 +704,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 	case 0x34:
 	case 0x35:
 	case 0x36:
-	//case 0x3c:
+	case 0x3c:
 	case 0x3d:
 	case 0x3e:
 	case 0x3f:
@@ -607,8 +740,9 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			ut8 attr = b[1];
 			ut8 srctype = attr & 0x7;
 			ut8 dsttype = optable[*b].desttype;
-			ut8 dstalign = attr >> 6;
 			ut8 srcalign = (attr & 0x38) >> 3;
+			ut8 dstalign = attr >> 6;
+			ut8 size = size_align[srcalign];
 			ut32 val = 0;
 			const char *idx;
 			char tmpsrc[256] = {0};
@@ -617,7 +751,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 
 			// DESTINATION
 			t = &tmpdst[0];
-			switch (optable[*b].desttype) {
+			switch (dsttype) {
 			case D_REG:
 				val = r_read_at_le16(b, 2);
 				szdst = 2;
@@ -635,17 +769,17 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				idx = get_index (INDEX_WORK_REG, val);
 				t += sprintf (t, "%s", idx);
 			} else {
-				t += sprintf (t, addrtypes[dsttype], val << addrtypes_shift[dsttype]);
+				t += sprintf (t, addrtypes_esil[dsttype], val << addrtypes_shift[dsttype]);
 			}
-			switch (szdst) {
+			switch (size) {
 			case 1:
-				t += sprintf (t, "%s", align_byte[dstalign]);
+				t += sprintf (t, "%s", align_byte_esil[dstalign]);
 				break;
 			case 2:
-				t += sprintf (t, "%s", align_word[dstalign]);
+				t += sprintf (t, "%s", align_word_esil[dstalign]);
 				break;
 			case 4:
-				t += sprintf (t, "%s", align_long[dstalign]);
+				t += sprintf (t, "%s", align_long_esil[dstalign]);
 				break;
 			}
 			if (dsttype == D_REG || dsttype == D_FB || dsttype == D_PLL || dsttype == D_MC)
@@ -657,7 +791,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			t = &tmpsrc[0];
 			switch (srctype) {
 			case D_IM:
-				szsrc = size_align[srcalign];
+				szsrc = size;
 				break;
 			case D_PS:
 			case D_WS:
@@ -685,20 +819,61 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			}
 
 			if (srctype == D_IM) {
-				t += sprintf (t, addrtypes_im[szsrc], val);
-			} else if(srctype == D_WS) {
+				t += sprintf (t, addrtypes_im[size], val);
+			} else if (srctype == D_WS) {
 				idx = get_index (INDEX_WORK_REG, val);
 				t += sprintf (t, "%s", idx);
-				t += sprintf (t, "%s", align_source[srcalign]);
+				t += sprintf (t, "%s", align_source_esil[srcalign]);
+			} else if (srctype == D_ID) {
+				const RList *sects;
+				RBinSection *sect;
+				ut32 dataimm;
+				ut64 datablock;
+				if (!(sects = r_bin_get_sections(anal->binb.bin))) {
+					op->type = R_ANAL_OP_TYPE_ILL;
+					return op->size;
+				}
+				r_anal_esil_reg_read (anal->esil, "db", &datablock, NULL);
+				datablock &= 0xff;
+
+				if (datablock != 0xff) {
+					// Access a global data table
+					sect = (RBinSection *)r_list_get_n (sects, datablock + N_TABLES_CMD);
+					if (!sect) {
+						op->type = R_ANAL_OP_TYPE_ILL;
+						return op->size;
+					} else if (!sect->paddr) {
+						op->type = R_ANAL_OP_TYPE_ILL;
+						return op->size;
+					}
+					dataimm = sect->paddr;
+					t += sprintf (t, "0x%08x,[4],dt,=", dataimm + val);
+					t += sprintf (t, ",dt%s", align_source_esil[srcalign]);
+				} else {
+					// Access the local data table in this function
+					sect = (RBinSection *)r_bin_get_section_at (anal->binb.bin->cur->o, addr, false);
+					if (!sect) {
+						op->type = R_ANAL_OP_TYPE_ILL;
+						return op->size;
+					} else if (!sect->paddr) {
+						op->type = R_ANAL_OP_TYPE_ILL;
+						return op->size;
+					}
+					dataimm = sect->paddr + sect->size;
+					t += sprintf (t, "0x%08x,[4],dt,=", dataimm + val);
+					t += sprintf (t, ",dt%s", align_source_esil[srcalign]);
+				}
+				//eprintf ("%llx:  %s,%s,%s\n", addr, tmpsrc, tmpdst, optable[*b].esilop);
 			} else {
-				t += sprintf (t, addrtypes[srctype], val << addrtypes_shift[srctype]);
-				t += sprintf (t, "%s", align_source[srcalign]);
+				t += sprintf (t, addrtypes_esil[srctype], val << addrtypes_shift[srctype]);
+				t += sprintf (t, "%s", align_source_esil[srcalign]);
 			}
-			if (srctype == D_REG || srctype == D_FB || srctype == D_PLL || srctype == D_MC)
+			if (srctype == D_REG || srctype == D_FB || srctype == D_PLL || srctype == D_MC) {
 				op->type = R_ANAL_OP_TYPE_IO;
-			else {
+				//esilprintf (op, "0,%s,%s", tmpdst, optable[*b].esilop);
+				//eprintf ("WARNING: IO assumed 0\n");
+			} else {
 				esilprintf (op, "%s,%s,%s", tmpsrc, tmpdst, optable[*b].esilop);
-				//printf ("%llx:  %s,%s,%s\n", addr, tmpsrc, tmpdst, optable[*b].esilop);
 			}
 		} break;
 	}
@@ -715,7 +890,6 @@ static int archinfo(RAnal *anal, int query) {
 	default:
 		return -1;
 	}
-
 }
 
 static int set_reg_profile(RAnal *anal) {
@@ -922,10 +1096,11 @@ static int set_reg_profile(RAnal *anal) {
 	"gpr    dt_3    .8      87      0\n"
 
 	"gpr    md      .16     88      0\n"
+	"gpr    db      .8      90      0\n"
 
-	"gpr    pc      .32     90      0\n"
-	"gpr    sp      .32     94      0\n"
-	"gpr    bp      .32     98      0\n"
+	"gpr    pc      .32     91      0\n"
+	"gpr    sp      .32     95      0\n"
+	"gpr    bp      .32     99      0\n"
 	;
 	return r_reg_set_profile_string (anal->reg, p);
 }

@@ -11,8 +11,7 @@ static int last_reg_index  = INDEX_NONE;
 static int last_reg_offset = 0;
 static int opt_reg_addresses = 0;
 
-
-const char *align_source[] = {
+const char *align_source_esil[] = {
     "",
     "_01",
     "_12",
@@ -23,18 +22,39 @@ const char *align_source[] = {
     "_3"
 };
 
-const char *align_byte[] = { "_0", "_1", "_2", "_3" };
-const char *align_word[] = { "_01", "_12", "_23", "" };
-const char *align_long[] = { "", "", "", "" };
+const char *align_byte_esil[] = { "_0", "_1", "_2", "_3" };
+const char *align_word_esil[] = { "_01", "_12", "_23", "" };
+const char *align_long_esil[] = { "", "", "", "" };
+
+const char *addrtypes_esil[] = {
+    "0x%04x,r", "p%d", "w%d", "0x%02x,f", "0x%04x,dt", "0x%04x,D_IDunimpl",
+    "0x%04x,pll", "0x%04x,mc",
+    "0x%02x", "0x%04x", "0x%08x"
+};
+
+const char *align_source[] = {
+    "XXXX",
+    "..XX",
+    ".XX.",
+    "XX..",
+    "...X",
+    "..X.",
+    ".X..",
+    "X..."
+};
+
+const char *align_byte[] = { "...X", "..X.", ".X..", "X..." };
+const char *align_word[] = { "..XX", ".XX.", "XX..", "?..?" };
+const char *align_long[] = { "XXXX", "????", "????", "????" };
 
 const int   size_align[] = { 4, 2, 2, 2, 1, 1, 1, 1 };
 
 const char *addrnames[] = { "REG", "PS", "WS", "FB", "ID", "IM", "PLL", "MC", "dec", "hex8", "hex16", "null" };
 
 const char *addrtypes[] = {
-    "0x%04x,r", "p%1d", "w%1d", "0x%02x,f", "0x%04x,dt", "0x%04x,D_IDunimpl",
-    "0x%04x,pll", "0x%04x,mc",
-    "0x%02x", "0x%04x", ""
+    "REG[0x%04x]", "PARAM[%d]", "WORK[%d]", "FB[0x%02x]", "DATA[0x%04x]", "0x%04x,<!impl>",
+    "PLL[0x%04x]", "MC[0x%04x]",
+    "0x%02x", "0x%04x", "0x%08x"
 };
 
 int addrtypes_shift[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -224,12 +244,12 @@ const optab_t optable[256] = {
     { op_1x16,    "jle", "<=", D_hex16, 0, 0 },
     { op_1x16,    "jge", ">=", D_hex16, 0, 0 },
     { op_1x16,    "jne", "!=", D_hex16, 0, 0 },
-    { op_destsrc, "bitest", "?{", D_REG, 0, 0 },
-    { op_destsrc, "bitest", "?{", D_PS, 0, 0 },
-    { op_destsrc, "bitest", "?{", D_WS, 0, 0 },
-    { op_destsrc, "bitest", "?{", D_FB, 0, 0 },
-    { op_destsrc, "bitest", "?{", D_PLL, 0, 0 },
-    { op_destsrc, "bitest", "?{", D_MC, 0, 0 },
+    { op_destsrc, "bitest", "&", D_REG, 0, 0 },
+    { op_destsrc, "bitest", "&", D_PS, 0, 0 },
+    { op_destsrc, "bitest", "&", D_WS, 0, 0 },
+    { op_destsrc, "bitest", "&", D_FB, 0, 0 },
+    { op_destsrc, "bitest", "&", D_PLL, 0, 0 },
+    { op_destsrc, "bitest", "&", D_MC, 0, 0 },
     { op_1x8,     "mdelay", NULL, D_hex8, 0, 0 },
     { op_1x8,     "udelay", NULL, D_hex8, 0, 0 },
     { op_1x8,     "call", NULL, D_hex8, 0, INDEX_COMMAND_TABLE },
@@ -322,13 +342,13 @@ int sub_dest (const ut8 *d, char *out, int type, int align, int size, int index)
 	out += sprintf (out, addrtypes [type], val << addrtypes_shift[type]);
     switch (size) {
     case 1:
-	out += sprintf (out, "%s", align_byte[align]);
+	out += sprintf (out, " [%s]", align_byte[align]);
 	break;
     case 2:
-	out += sprintf (out, "%s", align_word[align]);
+	out += sprintf (out, " [%s]", align_word[align]);
 	break;
     case 4:
-	out += sprintf (out, "%s", align_long[align]);
+	out += sprintf (out, " [%s]", align_long[align]);
 	break;
     }
     if (type == D_REG && (ind = get_index (last_reg_index, val+last_reg_offset)) )
@@ -366,10 +386,10 @@ int sub_src (const ut8 *d, char *out, int type, int align, int size, int index) 
 	out += sprintf (out, addrtypes_im [size], val);
     } else if (type == D_WS && (ind = get_index (INDEX_WORK_REG, val)) ) {
 	out += sprintf (out, "%s", ind);
-	out += sprintf (out, "%s", align_source[align]);
+	out += sprintf (out, " [%s]", align_source[align]);
     } else {
 	out += sprintf (out, addrtypes [type], val << addrtypes_shift [type]);
-	out += sprintf (out, "%s", align_source[align]);
+	out += sprintf (out, " [%s]", align_source[align]);
     }
     if (type == D_REG && (ind = get_index (last_reg_index, val+last_reg_offset)) )
 	out += sprintf (out, " (%s)", ind);
@@ -381,8 +401,7 @@ int sub_src (const ut8 *d, char *out, int type, int align, int size, int index) 
 int op_ds (const ut8 *d, char *out) {
     const optab_t *op = &optable[d[0]];
     ut16 size = r_read_at_le16(d, 1);
-    /* Multiline, because even the hexdump typically needs lots of space */
-    out += sprintf (out, "\n                          %-5s  %d bytes", op->name, size);
+    out += sprintf (out, "%-5s  %d bytes", op->name, size + 2);
     return size + 3;
 }
 
@@ -447,7 +466,7 @@ int op_destsrc (const ut8 *d, char *out) {
     out += sprintf  (out, "%-5s  ", op->name);
     t   += sub_dest (t, out, op->desttype, attr >> 6, size_align[(attr & 0x38)>>3], op->destindex);
     out += strlen   (out);
-    out += sprintf  (out, "  <-  ");
+    out += sprintf  (out, " <- ");
     t   += sub_src  (t, out, attr & 0x07, (attr & 0x38) >> 3, size_align[(attr & 0x38)>>3], op->srcindex);
     return t - d;
 }
@@ -458,7 +477,7 @@ int op_shift (const ut8 *d, char *out) {
     out += sprintf  (out, "%-5s  ", op->name);
     t   += sub_src (t, out, op->desttype, (attr & 0x38) >> 3, size_align[(attr & 0x38)>>3], op->destindex);
     out += strlen   (out);
-    out += sprintf  (out, "  by  %02x", *t++);
+    out += sprintf  (out, " by %02x", *t++);
     return t - d;
 }
 int op_switch (const ut8 *d, char *out) {
@@ -466,33 +485,30 @@ int op_switch (const ut8 *d, char *out) {
     ut8       *t    = (ut8 *)&d[1];
     int            attr = *t++;
     int            i = 0;
-    /* Multiline, because even the hexdump typically needs lots of space */
-    out += sprintf (out, "\n                          %-5s  ", op->name);
+    out += sprintf (out, "%-5s  ", op->name);
     t   += sub_src (t, out, attr & 0x07, (attr & 0x38) >> 3, size_align[(attr & 0x38)>>3], op->srcindex);
     out += strlen  (out);
 
     while (t[0] != 0x5a && t[1] != 0x5a) { /* EndOfSwitch: 2x NOP */
 	if (*t++ != 'c') {
-	    out += sprintf (out, "missing CASE for switch");
+	    out += sprintf (out, " (missing CASE for switch)");
 	    t   -= 3;
 	    break;
 	}
-	if (! (i++ & 7))
-	    out += sprintf (out, "\n       ");
 	switch (size_align[(attr & 0x38)>>3]) {
 	case 1:
-	    out += sprintf (out, " %02x->", *t++);
+	    out += sprintf (out, " %02x ->", *t++);
 	    break;
 	case 2:
-	    out += sprintf (out, " %04x->", r_read_le16(t));
+	    out += sprintf (out, " %04x ->", r_read_le16(t));
 	    t   += 2;
 	    break;
 	case 4:
-	    out += sprintf (out, " %08x->", r_read_le32(t));
+	    out += sprintf (out, " %08x ->", r_read_le32(t));
 	    t   += 4;
 	    break;
 	}
-	out += sprintf (out, "%04x", r_read_le16(t));
+	out += sprintf (out, " %04x", r_read_le16(t));
 	t   += 2;
     }
     t += 2;
@@ -505,10 +521,10 @@ int op_mask (const ut8 *d, char *out) {
     out += sprintf  (out, "%-5s  ", op->name);
     t   += sub_dest (t, out, op->desttype, attr >> 6, size_align[(attr & 0x38)>>3], op->destindex);
     out += strlen   (out);
-    out += sprintf  (out, "  &  ");
+    out += sprintf  (out, " & ");
     t   += sub_src  (t, out, D_IM, (attr & 0x38) >> 3, size_align[(attr & 0x38)>>3], 0);
     out += strlen   (out);
-    out += sprintf  (out, "  |  ");
+    out += sprintf  (out, " | ");
     t   += sub_src  (t, out, attr & 0x07, (attr & 0x38) >> 3, size_align[(attr & 0x38)>>3], 0);
     return t - d;
 }

@@ -71,15 +71,19 @@ int atombios_inst_len(const ut8 *buf);
 int atombios_disassemble(const ut8 *inbuf, char *outbuf);
 const char *get_index (int type, int val);
 
-
-extern const char *align_source[]; 
+extern const char *align_source_esil[];
+extern const char *align_byte_esil[];
+extern const char *align_word_esil[];
+extern const char *align_long_esil[];
+extern const char *addrtypes_esil[];
+extern const char *align_source[];
 extern const char *align_byte[];
 extern const char *align_word[];
 extern const char *align_long[];
 extern const int   size_align[];
 extern const char *addrnames[];
 extern const char *addrtypes[];
-extern int addrtypes_shift[]; 
+extern int addrtypes_shift[];
 extern const char *addrtypes_im[];
 extern const char *index_command_table[];
 extern const char *index_data_table[];
