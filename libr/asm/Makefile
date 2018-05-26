@@ -1,5 +1,8 @@
 D=$(HOME)/.config/radare2/plugins
 
+atombios:
+	cd p ; $(MAKE) asm_atombios.$(LIBEXT)
+
 blackfin:
 	cd p ; $(MAKE) asm_blackfin.$(LIBEXT)
 
@@ -45,5 +48,7 @@ clean:
 	rm -f p/asm_x86_olly.$(LIBEXT)
 	rm -f p/asm_m68k.$(LIBEXT)
 	rm -f p/asm_x86_zyan.$(LIBEXT)
+	rm -f p/asm_atombios.{$(LIBEXT),o}
+	rm -f arch/atombios/atombios.o
 
 include ../../options.mk

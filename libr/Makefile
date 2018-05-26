@@ -4,6 +4,11 @@ bea:
 	$(MAKE) -C asm bea
 	$(MAKE) -C anal bea
 
+atombios:
+	$(MAKE) -C asm atombios
+	$(MAKE) -C anal atombios
+	$(MAKE) -C bin atombios
+
 blackfin:
 	$(MAKE) -C asm blackfin
 
@@ -33,6 +38,11 @@ evm:
 clean:
 	$(MAKE) -C asm clean
 	$(MAKE) -C anal clean
+
+atombios-install:
+	cp -f asm/p/asm_atombios.$(LIBEXT) $(R2PM_PLUGDIR)
+	cp -f anal/p/anal_atombios.$(LIBEXT) $(R2PM_PLUGDIR)
+	cp -f bin/p/bin_atombios.$(LIBEXT) $(R2PM_PLUGDIR)
 
 bea-install:
 	cp -f asm/p/asm_x86_bea.$(LIBEXT) $(R2PM_PLUGDIR)

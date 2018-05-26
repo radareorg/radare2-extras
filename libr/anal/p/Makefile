@@ -6,5 +6,6 @@ ARCHS+=x86_simple.mk
 ARCHS+=x86_udis.mk
 ARCHS+=m68k_net.mk
 ARCHS+=evm.mk
+ARCHS+=atombios.mk
 
 include ../../plugs.mk

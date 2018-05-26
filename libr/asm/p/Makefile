@@ -17,6 +17,7 @@ ARCHS+=z80_nc.mk
 ARCHS+=pyc.mk
 ARCHS+=x86_zyan.mk
 ARCHS+=evm.mk
+ARCHS+=atombios.mk
 
 
 include ../../plugs.mk
