@@ -1927,6 +1927,9 @@ enum bfd_architecture
 #define bfd_mach_mn10300               300
 #define bfd_mach_am33          330
 #define bfd_mach_am33_2        332
+  bfd_arch_nios,
+#define bfd_mach_nios16        0
+#define bfd_mach_nios32        1
   bfd_arch_fr30,
 #define bfd_mach_fr30          0x46523330
   bfd_arch_frv,
@@ -3433,6 +3436,21 @@ the opcode.  */
 significant 7 bits of a 23-bit extended address are placed into
 the opcode.  */
   BFD_RELOC_TIC54X_MS7_OF_23,
+
+/* Altera Nios Relocations. */
+  BFD_RELOC_NIOS_LO16_LO5,
+  BFD_RELOC_NIOS_LO16_HI11,
+  BFD_RELOC_NIOS_HI16_LO5,
+  BFD_RELOC_NIOS_HI16_HI11,
+  BFD_RELOC_NIOS_PCREL6,
+  BFD_RELOC_NIOS_PCREL8,
+  BFD_RELOC_NIOS_PCREL11,
+  BFD_RELOC_NIOS_H_LO5,
+  BFD_RELOC_NIOS_H_HI11,
+  BFD_RELOC_NIOS_H_XLO5,
+  BFD_RELOC_NIOS_H_XHI11,
+  BFD_RELOC_NIOS_H_16,
+  BFD_RELOC_NIOS_H_32,
 
 /* This is a 48 bit reloc for the FR30 that stores 32 bits.  */
   BFD_RELOC_FR30_48,

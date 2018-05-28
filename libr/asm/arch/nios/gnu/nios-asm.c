@@ -29,7 +29,8 @@ along with this program; if not, write to the Free Software Foundation, Inc.,
 #include <ctype.h>
 #include <stdio.h>
 #include "ansidecl.h"
-#include "bfd.h"
+//#include "bfd.h"
+#include "mybfd.h"
 #include "symcat.h"
 #include "nios-desc.h"
 #include "nios-opc.h"
