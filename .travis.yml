@@ -1,6 +1,8 @@
 os:
   - linux
 
+sudo: required
+
 compiler:
   - clang
 
