@@ -430,7 +430,7 @@ static int r_cmd_yara_init(void *user, const char *cmd) {
 	return true;
 }
 
-static int r_cmd_yara_deinit(){
+static int r_cmd_yara_fini(){
 	if (initialized) {
 		r_list_free (rules_list);
 		yr_finalize();
@@ -445,7 +445,7 @@ RCorePlugin r_core_plugin_yara = {
 	.license = "LGPL",
 	.call = r_cmd_yara_call,
 	.init = r_cmd_yara_init,
-	.deinit = r_cmd_yara_deinit
+	.fini = r_cmd_yara_fini
 };
 
 #ifndef CORELIB
