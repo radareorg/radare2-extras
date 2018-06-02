@@ -2212,7 +2212,7 @@ static int r_cmd_dwarf_call (void *user, const char *input) {
 	return true;
 }
 
-static int r_cmd_dwarf_deinit () {
+static int r_cmd_dwarf_fini () {
 	int res = DW_DLV_ERROR;
 
 	if (fd && dbg) {
@@ -2236,7 +2236,7 @@ RCorePlugin r_core_plugin_dwarf = {
 	.desc = "DWARF parser to analyse various structure and set flags (global variables and function declaration)",
 	.license = "gpl",
 	.call = r_cmd_dwarf_call,
-	.deinit = r_cmd_dwarf_deinit
+	.fini = r_cmd_dwarf_fini
 };
 
 #ifndef CORELIB
