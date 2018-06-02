@@ -80,7 +80,7 @@ env:
   - TESTS="r2pm -i x86olly && cd radare2-regressions && make olly-extras && cd .."
   - TESTS="r2pm -i z80-nc"
   - TESTS="r2pm -i yara && r2pm -i yara-r2"
-#  - TESTS="r2pm -i x86zyan" [BR] https://travis-ci.org/radare/radare2-extras/builds/387043680
+  - TESTS="r2pm -i x86zyan"
 language:
   - rust
 rust:

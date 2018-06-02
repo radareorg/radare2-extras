@@ -1,4 +1,4 @@
-D=$(HOME)/.config/radare2/plugins
+R2PM_PLUGDIR ?=$(HOME)/.config/radare2/plugins
 
 atombios:
 	cd p ; $(MAKE) asm_atombios.$(LIBEXT)
@@ -37,10 +37,11 @@ evm:
 	$(MAKE) -C p asm_evm.$(LIBEXT)
 
 zyan-install: zyan
-	cp -f p/asm_x86_zyan.$(LIBEXT) $(D)
+	mkdir -p $(R2PM_PLUGDIR)
+	cp -f p/asm_x86_zyan.$(LIBEXT) $(R2PM_PLUGDIR)
 
 zyan-uninstall:
-	$(RM) $(D)/asm_x86_zyan.$(LIBEXT)
+	$(RM) $(R2PM_PLUGDIR)/asm_x86_zyan.$(LIBEXT)
 	
 clean:
 	rm -f p/asm_x86_bea.$(LIBEXT)
