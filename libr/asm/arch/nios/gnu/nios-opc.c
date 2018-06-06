@@ -1,34 +1,32 @@
 /* Instruction opcode table for nios.
+   Copyright (C) 2012-2018 Free Software Foundation, Inc.
 
-THIS FILE IS MACHINE GENERATED WITH CGEN.
+   This file is part of the GNU opcodes library.
 
-Copyright (C) 1996, 1997, 1998, 1999, 2001 Free Software Foundation, Inc.
+   This library is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
 
-This file is part of the GNU Binutils and/or GDB, the GNU debugger.
+   It is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-
-*/
+   You should have received a copy of the GNU General Public License
+   along with this file; see the file COPYING.  If not, write to the
+   Free Software Foundation, 51 Franklin Street - Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 #include "sysdep.h"
+#include <string.h>
 #include "ansidecl.h"
 //#include "bfd.h"
 #include "mybfd.h"
 #include "symcat.h"
 #include "nios-desc.h"
 #include "nios-opc.h"
+#include "libiberty.h"
 
 /* The hash functions are recorded here to help keep assembler code out of
    the disassembler and vice versa.  */
@@ -40,125 +38,124 @@ static unsigned int dis_hash_insn PARAMS ((const char *, CGEN_INSN_INT));
 
 /* Instruction formats.  */
 
-#define F(f) & nios_cgen_ifld_table[CONCAT2 (NIOS_,f)]
-
-static const CGEN_IFMT ifmt_empty = {
+#define F(f) & nios_cgen_ifld_table[NIOS_##f]
+static const CGEN_IFMT ifmt_empty ATTRIBUTE_UNUSED = {
   0, 0, 0x0, { { 0 } }
 };
 
-static const CGEN_IFMT ifmt_ext8s16 = {
+static const CGEN_IFMT ifmt_ext8s16 ATTRIBUTE_UNUSED = {
   16, 16, 0xff80, { { F (F_OP9) }, { F (F_I1) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_sts8s16 = {
+static const CGEN_IFMT ifmt_sts8s16 ATTRIBUTE_UNUSED = {
   16, 16, 0xfc00, { { F (F_OP6) }, { F (F_I10) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_st8d16 = {
+static const CGEN_IFMT ifmt_st8d16 ATTRIBUTE_UNUSED = {
   16, 16, 0xffe0, { { F (F_OP11) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_addc16 = {
+static const CGEN_IFMT ifmt_addc16 ATTRIBUTE_UNUSED = {
   16, 16, 0xfc00, { { F (F_OP6) }, { F (F_RB) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_addi16 = {
+static const CGEN_IFMT ifmt_addi16 ATTRIBUTE_UNUSED = {
   16, 16, 0xfc00, { { F (F_OP6) }, { F (F_I5) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_or16 = {
+static const CGEN_IFMT ifmt_or16 ATTRIBUTE_UNUSED = {
   16, 16, 0xfc00, { { F (F_OP6) }, { F (F_RBI5) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_lds16 = {
+static const CGEN_IFMT ifmt_lds16 ATTRIBUTE_UNUSED = {
   16, 16, 0xe000, { { F (F_OP3) }, { F (F_I8) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_ldp16 = {
+static const CGEN_IFMT ifmt_ldp16 ATTRIBUTE_UNUSED = {
   16, 16, 0xf000, { { F (F_OP4) }, { F (F_RP) }, { F (F_I5) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_trap16 = {
+static const CGEN_IFMT ifmt_trap16 ATTRIBUTE_UNUSED = {
   16, 16, 0xff00, { { F (F_OP8) }, { F (F_O2) }, { F (F_I6V) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_save16 = {
+static const CGEN_IFMT ifmt_save16 ATTRIBUTE_UNUSED = {
   16, 16, 0xff00, { { F (F_OP8) }, { F (F_I8V) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_restore16 = {
+static const CGEN_IFMT ifmt_restore16 ATTRIBUTE_UNUSED = {
   16, 16, 0xffe0, { { F (F_OP11) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_bsr16 = {
+static const CGEN_IFMT ifmt_bsr16 ATTRIBUTE_UNUSED = {
   16, 16, 0xf800, { { F (F_OP5) }, { F (F_I11_REL) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_bsrr16 = {
+static const CGEN_IFMT ifmt_bsrr16 ATTRIBUTE_UNUSED = {
   16, 16, 0xf800, { { F (F_OP5) }, { F (F_BSRR_I6_REL) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_jmpc16 = {
+static const CGEN_IFMT ifmt_jmpc16 ATTRIBUTE_UNUSED = {
   16, 16, 0xff00, { { F (F_OP8) }, { F (F_I8V_REL_H) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_skps16 = {
+static const CGEN_IFMT ifmt_skps16 ATTRIBUTE_UNUSED = {
   16, 16, 0xffe0, { { F (F_OP11) }, { F (F_X1) }, { F (F_I4W) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_sts16s = {
+static const CGEN_IFMT ifmt_sts16s ATTRIBUTE_UNUSED = {
   16, 16, 0xfc00, { { F (F_OP6) }, { F (F_I9) }, { F (F_O1) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_movhi = {
+static const CGEN_IFMT ifmt_movhi ATTRIBUTE_UNUSED = {
   16, 16, 0xfc00, { { F (F_OP6) }, { F (F_I5) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_ext16d = {
+static const CGEN_IFMT ifmt_ext16d ATTRIBUTE_UNUSED = {
   16, 16, 0xfc00, { { F (F_OP6) }, { F (F_RB) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_sext16 = {
+static const CGEN_IFMT ifmt_sext16 ATTRIBUTE_UNUSED = {
   16, 16, 0xffe0, { { F (F_OP11) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_ext8s32 = {
+static const CGEN_IFMT ifmt_ext8s32 ATTRIBUTE_UNUSED = {
   16, 16, 0xff80, { { F (F_OP9) }, { F (F_I2) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_ext16s = {
+static const CGEN_IFMT ifmt_ext16s ATTRIBUTE_UNUSED = {
   16, 16, 0xff80, { { F (F_OP9) }, { F (F_I1) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_or32 = {
+static const CGEN_IFMT ifmt_or32 ATTRIBUTE_UNUSED = {
   16, 16, 0xfc00, { { F (F_OP6) }, { F (F_RBI5) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_lds32 = {
+static const CGEN_IFMT ifmt_lds32 ATTRIBUTE_UNUSED = {
   16, 16, 0xe000, { { F (F_OP3) }, { F (F_I8) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_ldp32 = {
+static const CGEN_IFMT ifmt_ldp32 ATTRIBUTE_UNUSED = {
   16, 16, 0xf000, { { F (F_OP4) }, { F (F_RP) }, { F (F_I5) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_bsrr32 = {
+static const CGEN_IFMT ifmt_bsrr32 ATTRIBUTE_UNUSED = {
   16, 16, 0xf800, { { F (F_OP5) }, { F (F_BSRR_I6_REL) }, { F (F_RA) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_jmpc32 = {
+static const CGEN_IFMT ifmt_jmpc32 ATTRIBUTE_UNUSED = {
   16, 16, 0xff00, { { F (F_OP8) }, { F (F_I8V_REL_W) }, { 0 } }
 };
 
-static const CGEN_IFMT ifmt_pfx = {
+static const CGEN_IFMT ifmt_pfx ATTRIBUTE_UNUSED = {
   16, 16, 0xf800, { { F (F_OP5) }, { F (F_I11) }, { 0 } }
 };
 
 #undef F
 
-#define A(a) (1 << CONCAT2 (CGEN_INSN_,a))
+#define A(a) (1 << CGEN_INSN_##a)
 #define MNEM CGEN_SYNTAX_MNEMONIC /* syntax value for mnemonic */
-#define OPERAND(op) CONCAT2 (NIOS_OPERAND_,op)
+#define OPERAND(op) NIOS_OPERAND_##op
 #define OP(field) CGEN_SYNTAX_MAKE_FIELD (OPERAND (field))
 
 /* The instruction table.  */
@@ -982,7 +979,7 @@ static const CGEN_OPCODE nios_cgen_insn_opcode_table[MAX_INSNS] =
 
 /* Formats for ALIAS macro-insns.  */
 
-#define F(f) & nios_cgen_ifld_table[CONCAT2 (NIOS_,f)]
+#define F(f) & nios_cgen_ifld_table[NIOS_##f]
 
 static const CGEN_IFMT ifmt_if016 = {
   16, 16, 0xfc00, { { F (F_OP6) }, { F (F_RA) }, { F (F_I5) }, { 0 } }
@@ -1076,9 +1073,9 @@ static const CGEN_IFMT ifmt_lret32 = {
 
 /* Each non-simple macro entry points to an array of expansion possibilities.  */
 
-#define A(a) (1 << CONCAT2 (CGEN_INSN_,a))
+#define A(a) (1 << CGEN_INSN_##a)
 #define MNEM CGEN_SYNTAX_MNEMONIC /* syntax value for mnemonic */
-#define OPERAND(op) CONCAT2 (NIOS_OPERAND_,op)
+#define OPERAND(op) NIOS_OPERAND_##op
 #define OP(field) CGEN_SYNTAX_MAKE_FIELD (OPERAND (field))
 
 /* The macro instruction table.  */
@@ -1088,112 +1085,112 @@ static const CGEN_IBASE nios_cgen_macro_insn_table[] =
 /* if0 $m16_Ra,$i5 */
   {
     -1, "if016", "if0", 16,
-    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_NIOS16) } }
+    { 0|A(NO_DIS)|A(ALIAS), { { { (1<<MACH_NIOS16) } } } }
   },
 /* if1 $m16_Ra,$i5 */
   {
     -1, "if116", "if1", 16,
-    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_NIOS16) } }
+    { 0|A(NO_DIS)|A(ALIAS), { { { (1<<MACH_NIOS16) } } } }
   },
 /* ifrz $m16_Ra */
   {
     -1, "ifrz16", "ifrz", 16,
-    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_NIOS16) } }
+    { 0|A(NO_DIS)|A(ALIAS), { { { (1<<MACH_NIOS16) } } } }
   },
 /* ifrnz $m16_Ra */
   {
     -1, "ifrnz16", "ifrnz", 16,
-    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_NIOS16) } }
+    { 0|A(NO_DIS)|A(ALIAS), { { { (1<<MACH_NIOS16) } } } }
   },
 /* ifs $i4wn */
   {
     -1, "ifs16", "ifs", 16,
-    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_NIOS16) } }
+    { 0|A(NO_DIS)|A(ALIAS), { { { (1<<MACH_NIOS16) } } } }
   },
 /* nop */
   {
     -1, "nop16", "nop", 16,
-    { 0|A(ALIAS), { (1<<MACH_NIOS16) } }
+    { 0|A(ALIAS), { { { (1<<MACH_NIOS16) } } } }
   },
 /* inc $m16_Ra */
   {
     -1, "inc16", "inc", 16,
-    { 0|A(ALIAS), { (1<<MACH_NIOS16) } }
+    { 0|A(ALIAS), { { { (1<<MACH_NIOS16) } } } }
   },
 /* dec $m16_Ra */
   {
     -1, "dec16", "dec", 16,
-    { 0|A(ALIAS), { (1<<MACH_NIOS16) } }
+    { 0|A(ALIAS), { { { (1<<MACH_NIOS16) } } } }
   },
 /* clr $m16_Ra */
   {
     -1, "clr16", "clr", 16,
-    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_NIOS16) } }
+    { 0|A(NO_DIS)|A(ALIAS), { { { (1<<MACH_NIOS16) } } } }
   },
 /* ret */
   {
     -1, "ret16", "ret", 16,
-    { 0|A(ALIAS), { (1<<MACH_NIOS16) } }
+    { 0|A(ALIAS), { { { (1<<MACH_NIOS16) } } } }
   },
 /* lret */
   {
     -1, "lret16", "lret", 16,
-    { 0|A(ALIAS), { (1<<MACH_NIOS16) } }
+    { 0|A(ALIAS), { { { (1<<MACH_NIOS16) } } } }
   },
 /* if0 $m32_Ra,$i5 */
   {
     -1, "if032", "if0", 16,
-    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_NIOS32) } }
+    { 0|A(NO_DIS)|A(ALIAS), { { { (1<<MACH_NIOS32) } } } }
   },
 /* if1 $m32_Ra,$i5 */
   {
     -1, "if132", "if1", 16,
-    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_NIOS32) } }
+    { 0|A(NO_DIS)|A(ALIAS), { { { (1<<MACH_NIOS32) } } } }
   },
 /* ifrz $m32_Ra */
   {
     -1, "ifrz32", "ifrz", 16,
-    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_NIOS32) } }
+    { 0|A(NO_DIS)|A(ALIAS), { { { (1<<MACH_NIOS32) } } } }
   },
 /* ifrnz $m32_Ra */
   {
     -1, "ifrnz32", "ifrnz", 16,
-    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_NIOS32) } }
+    { 0|A(NO_DIS)|A(ALIAS), { { { (1<<MACH_NIOS32) } } } }
   },
 /* ifs $i4wn */
   {
     -1, "ifs32", "ifs", 16,
-    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_NIOS32) } }
+    { 0|A(NO_DIS)|A(ALIAS), { { { (1<<MACH_NIOS32) } } } }
   },
 /* nop */
   {
     -1, "nop32", "nop", 16,
-    { 0|A(ALIAS), { (1<<MACH_NIOS32) } }
+    { 0|A(ALIAS), { { { (1<<MACH_NIOS32) } } } }
   },
 /* inc $m32_Ra */
   {
     -1, "inc32", "inc", 16,
-    { 0|A(ALIAS), { (1<<MACH_NIOS32) } }
+    { 0|A(ALIAS), { { { (1<<MACH_NIOS32) } } } }
   },
 /* dec $m32_Ra */
   {
     -1, "dec32", "dec", 16,
-    { 0|A(ALIAS), { (1<<MACH_NIOS32) } }
+    { 0|A(ALIAS), { { { (1<<MACH_NIOS32) } } } }
   },
 /* clr $m32_Ra */
   {
     -1, "clr32", "clr", 16,
-    { 0|A(NO_DIS)|A(ALIAS), { (1<<MACH_NIOS32) } }
+    { 0|A(NO_DIS)|A(ALIAS), { { { (1<<MACH_NIOS32) } } } }
   },
 /* ret */
   {
     -1, "ret32", "ret", 16,
-    { 0|A(ALIAS), { (1<<MACH_NIOS32) } }
+    { 0|A(ALIAS), { { { (1<<MACH_NIOS32) } } } }
   },
 /* lret */
   {
     -1, "lret32", "lret", 16,
-    { 0|A(ALIAS), { (1<<MACH_NIOS32) } }
+    { 0|A(ALIAS), { { { (1<<MACH_NIOS32) } } } }
   },
 };
 

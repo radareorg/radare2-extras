@@ -1,26 +1,27 @@
 /* Assembler interface for targets using CGEN. -*- C -*-
    CGEN: Cpu tools GENerator
 
-THIS FILE IS MACHINE GENERATED WITH CGEN.
-- the resultant file is machine generated, cgen-asm.in isn't
+   THIS FILE IS MACHINE GENERATED WITH CGEN.
+   - the resultant file is machine generated, cgen-asm.in isn't
 
-Copyright (C) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1996-2018 Free Software Foundation, Inc.
 
-This file is part of the GNU Binutils and GDB, the GNU debugger.
+   This file is part of libopcodes.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   This library is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   It is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software Foundation, Inc.,
-59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation, Inc.,
+   51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
+
 
 /* ??? Eventually more and more of this stuff can go to cpu-independent files.
    Keep that in mind.  */
@@ -28,6 +29,8 @@ along with this program; if not, write to the Free Software Foundation, Inc.,
 #include "sysdep.h"
 #include <ctype.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "ansidecl.h"
 //#include "bfd.h"
 #include "mybfd.h"
@@ -35,16 +38,19 @@ along with this program; if not, write to the Free Software Foundation, Inc.,
 #include "nios-desc.h"
 #include "nios-opc.h"
 #include "opintl.h"
+#include "xregex.h"
+#include "libiberty.h"
+#include "safe-ctype.h"
 
-#undef min
+#undef  min
 #define min(a,b) ((a) < (b) ? (a) : (b))
-#undef max
+#undef  max
 #define max(a,b) ((a) > (b) ? (a) : (b))
 
 static const char * parse_insn_normal
-     PARAMS ((CGEN_CPU_DESC, const CGEN_INSN *, const char **, CGEN_FIELDS *));
+  (CGEN_CPU_DESC, const CGEN_INSN *, const char **, CGEN_FIELDS *);
 
-/* -- assembler routines inserted here */
+/* -- assembler routines inserted here.  */
 
 /* -- asm.c */
 /* Handle %lo(), %xlo().  */
@@ -56,20 +62,13 @@ int nios_Rbi5 = 0;
    The routine creates a temporary buffer with the string "sans" the @h specifier.
    This allows the cgen_parse_address routine to correctly set any desired offset. */
 static const char *
-parse_h_address (cd, strp, at_h_pos, opindex, opinfo, resultp, valuep)
-     CGEN_CPU_DESC cd;
-     const char **strp;
-     char *at_h_pos;
-     int opindex;
-     int opinfo;
-     enum cgen_parse_operand_result *resultp;
-     bfd_vma *valuep;
+parse_h_address (CGEN_CPU_DESC cd, const char **strp, char *at_h_pos, int opindex, int opinfo, enum cgen_parse_operand_result *resultp, bfd_vma *valuep)
 {
   char buffer[200];
-  char *bufptr = buffer;
-  char **bufp = &bufptr;
+  const char *bufptr = buffer;
+  const char **bufp = &bufptr;
   int at_h_index = at_h_pos - *strp;
-  char *errmsg;
+  const char *errmsg;
 
   memcpy (buffer, *strp, at_h_index);
   strcpy (buffer + at_h_index, *strp + at_h_index + 2);
@@ -84,22 +83,21 @@ parse_h_address (cd, strp, at_h_pos, opindex, opinfo, resultp, valuep)
 
 
 static const char *
-parse_i5 (cd, strp, opindex, valuep)
-     CGEN_CPU_DESC cd;
-     const char **strp;
-     int opindex;
-     long *valuep;
+parse_i5 (CGEN_CPU_DESC cd,
+		    const char ** strp,
+		    int opindex,
+		    unsigned long * valuep)
 {
   const char *errmsg;
-  enum cgen_parse_operand_result result_type;
+  enum cgen_parse_operand_result result_type ATTRIBUTE_UNUSED;
   bfd_vma value;
 
   if (strncasecmp (*strp, "%lo(", 4) == 0)
     {
       *strp += 4;
-      if (**strp == '-' || isdigit(**strp))
+      if (**strp == '-' || ISDIGIT(**strp))
 	{
-	  errmsg = cgen_parse_signed_integer (cd, strp, opindex, &value);
+	  errmsg = cgen_parse_signed_integer (cd, strp, opindex, (long *) &value);
 	  if (**strp != ')')
 	    return _("missing ')'");
 	  ++*strp;
@@ -129,9 +127,9 @@ parse_i5 (cd, strp, opindex, valuep)
   else if (strncasecmp (*strp, "%xlo(", 5) == 0)
     {
       *strp += 5;
-      if (**strp == '-' || isdigit(**strp))
+      if (**strp == '-' || ISDIGIT(**strp))
 	{
-	  errmsg = cgen_parse_signed_integer (cd, strp, opindex, &value);
+	  errmsg = cgen_parse_signed_integer (cd, strp, opindex, (long *) &value);
 	  if (**strp != ')')
 	    return _("missing ')'");
 	  ++*strp;
@@ -159,7 +157,7 @@ parse_i5 (cd, strp, opindex, valuep)
       return errmsg;
     }
 
-  errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, &value);
+  errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, (unsigned long *) &value);
   if (value > 0x1f)
     return _("immediate value out of range");
   *valuep = value;
@@ -169,17 +167,16 @@ parse_i5 (cd, strp, opindex, valuep)
 /* for STS8s */
 
 static const char *
-parse_i10 (cd, strp, opindex, valuep)
-     CGEN_CPU_DESC cd;
-     const char **strp;
-     int opindex;
-     long *valuep;
+parse_i10 (CGEN_CPU_DESC cd,
+		    const char ** strp,
+		    int opindex,
+		    unsigned long * valuep)
 {
   const char *errmsg;
-  enum cgen_parse_operand_result result_type;
+  enum cgen_parse_operand_result result_type ATTRIBUTE_UNUSED;
   bfd_vma value;
 
-  errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, &value);
+  errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, (unsigned long *) &value);
   if (value > 0x3ff)
     return _("immediate value out of range");
   *valuep = value;
@@ -189,17 +186,16 @@ parse_i10 (cd, strp, opindex, valuep)
 /* for STS16s */
 
 static const char *
-parse_i9 (cd, strp, opindex, valuep)
-     CGEN_CPU_DESC cd;
-     const char **strp;
-     int opindex;
-     long *valuep;
+parse_i9 (CGEN_CPU_DESC cd,
+		    const char ** strp,
+		    int opindex,
+		    unsigned long * valuep)
 {
   const char *errmsg;
-  enum cgen_parse_operand_result result_type;
+  enum cgen_parse_operand_result result_type ATTRIBUTE_UNUSED;
   bfd_vma value;
 
-  errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, &value);
+  errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, (unsigned long *) &value);
   if (value > 0x1ff)
     return _("immediate value out of range");
   *valuep = value;
@@ -208,14 +204,13 @@ parse_i9 (cd, strp, opindex, valuep)
 
 /* check dual mode instruction...could be register or immediate value */
 static const char *
-parse_Rbi5 (cd, strp, opindex, valuep)
-     CGEN_CPU_DESC cd;
-     const char **strp;
-     int opindex;
-     long *valuep;
+parse_Rbi5 (CGEN_CPU_DESC cd,
+		    const char ** strp,
+		    int opindex,
+		    unsigned long * valuep)
 {
-  const char *errmsg;
-  enum cgen_parse_operand_result result_type;
+  const char *errmsg = NULL;
+  enum cgen_parse_operand_result result_type ATTRIBUTE_UNUSED;
   bfd_vma value;
   bfd_vma extra = 0;
 
@@ -224,9 +219,9 @@ parse_Rbi5 (cd, strp, opindex, valuep)
   if (strncasecmp (*strp, "%lo(", 4) == 0)
     {
       *strp += 4;
-      if (**strp == '-' || isdigit(**strp))
+      if (**strp == '-' || ISDIGIT(**strp))
 	{
-	  errmsg = cgen_parse_signed_integer (cd, strp, opindex, &value);
+	  errmsg = cgen_parse_signed_integer (cd, strp, opindex, (long *) &value);
 	  if (**strp != ')')
 	    return _("missing ')'");
 	  ++*strp;
@@ -256,9 +251,9 @@ parse_Rbi5 (cd, strp, opindex, valuep)
   else if (strncasecmp (*strp, "%xlo(", 5) == 0)
     {
       *strp += 5;
-      if (**strp == '-' || isdigit(**strp))
+      if (**strp == '-' || ISDIGIT(**strp))
 	{
-	  errmsg = cgen_parse_signed_integer (cd, strp, opindex, &value);
+	  errmsg = cgen_parse_signed_integer (cd, strp, opindex, (long *) &value);
 	  if (**strp != ')')
 	    return _("missing ')'");
 	  ++*strp;
@@ -317,7 +312,7 @@ parse_Rbi5 (cd, strp, opindex, valuep)
       return errmsg;
     }
 
-  errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, valuep);
+  errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, (unsigned long *) valuep);
   *valuep += extra;
 
   if (*valuep > 0x1f)
@@ -328,11 +323,10 @@ parse_Rbi5 (cd, strp, opindex, valuep)
 /* Handle %hi(), %xhi().  */
 
 static const char *
-parse_i11 (cd, strp, opindex, valuep)
-     CGEN_CPU_DESC cd;
-     const char **strp;
-     int opindex;
-     unsigned long *valuep;
+parse_i11 (CGEN_CPU_DESC cd,
+		    const char ** strp,
+		    int opindex,
+		    unsigned long * valuep)
 {
   const char *errmsg;
   enum cgen_parse_operand_result result_type = CGEN_PARSE_OPERAND_RESULT_NUMBER;
@@ -343,9 +337,9 @@ parse_i11 (cd, strp, opindex, valuep)
   if (strncasecmp (*strp, "%hi(", 4) == 0)
     {
       *strp += 4;
-      if (**strp == '-' || isdigit(**strp))
+      if (**strp == '-' || ISDIGIT(**strp))
 	{
-	  errmsg = cgen_parse_signed_integer (cd, strp, opindex, &value);
+	  errmsg = cgen_parse_signed_integer (cd, strp, opindex, (long *) &value);
 	  if (**strp != ')')
 	    return _("missing ')'");
 	  ++*strp;
@@ -376,9 +370,9 @@ parse_i11 (cd, strp, opindex, valuep)
   else if (strncasecmp (*strp, "%xhi(", 5) == 0)
     {
       *strp += 5;
-      if (**strp == '-' || isdigit(**strp))
+      if (**strp == '-' || ISDIGIT(**strp))
 	{
-	  errmsg = cgen_parse_signed_integer (cd, strp, opindex, &value);
+	  errmsg = cgen_parse_signed_integer (cd, strp, opindex, (long *) &value);
 	  if (**strp != ')')
 	    return _("missing ')'");
 	  ++*strp;
@@ -408,7 +402,7 @@ parse_i11 (cd, strp, opindex, valuep)
       return errmsg;
     }
 
-  errmsg = cgen_parse_signed_integer (cd, strp, opindex, &value);
+  errmsg = cgen_parse_signed_integer (cd, strp, opindex, (long *) &value);
   if ((long)value > 0x7ff || (long)value < -0x800)
     return _("immediate value out of range");
   value &= 0x7ff;
@@ -417,16 +411,15 @@ parse_i11 (cd, strp, opindex, valuep)
 }
 
 static const char *
-parse_save_i8v (cd, strp, opindex, valuep)
-     CGEN_CPU_DESC cd;
-     const char **strp;
-     int opindex;
-     unsigned long *valuep;
+parse_save_i8v (CGEN_CPU_DESC cd,
+		    const char ** strp,
+		    int opindex,
+		    unsigned long * valuep)
 {
   const char *errmsg;
   bfd_vma value;
 
-  errmsg = cgen_parse_signed_integer (cd, strp, opindex, &value);
+  errmsg = cgen_parse_signed_integer (cd, strp, opindex, (long *) &value);
   if ((long)value > 0)
     return _("stack alteration value must be negative or zero");
   value = 0-(long)value;
@@ -439,11 +432,10 @@ parse_save_i8v (cd, strp, opindex, valuep)
 
 /* parse possible condition code masks */
 static const char *
-parse_i4w (cd, strp, opindex, valuep)
-     CGEN_CPU_DESC cd;
-     const char **strp;
-     int opindex;
-     unsigned long *valuep;
+parse_i4w (CGEN_CPU_DESC cd,
+		    const char ** strp,
+		    int opindex,
+		    unsigned long * valuep)
 {
   const char *errmsg;
   bfd_vma value;
@@ -524,7 +516,7 @@ parse_i4w (cd, strp, opindex, valuep)
 	      value = CC_PL;
 	      ++*strp;
 	    }
-	  else if (ch2 == '\0' || isspace (ch2))
+	  else if (ch2 == '\0' || ISSPACE(ch2))
 	    value = CC_PL;
 	  break;
 
@@ -568,7 +560,7 @@ parse_i4w (cd, strp, opindex, valuep)
 	      value = CC_NV;
 	      ++*strp;
 	    }
-	  else if (ch2 == '\0' || isspace(ch2))
+	  else if (ch2 == '\0' || ISSPACE(ch2))
 	    {
 	      value = CC_MI;
 	    }
@@ -586,7 +578,7 @@ parse_i4w (cd, strp, opindex, valuep)
 	      value = CC_V;
 	      ++*strp;
 	    }
-	  else if (ch2 == '\0' || isspace(ch2))
+	  else if (ch2 == '\0' || ISSPACE(ch2))
 	    {
 	      value = CC_V;
 	    }
@@ -604,21 +596,21 @@ parse_i4w (cd, strp, opindex, valuep)
 	      value = CC_C;
 	      ++*strp;
 	    }
-	  else if (ch2 == '\0' || isspace(ch2))
+	  else if (ch2 == '\0' || ISSPACE(ch2))
 	    {
 	      value = CC_C;
 	    }
 	  break;
 	}
 	
-	if (value == 0xffff || **strp != '\0' && !isspace (**strp))
+	if ((value == 0xffff || **strp != '\0') && !ISSPACE (**strp))
 	  return _("invalid condition code mask specified");
 	if (not_flag)
 	  value ^= 1;
     }
   else
     {
-      errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, &value);
+      errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, (unsigned long *) &value);
       if (value > CC_MAX)
 	return _("invalid condition code mask specified");
     }
@@ -628,11 +620,10 @@ parse_i4w (cd, strp, opindex, valuep)
 
 /* parse possible condition code masks for ifs */
 static const char *
-parse_i4wn (cd, strp, opindex, valuep)
-     CGEN_CPU_DESC cd;
-     const char **strp;
-     int opindex;
-     unsigned long *valuep;
+parse_i4wn (CGEN_CPU_DESC cd,
+		    const char ** strp,
+		    int opindex,
+		    unsigned long * valuep)
 {
   const char *errmsg;
 
@@ -643,33 +634,31 @@ parse_i4wn (cd, strp, opindex, valuep)
 
 
 
-static const char *
-parse_i16 (cd, strp, opindex, valuep)
-     CGEN_CPU_DESC cd;
-     const char **strp;
-     int opindex;
-     unsigned long *valuep;
+ATTRIBUTE_UNUSED static const char *
+parse_i16 (CGEN_CPU_DESC cd,
+		    const char ** strp,
+		    int opindex,
+		    unsigned long * valuep)
 {
   const char *errmsg;
   bfd_vma value;
 
-  errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, &value);
+  errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, (unsigned long *) &value);
   if (value > 0xffff)
     return _("immediate value out of range");
   *valuep = value;
   return errmsg;
 }
 
-static const char *
-parse_i32 (cd, strp, opindex, valuep)
-     CGEN_CPU_DESC cd;
-     const char **strp;
-     int opindex;
-     unsigned long *valuep;
+ATTRIBUTE_UNUSED static const char *
+parse_i32 (CGEN_CPU_DESC cd,
+		    const char ** strp,
+		    int opindex,
+		    unsigned long * valuep)
 {
   const char *errmsg;
 
-  errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, valuep);
+  errmsg = cgen_parse_unsigned_integer (cd, strp, opindex, (unsigned long *) valuep);
   return errmsg;
 }
 
@@ -691,63 +680,62 @@ parse_i32 (cd, strp, opindex, valuep)
 */
 
 const char *
-nios_cgen_parse_operand (cd, opindex, strp, fields)
-     CGEN_CPU_DESC cd;
-     int opindex;
-     const char ** strp;
-     CGEN_FIELDS * fields;
+nios_cgen_parse_operand (CGEN_CPU_DESC cd,
+		    int opindex,
+		    const char ** strp,
+		    CGEN_FIELDS * fields)
 {
   const char * errmsg = NULL;
   /* Used by scalar operands that still need to be parsed.  */
-  long junk;
+  long junk ATTRIBUTE_UNUSED;
 
   switch (opindex)
     {
     case NIOS_OPERAND_CTLC :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_CTLC, &fields->f_CTLc);
+      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_CTLC, (unsigned long *) &fields->f_CTLc);
       break;
     case NIOS_OPERAND_RBI5 :
-      errmsg = parse_Rbi5 (cd, strp, NIOS_OPERAND_RBI5, &fields->f_Rbi5);
+      errmsg = parse_Rbi5 (cd, strp, NIOS_OPERAND_RBI5, (unsigned long *) &fields->f_Rbi5);
       break;
     case NIOS_OPERAND_BSRR_REL6 :
       {
         bfd_vma value;
-        errmsg = cgen_parse_address (cd, strp, NIOS_OPERAND_BSRR_REL6, 0, NULL,  & value);
+        errmsg = cgen_parse_address (cd, strp, NIOS_OPERAND_BSRR_REL6, 0, NULL, &value);
         fields->f_bsrr_i6_rel = value;
       }
       break;
     case NIOS_OPERAND_I1 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_I1, &fields->f_i1);
+      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_I1, (unsigned long *) &fields->f_i1);
       break;
     case NIOS_OPERAND_I10 :
-      errmsg = parse_i10 (cd, strp, NIOS_OPERAND_I10, &fields->f_i10);
+      errmsg = parse_i10 (cd, strp, NIOS_OPERAND_I10, (unsigned long *) &fields->f_i10);
       break;
     case NIOS_OPERAND_I11 :
-      errmsg = parse_i11 (cd, strp, NIOS_OPERAND_I11, &fields->f_i11);
+      errmsg = parse_i11 (cd, strp, NIOS_OPERAND_I11, (unsigned long *) &fields->f_i11);
       break;
     case NIOS_OPERAND_I2 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_I2, &fields->f_i2);
+      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_I2, (unsigned long *) &fields->f_i2);
       break;
     case NIOS_OPERAND_I4W :
-      errmsg = parse_i4w (cd, strp, NIOS_OPERAND_I4W, &fields->f_i4w);
+      errmsg = parse_i4w (cd, strp, NIOS_OPERAND_I4W, (unsigned long *) &fields->f_i4w);
       break;
     case NIOS_OPERAND_I4WN :
-      errmsg = parse_i4wn (cd, strp, NIOS_OPERAND_I4WN, &fields->f_i4w);
+      errmsg = parse_i4wn (cd, strp, NIOS_OPERAND_I4WN, (unsigned long *) &fields->f_i4w);
       break;
     case NIOS_OPERAND_I5 :
-      errmsg = parse_i5 (cd, strp, NIOS_OPERAND_I5, &fields->f_i5);
+      errmsg = parse_i5 (cd, strp, NIOS_OPERAND_I5, (unsigned long *) &fields->f_i5);
       break;
     case NIOS_OPERAND_I6V :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_I6V, &fields->f_i6v);
+      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_I6V, (unsigned long *) &fields->f_i6v);
       break;
     case NIOS_OPERAND_I8 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_I8, &fields->f_i8);
+      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_I8, (unsigned long *) &fields->f_i8);
       break;
     case NIOS_OPERAND_I8V :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_I8V, &fields->f_i8v);
+      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_I8V, (unsigned long *) &fields->f_i8v);
       break;
     case NIOS_OPERAND_I9 :
-      errmsg = parse_i9 (cd, strp, NIOS_OPERAND_I9, &fields->f_i9);
+      errmsg = parse_i9 (cd, strp, NIOS_OPERAND_I9, (unsigned long *) &fields->f_i9);
       break;
     case NIOS_OPERAND_M16_R0 :
       errmsg = cgen_parse_keyword (cd, strp, & nios_cgen_opval_h_m16_gr0, & junk);
@@ -814,10 +802,10 @@ nios_cgen_parse_operand (cd, opindex, strp, fields)
       errmsg = cgen_parse_keyword (cd, strp, & nios_cgen_opval_h_m32_sp, & junk);
       break;
     case NIOS_OPERAND_O1 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_O1, &fields->f_o1);
+      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_O1, (unsigned long *) &fields->f_o1);
       break;
     case NIOS_OPERAND_O2 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_O2, &fields->f_o2);
+      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_O2, (unsigned long *) &fields->f_o2);
       break;
     case NIOS_OPERAND_REL11 :
       {
@@ -827,19 +815,19 @@ nios_cgen_parse_operand (cd, opindex, strp, fields)
       }
       break;
     case NIOS_OPERAND_SAVE_I8V :
-      errmsg = parse_save_i8v (cd, strp, NIOS_OPERAND_SAVE_I8V, &fields->f_i8v);
+      errmsg = parse_save_i8v (cd, strp, NIOS_OPERAND_SAVE_I8V, (unsigned long *) &fields->f_i8v);
       break;
     case NIOS_OPERAND_SI11 :
-      errmsg = cgen_parse_signed_integer (cd, strp, NIOS_OPERAND_SI11, &fields->f_i11);
+      errmsg = cgen_parse_signed_integer (cd, strp, NIOS_OPERAND_SI11, (long *) &fields->f_i11);
       break;
     case NIOS_OPERAND_SI5 :
-      errmsg = cgen_parse_signed_integer (cd, strp, NIOS_OPERAND_SI5, &fields->f_i5);
+      errmsg = cgen_parse_signed_integer (cd, strp, NIOS_OPERAND_SI5, (long *) &fields->f_i5);
       break;
     case NIOS_OPERAND_X1 :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_X1, &fields->f_x1);
+      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_X1, (unsigned long *) &fields->f_x1);
       break;
     case NIOS_OPERAND_XRA :
-      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_XRA, &fields->f_Ra);
+      errmsg = cgen_parse_unsigned_integer (cd, strp, NIOS_OPERAND_XRA, (unsigned long *) &fields->f_Ra);
       break;
 
     default :
@@ -878,22 +866,20 @@ nios_cgen_init_asm (cd)
    but that can be handled there.  Not handling backtracking here may get
    expensive in the case of the m68k.  Deal with later.
 
-   Returns NULL for success, an error message for failure.
-*/
+   Returns NULL for success, an error message for failure.  */
 
 static const char *
-parse_insn_normal (cd, insn, strp, fields)
-     CGEN_CPU_DESC cd;
-     const CGEN_INSN *insn;
-     const char **strp;
-     CGEN_FIELDS *fields;
+parse_insn_normal (CGEN_CPU_DESC cd,
+		   const CGEN_INSN *insn,
+		   const char **strp,
+		   CGEN_FIELDS *fields)
 {
   /* ??? Runtime added insns not handled yet.  */
   const CGEN_SYNTAX *syntax = CGEN_INSN_SYNTAX (insn);
   const char *str = *strp;
   const char *errmsg;
   const char *p;
-  const unsigned char * syn;
+  const CGEN_SYNTAX_CHAR_TYPE * syn;
 #ifdef CGEN_MNEMONIC_OPERANDS
   /* FIXME: wip */
   int past_opcode_p;
@@ -904,14 +890,14 @@ parse_insn_normal (cd, insn, strp, fields)
      GAS's input scrubber will ensure mnemonics are lowercase, but we may
      not be called from GAS.  */
   p = CGEN_INSN_MNEMONIC (insn);
-  while (*p && tolower (*p) == tolower (*str))
+  while (*p && TOLOWER (*p) == TOLOWER (*str))
     ++p, ++str;
 
   if (* p)
     return _("unrecognized instruction");
 
 #ifndef CGEN_MNEMONIC_OPERANDS
-  if (* str && !isspace (* str))
+  if (* str && ! ISSPACE (* str))
     return _("unrecognized instruction");
 #endif
 
@@ -940,30 +926,43 @@ parse_insn_normal (cd, insn, strp, fields)
 	     first char after the mnemonic part is a space.  */
 	  /* FIXME: We also take inappropriate advantage of the fact that
 	     GAS's input scrubber will remove extraneous blanks.  */
-	  if (tolower (*str) == tolower (CGEN_SYNTAX_CHAR (* syn)))
+	  if (TOLOWER (*str) == TOLOWER (CGEN_SYNTAX_CHAR (* syn)))
 	    {
 #ifdef CGEN_MNEMONIC_OPERANDS
-	      if (* syn == ' ')
+	      if (CGEN_SYNTAX_CHAR(* syn) == ' ')
 		past_opcode_p = 1;
 #endif
 	      ++ syn;
 	      ++ str;
 	    }
-	  else
+	  else if (*str)
 	    {
 	      /* Syntax char didn't match.  Can't be this insn.  */
 	      static char msg [80];
+
 	      /* xgettext:c-format */
 	      sprintf (msg, _("syntax error (expected char `%c', found `%c')"),
-		       *syn, *str);
+		       CGEN_SYNTAX_CHAR(*syn), *str);
+	      return msg;
+	    }
+	  else
+	    {
+	      /* Ran out of input.  */
+	      static char msg [80];
+
+	      /* xgettext:c-format */
+	      sprintf (msg, _("syntax error (expected char `%c', found end of instruction)"),
+		       CGEN_SYNTAX_CHAR(*syn));
 	      return msg;
 	    }
 	  continue;
 	}
 
+#ifdef CGEN_MNEMONIC_OPERANDS
+      (void) past_opcode_p;
+#endif
       /* We have an operand of some sort.  */
-      errmsg = nios_cgen_parse_operand (cd, CGEN_SYNTAX_FIELD (*syn),
-					  &str, fields);
+      errmsg = cd->parse_operand (cd, CGEN_SYNTAX_FIELD (*syn), &str, fields);
       if (errmsg)
 	return errmsg;
 
@@ -972,13 +971,13 @@ parse_insn_normal (cd, insn, strp, fields)
     }
 
   /* If we're at the end of the syntax string, we're done.  */
-  if (* syn == '\0')
+  if (* syn == 0)
     {
       /* FIXME: For the moment we assume a valid `str' can only contain
 	 blanks now.  IE: We needn't try again with a longer version of
 	 the insn and it is assumed that longer versions of insns appear
 	 before shorter ones (eg: lsr r2,r3,1 vs lsr r2,r3).  */
-      while (isspace (* str))
+      while (ISSPACE (* str))
 	++ str;
 
       if (* str != '\0')
@@ -1013,19 +1012,20 @@ parse_insn_normal (cd, insn, strp, fields)
    mind helps keep the design clean.  */
 
 const CGEN_INSN *
-nios_cgen_assemble_insn (cd, str, fields, buf, errmsg)
-     CGEN_CPU_DESC cd;
-     const char *str;
-     CGEN_FIELDS *fields;
-     CGEN_INSN_BYTES_PTR buf;
-     char **errmsg;
+nios_cgen_assemble_insn (CGEN_CPU_DESC cd,
+			   const char *str,
+			   CGEN_FIELDS *fields,
+			   CGEN_INSN_BYTES_PTR buf,
+			   char **errmsg)
 {
   const char *start;
   CGEN_INSN_LIST *ilist;
-  const char *tmp_errmsg;
+  const char *parse_errmsg = NULL;
+  const char *insert_errmsg = NULL;
+  int recognized_mnemonic = 0;
 
   /* Skip leading white space.  */
-  while (isspace (* str))
+  while (ISSPACE (* str))
     ++ str;
 
   /* The instructions are stored in hashed lists.
@@ -1033,64 +1033,86 @@ nios_cgen_assemble_insn (cd, str, fields, buf, errmsg)
   ilist = CGEN_ASM_LOOKUP_INSN (cd, str);
 
   /* Keep looking until we find a match.  */
-
   start = str;
   for ( ; ilist != NULL ; ilist = CGEN_ASM_NEXT_INSN (ilist))
     {
       const CGEN_INSN *insn = ilist->insn;
+      recognized_mnemonic = 1;
 
-#ifdef CGEN_VALIDATE_INSN_SUPPORTED 
-      /* not usually needed as unsupported opcodes shouldn't be in the hash lists */
+#ifdef CGEN_VALIDATE_INSN_SUPPORTED
+      /* Not usually needed as unsupported opcodes
+	 shouldn't be in the hash lists.  */
       /* Is this insn supported by the selected cpu?  */
       if (! nios_cgen_insn_supported (cd, insn))
 	continue;
 #endif
-
-      /* If the RELAX attribute is set, this is an insn that shouldn't be
+      /* If the RELAXED attribute is set, this is an insn that shouldn't be
 	 chosen immediately.  Instead, it is used during assembler/linker
 	 relaxation if possible.  */
-      if (CGEN_INSN_ATTR_VALUE (insn, CGEN_INSN_RELAX) != 0)
+      if (CGEN_INSN_ATTR_VALUE (insn, CGEN_INSN_RELAXED) != 0)
 	continue;
 
       str = start;
 
+      /* Skip this insn if str doesn't look right lexically.  */
+      if (CGEN_INSN_RX (insn) != NULL &&
+	  regexec ((regex_t *) CGEN_INSN_RX (insn), str, 0, NULL, 0) == REG_NOMATCH)
+	continue;
+
       /* Allow parse/insert handlers to obtain length of insn.  */
       CGEN_FIELDS_BITSIZE (fields) = CGEN_INSN_BITSIZE (insn);
 
-      if (!(tmp_errmsg = CGEN_PARSE_FN (cd, insn) (cd, insn, & str, fields)))
-	{
-	  /* ??? 0 is passed for `pc' */
-	  if (CGEN_INSERT_FN (cd, insn) (cd, insn, fields, buf, (bfd_vma) 0)
-	      != NULL)
-	    continue;
-	  /* It is up to the caller to actually output the insn and any
-	     queued relocs.  */
-	  return insn;
-	}
+      parse_errmsg = CGEN_PARSE_FN (cd, insn) (cd, insn, & str, fields);
+      if (parse_errmsg != NULL)
+	continue;
 
-      /* Try the next entry.  */
+      /* ??? 0 is passed for `pc'.  */
+      insert_errmsg = CGEN_INSERT_FN (cd, insn) (cd, insn, fields, buf,
+						 (bfd_vma) 0);
+      if (insert_errmsg != NULL)
+        continue;
+
+      /* It is up to the caller to actually output the insn and any
+         queued relocs.  */
+      return insn;
     }
 
   {
     static char errbuf[150];
-
+    const char *tmp_errmsg;
 #ifdef CGEN_VERBOSE_ASSEMBLER_ERRORS
-    /* if verbose error messages, use errmsg from CGEN_PARSE_FN */
-    if (strlen (start) > 50)
-      /* xgettext:c-format */
-      sprintf (errbuf, "%s `%.50s...'", tmp_errmsg, start);
-    else 
-      /* xgettext:c-format */
-      sprintf (errbuf, "%s `%.50s'", tmp_errmsg, start);
+#define be_verbose 1
 #else
-    if (strlen (start) > 50)
-      /* xgettext:c-format */
-      sprintf (errbuf, _("bad instruction `%.50s...'"), start);
-    else 
-      /* xgettext:c-format */
-      sprintf (errbuf, _("bad instruction `%.50s'"), start);
+#define be_verbose 0
 #endif
-      
+
+    if (be_verbose)
+      {
+	/* If requesting verbose error messages, use insert_errmsg.
+	   Failing that, use parse_errmsg.  */
+	tmp_errmsg = (insert_errmsg ? insert_errmsg :
+		      parse_errmsg ? parse_errmsg :
+		      recognized_mnemonic ?
+		      _("unrecognized form of instruction") :
+		      _("unrecognized instruction"));
+
+	if (strlen (start) > 50)
+	  /* xgettext:c-format */
+	  sprintf (errbuf, "%s `%.50s...'", tmp_errmsg, start);
+	else
+	  /* xgettext:c-format */
+	  sprintf (errbuf, "%s `%.50s'", tmp_errmsg, start);
+      }
+    else
+      {
+	if (strlen (start) > 50)
+	  /* xgettext:c-format */
+	  sprintf (errbuf, _("bad instruction `%.50s...'"), start);
+	else
+	  /* xgettext:c-format */
+	  sprintf (errbuf, _("bad instruction `%.50s'"), start);
+      }
+
     *errmsg = errbuf;
     return NULL;
   }

@@ -17,9 +17,41 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "bfd.h"
+#include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
+
+//#include "bfd.h"
+#include "mybfd.h"
 #include "sysdep.h"
-#include "libbfd.h"
+//#include "libbfd.h"
+
+static int
+bfd_default_scan (info, string)
+     const bfd_arch_info_type *info;
+     const char *string;
+{
+        return 1;
+}
+
+static const bfd_arch_info_type *
+bfd_default_compatible (a, b)
+     const bfd_arch_info_type *a;
+     const bfd_arch_info_type *b;
+{
+  if (a->arch != b->arch)
+    return NULL;
+
+  if (a->bits_per_word != b->bits_per_word)
+    return NULL;
+
+  if (a->mach > b->mach) {
+    return a;
+  } else {
+    return b;
+  }
+}
+
 static const bfd_arch_info_type arch_info_struct[] =
 {
   {

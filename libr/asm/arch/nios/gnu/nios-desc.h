@@ -2,33 +2,37 @@
 
 THIS FILE IS MACHINE GENERATED WITH CGEN.
 
-Copyright (C) 1996, 1997, 1998, 1999, 2001 Free Software Foundation, Inc.
+Copyright (C) 1996-2018 Free Software Foundation, Inc.
 
 This file is part of the GNU Binutils and/or GDB, the GNU debugger.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   This file is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   It is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License along
-with this program; if not, write to the Free Software Foundation, Inc.,
-59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+   You should have received a copy of the GNU General Public License along
+   with this program; if not, write to the Free Software Foundation, Inc.,
+   51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.
 
 */
 
 #ifndef NIOS_CPU_H
 #define NIOS_CPU_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CGEN_ARCH nios
 
 /* Given symbol S, return nios_cgen_<S>.  */
-#define CGEN_SYM(s) CONCAT3 (nios,_cgen_,s)
+#define CGEN_SYM(s) nios##_cgen_##s
 
 /* Selected cpu families.  */
 #define HAVE_CPU_NIOS16BF
@@ -44,8 +48,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #define CGEN_INT_INSN_P 1
 
-/* Maximum nymber of syntax bytes in an instruction.  */
-#define CGEN_ACTUAL_MAX_SYNTAX_BYTES 16
+/* Maximum number of syntax elements in an instruction.  */
+#define CGEN_ACTUAL_MAX_SYNTAX_ELEMENTS 16
 
 /* CGEN_MNEMONIC_OPERANDS is defined if mnemonics have operands.
    e.g. In "b,a foo" the ",a" is an operand.  If mnemonics have operands
@@ -262,7 +266,7 @@ typedef enum cgen_operand_type {
 /* Enum declaration for cgen_insn attrs.  */
 typedef enum cgen_insn_attr {
   CGEN_INSN_ALIAS, CGEN_INSN_VIRTUAL, CGEN_INSN_UNCOND_CTI, CGEN_INSN_COND_CTI
- , CGEN_INSN_SKIP_CTI, CGEN_INSN_DELAY_SLOT, CGEN_INSN_RELAXABLE, CGEN_INSN_RELAX
+ , CGEN_INSN_SKIP_CTI, CGEN_INSN_DELAY_SLOT, CGEN_INSN_RELAXABLE, CGEN_INSN_RELAXED
  , CGEN_INSN_NO_DIS, CGEN_INSN_PBB, CGEN_INSN_PREFIX, CGEN_INSN_PREFIXED_INSN
  , CGEN_INSN_SKIP_INSN, CGEN_INSN_DUAL_MODE, CGEN_INSN_END_BOOLS, CGEN_INSN_START_NBOOLS = 31
  , CGEN_INSN_MACH, CGEN_INSN_END_NBOOLS
@@ -297,7 +301,15 @@ extern CGEN_KEYWORD nios_cgen_opval_gr_names;
 extern CGEN_KEYWORD nios_cgen_opval_h_m32_sp;
 extern CGEN_KEYWORD nios_cgen_opval_ctl_names;
 
+extern const CGEN_HW_ENTRY nios_cgen_hw_table[];
 
+#ifndef opcodes_error_handler
+#define opcodes_error_handler(...) \
+  fprintf (stderr, __VA_ARGS__); fputc ('\n', stderr)
+#endif
 
+   #ifdef __cplusplus
+   }
+   #endif
 
 #endif /* NIOS_CPU_H */
