@@ -2,17 +2,110 @@
 
 #include <r_asm.h>
 #include <r_lib.h>
+#include <r_types.h>
+#include <r_util.h>
 
-static int disassemble (RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
-	return 1;
+#include "dis-asm.h"
+
+#include "nios/gnu/nios-desc.h"
+
+static char *buf_global;
+static uint8_t bytes[2];
+
+static int nios_buffer_read_memory(bfd_vma address, bfd_byte *byte, ut32 len, disassemble_info *info) {
+	memcpy(byte, bytes, len);
+	return 0;
+}
+
+static int nios_symbol_at_address(bfd_vma address, disassemble_info *info) {
+	return 0;
+}
+
+static void nios_memory_error(int status, bfd_vma address, disassemble_info *info) {
+	return;
+}
+
+static void nios_print_address(bfd_vma address, disassemble_info *info) {
+	char tmp[32];
+	if (!buf_global) {
+		return;
+	}
+
+	sprintf(tmp, "0x%08"PFMT64x"", (ut64) address);
+	strcat(buf_global, tmp);
+
+	return;
+}
+
+static int nios_fprintf(void *stream, const char *format, ...) {
+	if (!buf_global) {
+		return 0;
+	}
+
+	int glen;
+	glen = strlen(buf_global);
+
+	int flen;
+	flen = strlen(format);
+
+	char *tmp;
+	tmp = malloc(glen + flen + 2);
+	if (!tmp) {
+		return 0;
+	}
+
+	memcpy(tmp, buf_global, glen);
+	memcpy(tmp + glen, format, flen);
+	tmp[flen + glen] = 0;
+
+	va_list args;
+	va_start(args, format);
+	vsnprintf(buf_global, glen + flen + 4, tmp, args);
+	va_end(args);
+
+	free(tmp);
+
+	return 0;
+}
+
+static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
+	if (len < 2) {
+		return -1;
+	}
+
+	buf_global = op->buf_asm;
+	memcpy(bytes, buf, 2);
+
+	struct disassemble_info info = {0};
+
+	info.disassembler_options = "";
+	info.mach = a->bits == 16 ? MACH_NIOS16 : MACH_NIOS32;
+	info.buffer = bytes;
+	info.read_memory_func = &nios_buffer_read_memory;
+	info.symbol_at_address_func = &nios_symbol_at_address;
+	info.memory_error_func = &nios_memory_error;
+	info.print_address_func = &nios_print_address;
+	info.endian = !a->big_endian;
+	info.fprintf_func = &nios_fprintf;
+	info.stream = stdout;
+
+	op->buf_asm[0] = 0;
+	op->size = print_insn_nios((bfd_vma) a->pc, &info);
+
+	if (op->size == -1) {
+		strncpy(op->buf_asm, " (data)", R_ASM_BUFSIZE);
+	}
+
+	return op->size;
 }
 
 RAsmPlugin r_asm_plugin_nios = {
 	.name = "nios",
 	.arch = "nios",
+	.desc = "Nios embedded processor",
 	.license = "GPL3",
-	.bits = 16,
-	.desc = "Nios disassembler",
+	.bits = 16 | 32,
+	.endian = R_SYS_ENDIAN_LITTLE | R_SYS_ENDIAN_BIG,
 	.disassemble = &disassemble,
 };
 
@@ -20,5 +113,6 @@ RAsmPlugin r_asm_plugin_nios = {
 RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_ASM,
 	.data = &r_asm_plugin_nios
+	//.version = R2_VERSION
 };
 #endif
