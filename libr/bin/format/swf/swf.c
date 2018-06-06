@@ -5,28 +5,28 @@
 #include "swf_op_names.h"
 
 char* get_swf_file_type(char compression, char flashVersion) {
-	char* type = calloc (0, sizeof(SWF_FILE_TYPE) + sizeof(SWF_FILE_TYPE_ZLIB));
+	char* type = NULL;
 
 	switch (compression) {
 	case ISWF_MAGIC_0_0:
-		sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_SWF);
+		type = r_str_newf (SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_SWF);
 		break;
 	case ISWF_MAGIC_0_1:
 		if (flashVersion < 6) {
-			sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_ERROR);
+			type = r_str_newf (SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_ERROR);
 		} else {
-			sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_ZLIB);
+			type = r_str_newf (SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_ZLIB);
 		}
 		break;
 	case ISWF_MAGIC_0_2:
 		if (flashVersion < 13) {
-			sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_ERROR);
+			type = r_str_newf (SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_ERROR);
 		} else {
-			sprintf(type, SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_LZMA);
+			type = r_str_newf (SWF_FILE_TYPE, flashVersion, SWF_FILE_TYPE_LZMA);
 		}
 		break;
 	default:
-		sprintf (type, SWF_FILE_TYPE, flashVersion, "");
+		type = r_str_newf (SWF_FILE_TYPE, flashVersion, "");
 		break;
 	}
 	return type;
