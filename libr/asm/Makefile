@@ -36,6 +36,9 @@ zyan:
 evm:
 	$(MAKE) -C p asm_evm.$(LIBEXT)
 
+nios:
+	$(MAKE) -C p asm_nios.$(LIBEXT)
+
 zyan-install: zyan
 	mkdir -p $(R2PM_PLUGDIR)
 	cp -f p/asm_x86_zyan.$(LIBEXT) $(R2PM_PLUGDIR)
@@ -51,5 +54,6 @@ clean:
 	rm -f p/asm_x86_zyan.$(LIBEXT)
 	rm -f p/asm_atombios.{$(LIBEXT),o}
 	rm -f arch/atombios/atombios.o
+	rm -f p/asm_nios.$(LIBEXT)
 
 include ../../options.mk
