@@ -35,6 +35,9 @@ evm:
 	$(MAKE) -C io evm
 	$(MAKE) -C debug evm
 
+nios:
+	$(MAKE) -C asm nios
+
 clean:
 	$(MAKE) -C asm clean
 	$(MAKE) -C anal clean
@@ -70,5 +73,8 @@ evm-install:
 	cp -f anal/p/anal_evm.$(LIBEXT) $(R2PM_PLUGDIR)
 	cp -f io/p/io_evm.$(LIBEXT) $(R2PM_PLUGDIR)
 	cp -f debug/p/debug_evm.$(LIBEXT) $(R2PM_PLUGDIR)
+
+nios-install:
+	cp -f asm/p/asm_nios.$(LIBEXT) $(R2PM_PLUGDIR)
 
 include ../options.mk
