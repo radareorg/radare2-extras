@@ -1,5 +1,5 @@
 LIBEXT:=$(shell r2 -H LIBEXT)
-USER_PLUGINS:=$(shell r2 -H USER_PLUGINS)
+R2_USER_PLUGINS:=$(shell r2 -H R2_USER_PLUGINS)
 R2_CFLAGS:=$(shell pkg-config --cflags r_core)
 R2_LDFLAGS:=$(shell pkg-config --libs r_core)
 
@@ -23,10 +23,10 @@ clean:
 	rm -rf a.out*
 
 install:
-	cp -rf r2tox.$(LIBEXT)* $(USER_PLUGINS)
+	cp -rf r2tox.$(LIBEXT)* $(R2_USER_PLUGINS)
 
 uninstall:
-	rm -rf $(USER_PLUGINS)/r2tox.*
+	rm -rf $(R2_USER_PLUGINS)/r2tox.*
 
 mrproper: clean
 	rm -f tox.data

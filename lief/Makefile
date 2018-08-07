@@ -1,6 +1,6 @@
 include lief.mk
 
-USER_PLUGINS=$(shell r2 -HUSER_PLUGINS)
+R2_USER_PLUGINS=$(shell r2 -HR2_USER_PLUGINS)
 
 all: LIEF
 	$(MAKE) -C pe
@@ -15,15 +15,15 @@ LIEF:
 	cd LIEF && cmake . && $(MAKE) -j4
 
 install:
-	mkdir -p $(USER_PLUGINS)
-	cp -f elf/bin_elf_lief.$(SO_EXT) $(USER_PLUGINS)
-	cp -f mach0/bin_mach0_lief.$(SO_EXT) $(USER_PLUGINS)
-	cp -f pe/bin_pe_lief.$(SO_EXT) $(USER_PLUGINS)
+	mkdir -p $(R2_USER_PLUGINS)
+	cp -f elf/bin_elf_lief.$(SO_EXT) $(R2_USER_PLUGINS)
+	cp -f mach0/bin_mach0_lief.$(SO_EXT) $(R2_USER_PLUGINS)
+	cp -f pe/bin_pe_lief.$(SO_EXT) $(R2_USER_PLUGINS)
 
 uninstall:
-	rm -f $(USER_PLUGINS)/bin_elf_lief.$(SO_EXT)
-	rm -f $(USER_PLUGINS)/mach0/bin_mach0_lief.$(SO_EXT)
-	rm -f $(USER_PLUGINS)/pe/bin_pe_lief.$(SO_EXT)
+	rm -f $(R2_USER_PLUGINS)/bin_elf_lief.$(SO_EXT)
+	rm -f $(R2_USER_PLUGINS)/mach0/bin_mach0_lief.$(SO_EXT)
+	rm -f $(R2_USER_PLUGINS)/pe/bin_pe_lief.$(SO_EXT)
 
 clean:
 	rm -rf LIEF
