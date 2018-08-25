@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2009-2016 - pancake, nibble */
+/* radare - LGPL - Copyright 2009-2018 - pancake, nibble */
 
 #include <stdio.h>
 #include <string.h>
@@ -11,8 +11,8 @@
 
 static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	t_disasm disasm_obj;
-	op->size = Disasm_olly(buf, len, a->pc, &disasm_obj, DISASM_FILE);
-	snprintf (op->buf_asm, R_ASM_BUFSIZE, "%s", disasm_obj.result);
+	op->size = Disasm_olly (buf, len, a->pc, &disasm_obj, DISASM_FILE);
+	r_asm_op_set_asm (op, disasm_obj.result);
 	return op->size;
 }
 
@@ -25,7 +25,7 @@ static int assemble(RAsm *a, RAsmOp *op, const char *buf) {
 	/* constsize == 0: Address constants and inmediate data of 16/32b */
 	for (constsize = 0; constsize < 4; constsize++) {
 		for (attempt = 0; ret > 0; attempt++) {
-			ret = Assemble((char*)buf, a->pc, &asm_obj, attempt, constsize, buf_err);
+			ret = Assemble ((char*)buf, a->pc, &asm_obj, attempt, constsize, buf_err);
 			if (ret > 0 && ret < oret) {
 				oret = ret;
 				oattempt = attempt;
@@ -52,7 +52,7 @@ RAsmPlugin r_asm_plugin_x86_olly = {
 };
 
 #ifndef CORELIB
-struct r_lib_struct_t radare_plugin = {
+RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_ASM,
 	.data = &r_asm_plugin_x86_olly,
 	.version = R2_VERSION
