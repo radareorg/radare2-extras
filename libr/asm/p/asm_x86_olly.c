@@ -35,7 +35,7 @@ static int assemble(RAsm *a, RAsmOp *op, const char *buf) {
 	}
 	op->size = R_MAX (0, Assemble ((char*)buf, a->pc, &asm_obj, oattempt, oconstsize, buf_err));
 	if (op->size > 0) {
-		memcpy (op->buf, asm_obj.code, R_MIN (R_MIN (16, op->size), sizeof (op->buf)));
+		r_asm_op_set_buf (op, asm_obj.code, R_MIN (R_MIN (16, op->size));
 	}
 	return op->size;
 }
