@@ -58,7 +58,7 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 		}
 		return -1;
 	}
-	memcpy (ao->buf, insn, R_MIN (size, sizeof (ao->buf) -1));
+	r_asm_op_set_buf (ao, insn, size);
 	ks_free (insn);
 	if (ks) {
 		ks_close (ks);
