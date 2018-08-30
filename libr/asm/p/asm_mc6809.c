@@ -827,8 +827,7 @@ static const char mc6809_index_registers[] = {
 	/* 0b11 */ 's',
 };
 
-static int mc6809_append_indexed_args (char *buf_asm, const ut8 *buf)
-{
+static int mc6809_append_indexed_args(RStrBuf *buf_asm, const ut8 *buf) {
 	char postop_buffer[32];
 	int postop_bytes = 0;
 
@@ -992,42 +991,43 @@ static int mc6809_append_indexed_args (char *buf_asm, const ut8 *buf)
 			}
 		}
 	}
-	strcat (buf_asm, postop_buffer);
+	r_strbuf_append (buf_asm, postop_buffer);
 	return postop_bytes;
 }
 
 static int mc6809_append_pushpull_args(enum instruction_mode mode,
-				       char *buf_asm,
+				       RStrBuf *buf_asm,
 				       const ut8 *opcode_args)
 {
-	strcat (buf_asm, " ");
+	r_strbuf_append (buf_asm, " ");
 
 	if (*opcode_args & 0x80) {
-		strcat (buf_asm, "pc,");
+		r_strbuf_append (buf_asm, "pc,");
 	}
 	if (*opcode_args & 0x40) {
-		strcat (buf_asm, (mode == PUSHPULLSYSTEM) ? "u," : "s,");
+		r_strbuf_append (buf_asm, (mode == PUSHPULLSYSTEM) ? "u," : "s,");
 	}
 	if (*opcode_args & 0x20) {
-		strcat (buf_asm, "y,");
+		r_strbuf_append (buf_asm, "y,");
 	}
 	if (*opcode_args & 0x10) {
-		strcat (buf_asm, "x,");
+		r_strbuf_append (buf_asm, "x,");
 	}
 	if (*opcode_args & 0x08) {
-		strcat (buf_asm, "dp,");
+		r_strbuf_append (buf_asm, "dp,");
 	}
 	if (*opcode_args & 0x04) {
-		strcat (buf_asm, "b,");
+		r_strbuf_append (buf_asm, "b,");
 	}
 	if (*opcode_args & 0x02) {
-		strcat (buf_asm, "a,");
+		r_strbuf_append (buf_asm, "a,");
 	}
 	if (*opcode_args & 0x01) {
-		strcat (buf_asm, "cc,");
+		r_strbuf_append (buf_asm, "cc,");
 	}
 	/* Trim off the final unwanted comma */
-	buf_asm[strlen(buf_asm)-1] = '\0';
+	/* XXX we miss a proper r_str_buf_trim function here */
+	r_strbuf_get (buf_asm)[r_strbuf_length(buf_asm)-1] = '\0';
 	return 2;
 }
 
@@ -1035,7 +1035,7 @@ static int mc6809_disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	ut8 tfrexg_regmasked;
 	const char *tfrexg_source_reg;
 	const char *tfrexg_dest_reg;
-
+	const char *buf_asm = "invalid";
 
 	const mc6809_opcodes_t *mc6809_opcode = &mc6809_opcodes[buf[0]];
 	/* opcode_args points to the first argument byte of the opcode */
@@ -1066,37 +1066,33 @@ static int mc6809_disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	case PAGE2: /* PAGE2 and PAGE3 shouldn't occur twice in a row */
 	case PAGE3:
 		op->size++;
-		strcpy (op->buf_asm, "INVALID");
 		break;
 	case INHERENT:
 		op->size++;
-		strcpy (op->buf_asm, mc6809_opcode->name);
+		buf_asm = sdb_fmt ("%s", mc6809_opcode->name);
 		break;
 	case IMMEDIATE:
 		op->size += 2;
-		sprintf (op->buf_asm,
-			 "%s #$%02x", mc6809_opcode->name, *opcode_args);
+		buf_asm = sdb_fmt ("%s #$%02x", mc6809_opcode->name, *opcode_args);
 		break;
 	case IMMEDIATELONG:
 		op->size += 3;
-		sprintf (op->buf_asm,
-			"%s #$%04x", mc6809_opcode->name,
+		buf_asm = sdb_fmt ("%s #$%04x", mc6809_opcode->name,
 			opcode_args[0] * 256 + opcode_args[1]);
 		break;
 	case DIRECT:
 		op->size += 2;
-		sprintf (op->buf_asm,
-			 "%s <$%02x", mc6809_opcode->name, *opcode_args);
+		buf_asm = sdb_fmt ("%s <$%02x", mc6809_opcode->name, *opcode_args);
 		break;
 	case RELATIVE:
 		op->size += 2;
-		sprintf (op->buf_asm, "%s $%04x",
+		buf_asm = sdb_fmt ("%s $%04x",
 			mc6809_opcode->name,
 			(ut16) (a->pc + (st8) *opcode_args + op->size) & 0xFFFF);
 		break;
 	case RELATIVELONG:
 		op->size += 3;
-		sprintf (op->buf_asm, "%s $%04x", mc6809_opcode->name,
+		buf_asm = sdb_fmt ("%s $%04x", mc6809_opcode->name,
 			(ut16) (a->pc + (st16)(opcode_args[0]*256+opcode_args[1])+op->size) & 0xFFFF);
 		break;
 	case TFREXG:
@@ -1105,7 +1101,6 @@ static int mc6809_disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 		tfrexg_regmasked = *opcode_args & 0x88;
 		if (tfrexg_regmasked && tfrexg_regmasked != 0x88) {
 			op->size += 1;
-			strcpy (op->buf_asm, "INVALID");
 		} else {
 			tfrexg_source_reg = \
 				mc6809_register_field[(*opcode_args >> 4) & 0x0f];
@@ -1113,10 +1108,9 @@ static int mc6809_disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 				mc6809_register_field[*opcode_args & 0x0f];
 			if (!tfrexg_source_reg || !tfrexg_dest_reg) {
 				op->size += 1;
-				strcpy (op->buf_asm, "INVALID");
 			} else {
 				op->size += 2;
-				sprintf (op->buf_asm,
+				buf_asm = sdb_fmt (
 					 "%s %s,%s",
 					 mc6809_opcode->name,
 					 tfrexg_source_reg,
@@ -1127,25 +1121,27 @@ static int mc6809_disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 		break;
 	case INDEXED:
 		/* Load Effective Address opcode - variable length */
-		strcpy (op->buf_asm, mc6809_opcode->name);
-		op->size += mc6809_append_indexed_args (op->buf_asm,
+		buf_asm = sdb_fmt ("%s", mc6809_opcode->name);
+		op->size += mc6809_append_indexed_args (&op->buf_asm,
 							opcode_args) + 1;
 		break;
 	case PUSHPULLSYSTEM:
 	case PUSHPULLUSER:
-		strcpy (op->buf_asm, mc6809_opcode->name);
+		buf_asm = sdb_fmt ("%s", mc6809_opcode->name);
 		op->size += mc6809_append_pushpull_args(mc6809_opcode->mode,
-							op->buf_asm,
+							&op->buf_asm,
 							opcode_args);
 		break;
 	case EXTENDED:
-		sprintf (op->buf_asm,
+		buf_asm = sdb_fmt (
 			 "%s $%04x",
 			 mc6809_opcode->name,
 			 opcode_args[0] * 256 + opcode_args[1]);
 		op->size += 3;
 		break;
 	}
+
+	r_asm_op_set_asm (op, buf_asm);
 
 	return op->size;
 }
