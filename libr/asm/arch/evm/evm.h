@@ -1,6 +1,7 @@
 #ifndef EVM_EVM_H
 #define EVM_EVM_H
 
+#include <r_util.h>
 
 typedef enum {
 	EVM_OP_STOP = 0x00,
@@ -159,77 +160,8 @@ typedef struct {
 	int len;
 } EvmOpDef;
 
-
-static EvmOpDef opcodes[256] = {
-	[EVM_OP_STOP] = { "stop", 1 },
-	[EVM_OP_ADD] = { "add", 1 },
-	[EVM_OP_MUL] = { "mul", 1 },
-	[EVM_OP_SUB] = { "sub", 1 },
-	[EVM_OP_DIV] = { "div", 1 },
-	[EVM_OP_SDIV] = { "sdiv", 1 },
-	[EVM_OP_MOD] = { "mod", 1 },
-	[EVM_OP_SMOD] = { "smod", 1 },
-	[EVM_OP_ADDMOD] = { "addmod", 1 },
-	[EVM_OP_MULMOD] = { "mulmod", 1 },
-	[EVM_OP_EXP] = { "exp", 1 },
-	[EVM_OP_SIGNEXTEND] = { "signextend", 1 },
-	[EVM_OP_LT] = { "lt", 1 },
-	[EVM_OP_GT] = { "gt", 1 },
-	[EVM_OP_SLT] = { "slt", 1 },
-	[EVM_OP_SGT] = { "sgt", 1 },
-	[EVM_OP_EQ] = { "eq", 1 },
-	[EVM_OP_ISZERO] = { "iszero", 1 },
-	[EVM_OP_AND] = { "and", 1 },
-	[EVM_OP_OR] = { "or", 1 },
-	[EVM_OP_XOR] = { "xor", 1 },
-	[EVM_OP_NOT] = { "not", 1 },
-	[EVM_OP_BYTE] = { "byte", 1 },
-	[EVM_OP_SHA3] = { "sha3", 1 },
-	[EVM_OP_ADDRESS] = { "address", 1 },
-	[EVM_OP_BALANCE] = { "balance", 1 },
-	[EVM_OP_ORIGIN] = { "origin", 1 },
-	[EVM_OP_CALLER] = { "caller", 1 },
-	[EVM_OP_CALLVALUE] = { "callvalue", 1 },
-	[EVM_OP_CALLDATALOAD] = { "calldataload", 1 },
-	[EVM_OP_CALLDATASIZE] = { "calldatasize", 1 },
-	[EVM_OP_CALLDATACOPY] = { "calldatacopy", 1 },
-	[EVM_OP_CODESIZE] = { "codesize", 1 },
-	[EVM_OP_CODECOPY] = { "codecopy", 1 },
-	[EVM_OP_GASPRICE] = { "gasprice", 1 },
-	[EVM_OP_EXTCODESIZE] = { "extcodesize", 1 },
-	[EVM_OP_EXTCODECOPY] = { "extcodecopy", 1 },
-	[EVM_OP_RETURNDATASIZE] = { "returndatasize", 1},
-	[EVM_OP_RETURNDATACOPY] = { "returndatacopy", 1},
-	[EVM_OP_BLOCKHASH] = { "blockhash", 1 },
-	[EVM_OP_COINBASE] = { "coinbase", 1 },
-	[EVM_OP_TIMESTAMP] = { "timestamp", 1 },
-	[EVM_OP_NUMBER] = { "number", 1 },
-	[EVM_OP_DIFFICULTY] = { "difficulty", 1 },
-	[EVM_OP_GASLIMIT] = { "gaslimit", 1 },
-	[EVM_OP_POP] = { "pop", 1 },
-	[EVM_OP_MLOAD] = { "mload", 1 },
-	[EVM_OP_MSTORE] = { "mstore", 1 },
-	[EVM_OP_MSTORE8] = { "mstore8", 1 },
-	[EVM_OP_SLOAD] = { "sload", 1 },
-	[EVM_OP_SSTORE] = { "sstore", 1 },
-	[EVM_OP_JUMP] = { "jump", 1 },
-	[EVM_OP_JUMPI] = { "jumpi", 1 },
-	[EVM_OP_PC] = { "pc", 1 },
-	[EVM_OP_MSIZE] = { "msize", 1 },
-	[EVM_OP_GAS] = { "gas", 1 },
-	[EVM_OP_JUMPDEST] = { "jumpdest", 1 },
-	// ....
-	[EVM_OP_CREATE] = { "create", 1 },
-	[EVM_OP_CALL] = { "call", 1 },
-	[EVM_OP_CALLCODE] = { "callcode", 1 },
-	[EVM_OP_RETURN] = { "return", 1 },
-	[EVM_OP_DELEGATECALL] = { "delegatecall", 1 },
-	[EVM_OP_STATICCALL] = { "staticcall", 1 },
-	[EVM_OP_REVERT] = { "revert", 1 },
-	[EVM_OP_SELFDESTRUCT] = { "selfdestruct", 1 },
-};
-
+extern const EvmOpDef opcodes[256];
 int evm_dis(EvmOp *op, const unsigned char *buf, int buf_len);
-int evm_asm(const char *str, unsigned char *buf, int buf_len);
+int evm_asm(const char *str, RStrBuf *buf, int buf_len);
 
 #endif	/* EVM_EVM_H */

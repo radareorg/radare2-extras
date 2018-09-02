@@ -176,7 +176,7 @@ static struct evm_sigs_info *sigs_info = 0;
 
 static int evm_oplen(ut8 opcode) {
 	int ret;
-	EvmOpDef *opdef = &opcodes[opcode];
+	const EvmOpDef *opdef = &opcodes[opcode];
 
 	if (opdef->txt) {
 		return opdef->len;
