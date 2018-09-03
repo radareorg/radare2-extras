@@ -12,15 +12,18 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	EvmOp eop = {
 		0
 	};
+
+	const char *buf_asm = "invalid";
 	evm_dis (&eop, buf, len);
-	strncpy (op->buf_asm, eop.txt, sizeof (op->buf_asm));
-	op->buf_asm[sizeof (op->buf_asm) - 1] = 0;
+	buf_asm = sdb_fmt ("%s", eop.txt);
 	op->size = eop.len;
+	r_asm_op_set_asm (op, buf_asm);
+
 	return eop.len;
 }
 
 static int assemble(RAsm *a, RAsmOp *op, const char *buf) {
-	op->size = evm_asm (buf, op->buf, sizeof (op->buf));
+	op->size = evm_asm (buf, &op->buf, sizeof (op->buf));
 	return op->size;
 }
 

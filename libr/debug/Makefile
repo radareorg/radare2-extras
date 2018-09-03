@@ -9,3 +9,5 @@ clean:
 
 install:
 	$(MAKE) -C p install
+
+include ../../options.mk
