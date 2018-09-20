@@ -150,7 +150,6 @@ typedef enum {
 typedef struct EvmOp {
 	EvmOpcodes op;
 	int len;
-	uint64_t imm;
 	const char *txt;
 	char txt_buf[32];
 } EvmOp;

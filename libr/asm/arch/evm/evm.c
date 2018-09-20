@@ -149,12 +149,12 @@ int evm_dis(EvmOp *op, const unsigned char *buf, int buf_len) {
 	case EVM_OP_PUSH32:
 	{
 		int i, pushSize = buf[0] - EVM_OP_PUSH1;
-		op->imm = 0;
-		for (i = 0; i < pushSize + 1; i++) {
-			op->imm <<= 8;
-			op->imm |= buf[i + 1];
+		char hexbuf[64] = {0};
+		char *hexbufptr = hexbuf;
+		for (i = 0; i < pushSize + 1 && hexbufptr - hexbuf < 62; i++) {
+			hexbufptr += sprintf(hexbufptr, "%02x", buf[i + 1]);
 		}
-		settxtf (op, "push%d 0x%x", pushSize + 1, op->imm);
+		settxtf (op, "push%d 0x%s", pushSize + 1, hexbuf);
 		op->len = 2 + pushSize;
 	}
 	break;
