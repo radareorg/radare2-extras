@@ -15,7 +15,7 @@ uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/r2snow*
 
 cmakeVersion:
-	cmake --version
+	cmake --version || echo "It seems cmake is not installed. You need to 'sudo apt-get install cmake'."
 
 snowman: cmakeVersion
 	(test -d snowman && rm -rf snowman/*) || git clone -b feature/output-ranges https://github.com/fabianfreyer/snowman.git
