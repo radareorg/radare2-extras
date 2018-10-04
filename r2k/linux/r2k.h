@@ -164,12 +164,12 @@ r2k_copy_from_user(void *dst, const void __user *src, unsigned size, bool wp)
 static inline int
 r2k_copy_to_user(__user void *dst, const void *src, unsigned size)
 {
-	uint8_t *p = vmalloc(size);
+	uint8_t *p = vmalloc (size);
 	// intermediate copy to avoid kernel protection mechanisms to get triggered
 	if (p) {
 		memcpy (p, src, size);
 		copy_to_user (dst, p, size);
-		vfree(p);
+		vfree (p);
 	}
 	return 0;
 }

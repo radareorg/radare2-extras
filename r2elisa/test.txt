@@ -1,0 +1,10 @@
+
+add line after 'res.sources =' around line 302 in lib/format/html.js
+
+        console.error("THIS IS A HOOK");
+
+comment line res.today around line 310 in html.js
+
+change "Hello" with "World" around line 300 in html.js
+
+trace function r_core_cmd0 in core.c
