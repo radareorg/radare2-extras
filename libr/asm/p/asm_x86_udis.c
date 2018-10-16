@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2009-2014 - pancake, nibble */
+/* radare - LGPL - Copyright 2009-2018 - pancake, nibble */
 
 #include <stdio.h>
 #include <string.h>
@@ -11,7 +11,7 @@
 // TODO : split into get/set... we need a way to create binary masks from asm buffers
 // -- move this shit into r_anal.. ??
 // -- delta, size, mode.. mode is for a->pc-5, register handling and things like this
-static int modify(RAsm *a, ut8 *buf, int field, ut64 val) {
+static bool modify(RAsm *a, ut8 *buf, int field, ut64 val) {
 	ut32 val32 = (ut32)val;
 	switch (buf[0]) {
 	case 0x68: // push dword 
@@ -56,16 +56,16 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	ud_set_pc (&d, a->pc);
 	ud_set_mode (&d, a->bits);
 	opsize = ud_disassemble (&d);
-	strncpy (op->buf_asm, ud_insn_asm (&d), R_ASM_BUFSIZE-1);
-	op->buf_asm[R_ASM_BUFSIZE-1] = 0;
-	if (opsize<1 || strstr (op->buf_asm, "invalid"))
+	r_strbuf_set (&op->buf_asm, ud_insn_asm (&d));
+	char *buf_asm = r_strbuf_get (&op->buf_asm);
+	if (opsize<1 || strstr (buf_asm, "invalid"))
 		opsize = 0;
 	op->size = opsize;
 	if (a->syntax == R_ASM_SYNTAX_JZ) {
-		if (!strncmp (op->buf_asm, "je ", 3)) {
-			memcpy (op->buf_asm, "jz", 2);
-		} else if (!strncmp (op->buf_asm, "jne ", 4)) {
-			memcpy (op->buf_asm, "jnz", 3);
+		if (!strncmp (buf_asm, "je ", 3)) {
+			memcpy (buf_asm, "jz", 2);
+		} else if (!strncmp (buf_asm, "jne ", 4)) {
+			memcpy (buf_asm, "jnz", 3);
 		}
 	}
 	return opsize;
