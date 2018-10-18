@@ -15,6 +15,9 @@ msil:
 x86_udis udis udis86:
 	cd p ; $(MAKE) asm_x86_udis.$(LIBEXT)
 
+udis86-clean:
+	rm -rf p/asm_x86_udis.$(LIBEXT)*
+
 tab:
 	cd p ; $(MAKE) asm_x86_tab.$(LIBEXT)
 

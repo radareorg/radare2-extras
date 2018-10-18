@@ -1,6 +1,5 @@
-VERSION=@VERSION@
-HAVE_LIB_YARA=@HAVE_LIB_YARA@
-PREFIX=@PREFIX@
+include options.mk
+
 DESTDIR?=
 TAR=tar -cvf
 CZ=xz -f
@@ -24,7 +23,9 @@ help:
 	@echo "  yara               - build yara3 r2 plugin"
 	@echo "  (target)-install   - install given plugin"
 	@echo "  (target)-clean     - clean given plugin"
-	@echo "  install-yara{2,3}  - install Yara 2 or 3 from Git"
+
+
+#	@echo "  install-yara{2,3}  - install Yara 2 or 3 from Git"
 
 baleful:
 	$(MAKE) -C baleful
