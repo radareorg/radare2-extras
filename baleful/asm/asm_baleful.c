@@ -211,124 +211,125 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	const ut8  *r1;
 	const ut32 *imm;
 	const ut32 *imm1;
-
+	char outbuf[32];
 	switch (*buf) {
 	case 2://8 8 11 5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"+",0);
+		op->size = asm_baleful_getregs(buf,outbuf,"+",0);
 		break;
 	case 3://8 8 11 5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"-",0);
+		op->size = asm_baleful_getregs(buf,outbuf,"-",0);
 		break;
 	case 4://8 8 11 5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"*",0);
+		op->size = asm_baleful_getregs(buf,outbuf,"*",0);
 		break;
 	case 6://8 8 11 5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"^",0);
+		op->size = asm_baleful_getregs(buf,outbuf,"^",0);
 		break;
 	case 9://8 8 11 5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"&",0);
+		op->size = asm_baleful_getregs(buf,outbuf,"&",0);
 		break;
 	case 10://8 8 11 5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"|",0);
+		op->size = asm_baleful_getregs(buf,outbuf,"|",0);
 		break;
 	case 12://8 8 11 5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"<<",0);
+		op->size = asm_baleful_getregs(buf,outbuf,"<<",0);
 		break;
 	case 13://8 8 11 5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,">>",0);
+		op->size = asm_baleful_getregs(buf,outbuf,">>",0);
 		break;
 	case 5: // //9 9 12 6
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"/",1);
+		op->size = asm_baleful_getregs(buf,outbuf,"/",1);
 		break;
 	case 22: // 7 7 10 4
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"and",2);
+		op->size = asm_baleful_getregs(buf,outbuf,"and",2);
 		break;
 	case 23: // 7 7 10 4
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"cmp",2);
+		op->size = asm_baleful_getregs(buf,outbuf,"cmp",2);
 		break;
 	case 24: //7 4
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"mov",3);
+		op->size = asm_baleful_getregs(buf,outbuf,"mov",3);
 		break;
 	case 30: // 6 3
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"push",4);
+		op->size = asm_baleful_getregs(buf,outbuf,"push",4);
 		break;
 	case 15: //5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"call",5);
+		op->size = asm_baleful_getregs(buf,outbuf,"call",5);
 		break;
 	case 14: //5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"jmp",5);
+		op->size = asm_baleful_getregs(buf,outbuf,"jmp",5);
 		break;
 	case 16: //5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"jz",5);
+		op->size = asm_baleful_getregs(buf,outbuf,"jz",5);
 		break;
 	case 17: //5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"js",5);
+		op->size = asm_baleful_getregs(buf,outbuf,"js",5);
 		break;
 	case 18: //5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"jbe",5);
+		op->size = asm_baleful_getregs(buf,outbuf,"jbe",5);
 		break;
 	case 19: //5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"jg",5);
+		op->size = asm_baleful_getregs(buf,outbuf,"jg",5);
 		break;
 	case 20: //5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"jns",5);
+		op->size = asm_baleful_getregs(buf,outbuf,"jns",5);
 		break;
 	case 21: //5
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"jnz",5);
+		op->size = asm_baleful_getregs(buf,outbuf,"jnz",5);
 		break;
 	case 27: //3
 		op->size = 3;
 		r  = buf + 1;
 		r1 = buf + 2;
-		snprintf (op->buf_asm, R_ASM_BUFSIZE, "mov r_%02x,[r_%02x]",*r,*r1);
+		snprintf (outbuf, R_ASM_BUFSIZE, "mov r_%02x,[r_%02x]",*r,*r1);
 		break;
 	case 28: //3
 		r  = buf + 1;
 		r1 = buf + 2;
 		op->size = 3;
-		snprintf (op->buf_asm, R_ASM_BUFSIZE, "mov [r_%02x],r_%02x",*r,*r1);
+		snprintf (outbuf, R_ASM_BUFSIZE, "mov [r_%02x],r_%02x",*r,*r1);
 		break;
 	case 11: //3
 		op->size = 3;
-		snprintf (op->buf_asm, R_ASM_BUFSIZE, "regX= regY==0");
+		snprintf (outbuf, R_ASM_BUFSIZE, "regX= regY==0");
 		break;
 	case 7: //3
 		op->size = 3;
-		snprintf (op->buf_asm, R_ASM_BUFSIZE, "regX= NEG regY");
+		snprintf (outbuf, R_ASM_BUFSIZE, "regX= NEG regY");
 		break;
 	case 8: //3
 		op->size = 3;
-		snprintf (op->buf_asm, R_ASM_BUFSIZE, "regX= NOT regY");
+		snprintf (outbuf, R_ASM_BUFSIZE, "regX= NOT regY");
 		break;
 	case 25: //2
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"++",6);
+		op->size = asm_baleful_getregs(buf,outbuf,"++",6);
 		break;
 	case 26: //2
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"--",6);
+		op->size = asm_baleful_getregs(buf,outbuf,"--",6);
 		break;
 	case 31: //2
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"pop",6);
+		op->size = asm_baleful_getregs(buf,outbuf,"pop",6);
 		break;
 	case 32: // 2
-		op->size = asm_baleful_getregs(buf,op->buf_asm,"apicall",7);
+		op->size = asm_baleful_getregs(buf,outbuf,"apicall",7);
 		break;
 	case 1:
 		op->size = 1;
-		strcpy (op->buf_asm, "ret");
+		strcpy (outbuf, "ret");
 		break;
 	case 0:
 		op->size = 1;
-		strcpy (op->buf_asm, "nop");
+		strcpy (outbuf, "nop");
 		break;
 	case 29:
 		op->size = 1;
-		strcpy (op->buf_asm, "end virtual");
+		strcpy (outbuf, "end virtual");
 		break;
 	default:
 		op->size = 1;
-		strcpy (op->buf_asm, "nop");
+		strcpy (outbuf, "nop");
 		break;
 	}
+	r_strbuf_set (&op->buf_asm, outbuf);
 	return op->size;
 }
 
