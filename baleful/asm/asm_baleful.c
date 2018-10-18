@@ -211,7 +211,7 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	const ut8  *r1;
 	const ut32 *imm;
 	const ut32 *imm1;
-	char outbuf[32];
+	char outbuf[32] = {0};
 	switch (*buf) {
 	case 2://8 8 11 5
 		op->size = asm_baleful_getregs(buf,outbuf,"+",0);
@@ -280,25 +280,25 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 		op->size = 3;
 		r  = buf + 1;
 		r1 = buf + 2;
-		snprintf (outbuf, R_ASM_BUFSIZE, "mov r_%02x,[r_%02x]",*r,*r1);
+		snprintf (outbuf, sizeof (outbuf), "mov r_%02x,[r_%02x]",*r,*r1);
 		break;
 	case 28: //3
 		r  = buf + 1;
 		r1 = buf + 2;
 		op->size = 3;
-		snprintf (outbuf, R_ASM_BUFSIZE, "mov [r_%02x],r_%02x",*r,*r1);
+		snprintf (outbuf, sizeof (outbuf), "mov [r_%02x],r_%02x",*r,*r1);
 		break;
 	case 11: //3
 		op->size = 3;
-		snprintf (outbuf, R_ASM_BUFSIZE, "regX= regY==0");
+		snprintf (outbuf, sizeof (outbuf), "regX= regY==0");
 		break;
 	case 7: //3
 		op->size = 3;
-		snprintf (outbuf, R_ASM_BUFSIZE, "regX= NEG regY");
+		snprintf (outbuf, sizeof (outbuf), "regX= NEG regY");
 		break;
 	case 8: //3
 		op->size = 3;
-		snprintf (outbuf, R_ASM_BUFSIZE, "regX= NOT regY");
+		snprintf (outbuf, sizeof (outbuf), "regX= NOT regY");
 		break;
 	case 25: //2
 		op->size = asm_baleful_getregs(buf,outbuf,"++",6);
