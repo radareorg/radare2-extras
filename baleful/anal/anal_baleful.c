@@ -543,6 +543,32 @@ static int esil_baleful_intr (RAnalEsil *esil, int intr) {
 	return true;
 }
 
+static bool esil_bale_interrupt_wrapper_cb (RAnalEsil *esil, ut32 interrupt, void *user) {	//user is always NULL, bc we has no init and fini
+	return !!esil_baleful_intr(esil, interrupt);
+}
+
+RAnalEsilInterruptHandler bale_intr_handler00 {
+	.num = 0x00,				//interrupt number
+	.cb = esil_bale_interrupt_wrapper_cb,	//the actual handler
+};
+
+RAnalEsilInterruptHandler bale_intr_handler04 {
+	.num = 0x04,				//interrupt number
+	.cb = esil_bale_interrupt_wrapper_cb,	//the actual handler
+};
+
+RAnalEsilInterruptHandler bale_intr_handler11 {
+	.num = 0x11,				//interrupt number
+	.cb = esil_bale_interrupt_wrapper_cb,	//the actual handler
+};
+
+RAnalEsilInterruptHandler *bale_intr_handlers[] = {
+	&bale_intr_handler00,
+	&bale_intr_handler04,
+	&bale_intr_handler11,
+	NULL,
+};
+
 static int set_reg_profile(RAnal *anal) {
 	const char *p = \
 		"=PC    pc\n"
@@ -598,8 +624,10 @@ static int set_reg_profile(RAnal *anal) {
 	return r_reg_set_profile_string (anal->reg, p);
 }
 static int esil_baleful_init (RAnalEsil *esil) {
-	if (!esil)
+	if (!esil) {
 		return false;
+	}
+	return r_anal_esil_load_interrupts (esil, bale_intr_handlers, 0);
 	/*
 	   internalMemory=malloc(4096);
 	   if (!internalMemory) {
@@ -610,7 +638,6 @@ static int esil_baleful_init (RAnalEsil *esil) {
 	 *((ut32 *)internalMemory)=0xdeadbeef;
 	 eprintf("leido :%08x\n",*((ut32 *)internalMemory));
 	 */
-	return true;
 }
 
 static int esil_baleful_fini (RAnalEsil *esil) {
@@ -628,7 +655,6 @@ static RAnalPlugin r_anal_plugin_baleful = {
 	.bits = 32,
 	.esil_init = esil_baleful_init,
 	.esil_fini = esil_baleful_fini,
-	.esil_post_loop = esil_baleful_intr,
 	.esil = true,
 	.op = &baleful_op,
 	.set_reg_profile = set_reg_profile,
