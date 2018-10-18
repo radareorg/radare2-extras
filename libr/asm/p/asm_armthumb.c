@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2010-2015 - pancake */
+/* radare - LGPL - Copyright 2010-2018 - pancake */
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -11,10 +11,13 @@
 
 static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	int *p = (int*)buf; // TODO : endian
-	op->buf_asm[0]='\0';
-	op->size = armthumb_disassemble (op->buf_asm, (ut32)a->pc, *p);
-	if (!op->size)
-		strncpy (op->buf_asm, " (data)", R_ASM_BUFSIZE);
+	char buf_asm[64] = {0};
+	op->size = armthumb_disassemble (buf_asm, (ut32)a->pc, *p);
+	if (op->size > 0) {
+		r_strbuf_set (&op->buf_asm, buf_asm);
+	} else {
+		r_strbuf_set (&op->buf_asm, " (data)");
+	}
 	return op->size;
 }
 
@@ -33,14 +36,12 @@ RAsmPlugin r_asm_plugin_armthumb = {
 	.arch = "arm",
 	.bits = 16,
 	.desc = "ARM THUMB disassembly plugin",
-	.init = NULL,
-	.fini = NULL,
 	.disassemble = &disassemble,
 //	.assemble = &assemble 
 };
 
 #ifndef CORELIB
-struct r_lib_struct_t radare_plugin = {
+RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_ASM,
 	.data = &r_asm_plugin_armthumb,
 	.version = R2_VERSION
