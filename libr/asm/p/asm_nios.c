@@ -9,8 +9,8 @@
 
 #include "nios/gnu/nios-desc.h"
 
-static char *buf_global;
-static uint8_t bytes[2];
+static RStrBuf *buf_global = NULL;
+static ut8 bytes[2];
 
 static int nios_buffer_read_memory(bfd_vma address, bfd_byte *byte, ut32 len, disassemble_info *info) {
 	memcpy(byte, bytes, len);
@@ -22,19 +22,15 @@ static int nios_symbol_at_address(bfd_vma address, disassemble_info *info) {
 }
 
 static void nios_memory_error(int status, bfd_vma address, disassemble_info *info) {
-	return;
+	//--
 }
 
 static void nios_print_address(bfd_vma address, disassemble_info *info) {
-	char tmp[32];
-	if (!buf_global) {
-		return;
+	if (buf_global) {
+		char tmp[32];
+		snprintf(tmp, sizeof(tmp) - 1, "0x%08"PFMT64x, (ut64) address);
+		r_strbuf_append(buf_global, tmp);
 	}
-
-	sprintf(tmp, "0x%08"PFMT64x"", (ut64) address);
-	strcat(buf_global, tmp);
-
-	return;
 }
 
 static int nios_fprintf(void *stream, const char *format, ...) {
@@ -42,28 +38,12 @@ static int nios_fprintf(void *stream, const char *format, ...) {
 		return 0;
 	}
 
-	int glen;
-	glen = strlen(buf_global);
-
-	int flen;
-	flen = strlen(format);
-
-	char *tmp;
-	tmp = malloc(glen + flen + 2);
-	if (!tmp) {
-		return 0;
-	}
-
-	memcpy(tmp, buf_global, glen);
-	memcpy(tmp + glen, format, flen);
-	tmp[flen + glen] = 0;
-
+	char buf[128];
 	va_list args;
 	va_start(args, format);
-	vsnprintf(buf_global, glen + flen + 4, tmp, args);
+	vsnprintf(buf, sizeof (buf), format, args);
+	r_strbuf_append(buf_global, buf);
 	va_end(args);
-
-	free(tmp);
 
 	return 0;
 }
@@ -73,7 +53,7 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 		return -1;
 	}
 
-	buf_global = op->buf_asm;
+	buf_global = &op->buf_asm;
 	memcpy(bytes, buf, 2);
 
 	struct disassemble_info info = {0};
@@ -89,11 +69,10 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	info.fprintf_func = &nios_fprintf;
 	info.stream = stdout;
 
-	op->buf_asm[0] = 0;
 	op->size = print_insn_nios((bfd_vma) a->pc, &info);
 
 	if (op->size == -1) {
-		strncpy(op->buf_asm, " (data)", R_ASM_BUFSIZE);
+		r_strbuf_set(&op->buf_asm, " (data)");
 	}
 
 	return op->size;
@@ -112,7 +91,7 @@ RAsmPlugin r_asm_plugin_nios = {
 #ifndef CORELIB
 RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_ASM,
-	.data = &r_asm_plugin_nios
-	//.version = R2_VERSION
+	.data = &r_asm_plugin_nios,
+	.version = R2_VERSION
 };
 #endif
