@@ -453,7 +453,7 @@ static int evm_load_symbol_map (RAnal *anal, const char *file) {
 
 	if (sigs_info) {
 		sigs_info->rio = r_io_new ();
-		sigs_info->riodesc = r_io_open (sigs_info->rio, file, R_IO_READ, 0644);
+		sigs_info->riodesc = r_io_open (sigs_info->rio, file, R_PERM_R, 0644);
 
 		if (!sigs_info->riodesc) {
 			printf ("Failed to open %s: %s\n", file, strerror (errno));
