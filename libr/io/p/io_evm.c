@@ -652,7 +652,7 @@ static RIODesc *__open(RIO *io, const char *file, int rw, int mode) {
 		goto out_free;
 	}
 
-	ret = r_io_desc_new (io, &r_io_plugin_evm, file, R_IO_RWX, mode, rioe);
+	ret = r_io_desc_new (io, &r_io_plugin_evm, file, R_PERM_RWX, mode, rioe);
 	rioevm = ret;
 	rioe_ptr = rioe;
 
