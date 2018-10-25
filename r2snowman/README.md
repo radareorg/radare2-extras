@@ -9,6 +9,6 @@ r2snowman
 - - ----(    . )---\|---
          
 
-This is an ugly but working integration of the snowman decompiler for r2
+![Decompile](screenshots/decompile.png)
 
 
