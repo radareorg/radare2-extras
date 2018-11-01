@@ -6,13 +6,11 @@
 #include <r_lib.h>
 #include <r_asm.h>
 #include <r_anal.h>
+#include <sdb.h>
 
 #include "dis-asm.h"
 
 #include "nios/gnu/nios-desc.h"
-
-#define OP_SIZE 1024
-#define OP_TYPES 6
 
 #define f_op11(i)   ((i >> 5))
 #define f_op9(i)    ((i >> 7))
@@ -43,7 +41,6 @@
 #define f_A(i)      ((i >> 0)  & 0x001f)
 
 enum insn_format {
-	FMT_UNKNOWN,
 	FMT_RR,
 	FMT_Ri5,
 	FMT_Ri4,
@@ -63,232 +60,336 @@ enum insn_format {
 };
 
 enum insn_type {
-	TYPE_UNKNOWN,
-	TYPE_OP11,
+	TYPE_OP6,
 	TYPE_OP9,
 	TYPE_OP8,
+	TYPE_OP11,
 	TYPE_OP5,
 	TYPE_OP4,
 	TYPE_OP3,
-	TYPE_OP6
+	TYPE_OPS
 };
 
 struct insn_fields {
-	ut16 op11;
-	ut16 op9;
-	ut16 op8;
-	ut16 op6;
-	ut16 op5w;
-	ut16 op5;
-	ut16 op4;
-	ut16 op3u;
-	ut16 op3;
-	ut16 op2v;
+	ut16 op11  : 11;
+	ut16 op9   :  9;
+	ut16 op8   :  8;
+	ut16 op6   :  6;
+	ut16 op5w  :  5;
+	ut16 op5   :  5;
+	ut16 op4   :  4;
+	ut16 op3u  :  3;
+	ut16 op3   :  3;
+	ut16 op2v  :  2;
 
-	ut16 IMM11;
-	ut16 IMM10;
-	ut16 IMM9;
-	ut16 IMM8v;
-	ut16 IMM8;
-	ut16 IMM6v;
-	ut16 IMM6;
-	ut16 IMM5;
-	ut16 IMM4w;
-	ut16 IMM4;
-	ut16 IMM2u;
-	ut16 IMM1u;
+	st16 IMM11 : 11;
+	st16 IMM10 : 10;
+	st16 IMM9  :  9;
+	st16 IMM8v :  8;
+	st16 IMM8  :  8;
+	st16 IMM6v :  6;
+	st16 IMM6  :  6;
+	st16 IMM5  :  5;
+	st16 IMM4w :  4;
+	st16 IMM4  :  4;
+	st16 IMM2u :  2;
+	st16 IMM1u :  1;
 
-	ut16 P;
-	ut16 B;
-	ut16 A;
+	st16 P     :  2;
+	st16 B     :  5;
+	st16 A     :  5;
 };
 
 struct nios_op {
-	_RAnalOpType type;
-	enum insn_type type_op;
+	enum mach_attr mach;
+	enum insn_type type;
+	ut16 opcode;
 	enum insn_format format;
+	_RAnalOpType r_op_type;
 };
 
-static struct nios_op nios16_ops[OP_SIZE] = {
-	// op6
-	[OP_ADD]     = { R_ANAL_OP_TYPE_ADD,   TYPE_OP6,  FMT_RR },
-	[OP_ADDI]    = { R_ANAL_OP_TYPE_ADD,   TYPE_OP6,  FMT_Ri5 },
-	[OP_SUB]     = { R_ANAL_OP_TYPE_SUB,   TYPE_OP6,  FMT_RR },
-	[OP_SUBI]    = { R_ANAL_OP_TYPE_SUB,   TYPE_OP6,  FMT_Ri5 },
-	[OP_CMP]     = { R_ANAL_OP_TYPE_CMP,   TYPE_OP6,  FMT_RR },
-	[OP_CMPI]    = { R_ANAL_OP_TYPE_CMP,   TYPE_OP6,  FMT_Ri5 },
-	[OP_LSL]     = { R_ANAL_OP_TYPE_SHL,   TYPE_OP6,  FMT_RR },
-	[OP_LSLI]    = { R_ANAL_OP_TYPE_SHL,   TYPE_OP6,  FMT_Ri4 },
-	[OP_LSR]     = { R_ANAL_OP_TYPE_SHR,   TYPE_OP6,  FMT_RR },
-	[OP_LSRI]    = { R_ANAL_OP_TYPE_SHR,   TYPE_OP6,  FMT_Ri4 },
-	[OP_ASR]     = { R_ANAL_OP_TYPE_SAR,   TYPE_OP6,  FMT_RR },
-	[OP_ASRI]    = { R_ANAL_OP_TYPE_SAR,   TYPE_OP6,  FMT_Ri4 },
-	[OP_MOV]     = { R_ANAL_OP_TYPE_MOV,   TYPE_OP6,  FMT_RR },
-	[OP_MOVI]    = { R_ANAL_OP_TYPE_MOV,   TYPE_OP6,  FMT_Ri5 },
-	[OP_AND]     = { R_ANAL_OP_TYPE_AND,   TYPE_OP6,  FMT_RR },
-	[OP_ANDN]    = { R_ANAL_OP_TYPE_AND,   TYPE_OP6,  FMT_RR },
-	[OP_OR]      = { R_ANAL_OP_TYPE_OR,    TYPE_OP6,  FMT_RR },
-	[OP_XOR]     = { R_ANAL_OP_TYPE_XOR,   TYPE_OP6,  FMT_RR },
-	[OP_BGEN]    = { R_ANAL_OP_TYPE_MUL,   TYPE_OP6,  FMT_Ri4 },
-	[OP_EXT8D]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP6,  FMT_RR },
-	[OP_SKP0]    = { R_ANAL_OP_TYPE_CJMP,  TYPE_OP6,  FMT_Ri4 },
-	[OP_SKP1]    = { R_ANAL_OP_TYPE_CJMP,  TYPE_OP6,  FMT_Ri4 },
-	[OP_LD]      = { R_ANAL_OP_TYPE_LOAD,  TYPE_OP6,  FMT_RR },
-	[OP_ST]      = { R_ANAL_OP_TYPE_STORE, TYPE_OP6,  FMT_RR },
-	[OP_STS8S]   = { R_ANAL_OP_TYPE_STORE, TYPE_OP6,  FMT_i10 },
-	[OP_ADDC]    = { R_ANAL_OP_TYPE_MOV,   TYPE_OP6,  FMT_RR },
-	[OP_SUBC]    = { R_ANAL_OP_TYPE_MOV,   TYPE_OP6,  FMT_Ri5 },
-	[OP_USR0]    = { R_ANAL_OP_TYPE_IO,    TYPE_OP6,  FMT_RR },
-	// op3
-	[OP_STS]     = { R_ANAL_OP_TYPE_STORE, TYPE_OP3,  FMT_Ri8 },
-	[OP_LDS]     = { R_ANAL_OP_TYPE_LOAD,  TYPE_OP3,  FMT_Ri8 },
-	// op4
-	[OP_STP]     = { R_ANAL_OP_TYPE_STORE, TYPE_OP4,  FMT_RPi5 },
-	[OP_LDP]     = { R_ANAL_OP_TYPE_LOAD,  TYPE_OP4,  FMT_RPi5 },
-	// op5
-	[OP_BR]      = { R_ANAL_OP_TYPE_JMP,   TYPE_OP5,  FMT_i11 },
-	[OP_BSR]     = { R_ANAL_OP_TYPE_JMP,   TYPE_OP5,  FMT_i11 },
-	[OP_PFX]     = { R_ANAL_OP_TYPE_MOV,   TYPE_OP5,  FMT_i11 },
-	// op8
-	[OP_SAVE]    = { R_ANAL_OP_TYPE_PUSH,  TYPE_OP8,  FMT_i8v },
-	[OP_TRAP]    = { R_ANAL_OP_TYPE_TRAP,  TYPE_OP8,  FMT_i6v },
-	// op9
-	[OP_EXT8S]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP9,  FMT_Ri1u },
-	[OP_ST8S]    = { R_ANAL_OP_TYPE_STORE, TYPE_OP9,  FMT_Ri1u },
-	// op11
-	[OP_NOT]     = { R_ANAL_OP_TYPE_NOT,   TYPE_OP11, FMT_Rw },
-	[OP_NEG]     = { R_ANAL_OP_TYPE_SUB,   TYPE_OP11, FMT_Rw },
-	[OP_ABS]     = { R_ANAL_OP_TYPE_ABS,   TYPE_OP11, FMT_Rw },
-	[OP_SEXT8]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP11, FMT_Rw },
-	[OP_RLC]     = { R_ANAL_OP_TYPE_ROL,   TYPE_OP11, FMT_Rw },
-	[OP_RRC]     = { R_ANAL_OP_TYPE_ROR,   TYPE_OP11, FMT_Rw },
-	[OP_TRET]    = { R_ANAL_OP_TYPE_UJMP,  TYPE_OP11, FMT_Rw },
-	[OP_RESTORE] = { R_ANAL_OP_TYPE_POP,   TYPE_OP11, FMT_w },
-	[OP_ST8D]    = { R_ANAL_OP_TYPE_STORE, TYPE_OP11, FMT_Rw },
-	[OP_FILL8]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP11, FMT_Rw },
-	[OP_SKPRZ]   = { R_ANAL_OP_TYPE_JMP,   TYPE_OP11, FMT_Rw },
-	[OP_SKPS]    = { R_ANAL_OP_TYPE_JMP,   TYPE_OP11, FMT_Rw },
-	[OP_WRCTL]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP11, FMT_Rw },
-	[OP_RDCTL]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP11, FMT_Rw },
-	[OP_SKPRNZ]  = { R_ANAL_OP_TYPE_CJMP,  TYPE_OP11, FMT_Rw },
-	[OP_JMP]     = { R_ANAL_OP_TYPE_JMP,   TYPE_OP11, FMT_Rw },
-	[OP_CALL]    = { R_ANAL_OP_TYPE_CALL,  TYPE_OP11, FMT_Rw },
-	[OP_SWAP]    = { R_ANAL_OP_TYPE_MOV,   TYPE_OP11, FMT_Rw },
-	[OP_USR1]    = { R_ANAL_OP_TYPE_IO,    TYPE_OP11, FMT_Rw },
-	[OP_USR2]    = { R_ANAL_OP_TYPE_IO,    TYPE_OP11, FMT_Rw },
-	[OP_USR3]    = { R_ANAL_OP_TYPE_IO,    TYPE_OP11, FMT_Rw },
-	[OP_USR4]    = { R_ANAL_OP_TYPE_IO,    TYPE_OP11, FMT_Rw },
+#define NIOS_OPS 131
+static const struct nios_op nios_ops[NIOS_OPS] = {
+	{ MACH_NIOS16, TYPE_OP6,  OP_ADD,     FMT_RR,   R_ANAL_OP_TYPE_ADD },
+	{ MACH_NIOS16, TYPE_OP6,  OP_ADDI,    FMT_Ri5,  R_ANAL_OP_TYPE_ADD },
+	{ MACH_NIOS16, TYPE_OP6,  OP_SUB,     FMT_RR,   R_ANAL_OP_TYPE_SUB },
+	{ MACH_NIOS16, TYPE_OP6,  OP_SUBI,    FMT_Ri5,  R_ANAL_OP_TYPE_SUB },
+	{ MACH_NIOS16, TYPE_OP6,  OP_CMP,     FMT_RR,   R_ANAL_OP_TYPE_CMP },
+	{ MACH_NIOS16, TYPE_OP6,  OP_CMPI,    FMT_Ri5,  R_ANAL_OP_TYPE_CMP },
+	{ MACH_NIOS16, TYPE_OP6,  OP_LSL,     FMT_RR,   R_ANAL_OP_TYPE_SHL },
+	{ MACH_NIOS16, TYPE_OP6,  OP_LSLI,    FMT_Ri4,  R_ANAL_OP_TYPE_SHL },
+	{ MACH_NIOS16, TYPE_OP6,  OP_LSR,     FMT_RR,   R_ANAL_OP_TYPE_SHR },
+	{ MACH_NIOS16, TYPE_OP6,  OP_LSRI,    FMT_Ri4,  R_ANAL_OP_TYPE_SHR },
+	{ MACH_NIOS16, TYPE_OP6,  OP_ASR,     FMT_RR,   R_ANAL_OP_TYPE_SAR },
+	{ MACH_NIOS16, TYPE_OP6,  OP_ASRI,    FMT_Ri4,  R_ANAL_OP_TYPE_SAR },
+	{ MACH_NIOS16, TYPE_OP6,  OP_MOV,     FMT_RR,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS16, TYPE_OP6,  OP_MOVI,    FMT_Ri5,  R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS16, TYPE_OP6,  OP_AND,     FMT_RR,   R_ANAL_OP_TYPE_AND },
+	{ MACH_NIOS16, TYPE_OP6,  OP_ANDN,    FMT_RR,   R_ANAL_OP_TYPE_AND },
+	{ MACH_NIOS16, TYPE_OP6,  OP_OR,      FMT_RR,   R_ANAL_OP_TYPE_OR },
+	{ MACH_NIOS16, TYPE_OP6,  OP_XOR,     FMT_RR,   R_ANAL_OP_TYPE_XOR },
+	{ MACH_NIOS16, TYPE_OP6,  OP_BGEN,    FMT_Ri4,  R_ANAL_OP_TYPE_MUL },
+	{ MACH_NIOS16, TYPE_OP6,  OP_EXT8D,   FMT_RR,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS16, TYPE_OP6,  OP_SKP0,    FMT_Ri4,  R_ANAL_OP_TYPE_CJMP },
+	{ MACH_NIOS16, TYPE_OP6,  OP_SKP1,    FMT_Ri4,  R_ANAL_OP_TYPE_CJMP },
+	{ MACH_NIOS16, TYPE_OP6,  OP_LD,      FMT_RR,   R_ANAL_OP_TYPE_LOAD },
+	{ MACH_NIOS16, TYPE_OP6,  OP_ST,      FMT_RR,   R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS16, TYPE_OP6,  OP_STS8S,   FMT_i10,  R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS16, TYPE_OP6,  OP_ADDC,    FMT_RR,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS16, TYPE_OP6,  OP_SUBC,    FMT_Ri5,  R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS16, TYPE_OP6,  OP_USR0,    FMT_RR,   R_ANAL_OP_TYPE_IO },
+	{ MACH_NIOS16, TYPE_OP3,  OP_STS,     FMT_Ri8,  R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS16, TYPE_OP3,  OP_LDS,     FMT_Ri8,  R_ANAL_OP_TYPE_LOAD },
+	{ MACH_NIOS16, TYPE_OP4,  OP_STP,     FMT_RPi5, R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS16, TYPE_OP4,  OP_LDP,     FMT_RPi5, R_ANAL_OP_TYPE_LOAD },
+	{ MACH_NIOS16, TYPE_OP5,  OP_BR,      FMT_i11,  R_ANAL_OP_TYPE_JMP },
+	{ MACH_NIOS16, TYPE_OP5,  OP_BSR,     FMT_i11,  R_ANAL_OP_TYPE_JMP },
+	{ MACH_NIOS16, TYPE_OP5,  OP_PFX,     FMT_i11,  R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS16, TYPE_OP8,  OP_SAVE,    FMT_i8v,  R_ANAL_OP_TYPE_PUSH },
+	{ MACH_NIOS16, TYPE_OP8,  OP_TRAP,    FMT_i6v,  R_ANAL_OP_TYPE_TRAP },
+	{ MACH_NIOS16, TYPE_OP9,  OP_EXT8S,   FMT_Ri1u, R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS16, TYPE_OP9,  OP_ST8S,    FMT_Ri1u, R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS16, TYPE_OP11, OP_NOT,     FMT_Rw,   R_ANAL_OP_TYPE_NOT },
+	{ MACH_NIOS16, TYPE_OP11, OP_NEG,     FMT_Rw,   R_ANAL_OP_TYPE_SUB },
+	{ MACH_NIOS16, TYPE_OP11, OP_ABS,     FMT_Rw,   R_ANAL_OP_TYPE_ABS },
+	{ MACH_NIOS16, TYPE_OP11, OP_SEXT8,   FMT_Rw,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS16, TYPE_OP11, OP_RLC,     FMT_Rw,   R_ANAL_OP_TYPE_ROL },
+	{ MACH_NIOS16, TYPE_OP11, OP_RRC,     FMT_Rw,   R_ANAL_OP_TYPE_ROR },
+	{ MACH_NIOS16, TYPE_OP11, OP_TRET,    FMT_Rw,   R_ANAL_OP_TYPE_UJMP },
+	{ MACH_NIOS16, TYPE_OP11, OP_RESTORE, FMT_w,    R_ANAL_OP_TYPE_POP },
+	{ MACH_NIOS16, TYPE_OP11, OP_ST8D,    FMT_Rw,   R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS16, TYPE_OP11, OP_FILL8,   FMT_Rw,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS16, TYPE_OP11, OP_SKPRZ,   FMT_Rw,   R_ANAL_OP_TYPE_CJMP },
+	{ MACH_NIOS16, TYPE_OP11, OP_SKPS,    FMT_Rw,   R_ANAL_OP_TYPE_CJMP },
+	{ MACH_NIOS16, TYPE_OP11, OP_WRCTL,   FMT_Rw,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS16, TYPE_OP11, OP_RDCTL,   FMT_Rw,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS16, TYPE_OP11, OP_SKPRNZ,  FMT_Rw,   R_ANAL_OP_TYPE_CJMP },
+	{ MACH_NIOS16, TYPE_OP11, OP_JMP,     FMT_Rw,   R_ANAL_OP_TYPE_JMP },
+	{ MACH_NIOS16, TYPE_OP11, OP_CALL,    FMT_Rw,   R_ANAL_OP_TYPE_CALL },
+	{ MACH_NIOS16, TYPE_OP11, OP_SWAP,    FMT_Rw,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS16, TYPE_OP11, OP_USR1,    FMT_Rw,   R_ANAL_OP_TYPE_IO },
+	{ MACH_NIOS16, TYPE_OP11, OP_USR2,    FMT_Rw,   R_ANAL_OP_TYPE_IO },
+	{ MACH_NIOS16, TYPE_OP11, OP_USR3,    FMT_Rw,   R_ANAL_OP_TYPE_IO },
+	{ MACH_NIOS16, TYPE_OP11, OP_USR4,    FMT_Rw,   R_ANAL_OP_TYPE_IO },
+	{ MACH_NIOS32, TYPE_OP6,  OP_ADD,     FMT_RR,   R_ANAL_OP_TYPE_ADD },
+	{ MACH_NIOS32, TYPE_OP6,  OP_ADDI,    FMT_Ri5,  R_ANAL_OP_TYPE_ADD },
+	{ MACH_NIOS32, TYPE_OP6,  OP_SUB,     FMT_RR,   R_ANAL_OP_TYPE_SUB },
+	{ MACH_NIOS32, TYPE_OP6,  OP_SUBI,    FMT_Ri5,  R_ANAL_OP_TYPE_SUB },
+	{ MACH_NIOS32, TYPE_OP6,  OP_CMP,     FMT_RR,   R_ANAL_OP_TYPE_CMP },
+	{ MACH_NIOS32, TYPE_OP6,  OP_CMPI,    FMT_Ri5,  R_ANAL_OP_TYPE_CMP },
+	{ MACH_NIOS32, TYPE_OP6,  OP_LSL,     FMT_RR,   R_ANAL_OP_TYPE_SHL },
+	{ MACH_NIOS32, TYPE_OP6,  OP_LSLI,    FMT_Ri5,  R_ANAL_OP_TYPE_SHL },
+	{ MACH_NIOS32, TYPE_OP6,  OP_LSR,     FMT_RR,   R_ANAL_OP_TYPE_SHR },
+	{ MACH_NIOS32, TYPE_OP6,  OP_LSRI,    FMT_Ri5,  R_ANAL_OP_TYPE_SHR },
+	{ MACH_NIOS32, TYPE_OP6,  OP_ASR,     FMT_RR,   R_ANAL_OP_TYPE_SAR },
+	{ MACH_NIOS32, TYPE_OP6,  OP_ASRI,    FMT_Ri5,  R_ANAL_OP_TYPE_SAR },
+	{ MACH_NIOS32, TYPE_OP6,  OP_MOV,     FMT_RR,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP6,  OP_MOVI,    FMT_Ri5,  R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP6,  OP_AND,     FMT_RR,   R_ANAL_OP_TYPE_AND },
+	{ MACH_NIOS32, TYPE_OP6,  OP_ANDN,    FMT_RR,   R_ANAL_OP_TYPE_AND },
+	{ MACH_NIOS32, TYPE_OP6,  OP_OR,      FMT_RR,   R_ANAL_OP_TYPE_OR },
+	{ MACH_NIOS32, TYPE_OP6,  OP_XOR,     FMT_RR,   R_ANAL_OP_TYPE_XOR },
+	{ MACH_NIOS32, TYPE_OP6,  OP_BGEN,    FMT_Ri5,  R_ANAL_OP_TYPE_MUL },
+	{ MACH_NIOS32, TYPE_OP6,  OP_EXT8D,   FMT_RR,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP6,  OP_SKP0,    FMT_Ri5,  R_ANAL_OP_TYPE_CJMP },
+	{ MACH_NIOS32, TYPE_OP6,  OP_SKP1,    FMT_Ri5,  R_ANAL_OP_TYPE_CJMP },
+	{ MACH_NIOS32, TYPE_OP6,  OP_LD,      FMT_RR,   R_ANAL_OP_TYPE_LOAD },
+	{ MACH_NIOS32, TYPE_OP6,  OP_ST,      FMT_RR,   R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS32, TYPE_OP6,  OP_STS8S,   FMT_i10,  R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS32, TYPE_OP6,  OP_STS16S,  FMT_i9,   R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS32, TYPE_OP6,  OP_EXT16D,  FMT_RR,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP6,  OP_MOVHI,   FMT_Ri5,  R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP6,  OP_USR0,    FMT_RR,   R_ANAL_OP_TYPE_IO },
+	{ MACH_NIOS32, TYPE_OP3,  OP_STS,     FMT_Ri8,  R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS32, TYPE_OP3,  OP_LDS,     FMT_Ri8,  R_ANAL_OP_TYPE_LOAD },
+	{ MACH_NIOS32, TYPE_OP4,  OP_STP,     FMT_RPi5, R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS32, TYPE_OP4,  OP_LDP,     FMT_RPi5, R_ANAL_OP_TYPE_LOAD },
+	{ MACH_NIOS32, TYPE_OP5,  OP_BR,      FMT_i11,  R_ANAL_OP_TYPE_JMP },
+	{ MACH_NIOS32, TYPE_OP5,  OP_BSR,     FMT_i11,  R_ANAL_OP_TYPE_JMP },
+	{ MACH_NIOS32, TYPE_OP5,  OP_PFXIO,   FMT_i11,  R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP5,  OP_PFX,     FMT_i11,  R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP8,  OP_SAVE,    FMT_i8v,  R_ANAL_OP_TYPE_PUSH },
+	{ MACH_NIOS32, TYPE_OP8,  OP_TRAP,    FMT_i6v,  R_ANAL_OP_TYPE_TRAP },
+	{ MACH_NIOS32, TYPE_OP9,  OP_EXT8S,   FMT_Ri1u, R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP9,  OP_EXT16S,  FMT_Ri1u, R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP9,  OP_ST8S,    FMT_Ri1u, R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS32, TYPE_OP9,  OP_ST16S,   FMT_Ri1u, R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS32, TYPE_OP11, OP_NOT,     FMT_Rw,   R_ANAL_OP_TYPE_NOT },
+	{ MACH_NIOS32, TYPE_OP11, OP_NEG,     FMT_Rw,   R_ANAL_OP_TYPE_SUB },
+	{ MACH_NIOS32, TYPE_OP11, OP_ABS,     FMT_Rw,   R_ANAL_OP_TYPE_ABS },
+	{ MACH_NIOS32, TYPE_OP11, OP_SEXT8,   FMT_Rw,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP11, OP_SEXT16,  FMT_Rw,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP11, OP_RLC,     FMT_Rw,   R_ANAL_OP_TYPE_ROL },
+	{ MACH_NIOS32, TYPE_OP11, OP_RRC,     FMT_Rw,   R_ANAL_OP_TYPE_ROR },
+	{ MACH_NIOS32, TYPE_OP11, OP_TRET,    FMT_Rw,   R_ANAL_OP_TYPE_UJMP },
+	{ MACH_NIOS32, TYPE_OP11, OP_RESTORE, FMT_w,    R_ANAL_OP_TYPE_POP },
+	{ MACH_NIOS32, TYPE_OP11, OP_ST8D,    FMT_Rw,   R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS32, TYPE_OP11, OP_ST16D,   FMT_Rw,   R_ANAL_OP_TYPE_STORE },
+	{ MACH_NIOS32, TYPE_OP11, OP_FILL8,   FMT_Rw,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP11, OP_FILL16,  FMT_Rw,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP11, OP_SKPRZ,   FMT_Rw,   R_ANAL_OP_TYPE_CJMP },
+	{ MACH_NIOS32, TYPE_OP11, OP_SKPS,    FMT_Rw,   R_ANAL_OP_TYPE_CJMP },
+	{ MACH_NIOS32, TYPE_OP11, OP_WRCTL,   FMT_Rw,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP11, OP_RDCTL,   FMT_Rw,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP11, OP_SKPRNZ,  FMT_Rw,   R_ANAL_OP_TYPE_CJMP },
+	{ MACH_NIOS32, TYPE_OP11, OP_JMP,     FMT_Rw,   R_ANAL_OP_TYPE_JMP },
+	{ MACH_NIOS32, TYPE_OP11, OP_CALL,    FMT_Rw,   R_ANAL_OP_TYPE_CALL },
+	{ MACH_NIOS32, TYPE_OP11, OP_SWAP,    FMT_Rw,   R_ANAL_OP_TYPE_MOV },
+	{ MACH_NIOS32, TYPE_OP11, OP_USR1,    FMT_Rw,   R_ANAL_OP_TYPE_IO },
+	{ MACH_NIOS32, TYPE_OP11, OP_USR2,    FMT_Rw,   R_ANAL_OP_TYPE_IO },
+	{ MACH_NIOS32, TYPE_OP11, OP_USR3,    FMT_Rw,   R_ANAL_OP_TYPE_IO },
+	{ MACH_NIOS32, TYPE_OP11, OP_USR4,    FMT_Rw,   R_ANAL_OP_TYPE_IO },
+	{ MACH_NIOS32, TYPE_OP11, OP_MSTEP,   FMT_Rw,   R_ANAL_OP_TYPE_MUL },
+	{ MACH_NIOS32, TYPE_OP11, OP_MUL,     FMT_Rw,   R_ANAL_OP_TYPE_MUL }
 };
 
-static struct nios_op nios32_ops[OP_SIZE] = {
-	// op6
-	[OP_ADD]     = { R_ANAL_OP_TYPE_ADD,   TYPE_OP6,  FMT_RR },
-	[OP_ADDI]    = { R_ANAL_OP_TYPE_ADD,   TYPE_OP6,  FMT_Ri5 },
-	[OP_SUB]     = { R_ANAL_OP_TYPE_SUB,   TYPE_OP6,  FMT_RR },
-	[OP_SUBI]    = { R_ANAL_OP_TYPE_SUB,   TYPE_OP6,  FMT_Ri5 },
-	[OP_CMP]     = { R_ANAL_OP_TYPE_CMP,   TYPE_OP6,  FMT_RR },
-	[OP_CMPI]    = { R_ANAL_OP_TYPE_CMP,   TYPE_OP6,  FMT_Ri5 },
-	[OP_LSL]     = { R_ANAL_OP_TYPE_SHL,   TYPE_OP6,  FMT_RR },
-	[OP_LSLI]    = { R_ANAL_OP_TYPE_SHL,   TYPE_OP6,  FMT_Ri5 },
-	[OP_LSR]     = { R_ANAL_OP_TYPE_SHR,   TYPE_OP6,  FMT_RR },
-	[OP_LSRI]    = { R_ANAL_OP_TYPE_SHR,   TYPE_OP6,  FMT_Ri5 },
-	[OP_ASR]     = { R_ANAL_OP_TYPE_SAR,   TYPE_OP6,  FMT_RR },
-	[OP_ASRI]    = { R_ANAL_OP_TYPE_SAR,   TYPE_OP6,  FMT_Ri5 },
-	[OP_MOV]     = { R_ANAL_OP_TYPE_MOV,   TYPE_OP6,  FMT_RR },
-	[OP_MOVI]    = { R_ANAL_OP_TYPE_MOV,   TYPE_OP6,  FMT_Ri5 },
-	[OP_AND]     = { R_ANAL_OP_TYPE_AND,   TYPE_OP6,  FMT_RR },
-	[OP_ANDN]    = { R_ANAL_OP_TYPE_AND,   TYPE_OP6,  FMT_RR },
-	[OP_OR]      = { R_ANAL_OP_TYPE_OR,    TYPE_OP6,  FMT_RR },
-	[OP_XOR]     = { R_ANAL_OP_TYPE_XOR,   TYPE_OP6,  FMT_RR },
-	[OP_BGEN]    = { R_ANAL_OP_TYPE_MUL,   TYPE_OP6,  FMT_Ri5 },
-	[OP_EXT8D]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP6,  FMT_RR },
-	[OP_SKP0]    = { R_ANAL_OP_TYPE_CJMP,  TYPE_OP6,  FMT_Ri5 },
-	[OP_SKP1]    = { R_ANAL_OP_TYPE_CJMP,  TYPE_OP6,  FMT_Ri5 },
-	[OP_LD]      = { R_ANAL_OP_TYPE_LOAD,  TYPE_OP6,  FMT_RR },
-	[OP_ST]      = { R_ANAL_OP_TYPE_STORE, TYPE_OP6,  FMT_RR },
-	[OP_STS8S]   = { R_ANAL_OP_TYPE_STORE, TYPE_OP6,  FMT_i10 },
-	[OP_STS16S]  = { R_ANAL_OP_TYPE_STORE, TYPE_OP6,  FMT_i9 },
-	[OP_EXT16D]  = { R_ANAL_OP_TYPE_MOV,   TYPE_OP6,  FMT_RR },
-	[OP_MOVHI]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP6,  FMT_Ri5 },
-	[OP_USR0]    = { R_ANAL_OP_TYPE_IO,    TYPE_OP6,  FMT_RR },
-	// op3
-	[OP_STS]     = { R_ANAL_OP_TYPE_STORE, TYPE_OP3,  FMT_Ri8 },
-	[OP_LDS]     = { R_ANAL_OP_TYPE_LOAD,  TYPE_OP3,  FMT_Ri8 },
-	// op4
-	[OP_STP]     = { R_ANAL_OP_TYPE_STORE, TYPE_OP4,  FMT_RPi5 },
-	[OP_LDP]     = { R_ANAL_OP_TYPE_LOAD,  TYPE_OP4,  FMT_RPi5 },
-	// op5
-	[OP_BR]      = { R_ANAL_OP_TYPE_JMP,   TYPE_OP5,  FMT_i11 },
-	[OP_BSR]     = { R_ANAL_OP_TYPE_JMP,   TYPE_OP5,  FMT_i11 },
-	[OP_PFXIO]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP5,  FMT_i11 },
-	[OP_PFX]     = { R_ANAL_OP_TYPE_MOV,   TYPE_OP5,  FMT_i11 },
-	// op8
-	[OP_SAVE]    = { R_ANAL_OP_TYPE_PUSH,  TYPE_OP8,  FMT_i8v },
-	[OP_TRAP]    = { R_ANAL_OP_TYPE_TRAP,  TYPE_OP8,  FMT_i6v },
-	// op9
-	[OP_EXT8S]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP9,  FMT_Ri1u },
-	[OP_EXT16S]  = { R_ANAL_OP_TYPE_MOV,   TYPE_OP9,  FMT_Ri1u },
-	[OP_ST8S]    = { R_ANAL_OP_TYPE_STORE, TYPE_OP9,  FMT_Ri1u },
-	[OP_ST16S]   = { R_ANAL_OP_TYPE_STORE, TYPE_OP9,  FMT_Ri1u },
-	// op11
-	[OP_NOT]     = { R_ANAL_OP_TYPE_NOT,   TYPE_OP11, FMT_Rw },
-	[OP_NEG]     = { R_ANAL_OP_TYPE_SUB,   TYPE_OP11, FMT_Rw },
-	[OP_ABS]     = { R_ANAL_OP_TYPE_ABS,   TYPE_OP11, FMT_Rw },
-	[OP_SEXT8]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP11, FMT_Rw },
-	[OP_SEXT16]  = { R_ANAL_OP_TYPE_MOV,   TYPE_OP11, FMT_Rw },
-	[OP_RLC]     = { R_ANAL_OP_TYPE_ROL,   TYPE_OP11, FMT_Rw },
-	[OP_RRC]     = { R_ANAL_OP_TYPE_ROR,   TYPE_OP11, FMT_Rw },
-	[OP_TRET]    = { R_ANAL_OP_TYPE_UJMP,  TYPE_OP11, FMT_Rw },
-	[OP_RESTORE] = { R_ANAL_OP_TYPE_POP,   TYPE_OP11, FMT_w },
-	[OP_ST8D]    = { R_ANAL_OP_TYPE_STORE, TYPE_OP11, FMT_Rw },
-	[OP_ST16D]   = { R_ANAL_OP_TYPE_STORE, TYPE_OP11, FMT_Rw },
-	[OP_FILL8]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP11, FMT_Rw },
-	[OP_FILL16]  = { R_ANAL_OP_TYPE_MOV,   TYPE_OP11, FMT_Rw },
-	[OP_SKPRZ]   = { R_ANAL_OP_TYPE_JMP,   TYPE_OP11, FMT_Rw },
-	[OP_SKPS]    = { R_ANAL_OP_TYPE_JMP,   TYPE_OP11, FMT_Rw },
-	[OP_WRCTL]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP11, FMT_Rw },
-	[OP_RDCTL]   = { R_ANAL_OP_TYPE_MOV,   TYPE_OP11, FMT_Rw },
-	[OP_SKPRNZ]  = { R_ANAL_OP_TYPE_CJMP,  TYPE_OP11, FMT_Rw },
-	[OP_JMP]     = { R_ANAL_OP_TYPE_JMP,   TYPE_OP11, FMT_Rw },
-	[OP_CALL]    = { R_ANAL_OP_TYPE_CALL,  TYPE_OP11, FMT_Rw },
-	[OP_SWAP]    = { R_ANAL_OP_TYPE_MOV,   TYPE_OP11, FMT_Rw },
-	[OP_USR1]    = { R_ANAL_OP_TYPE_IO,    TYPE_OP11, FMT_Rw },
-	[OP_USR2]    = { R_ANAL_OP_TYPE_IO,    TYPE_OP11, FMT_Rw },
-	[OP_USR3]    = { R_ANAL_OP_TYPE_IO,    TYPE_OP11, FMT_Rw },
-	[OP_USR4]    = { R_ANAL_OP_TYPE_IO,    TYPE_OP11, FMT_Rw },
-	[OP_MSTEP]   = { R_ANAL_OP_TYPE_MUL,   TYPE_OP11, FMT_Rw },
-	[OP_MUL]     = { R_ANAL_OP_TYPE_MUL,   TYPE_OP11, FMT_Rw }
+struct nios_info {
+	SdbHt *ops;
 };
 
-static struct nios_op *nios_ops;
+static struct nios_info *nios;
 
-static int parse_insn(int bits, ut16 insn, struct insn_fields *f) {
-	int opcode;
-	opcode = -1;
+static const char *nios16_reg_profile = \
+	"=SR  ctl0\n"
+	"=PC	pc\n"
+	"=SP   r14\n"
+	"=LR   r15\n"
+	"=BP   r30\n"
+	/* control registers */
+	"gpr  ctl0      .16       0     0\n"
+	"gpr  ctl1      .16       2     0\n"
+	"gpr  ctl2      .16       4     0\n"
+	"gpr  ctl3      .16       6     0\n"
+	"gpr  ctl4      .16       8     0\n"
+	"gpr  ctl5      .16      10     0\n"
+	"gpr  ctl6      .16      12     0\n"
+	"gpr  ctl7      .16      14     0\n"
+	"gpr  ctl8      .16      16     0\n"
+	"gpr  ctl9      .16      18     0\n"
+	"gpr    pc      .16      20     0\n"
+	"gpr     k      .11      22     0\n"
+	/* r0-r7 are global (g0-g7) */
+	"gpr    r0      .16      24     0\n"
+	"gpr    r1      .16      26     0\n"
+	"gpr    r2      .16      28     0\n"
+	"gpr    r3      .16      30     0\n"
+	"gpr    r4      .16      32     0\n"
+	"gpr    r5      .16      34     0\n"
+	"gpr    r6      .16      36     0\n"
+	"gpr    r7      .16      38     0\n"
+	/* r8-15 are out (o0-o7) */
+	"gpr    r8      .16      40     0\n"
+	"gpr    r9      .16      42     0\n"
+	"gpr    r10     .16      44     0\n"
+	"gpr    r11     .16      46     0\n"
+	"gpr    r12     .16      48     0\n"
+	"gpr    r13     .16      50     0\n"
+	"gpr    r14     .16      52     0\n"
+	"gpr    r15     .16      54     0\n"
+	/* r16-23 are local (l0-l7) */
+	"gpr    r16     .16      56     0\n"
+	"gpr    r17     .16      58     0\n"
+	"gpr    r18     .16      60     0\n"
+	"gpr    r19     .16      62     0\n"
+	"gpr    r20     .16      64     0\n"
+	"gpr    r21     .16      66     0\n"
+	"gpr    r22     .16      68     0\n"
+	"gpr    r23     .16      70     0\n"
+	/* r24-31 are in (i0-i7) */
+	"gpr    r24     .16      72     0\n"
+	"gpr    r25     .16      74     0\n"
+	"gpr    r26     .16      76     0\n"
+	"gpr    r27     .16      78     0\n"
+	"gpr    r28     .16      80     0\n"
+	"gpr    r29     .16      82     0\n"
+	"gpr    r30     .16      84     0\n"
+	"gpr    r31     .16      86     0\n";
 
-	ut16 insns[OP_TYPES] = {
+static const char *nios32_reg_profile = \
+	"=SR  ctl0\n"
+	"=PC	pc\n"
+	"=SP   r14\n"
+	"=LR   r15\n"
+	"=BP   r30\n"
+	/* control registers */
+	"gpr  ctl0      .32       0     0\n"
+	"gpr  ctl1      .32       4     0\n"
+	"gpr  ctl2      .32       8     0\n"
+	"gpr  ctl3      .32      12     0\n"
+	"gpr  ctl4      .32      16     0\n"
+	"gpr  ctl5      .32      20     0\n"
+	"gpr  ctl6      .32      24     0\n"
+	"gpr  ctl7      .32      28     0\n"
+	"gpr  ctl8      .32      32     0\n"
+	"gpr  ctl9      .32      36     0\n"
+	"gpr    pc      .32      40     0\n"
+	"gpr     k      .11      44     0\n"
+	/* r0-r7 are global (g0-g7) */
+	"gpr    r0      .32      48     0\n"
+	"gpr    r1      .32      52     0\n"
+	"gpr    r2      .32      56     0\n"
+	"gpr    r3      .32      60     0\n"
+	"gpr    r4      .32      64     0\n"
+	"gpr    r5      .32      68     0\n"
+	"gpr    r6      .32      72     0\n"
+	"gpr    r7      .32      76     0\n"
+	/* r8-15 are out (o0-o7) */
+	"gpr    r8      .32      80     0\n"
+	"gpr    r9      .32      84     0\n"
+	"gpr    r10     .32      88     0\n"
+	"gpr    r11     .32      92     0\n"
+	"gpr    r12     .32      96     0\n"
+	"gpr    r13     .32     100     0\n"
+	"gpr    r14     .32     104     0\n"
+	"gpr    r15     .32     108     0\n"
+	/* r16-23 are local (l0-l7) */
+	"gpr    r16     .32     112     0\n"
+	"gpr    r17     .32     116     0\n"
+	"gpr    r18     .32     120     0\n"
+	"gpr    r19     .32     124     0\n"
+	"gpr    r20     .32     128     0\n"
+	"gpr    r21     .32     132     0\n"
+	"gpr    r22     .32     136     0\n"
+	"gpr    r23     .32     140     0\n"
+	/* r24-31 are in (i0-i7) */
+	"gpr    r24     .32     144     0\n"
+	"gpr    r25     .32     148     0\n"
+	"gpr    r26     .32     152     0\n"
+	"gpr    r27     .32     156     0\n"
+	"gpr    r28     .32     160     0\n"
+	"gpr    r29     .32     164     0\n"
+	"gpr    r30     .32     168     0\n"
+	"gpr    r31     .32     172     0\n";
+
+static int parse_insn(enum mach_attr mach, ut16 insn, struct nios_op **op, struct insn_fields *f) {
+	ut16 insns[TYPE_OPS] = {
 		f_op6(insn),
 		f_op9(insn),
+		f_op8(insn),
 		f_op11(insn),
 		f_op5(insn),
 		f_op4(insn),
-		f_op3(insn)
+		f_op3(insn),
 	};
 
-	int op;
-	for (int i = 0; i < OP_TYPES; i++) {
-		op = insns[i];
-		eprintf("%d ", op);
-		if (op < OP_SIZE && nios_ops[op].format) {
-			opcode = op;
-			eprintf("break\n");
+	bool found;
+	int opcode;
+
+	for (int type = TYPE_OP6; type < TYPE_OPS; type++) {
+		const char *key = sdb_fmt("%d %d %d", mach, type, insns[type]);
+		*op = ht_find(nios->ops, key, &found);
+
+		if (found) {
+			opcode = (*op)->opcode;
 			break;
 		}
 	}
 
-	eprintf("opcode %d: format: %d, type: %d\n", opcode, nios_ops[opcode].format, nios_ops[opcode].type_op);
+	if (!found) {
+		return -1;
+	}
 
-	switch (nios_ops[opcode].format) {
+	switch ((*op)->format) {
 	case FMT_RR:
 		f->op6 = f_op6(insn);
 		f->B = f_B(insn);
@@ -384,7 +485,6 @@ static int parse_insn(int bits, ut16 insn, struct insn_fields *f) {
 		f->op5w = f_op5w(insn);
 		break;
 
-	case FMT_UNKNOWN:
 	default:
 		break;
 	}
@@ -392,7 +492,7 @@ static int parse_insn(int bits, ut16 insn, struct insn_fields *f) {
 	return opcode;
 }
 
-static void nios16_anal(RAnalOp *op, int opcode, enum insn_type type, struct insn_fields *f) {
+static void nios16_anal(RAnalOp *op, ut16 opcode, enum insn_type type, struct insn_fields *f) {
 	if (type == TYPE_OP6) {
 		switch (opcode) {
 		case OP_ADD:
@@ -444,6 +544,8 @@ static void nios16_anal(RAnalOp *op, int opcode, enum insn_type type, struct ins
 		switch (opcode) {
 		case OP_BR:
 		case OP_BSR:
+			op->jump = op->addr + ((f->IMM11 + 1) * 2);
+			break;
 		case OP_PFX:
 		default:
 			break;
@@ -491,7 +593,7 @@ static void nios16_anal(RAnalOp *op, int opcode, enum insn_type type, struct ins
 	}
 }
 
-static void nios32_anal(RAnalOp *op, int opcode, enum insn_type type, struct insn_fields *f) {
+static void nios32_anal(RAnalOp *op, ut16 opcode, enum insn_type type, struct insn_fields *f) {
 	if (type == TYPE_OP6) {
 		switch (opcode) {
 		case OP_ADD:
@@ -510,10 +612,7 @@ static void nios32_anal(RAnalOp *op, int opcode, enum insn_type type, struct ins
 		case OP_MOVI:
 		case OP_AND:
 		case OP_ANDN:
-			break;
 		case OP_OR:
-			eprintf("OR!\n");
-			break;
 		case OP_XOR:
 		case OP_BGEN:
 		case OP_EXT8D:
@@ -546,9 +645,9 @@ static void nios32_anal(RAnalOp *op, int opcode, enum insn_type type, struct ins
 	} else if (type == TYPE_OP5) {
 		switch (opcode) {
 		case OP_BR:
-			op->jump = f->IMM11;
-			break;
 		case OP_BSR:
+			op->jump = op->addr + ((f->IMM11 + 1) * 2);
+			break;
 		case OP_PFXIO:
 		case OP_PFX:
 		default:
@@ -616,32 +715,33 @@ static int nios_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len) {
 	op->addr = addr;
 	op->type = R_ANAL_OP_TYPE_UNK;
 
-	if (a->bits == 16) {
-		nios_ops = nios16_ops;
-	} else if (a->bits == 32) {
-		nios_ops = nios32_ops;
+	enum mach_attr arch;
+	void (*nios_anal)(RAnalOp *, ut16, enum insn_type, struct insn_fields *);
+
+	switch (a->bits) {
+	case 16:
+		arch = MACH_NIOS16;
+		nios_anal = &nios16_anal;
+		break;
+	case 32:
+	default:
+		arch = MACH_NIOS32;
+		nios_anal = &nios32_anal;
+		break;
 	}
 
 	ut16 insn;
 	insn = r_read_ble16(buf, a->big_endian);
 
+	struct nios_op *nios_op;
 	struct insn_fields fields = { 0 };
 
 	int opcode;
-	opcode = parse_insn(a->bits, insn, &fields);
+	opcode = parse_insn(arch, insn, &nios_op, &fields);
 
 	if (opcode >= 0) {
-		op->type = nios_ops[opcode].type;
-	} else {
-		return -1;
-	}
-
-	enum insn_type type = nios_ops[opcode].type_op;
-
-	if (a->bits == 16) {
-		nios16_anal(op, opcode, type, &fields);
-	} else if (a->bits == 32) {
-		nios32_anal(op, opcode, type, &fields);
+		op->type = nios_op->r_op_type;
+		(*nios_anal)(op, opcode, nios_op->type, &fields);
 	}
 
 	return op->size;
@@ -649,120 +749,48 @@ static int nios_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len) {
 
 static int set_reg_profile(RAnal *a) {
 	if (a->bits == 16) {
-		const char *p = \
-			"=SR  ctl0\n"
-			"=PC	pc\n"
-			"=SP   r14\n"
-			"=LR   r15\n"
-			"=BP   r30\n"
-			/* control registers */
-			"gpr  ctl0      .16       0     0\n"
-			"gpr  ctl1      .16       2     0\n"
-			"gpr  ctl2      .16       4     0\n"
-                        "gpr  ctl3      .16       6     0\n"
-                        "gpr  ctl4      .16       8     0\n"
-			"gpr  ctl5      .16      10     0\n"
-			"gpr  ctl6      .16      12     0\n"
-			"gpr  ctl7      .16      14     0\n"
-			"gpr  ctl8      .16      16     0\n"
-			"gpr  ctl9      .16      18     0\n"
-			"gpr    pc      .16      20     0\n"
-			"gpr     k      .11      22     0\n"
-			/* r0-r7 are global (g0-g7) */
-			"gpr    r0      .16      24     0\n"
-			"gpr    r1      .16      26     0\n"
-			"gpr    r2      .16      28     0\n"
-			"gpr    r3      .16      30     0\n"
-			"gpr    r4      .16      32     0\n"
-			"gpr    r5      .16      34     0\n"
-			"gpr    r6      .16      36     0\n"
-			"gpr    r7      .16      38     0\n"
-			/* r8-15 are out (o0-o7) */
-			"gpr    r8      .16      40     0\n"
-			"gpr    r9      .16      42     0\n"
-			"gpr    r10     .16      44     0\n"
-			"gpr    r11     .16      46     0\n"
-			"gpr    r12     .16      48     0\n"
-			"gpr    r13     .16      50     0\n"
-			"gpr    r14     .16      52     0\n"
-			"gpr    r15     .16      54     0\n"
-			/* r16-23 are local (L0-L7) */
-			"gpr    r16     .16      56     0\n"
-			"gpr    r17     .16      58     0\n"
-			"gpr    r18     .16      60     0\n"
-			"gpr    r19     .16      62     0\n"
-			"gpr    r20     .16      64     0\n"
-			"gpr    r21     .16      66     0\n"
-			"gpr    r22     .16      68     0\n"
-			"gpr    r23     .16      70     0\n"
-			/* r24-31 are in (i0-i7) */
-			"gpr    r24     .16      72     0\n"
-			"gpr    r25     .16      74     0\n"
-			"gpr    r26     .16      76     0\n"
-			"gpr    r27     .16      78     0\n"
-			"gpr    r28     .16      80     0\n"
-			"gpr    r29     .16      82     0\n"
-			"gpr    r30     .16      84     0\n"
-			"gpr    r31     .16      86     0\n";
-		return r_reg_set_profile_string(a->reg, p);
+		return r_reg_set_profile_string(a->reg, nios16_reg_profile);
 	} else {
-		const char *p = \
-			"=SR  ctl0\n"
-			"=PC	pc\n"
-			"=SP   r14\n"
-			"=LR   r15\n"
-			"=BP   r30\n"
-			/* control registers */
-			"gpr  ctl0      .32       0     0\n"
-			"gpr  ctl1      .32       4     0\n"
-			"gpr  ctl2      .32       8     0\n"
-                        "gpr  ctl3      .32      12     0\n"
-                        "gpr  ctl4      .32      16     0\n"
-			"gpr  ctl5      .32      20     0\n"
-			"gpr  ctl6      .32      24     0\n"
-			"gpr  ctl7      .32      28     0\n"
-			"gpr  ctl8      .32      32     0\n"
-			"gpr  ctl9      .32      36     0\n"
-			"gpr    pc      .32      40     0\n"
-			"gpr     k      .11      44     0\n"
-			/* r0-r7 are global (g0-g7) */
-			"gpr    r0      .32      48     0\n"
-			"gpr    r1      .32      52     0\n"
-			"gpr    r2      .32      56     0\n"
-			"gpr    r3      .32      60     0\n"
-			"gpr    r4      .32      64     0\n"
-			"gpr    r5      .32      68     0\n"
-			"gpr    r6      .32      72     0\n"
-			"gpr    r7      .32      76     0\n"
-			/* r8-15 are out (o0-o7) */
-			"gpr    r8      .32      80     0\n"
-			"gpr    r9      .32      84     0\n"
-			"gpr    r10     .32      88     0\n"
-			"gpr    r11     .32      92     0\n"
-			"gpr    r12     .32      96     0\n"
-			"gpr    r13     .32     100     0\n"
-			"gpr    r14     .32     104     0\n"
-			"gpr    r15     .32     108     0\n"
-			/* r16-23 are local (L0-L7) */
-			"gpr    r16     .32     112     0\n"
-			"gpr    r17     .32     116     0\n"
-			"gpr    r18     .32     120     0\n"
-			"gpr    r19     .32     124     0\n"
-			"gpr    r20     .32     128     0\n"
-			"gpr    r21     .32     132     0\n"
-			"gpr    r22     .32     136     0\n"
-			"gpr    r23     .32     140     0\n"
-			/* r24-31 are in (i0-i7) */
-			"gpr    r24     .32     144     0\n"
-			"gpr    r25     .32     148     0\n"
-			"gpr    r26     .32     152     0\n"
-			"gpr    r27     .32     156     0\n"
-			"gpr    r28     .32     160     0\n"
-			"gpr    r29     .32     164     0\n"
-			"gpr    r30     .32     168     0\n"
-			"gpr    r31     .32     172     0\n";
-		return r_reg_set_profile_string(a->reg, p);
+		return r_reg_set_profile_string(a->reg, nios32_reg_profile);
 	}
+}
+
+static void nios_free_kv(HtKv *kv) {
+	if (kv) {
+		if (kv->key) {
+			free(kv->key);
+		}
+	}
+}
+
+static int nios_init(void *user) {
+	if (!nios) {
+		nios = calloc(1, sizeof (*nios));
+		nios->ops = ht_new(NULL, nios_free_kv, NULL);
+		if (!nios->ops) {
+			return -1;
+		}
+	}
+
+	for (int i = 0; i < NIOS_OPS; i++) {
+		const struct nios_op *op = &nios_ops[i];
+		const char *key = sdb_fmt("%d %d %d", op->mach, op->type, op->opcode);
+		ht_insert(nios->ops, key, (void *) op);
+	}
+
+	return 0;
+}
+
+static int nios_fini(void *user) {
+	if (nios) {
+		if (nios->ops) {
+			ht_free(nios->ops);
+		}
+
+		free(nios);
+	}
+
+	return 0;
 }
 
 RAnalPlugin r_anal_plugin_nios = {
@@ -773,8 +801,8 @@ RAnalPlugin r_anal_plugin_nios = {
 	.bits = 16 | 32,
 	.op = &nios_op,
 	.set_reg_profile = &set_reg_profile,
-	.init = NULL,
-	.fini = NULL,
+	.init = &nios_init,
+	.fini = &nios_fini,
 	.esil = false,
 	.cmd_ext = NULL
 };
