@@ -244,7 +244,7 @@ static const struct nios_op nios_ops[NIOS_OPS] = {
 };
 
 struct nios_info {
-	SdbHt *ops;
+	HtPP *ops;
 };
 
 static struct nios_info *nios;
@@ -377,7 +377,7 @@ static int parse_insn(enum mach_attr mach, ut16 insn, struct nios_op **op, struc
 
 	for (int type = TYPE_OP6; type < TYPE_OPS; type++) {
 		const char *key = sdb_fmt("%d %d %d", mach, type, insns[type]);
-		*op = ht_find(nios->ops, key, &found);
+		*op = ht_pp_find(nios->ops, key, &found);
 
 		if (found) {
 			opcode = (*op)->opcode;
@@ -755,18 +755,16 @@ static int set_reg_profile(RAnal *a) {
 	}
 }
 
-static void nios_free_kv(HtKv *kv) {
-	if (kv) {
-		if (kv->key) {
-			free(kv->key);
-		}
+static void nios_free_kv(HtPPKv *kv) {
+	if (kv && kv->key) {
+		free(kv->key);
 	}
 }
 
 static int nios_init(void *user) {
 	if (!nios) {
 		nios = calloc(1, sizeof (*nios));
-		nios->ops = ht_new(NULL, nios_free_kv, NULL);
+		nios->ops = ht_pp_new(NULL, nios_free_kv, NULL);
 		if (!nios->ops) {
 			return -1;
 		}
@@ -775,18 +773,18 @@ static int nios_init(void *user) {
 	for (int i = 0; i < NIOS_OPS; i++) {
 		const struct nios_op *op = &nios_ops[i];
 		const char *key = sdb_fmt("%d %d %d", op->mach, op->type, op->opcode);
-		ht_insert(nios->ops, key, (void *) op);
+		ht_pp_insert(nios->ops, key, (void *) op);
 	}
 
 	return 0;
 }
 
 static int nios_fini(void *user) {
-	if (nios) {
-		if (nios->ops) {
-			ht_free(nios->ops);
-		}
+	if (nios && nios->ops) {
+		ht_pp_free(nios->ops);
+	}
 
+	if (nios) {
 		free(nios);
 	}
 
