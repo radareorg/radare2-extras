@@ -30,10 +30,10 @@ static int disassemble (RAsm *a, RAsmOp *op, const ut8 *b, int l) {
 	int idx = (b[0]&0xf)*2;
 	op->size = 2;
 	if (idx>=(OPS*2)) {
-		strcpy (op->buf_asm, "invalid");
+		r_strbuf_set (&op->buf_asm, "invalid");
 		return -1;
 	}
-	strcpy (op->buf_asm, ops[idx]);
+	r_strbuf_set (&op->buf_asm, ops[idx]);
 	if (ops[idx+1]) {
 		const char *p = ops[idx+1];
 		arg[0] = 0;
@@ -50,8 +50,8 @@ static int disassemble (RAsm *a, RAsmOp *op, const ut8 *b, int l) {
 			sprintf (arg, "r%d, %d", b[1]>>4, (char)b[1]&0xf);
 		}
 		if (*arg) {
-			strcat (op->buf_asm, " ");
-			strcat (op->buf_asm, arg);
+			r_strbuf_append (&op->buf_asm, " ");
+			r_strbuf_append (&op->buf_asm, arg);
 		}
 	}
 	return op->size;
@@ -67,7 +67,7 @@ RAsmPlugin r_asm_plugin_mycpu = {
 };
 
 #ifndef CORELIB
-struct r_lib_struct_t radare_plugin = {
+RLibStruct radare_plugin = {
         .type = R_LIB_TYPE_ASM,
         .data = &r_asm_plugin_mycpu
 };
