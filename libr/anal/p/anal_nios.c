@@ -267,7 +267,7 @@ static const char *nios16_reg_profile = \
 	"gpr  ctl8      .16      16     0\n"
 	"gpr  ctl9      .16      18     0\n"
 	"gpr    pc      .16      20     0\n"
-	"gpr     k      .11      22     0\n"
+	"gpr     k      .16      22     0\n"
 	/* r0-r7 are global (g0-g7) */
 	"gpr    r0      .16      24     0\n"
 	"gpr    r1      .16      26     0\n"
@@ -323,7 +323,7 @@ static const char *nios32_reg_profile = \
 	"gpr  ctl8      .32      32     0\n"
 	"gpr  ctl9      .32      36     0\n"
 	"gpr    pc      .32      40     0\n"
-	"gpr     k      .11      44     0\n"
+	"gpr     k      .16      44     0\n"
 	/* r0-r7 are global (g0-g7) */
 	"gpr    r0      .32      48     0\n"
 	"gpr    r1      .32      52     0\n"
@@ -718,16 +718,12 @@ static int nios_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len) {
 	enum mach_attr arch;
 	void (*nios_anal)(RAnalOp *, ut16, enum insn_type, struct insn_fields *);
 
-	switch (a->bits) {
-	case 16:
+	if (a->bits == 16) {
 		arch = MACH_NIOS16;
 		nios_anal = &nios16_anal;
-		break;
-	case 32:
-	default:
+	} else {
 		arch = MACH_NIOS32;
 		nios_anal = &nios32_anal;
-		break;
 	}
 
 	ut16 insn;
@@ -748,11 +744,15 @@ static int nios_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len) {
 }
 
 static int set_reg_profile(RAnal *a) {
+	const char *nios_reg_profile;
+
 	if (a->bits == 16) {
-		return r_reg_set_profile_string(a->reg, nios16_reg_profile);
+		nios_reg_profile = nios16_reg_profile;
 	} else {
-		return r_reg_set_profile_string(a->reg, nios32_reg_profile);
+		nios_reg_profile = nios32_reg_profile;
 	}
+
+	return r_reg_set_profile_string(a->reg, nios_reg_profile);
 }
 
 static void nios_free_kv(HtPPKv *kv) {
