@@ -22,7 +22,7 @@ struct ne_header {
 
 	uint16_t segment_count;
 	uint16_t module_reference_count;
-	uint16_t size_of_nonresident_names_table_in_bytes
+	uint16_t size_of_nonresident_names_table_in_bytes;
 	uint16_t offset_of_segment_table;
 	uint16_t offset_of_resource_table;
 	uint16_t offset_of_resident_names_table;
