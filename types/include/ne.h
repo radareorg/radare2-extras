@@ -1,4 +1,5 @@
 // http://www.fileformat.info/format/exe/corion-ne.htm
+// http://bytepointer.com/resources/win16_ne_exe_format_win3.0.htm
 
 // at offset 0x200
 struct ne_header {
