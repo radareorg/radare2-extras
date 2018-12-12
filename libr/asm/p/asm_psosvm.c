@@ -7,8 +7,14 @@
 #include <psosvm/vmas/vmas.h>
 
 static int disassemble(RAsm *a, struct r_asm_op_t *op, const ut8 *buf, int len) {
+	char buf_asm[64] = {0};
 	psosvmasm_init();
-	op->size = psosvm_disasm(buf, op->buf_asm);
+	op->size = psosvm_disasm(buf, buf_asm);
+	if (op->size > 0) {
+		r_asm_op_set_asm (op, buf_asm);
+	} else {
+		r_asm_op_set_asm (op, " (data)");
+	}
 	return op->size;
 }
 

@@ -17,6 +17,7 @@ static int disassemble(RAsm *a, RAsmOp *aop, const ut8 *buf, int len) {
 	const unsigned char *buf2;
 	int ilen ;
 	static struct DisasmPara_68k dp;
+	char *buf_asm;
 	/* initialize DisasmPara */
 	*operands = *opcode = 0;
 	memcpy (bof, buf, R_MIN(len, sizeof(bof)));
@@ -31,9 +32,11 @@ static int disassemble(RAsm *a, RAsmOp *aop, const ut8 *buf, int len) {
 	}
 	ilen = (buf2-(const ut8*)bof);
 	if (*operands)
-		snprintf (aop->buf_asm, R_ASM_BUFSIZE, "%s %s", opcode, operands);
-	else snprintf (aop->buf_asm, R_ASM_BUFSIZE, "%s", opcode);
-	r_str_rmch (aop->buf_asm, '#');
+		buf_asm = sdb_fmt ("%s %s", opcode, operands);
+	else
+		buf_asm = sdb_fmt ("%s", opcode);
+	r_str_rmch (buf_asm, '#');
+	r_asm_op_set_asm (aop, buf_asm);
 	aop->size = ilen;
 	return aop->size;
 }
