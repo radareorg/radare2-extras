@@ -22,6 +22,8 @@
 #include "sysdep.h"
 #include <alloca.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "ansidecl.h"
 #include "libiberty.h"
 #include <ctype.h>

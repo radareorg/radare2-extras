@@ -547,17 +547,17 @@ static bool esil_bale_interrupt_wrapper_cb (RAnalEsil *esil, ut32 interrupt, voi
 	return !!esil_baleful_intr(esil, interrupt);
 }
 
-RAnalEsilInterruptHandler bale_intr_handler00 {
+RAnalEsilInterruptHandler bale_intr_handler00 = {
 	.num = 0x00,				//interrupt number
 	.cb = esil_bale_interrupt_wrapper_cb,	//the actual handler
 };
 
-RAnalEsilInterruptHandler bale_intr_handler04 {
+RAnalEsilInterruptHandler bale_intr_handler04 = {
 	.num = 0x04,				//interrupt number
 	.cb = esil_bale_interrupt_wrapper_cb,	//the actual handler
 };
 
-RAnalEsilInterruptHandler bale_intr_handler11 {
+RAnalEsilInterruptHandler bale_intr_handler11 = {
 	.num = 0x11,				//interrupt number
 	.cb = esil_bale_interrupt_wrapper_cb,	//the actual handler
 };

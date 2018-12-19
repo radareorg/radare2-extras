@@ -352,7 +352,7 @@ static int init_curl(RIOEvm *rioe) {
 }
 
 static int evm_read_tx_trace(RIOEvm *rioe) {
-	char *url;
+	char *url = NULL;
 	int ret = -1;
 	size_t urlmaxlen = sizeof("http://") + sizeof(":65535") + strlen (rioe->host);
 	size_t postfields_len = strlen (tx_trace_req_pattern) + strlen (rioe->tx) + 8;
@@ -423,7 +423,7 @@ out:
 }
 
 static int evm_read_tx(RIOEvm *rioe) {
-	char *url;
+	char *url = NULL;
 	int ret = -1;
 	size_t urlmaxlen = sizeof("http://") + sizeof(":65535") + strlen (rioe->host);
 	size_t postfields_len = strlen (get_tx_pattern) + strlen (rioe->tx) + 8;
@@ -486,7 +486,7 @@ out:
 }
 
 static int evm_read_code(RIOEvm *rioe) {
-	char *url;
+	char *url = NULL;
 	int ret = -1;
 	const char *contract_addr;
 	size_t urlmaxlen = sizeof("http://") + sizeof(":65535") + strlen (rioe->host);
