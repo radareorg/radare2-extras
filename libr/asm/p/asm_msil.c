@@ -8,18 +8,18 @@
 #include <r_asm.h>
 #include "msil/demsil.c"
 
-static int arch_msil_disasm(char *str, const ut8 *buf, ut64 seek) {
+static int arch_msil_disasm(RStrBuf *buf_asm, const ut8 *buf, ut64 seek) {
 	ut32 n;
 	int o; 
 	DISASMSIL_OFFSET CodeBase = seek;
 	ILOPCODE_STRUCT ilopar[8];
 	o = DisasMSIL (buf, 16, CodeBase, ilopar, 8, &n);
-	sprintf (str,"%s", ilopar[0].Mnemonic);
+	r_strbuf_setf (buf_asm, "%s", ilopar[0].Mnemonic);
 	return o;
 }
 
 static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
-	return (op->size = arch_msil_disasm (op->buf_asm, buf, a->pc));
+	return (op->size = arch_msil_disasm (&op->buf_asm, buf, a->pc));
 }
 
 RAsmPlugin r_asm_plugin_msil = {

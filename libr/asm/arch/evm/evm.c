@@ -93,7 +93,7 @@ int evm_asm(const char *str, RStrBuf *buf, int buf_len) {
 		const EvmOpDef *opdef = &opcodes[i];
 		if (opdef->txt) {
 			if (!strcmp (opdef->txt, str)) {
-				r_strbuf_append (buf, i);
+				r_strbuf_appendf (buf, "%d", i);
 				return 1;
 			}
 		}

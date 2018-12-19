@@ -24,7 +24,7 @@ static int disassemble(RAsm *a, RAsmOp *aop, const ut8 *buf, int len) {
 	else disasm_obj.Options = 0;
 
 	aop->size = Disasm (&disasm_obj);
-	snprintf (aop->buf_asm, R_ASM_BUFSIZE, disasm_obj.CompleteInstr);
+	r_asm_op_set_asm (aop, disasm_obj.CompleteInstr);
 
 	return aop->size;
 }

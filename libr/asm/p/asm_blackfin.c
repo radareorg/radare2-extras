@@ -11,7 +11,7 @@
 #include "blackfin/bfin-dis.c"
 
 static unsigned long Offset = 0;
-static char *buf_global = NULL;
+static RStrBuf *buf_global = NULL;
 static unsigned char bytes[4];
 
 static int bfin_buffer_read_memory (bfd_vma memaddr, bfd_byte *myaddr, ut32 length, struct disassemble_info *info) {
@@ -28,41 +28,29 @@ static void memory_error_func(int status, bfd_vma memaddr, struct disassemble_in
 }
 
 static void print_address(bfd_vma address, struct disassemble_info *info) {
-        char tmp[32];
         if (buf_global == NULL)
                 return;
-        sprintf(tmp, "0x%08"PFMT64x"", (ut64)address);
-        strcat(buf_global, tmp);
+        r_strbuf_appendf (buf_global, "0x%08"PFMT64x"", (ut64)address);
 }
 
 
 static int buf_fprintf(void *stream, const char *format, ...) {
-        int flen, glen;
         va_list ap;
-        char *tmp;
         if (buf_global == NULL)
                 return 0;
         va_start (ap, format);
-                flen = strlen (format);
-                glen = strlen (buf_global);
-                tmp = malloc (flen + glen + 2);
-                memcpy (tmp, buf_global, glen);
-                memcpy (tmp+glen, format, flen);
-                tmp[flen+glen] = 0;
-// XXX: overflow here?
-        vsprintf (buf_global, tmp, ap);
+        r_strbuf_vappendf (buf_global, format, ap);
         va_end (ap);
-        free (tmp);
         return 0;
 }
 
 static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
         struct disassemble_info disasm_obj;
-        op->buf_asm[0]='\0';
+        r_strbuf_set (&op->buf_asm, "");
 	op->size = 4;
         if (len<4)
                 return -1;
-        buf_global = op->buf_asm;
+        buf_global = &op->buf_asm;
         Offset = a->pc;
         memcpy (bytes, buf, 4); // TODO handle thumb
 
@@ -81,7 +69,7 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	op->size = print_insn_bfin((bfd_vma)Offset, &disasm_obj);
 
         if (op->size == -1)
-                strncpy (op->buf_asm, " (data)", R_ASM_BUFSIZE);
+                r_strbuf_set (&op->buf_asm, " (data)");
 
         return op->size;
 }
