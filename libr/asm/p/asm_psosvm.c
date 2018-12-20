@@ -19,7 +19,7 @@ static int disassemble(RAsm *a, struct r_asm_op_t *op, const ut8 *buf, int len) 
 }
 
 static int assemble(RAsm *a, RAsmOp *op, const char *buf) {
-	op->size = psosvm_assemble(op->buf, buf);
+	op->size = psosvm_assemble((ut8*)r_strbuf_get (&op->buf), buf);
 	return op->size;
 }
 

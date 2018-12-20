@@ -13,11 +13,13 @@ static int check_bytes(const ut8 *buf, ut64 length);
 static char compression;
 static char flashVersion;
 
-static void * load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb){
-	check_bytes (buf, sz);
-	compression = buf[0];
-	flashVersion = buf[3];
-	return R_NOTNULL;
+static bool load_bytes(RBinFile *bf, void **bin_obj, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb){
+	if (check_bytes (buf, sz)) {
+		compression = buf[0];
+		flashVersion = buf[3];
+		return true;
+	}
+	return false;
 }
 
 static int check_bytes(const ut8 *buf, ut64 length) {

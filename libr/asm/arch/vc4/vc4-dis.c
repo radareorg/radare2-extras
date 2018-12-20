@@ -28,6 +28,7 @@
 
 #include "sysdep.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "ansidecl.h"
 #include "dis-asm.h"
