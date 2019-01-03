@@ -46,6 +46,7 @@ env:
   - TESTS="r2pm -i mc6809"
   - TESTS="r2pm -i microblaze"
   - TESTS="r2pm -i msil"
+  - TESTS="r2pm -i pcap"
   - TESTS="r2pm -i ppcdisasm"
   - TESTS="r2pm -i psosvm"
   - TESTS="r2pm -i pyc"
