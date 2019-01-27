@@ -10,8 +10,6 @@
 #undef R_IPI
 #define R_IPI static
 
-static int loaded_version = 3;
-
 // true if the plugin has been initialized.
 static int initialized = false;
 
@@ -259,19 +257,6 @@ static int r_cmd_yara_add_file(const char* rules_path) {
 
 		goto err_exit;
 	}
-
-#if 0
-	if (loaded_version == 2) {
-		if (yr_compiler_push_file_name (compiler, rules_path) != ERROR_SUCCESS) {
-			char buf[64];
-			eprintf ("Error: %s : %s\n",
-			yr_compiler_get_error_message (compiler, buf, sizeof (buf)),
-				rules_path);
-
-			goto err_exit;
-		}
-	}
-#endif
 
 	result = yr_compiler_add_file (compiler, rules_file, NULL, rules_path);
 	fclose (rules_file);
