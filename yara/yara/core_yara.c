@@ -63,7 +63,7 @@ static int r_cmd_yara_scan(const RCore* core) {
 		return false;
 	}
 
-	result = r_io_read_at (core->io, 0L, to_scan, to_scan_size);
+	result = r_io_pread_at (core->io, 0L, to_scan, to_scan_size);
 	if (!result) {
 		eprintf ("Something went wrong during r_io_read_at\n");
 		free (to_scan);
