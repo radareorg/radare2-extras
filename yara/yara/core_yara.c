@@ -363,13 +363,13 @@ static int r_cmd_yara_call(void *user, const char *input) {
 }
 
 static int r_cmd_yara_load_default_rules (const RCore* core) {
-#define YARA_PATH R2_PREFIX "/lib/radare2-extras/" R2_VERSION "/rules-yara3/"
 	RListIter* iter = NULL;
 	YR_COMPILER* compiler = NULL;
 	YR_RULES* yr_rules;
 	char* filename, *complete_path;
 	char* rules = NULL;
-	RList* list = r_sys_dir (YARA_PATH);
+	char* y3_rule_dir = r_str_newf ("%s%s%s", r_str_home(R2_HOME_PLUGINS), R_SYS_DIR, "rules-yara3");
+	RList* list = r_sys_dir (y3_rule_dir);
 
 	if (yr_compiler_create (&compiler) != ERROR_SUCCESS) {
 		char buf[64];
@@ -383,7 +383,7 @@ static int r_cmd_yara_load_default_rules (const RCore* core) {
 
 	r_list_foreach (list, iter, filename) {
 		if (filename[0] != '.') { // skip '.', '..' and hidden files
-			complete_path = r_str_append (strdup (YARA_PATH), filename);
+			complete_path = r_str_newf ("%s%s%s", y3_rule_dir, R_SYS_DIR, filename);
 			rules = (char*)r_file_gzslurp (complete_path, NULL, true);
 
 			free (complete_path);
@@ -415,6 +415,7 @@ static int r_cmd_yara_load_default_rules (const RCore* core) {
 	return true;
 
 err_exit:
+	if (y3_rule_dir) free (y3_rule_dir);
 	if (compiler) yr_compiler_destroy (compiler);
 	if (list) r_list_free (list);
 	if (rules) free (rules);
