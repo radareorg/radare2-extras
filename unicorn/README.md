@@ -44,10 +44,10 @@ or
 Usage
 -----
 
-To use the unicorn debugger plugin you have to select it with the `dh` command:
+To use the unicorn debugger plugin you have to select it with the `dL` command:
 
 	$ r2 /bin/ls
-	> dh unicorn
+	> dL unicorn
 	[UNICORN] Using arch x86 bits 64
 	[UNICORN] BASE 0x100000000
 	[UNICORN] Segment 0x100000d78 0x100010d78 Size 65536

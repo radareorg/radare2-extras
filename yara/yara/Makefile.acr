@@ -38,17 +38,15 @@ mrproper: clean
 	rm -f Makefile
 
 install:
-	${INSTALL_LIB} ${MOD}.${LIBEXT} $(R2PM_PLUGDIR)/${MOD}.${LIBEXT}
-	rm -rf $(R2PM_PLUGDIR)/yara
-	mkdir -p $(R2PM_PLUGDIR)/yara
-	cp -rf ../rules-yara3/ $(R2PM_PLUGDIR)/
+	${INSTALL_LIB} ${MOD}.${LIBEXT} $(R2PM_USRPLUGIN_DIR)/${MOD}.${LIBEXT}
+	cp -rf ../rules-yara3/ $(R2PM_USRPLUGIN_DIR)/
 
 symstall:
-	ln -fs ${PWD}/${MOD}.${LIBEXT} $(R2PM_PLUGDIR)/$(MOD).$(LIBEXT)
-	rm -rf $(R2PM_PLUGDIR)/yara
-	ln -fs $(PWD)/../rules-yara3 $(R2PM_PLUGDIR)/rules-yara3
+	ln -fs ${PWD}/${MOD}.${LIBEXT} $(R2PM_USRPLUGIN_DIR)/$(MOD).$(LIBEXT)
+	rm -rf $(R2PM_USRPLUGIN_DIR)/yara
+	ln -fs $(PWD)/../rules-yara3 $(R2PM_USRPLUGIN_DIR)/rules-yara3
 
 uninstall:
-	rm -f ${R2PM_PLUGDIR}/$(MOD).$(LIBEXT)
-	rm -rf ${R2PM_PLUGDIR}/rules-yara3
-	rm -rf ${R2PM_PLUGDIR}/yara
+	rm -f ${R2PM_USRPLUGIN_DIR}/$(MOD).$(LIBEXT)
+	rm -rf ${R2PM_USRPLUGIN_DIR}/rules-yara3
+	rm -rf ${R2PM_USRPLUGIN_DIR}/yara

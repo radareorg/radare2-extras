@@ -26,10 +26,10 @@ static bool check_bytes(const ut8 *buf, ut64 length) {
 	return true;
 }
 
-static void *load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb){
+static bool load_bytes(RBinFile *bf, void **bin_obj, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb){
 	ut8 i;
 	if (!check_bytes(buf, sz))
-		return R_NOTNULL;
+		return false;
 
 	mastercmdoffset = r_read_at_le16(buf, header + 30) + 4;
 	masterdataoffset = r_read_at_le16(buf, header + 32) + 4;
@@ -54,7 +54,7 @@ static void *load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, 
 			datatableoffs[i] += 4;
 		}
 	}
-	return R_NOTNULL;
+	return true;
 }
 
 static bool load(RBinFile *bf) {
@@ -64,8 +64,7 @@ static bool load(RBinFile *bf) {
         if (!bf || !bf->o) {
                 return false;
         }
-        bf->o->bin_obj = load_bytes (bf, bytes, sz, bf->o->loadaddr, bf->sdb);
-        return bf->o->bin_obj ? true: false;
+        return load_bytes (bf, &bf->o->bin_obj, bytes, sz, bf->o->loadaddr, bf->sdb);
 }
 
 static RBinInfo* info(RBinFile *arch) {

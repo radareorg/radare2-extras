@@ -1,4 +1,5 @@
 OBJ_evm=anal_evm.o
+OBJ_evm+=../../asm/arch/evm/evm.o
 CFLAGS+=-I../../asm/arch/evm/
 
 STATIC_OBJ+=${OBJ_evm}

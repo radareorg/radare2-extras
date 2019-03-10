@@ -13,11 +13,9 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 		0
 	};
 
-	const char *buf_asm = "invalid";
 	evm_dis (&eop, buf, len);
-	buf_asm = sdb_fmt ("%s", eop.txt);
 	op->size = eop.len;
-	r_asm_op_set_asm (op, buf_asm);
+	r_asm_op_set_asm (op, eop.txt);
 
 	return eop.len;
 }

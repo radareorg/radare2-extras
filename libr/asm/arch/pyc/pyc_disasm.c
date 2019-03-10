@@ -159,7 +159,7 @@ int r_pyc_disasm (RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *intern
         op = code[i];
         i += 1;
         name = op_name[op];
-        strcpy (opstruct->buf_asm, name);
+        r_strbuf_set (&opstruct->buf_asm, name);
         if (name == NULL) {
             return 0;
         }
@@ -171,7 +171,7 @@ int r_pyc_disasm (RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *intern
                   extended_arg = oparg*65536;
               arg = parse_arg (op, oparg, names, consts, varnames, interned_table);
             if (arg != NULL) {
-                strcat (opstruct->buf_asm, r_str_newf ("%20s", arg));
+                r_strbuf_appendf (&opstruct->buf_asm, "%20s", arg);
             }   
         }       
         return i;

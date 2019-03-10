@@ -10,8 +10,6 @@
 #undef R_IPI
 #define R_IPI static
 
-static int loaded_version = 3;
-
 // true if the plugin has been initialized.
 static int initialized = false;
 
@@ -65,7 +63,7 @@ static int r_cmd_yara_scan(const RCore* core) {
 		return false;
 	}
 
-	result = r_io_read_at (core->io, 0L, to_scan, to_scan_size);
+	result = r_io_pread_at (core->io, 0L, to_scan, to_scan_size);
 	if (!result) {
 		eprintf ("Something went wrong during r_io_read_at\n");
 		free (to_scan);
@@ -260,19 +258,6 @@ static int r_cmd_yara_add_file(const char* rules_path) {
 		goto err_exit;
 	}
 
-#if 0
-	if (loaded_version == 2) {
-		if (yr_compiler_push_file_name (compiler, rules_path) != ERROR_SUCCESS) {
-			char buf[64];
-			eprintf ("Error: %s : %s\n",
-			yr_compiler_get_error_message (compiler, buf, sizeof (buf)),
-				rules_path);
-
-			goto err_exit;
-		}
-	}
-#endif
-
 	result = yr_compiler_add_file (compiler, rules_file, NULL, rules_path);
 	fclose (rules_file);
 	rules_file = NULL;
@@ -363,13 +348,13 @@ static int r_cmd_yara_call(void *user, const char *input) {
 }
 
 static int r_cmd_yara_load_default_rules (const RCore* core) {
-#define YARA_PATH R2_PREFIX "/lib/radare2-extras/" R2_VERSION "/rules-yara3/"
 	RListIter* iter = NULL;
 	YR_COMPILER* compiler = NULL;
 	YR_RULES* yr_rules;
 	char* filename, *complete_path;
 	char* rules = NULL;
-	RList* list = r_sys_dir (YARA_PATH);
+	char* y3_rule_dir = r_str_newf ("%s%s%s", r_str_home(R2_HOME_PLUGINS), R_SYS_DIR, "rules-yara3");
+	RList* list = r_sys_dir (y3_rule_dir);
 
 	if (yr_compiler_create (&compiler) != ERROR_SUCCESS) {
 		char buf[64];
@@ -383,7 +368,7 @@ static int r_cmd_yara_load_default_rules (const RCore* core) {
 
 	r_list_foreach (list, iter, filename) {
 		if (filename[0] != '.') { // skip '.', '..' and hidden files
-			complete_path = r_str_append (strdup (YARA_PATH), filename);
+			complete_path = r_str_newf ("%s%s%s", y3_rule_dir, R_SYS_DIR, filename);
 			rules = (char*)r_file_gzslurp (complete_path, NULL, true);
 
 			free (complete_path);
@@ -415,6 +400,7 @@ static int r_cmd_yara_load_default_rules (const RCore* core) {
 	return true;
 
 err_exit:
+	if (y3_rule_dir) free (y3_rule_dir);
 	if (compiler) yr_compiler_destroy (compiler);
 	if (list) r_list_free (list);
 	if (rules) free (rules);

@@ -1,5 +1,5 @@
 all:
-	$(MAKE) -C ../libr/debug
+	$(MAKE) -C ../libr/debug unicorn
 # HAVE_PKGCFG_UNICORN=1
 
 clean:

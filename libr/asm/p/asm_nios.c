@@ -27,9 +27,7 @@ static void nios_memory_error(int status, bfd_vma address, disassemble_info *inf
 
 static void nios_print_address(bfd_vma address, disassemble_info *info) {
 	if (buf_global) {
-		char tmp[32];
-		snprintf(tmp, sizeof(tmp) - 1, "0x%08"PFMT64x, (ut64) address);
-		r_strbuf_append(buf_global, tmp);
+		r_strbuf_appendf (buf_global, "0x%08"PFMT64x, (ut64) address);
 	}
 }
 
@@ -38,11 +36,9 @@ static int nios_fprintf(void *stream, const char *format, ...) {
 		return 0;
 	}
 
-	char buf[128];
 	va_list args;
 	va_start(args, format);
-	vsnprintf(buf, sizeof (buf), format, args);
-	r_strbuf_append(buf_global, buf);
+	r_strbuf_vappendf (buf_global, format, args);
 	va_end(args);
 
 	return 0;

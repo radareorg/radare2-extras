@@ -93,7 +93,7 @@ int evm_asm(const char *str, RStrBuf *buf, int buf_len) {
 		const EvmOpDef *opdef = &opcodes[i];
 		if (opdef->txt) {
 			if (!strcmp (opdef->txt, str)) {
-				r_strbuf_append (buf, i);
+				r_strbuf_appendf (buf, "%d", i);
 				return 1;
 			}
 		}
@@ -150,7 +150,10 @@ int evm_dis(EvmOp *op, const unsigned char *buf, int buf_len) {
 	{
 		int pushSize = buf[0] - EVM_OP_PUSH1;
 		char hexbuf[64] = {0};
-		r_hex_bin2str(buf + 1, pushSize, hexbuf);
+		int res = r_hex_bin2str (buf + 1, pushSize, hexbuf);
+		if (res < 1 || !*hexbuf) {
+			strcpy (hexbuf, "0");
+		}
 		settxtf (op, "push%d 0x%s", pushSize + 1, hexbuf);
 		op->len = 2 + pushSize;
 	}

@@ -1293,7 +1293,7 @@ static int write_asm(ut8 *data, Opcode *opcode_ptr, Operand *operands) {
  */
 static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 	ut64 offset = a->pc;
-	ut8 *data = r_strbuf_get (&ao->buf);
+	ut8 *data =  (ut8 *)r_strbuf_get (&ao->buf);
 	size_t pos = 0, nextpos;
 	x86newTokenType ttype;
 	char mnemonic[12];
