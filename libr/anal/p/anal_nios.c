@@ -100,7 +100,7 @@ struct insn_fields {
 	st16 A     :  5;
 };
 
-struct nios_op {
+struct insn_op {
 	enum mach_attr mach;
 	enum insn_type type;
 	ut16 opcode;
@@ -108,8 +108,8 @@ struct nios_op {
 	_RAnalOpType r_op_type;
 };
 
-#define NIOS_OPS 131
-static const struct nios_op nios_ops[NIOS_OPS] = {
+#define INSN_OPS_MAX 131
+static const struct insn_op insn_ops[INSN_OPS_MAX] = {
 	{ MACH_NIOS16, TYPE_OP6,  OP_ADD,     FMT_RR,   R_ANAL_OP_TYPE_ADD },
 	{ MACH_NIOS16, TYPE_OP6,  OP_ADDI,    FMT_Ri5,  R_ANAL_OP_TYPE_ADD },
 	{ MACH_NIOS16, TYPE_OP6,  OP_SUB,     FMT_RR,   R_ANAL_OP_TYPE_SUB },
@@ -361,7 +361,7 @@ static const char *nios32_reg_profile = \
 	"gpr    r30     .32     168     0\n"
 	"gpr    r31     .32     172     0\n";
 
-static int parse_insn(enum mach_attr mach, ut16 insn, struct nios_op **op, struct insn_fields *f) {
+static int parse_insn(enum mach_attr mach, ut16 insn, struct insn_op **op, struct insn_fields *f) {
 	ut16 insns[TYPE_OPS] = {
 		f_op6(insn),
 		f_op9(insn),
@@ -704,7 +704,7 @@ static void nios32_anal(RAnalOp *op, ut16 opcode, enum insn_type type, struct in
 	}
 }
 
-static int nios_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len) {
+static int nios_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len) {
 	if (!op) {
 		return -1;
 	}
@@ -727,17 +727,17 @@ static int nios_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len) {
 	}
 
 	ut16 insn;
-	insn = r_read_ble16(buf, a->big_endian);
+	insn = r_read_ble16(data, a->big_endian);
 
-	struct nios_op *nios_op;
-	struct insn_fields fields = { 0 };
+	struct insn_op *insn_op;
+	struct insn_fields insn_fields = { 0 };
 
 	int opcode;
-	opcode = parse_insn(arch, insn, &nios_op, &fields);
+	opcode = parse_insn(arch, insn, &insn_op, &insn_fields);
 
 	if (opcode >= 0) {
-		op->type = nios_op->r_op_type;
-		(*nios_anal)(op, opcode, nios_op->type, &fields);
+		op->type = insn_op->r_op_type;
+		(*nios_anal)(op, opcode, insn_op->type, &insn_fields);
 	}
 
 	return op->size;
@@ -770,8 +770,8 @@ static int nios_init(void *user) {
 		}
 	}
 
-	for (int i = 0; i < NIOS_OPS; i++) {
-		const struct nios_op *op = &nios_ops[i];
+	for (int i = 0; i < INSN_OPS_MAX; i++) {
+		const struct insn_op *op = &insn_ops[i];
 		const char *key = sdb_fmt("%d %d %d", op->mach, op->type, op->opcode);
 		ht_pp_insert(nios->ops, key, (void *) op);
 	}
@@ -797,12 +797,12 @@ RAnalPlugin r_anal_plugin_nios = {
 	.license = "LGPL3",
 	.arch = "nios",
 	.bits = 16 | 32,
-	.op = &nios_op,
-	.set_reg_profile = &set_reg_profile,
+	.esil = false,
 	.init = &nios_init,
 	.fini = &nios_fini,
-	.esil = false,
-	.cmd_ext = NULL
+	.op = &nios_op,
+	.cmd_ext = NULL,
+	.set_reg_profile = &set_reg_profile,
 };
 
 #ifndef CORELIB
