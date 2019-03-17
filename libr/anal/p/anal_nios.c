@@ -704,7 +704,7 @@ static void nios32_anal(RAnalOp *op, ut16 opcode, enum insn_type type, struct in
 	}
 }
 
-static int nios_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len) {
+static int nios_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len, RAnalOpMask mask) {
 	if (!op) {
 		return -1;
 	}
