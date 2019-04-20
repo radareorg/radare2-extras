@@ -24,8 +24,7 @@ static bool load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, S
 static void * load_buffer(RBinFile *arch, RBuffer *buf, ut64 loadaddr, Sdb *sdb){
 	ut8 data[64];
 	int data_len = r_buf_read_at (buf, 0, data, sizeof (data));
-	load_bytes (arch, data, data_len, loadaddr, sdb);
-	return NULL;
+	return (void*)(bool)(load_bytes (arch, data, data_len, loadaddr, sdb));
 }
 
 static bool load(RBinFile *arch) {
@@ -125,7 +124,7 @@ RBinPlugin r_bin_plugin_bcl = {
 	.license = "BSD",
 	.load = &load,
 	.load_bytes = &load_bytes,
-	// .load_buffer = &load_buffer,
+	.load_buffer = &load_buffer,
 	.size = &size,
 	// .check = &check,
 	.check_bytes = &check_bytes,
