@@ -17,14 +17,15 @@ static ut32 readLE32(RBuffer *buf, int off) {
 	return r_buf_read_le32_at (buf, off);
 }
 
-static bool load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb){
+static bool load_bytes(RBinFile *bf, void **bin_obj, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb){
 	return (bool)(void*)(size_t)check_bytes (buf, sz);
 }
 
 static void * load_buffer(RBinFile *arch, RBuffer *buf, ut64 loadaddr, Sdb *sdb){
 	ut8 data[64];
 	int data_len = r_buf_read_at (buf, 0, data, sizeof (data));
-	return (void*)(bool)(load_bytes (arch, data, data_len, loadaddr, sdb));
+	void *bo = NULL;
+	return (void*)(bool)(load_bytes (arch, &bo, data, data_len, loadaddr, sdb));
 }
 
 static bool load(RBinFile *arch) {
@@ -66,16 +67,17 @@ static RList* sections(RBinFile *bf) {
 	if (!(ptr = R_NEW0 (RBinSection))) {
 		return ret;
 	}
-	ut64 vaddr = (ut64)readLE32(bf->buf, 0x80);
+	ut64 vaddr = (ut64)readLE32 (bf->buf, 0x80);
 	ut64 psize = (ut64)readLE32(bf->buf, 0x84);
-	strncpy (ptr->name, "system", R_BIN_SIZEOF_STRINGS);
+	ptr->name = strdup ("system");
 	ptr->size = psize;
 	ptr->arch = strdup ("arm");
 	ptr->bits = 16;
 	ptr->vsize = psize;
 	ptr->paddr = 0x100;
 	ptr->vaddr = vaddr;
-	ptr->perm = R_PERM_RX; // map ??lEXECR_BIN_SCN_READABLE | R_BIN_SCN_EXECUTABLE; // | R_BIN_SCN_MAP; // r-x
+	ptr->perm = R_PERM_RX;
+	ptr->add = true;
 	r_list_append (ret, ptr);
 
 	return ret;
