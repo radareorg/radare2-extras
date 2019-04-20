@@ -1,7 +1,8 @@
-/* radare2 - LGPL - Copyright 2017 - pancake */
+/* radare2 - LGPL - Copyright 2017-2019 - pancake */
 
 #include <r_lib.h>
 #include <r_bin.h>
+#include <r_util.h>
 
 static bool check_bytes(const ut8 *buf, ut64 length) {
 	if (buf && length >= 32) {
@@ -13,18 +14,23 @@ static bool check_bytes(const ut8 *buf, ut64 length) {
 }
 
 static ut32 readLE32(RBuffer *buf, int off) {
-	int left = 0;
-	const ut8 *data = r_buf_get_at (buf, off, &left);
-	return left > 3? r_read_le32 (data): 0;
+	return r_buf_read_le32_at (buf, off);
 }
 
-static void * load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb){
-	return (void*)(size_t)check_bytes (buf, sz);
+static bool load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb){
+	return (bool)(void*)(size_t)check_bytes (buf, sz);
+}
+
+static void * load_buffer(RBinFile *arch, RBuffer *buf, ut64 loadaddr, Sdb *sdb){
+	ut8 data[64];
+	int data_len = r_buf_read_at (buf, 0, data, sizeof (data));
+	load_bytes (arch, data, data_len, loadaddr, sdb);
+	return NULL;
 }
 
 static bool load(RBinFile *arch) {
-	const ut8 *bytes = arch ? r_buf_buffer (arch->buf) : NULL;
-	ut64 sz = arch ? r_buf_size (arch->buf): 0;
+	ut64 sz;
+	const ut8 *bytes = arch ? r_buf_buffer (arch->buf, &sz) : NULL;
 	return check_bytes (bytes, sz);
 }
 
@@ -70,7 +76,7 @@ static RList* sections(RBinFile *bf) {
 	ptr->vsize = psize;
 	ptr->paddr = 0x100;
 	ptr->vaddr = vaddr;
-	ptr->srwx = R_BIN_SCN_READABLE | R_BIN_SCN_EXECUTABLE | R_BIN_SCN_MAP; // r-x
+	ptr->perm = R_PERM_RX; // map ??lEXECR_BIN_SCN_READABLE | R_BIN_SCN_EXECUTABLE; // | R_BIN_SCN_MAP; // r-x
 	r_list_append (ret, ptr);
 
 	return ret;
@@ -98,9 +104,8 @@ static RBinInfo* info(RBinFile *bf) {
 		ret->os = strdup ("tytera");
 		ret->arch = strdup ("arm");
 		ret->machine = strdup (ret->arch);
-int left;
-		const char *subSystem = (const char *)r_buf_get_at (bf->buf, 0x10, &left);
-		ret->subsystem = strdup (left>0?subSystem: "");
+		int left;
+		ret->subsystem = r_buf_get_string (bf->buf, 0x10);
 		ret->type = strdup ("Firmware");
 		ret->bits = 16;
 		ret->has_va = true;
@@ -120,6 +125,7 @@ RBinPlugin r_bin_plugin_bcl = {
 	.license = "BSD",
 	.load = &load,
 	.load_bytes = &load_bytes,
+	// .load_buffer = &load_buffer,
 	.size = &size,
 	// .check = &check,
 	.check_bytes = &check_bytes,
