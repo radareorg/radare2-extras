@@ -191,7 +191,9 @@ int x86_udis86_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *data, int len)
 	op->id = u.mnemonic;
 	oplen = op->size = ud_insn_len (&u);
 	r_strbuf_init (&op->esil);
-	if (anal->decode && (handler = udis86_esil_get_handler (u.mnemonic))) {
+
+	const bool decode = true;
+	if (decode && (handler = udis86_esil_get_handler (u.mnemonic))) {
 		info.oplen = oplen;
 		//if (anal->bits==32)
 			info.bitmask = UT32_MAX;
@@ -206,6 +208,7 @@ int x86_udis86_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *data, int len)
 		}
 		handler->callback (&info, op, dst, src, str);
 	}
+#endif
 #if 0
 	u->pfx_seg   = 0;
 	u->pfx_opr   = 0;
