@@ -208,7 +208,6 @@ int x86_udis86_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *data, int len)
 		}
 		handler->callback (&info, op, dst, src, str);
 	}
-#endif
 #if 0
 	u->pfx_seg   = 0;
 	u->pfx_opr   = 0;
