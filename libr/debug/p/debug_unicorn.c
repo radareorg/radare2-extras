@@ -205,15 +205,15 @@ static RList *r_debug_unicorn_map_get(RDebug *dbg) {
 	RDebugMap *m;
 	RList *list;
 	SdbListIter *iter;
-	RIOSection *sect;
+	RIOMap *map;
 	int i = 0;
 	list = r_list_new ();
 	//list->free = r_debug_map_free;
-	ls_foreach (dbg->iob.io->sections, iter, sect) {
-		m = r_debug_map_new (sect->name,
-			sect->vaddr,
-			sect->vaddr + sect->vsize,
-			sect->perm, 0);
+	ls_foreach (dbg->iob.io->maps, iter, map) {
+		m = r_debug_map_new (map->name,
+			map->itv.addr,
+			map->itv.addr + map->itv.size,
+			map->perm, 0);
 		if (m) {
 			r_list_append (list, m);
 		}
@@ -510,7 +510,7 @@ static int r_debug_unicorn_wait(RDebug *dbg, int pid) {
 static int r_debug_unicorn_init(RDebug *dbg) {
 	SdbListIter *iter;
 	int code_is_mapped;
-	RIOSection *sect;
+	RIOMap *map;
 	int bits = (dbg->bits & R_SYS_BITS_64) ? 64: 32;
 	uc_err err;
 	if (uh) {
@@ -532,7 +532,7 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		return false;
 	}
 	ut64 lastvaddr = 0LL;
-	int n_sect = ls_length (dbg->iob.io->sections);
+	int n_sect = ls_length (dbg->iob.io->maps);
 	if (n_sect == 0) {
 		message (logo);
 		message ("[UNICORN] dpa            # reatach to initialize the unicorn\n");
@@ -540,35 +540,35 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 	}
 	code_is_mapped = 0;
 
-	ls_foreach (dbg->iob.io->sections, iter, sect) {
+	ls_foreach (dbg->iob.io->maps, iter, map) {
 		int perms = 0;
-		if (sect->perm & R_PERM_R) perms |= UC_PROT_READ;
-		if (sect->perm & R_PERM_W) perms |= UC_PROT_WRITE;
-		if (sect->perm & R_PERM_X) perms |= UC_PROT_EXEC;
-		ut64 mapbase = sect->vaddr >> 12 << 12;
-		int bufdelta = sect->vaddr - mapbase;
+		if (map->perm & R_PERM_R) perms |= UC_PROT_READ;
+		if (map->perm & R_PERM_W) perms |= UC_PROT_WRITE;
+		if (map->perm & R_PERM_X) perms |= UC_PROT_EXEC;
+		ut64 mapbase = map->itv.addr >> 12 << 12;
+		int bufdelta = map->itv.addr - mapbase;
 		ut32 vsz = 64 * 1024;
 		ut8 *buf;
-		if (sect->vaddr < lastvaddr)
+		if (map->itv.addr < lastvaddr)
 			continue;
-		if (!(sect->perm & 1))
+		if (!(map->perm & 1))
 			continue;
-		if (!strstr (sect->name, "text"))
+		if (!strstr (map->name, "text"))
 			continue;
 		buf = calloc (vsz+bufdelta+1024, 1);
 		if (!buf) continue;
 		message ("[UNICORN] BASE 0x%08"PFMT64x"\n", mapbase);
 		//message ("DELTA = %d SIZE = %d\n", bufdelta,
-			//R_MIN (sect->vsize, (vsz - bufdelta)));
-		dbg->iob.read_at (dbg->iob.io, sect->vaddr, buf + bufdelta,
-			R_MIN (sect->vsize, (vsz - bufdelta)));
+			//R_MIN (map->itv.size, (vsz - bufdelta)));
+		dbg->iob.read_at (dbg->iob.io, map->itv.addr, buf + bufdelta,
+			R_MIN (map->itv.size, (vsz - bufdelta)));
 		message ("[UNICORN] Segment 0x%08"PFMT64x" 0x%08"PFMT64x" Size %d\n",
-			sect->vaddr, sect->vaddr + vsz, vsz);
+			map->itv.addr, map->itv.addr + vsz, vsz);
 		err = uc_mem_map_ptr (uh, mapbase, vsz, perms, buf);
 		if (err) {
 			message("[UNICORN] muc_mem_map_ptr failed to allocated %d\n", vsz);
 		}
-		//err = uc_mem_write (uh, sect->vaddr, buf, vsz);
+		//err = uc_mem_write (uh, map->itv.addr, buf, vsz);
 		/*
 		err = uc_mem_write (uh, mapbase, buf, vsz);
 		if (err) {
@@ -577,9 +577,9 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		//eprintf ("%02x %02x\n", buf[0], buf[1]);
 		//eprintf ("WRT = %d\n", err);
 
-		//err = uc_mem_read (uh, mapbase, buf, vsz); //sect->vsize+bufdelta);
+		//err = uc_mem_read (uh, mapbase, buf, vsz); //map->itv.size+bufdelta);
 		//eprintf ("RAD = %d\n", err);
-		lastvaddr = sect->vaddr + sect->vsize;
+		lastvaddr = map->itv.addr + map->itv.size;
 		code_is_mapped = 1;
 		if (JUST_FIRST_BLOCK) break;
 //break;
