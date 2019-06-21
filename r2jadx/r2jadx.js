@@ -1,45 +1,53 @@
 #!/usr/bin/env node
 
-const glob = require('glob');
-const fs = require('fs');
+const jadx = require('./jadx');
+const r2pipe = require('r2pipe-promise');
 
-if (process.argv.length != 3) {
-  console.error('Oops');
-  process.exit(1);
-} 
-const target = process.argv[2];
-
-function processClass(data) {
-  if (data.methods) {
-    for (let method  of data.methods) {
-      let lastOffset = method.offset;
-      console.log('CCu base64:' + Buffer.from(method.name).toString('base64') + ' @ ' + method.offset);
-      for (let line of method.lines) {
-        // TODO: use CL console.error('CL ' + line.offset + ' base64:' + line.code);
-        console.log('CCu base64:' + Buffer.from(line.code).toString('base64') + ' @ ' + (line.offset || lastOffset));
-        if (line.offset) {
-          lastOffset = line.offset;
+async function main (argv) {
+  const r2arg = (argv.length > 2 && argv[2][0] !== '-') ? argv[2] : undefined;
+  const r2 = await (r2arg ? r2pipe.open(r2arg) : r2pipe.open());
+  try {
+    await r2.cmd('af');
+    const info = await r2.cmdj('ij');
+    const fileName = info.core.file;
+    const fcn = await r2.cmdj('afij');
+    if (fcn.length !== 1) {
+      await r2.quit();
+      throw new Error('Cannot find a function in here');
+    }
+    const fcnOffset = fcn[0].offset;
+    let mode = 'r2';
+    if (argv.length > 2) {
+      argv = argv.slice(1);
+    }
+    if (fcnOffset && fileName) {
+      if (argv[1] && argv[1][0] === '-') {
+        mode = argv[1].substring(1);
+      }
+      const res = await jadx.decompile(fileName, mode, fcnOffset);
+      console.log(res);
+      if (mode === 'r2') {
+        for (let line of res.split(/\n/)) {
+          await r2.cmd(line);
         }
       }
+      return res;
+    } else {
+      throw new Error('Cannot find function');
     }
+  } catch (e) {
+    console.error('Oops', e);
+    throw e;
+  } finally {
+    await r2.quit();
   }
 }
 
-glob(target + '/**/*.json', (err, files) => {
-  if (err) {
-    throw err;
-  }
-  files.forEach((fileName) => {
-    try {
-      const data = JSON.parse(fs.readFileSync(fileName));
-      processClass (data);
-      if (data['inner-classes']) {
-        for (let klass of data['inner-classes']) {
-          processClass (klass);
-        }
-      }
-    } catch (e) {
-      console.error('' + fileName + ': ' + e);
-    }
-  });
+main(process.argv).then(res => {
+  console.log('win', res);
+  process.exit(0);
+}).catch(_ => {
+  console.error(_);
+  console.error('DEON');
+  process.exit();
 });

@@ -4,9 +4,14 @@
   "description": "",
   "main": "r2jadx.js",
   "dependencies": {
-    "glob": "^7.1.4"
+    "glob": "^7.1.4",
+    "shell-escape": "*",
+    "r2pipe-promise": "*",
+    "r2pipe": "*"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "semistandard": "*"
+  },
   "author": "pancake <pancake@nopcode.org>",
   "license": "MIT"
 }
