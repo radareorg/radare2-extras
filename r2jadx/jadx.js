@@ -155,16 +155,17 @@ async function decompile (target, mode, arg) {
 
     console.error('jadx: Performing the low level decompilation...');
     let cmd = [ 'r2pm', '-r', 'jadx',
-      '--output-format', 'json',
+      '--output-format', 'json', '--illegal-access=warn',
       '-f', '-d', path.join(outdir, 'll'), target ];
     execSync(shellEscape(cmd, options));
 
     console.error('jadx: Performing the high level decompilation...');
-    cmd = [ 'r2pm', '-r', 'jadx', '-d', path.join(outdir, 'hl'), target ];
+    cmd = [ 'r2pm', '-r', 'jadx', '--illegal-access=warn', '-d', path.join(outdir, 'hl'), target ];
     execSync(shellEscape(cmd, options));
 
     console.error('jadx: Constructing the high level jsons...');
-    cmd = [ 'r2pm', '-r', 'jadx', '--output-format', 'json', '-d', path.join(outdir, 'hl'), target ];
+    cmd = [ 'r2pm', '-r', 'jadx', '--illegal-access=warn', '--output-format', 'json',
+     '-d', path.join(outdir, 'hl'), target ];
     execSync(shellEscape(cmd, options));
   }
   return crawl(outdir, mode, arg);
