@@ -165,13 +165,13 @@ async function decompile (target, mode, arg) {
 
     console.error('jadx: Constructing the high level jsons...');
     cmd = [ 'r2pm', '-r', 'jadx', '--illegal-access=warn', '--output-format', 'json',
-     '-d', path.join(outdir, 'hl'), target ];
+      '-d', path.join(outdir, 'hl'), target ];
     execSync(shellEscape(cmd, options));
   }
   return crawl(outdir, mode, arg);
 }
 
-function check() {
+function check () {
   const cmd = [ 'r2pm', '-r', 'jadx', '--version' ];
   const res = execSync(shellEscape(cmd, {})).toString('utf8');
   return res.startsWith('1');
@@ -181,5 +181,5 @@ module.exports = {
   crawl: crawl,
   dex2path: dex2path,
   decompile: decompile,
-  check: check 
+  check: check
 };

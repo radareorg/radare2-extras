@@ -28,14 +28,18 @@ async function main (argv) {
       if (argv[1] && argv[1][0] === '-') {
         mode = argv[1].substring(1);
       }
-      const res = await jadx.decompile(fileName, mode, fcnOffset);
-      console.log(res);
-      if (mode === 'r2') {
-        for (let line of res.split(/\n/)) {
-          await r2.cmd(line);
+      try {
+        const res = await jadx.decompile(fileName, mode, fcnOffset);
+        console.log(res);
+        if (mode === 'r2') {
+          for (let line of res.split(/\n/)) {
+            await r2.cmd(line);
+          }
         }
+        return res;
+      } catch (e) {
+        throw e;
       }
-      return res;
     } else {
       throw new Error('Cannot find function');
     }
@@ -61,11 +65,11 @@ if (!jadx.check()) {
 }
 
 main(process.argv)
-.then((res) => {
-  console.log(res);
-  process.exit(0);
-})
-.catch((err) => {
-  console.error(err);
-  process.exit(0);
-});
+  .then((res) => {
+    console.log(res);
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(0);
+  });
