@@ -43,6 +43,18 @@ async function main (argv) {
   }
 }
 
+if (process.argv.length < 3) {
+  if (!r2pipe.isAvailable()) {
+    console.error('Usage: r2jadx [file] # or run it from inside r2');
+    process.exit(1);
+  }
+}
+
+if (!jadx.check()) {
+  console.error('Invalid version of jadx. We need >= 1.x');
+  process.exit(1);
+}
+
 main(process.argv).then(res => {
   console.log('win', res);
   process.exit(0);

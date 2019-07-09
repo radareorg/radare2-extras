@@ -10,7 +10,7 @@ function walkSync (dir, arr) {
     arr = [];
   }
   if (!fs.lstatSync(dir).isDirectory()) return dir;
-  const files = fs.readdirSync(dir).map(f => walkSync(path.join(dir, f), arr)); // `join("\n")`
+  const files = fs.readdirSync(dir).map(f => walkSync(path.join(dir, f), arr));
   arr.push(...files);
   return arr;
 }
@@ -170,8 +170,15 @@ async function decompile (target, mode, arg) {
   return crawl(outdir, mode, arg);
 }
 
+function check() {
+  const cmd = [ 'r2pm', '-r', 'jadx', '--version' ];
+  const res = execSync(shellEscape(cmd, {})).toString('utf8');
+  return res.startsWith('1');
+}
+
 module.exports = {
   crawl: crawl,
   dex2path: dex2path,
-  decompile: decompile
+  decompile: decompile,
+  check: check 
 };
