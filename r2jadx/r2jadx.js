@@ -11,7 +11,11 @@ async function main (argv) {
     const info = await r2.cmdj('ij');
     const fileName = info.core.file;
     const fcn = await r2.cmdj('afij');
+    if (!fileName.endsWith('.dex')) {
+      throw new Error('This is not a DEX file');
+    }
     if (fcn.length !== 1) {
+      console.error('Press ^C');
       await r2.quit();
       throw new Error('Cannot find a function in here');
     }
@@ -39,6 +43,7 @@ async function main (argv) {
     console.error('Oops', e);
     throw e;
   } finally {
+    console.error('Press ^C');
     await r2.quit();
   }
 }
@@ -55,11 +60,12 @@ if (!jadx.check()) {
   process.exit(1);
 }
 
-main(process.argv).then(res => {
-  console.log('win', res);
+main(process.argv)
+.then((res) => {
+  console.log(res);
   process.exit(0);
-}).catch(_ => {
-  console.error(_);
-  console.error('DEON');
-  process.exit();
+})
+.catch((err) => {
+  console.error(err);
+  process.exit(0);
 });
