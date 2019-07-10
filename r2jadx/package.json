@@ -5,7 +5,7 @@
   "main": "r2jadx.js",
   "dependencies": {
     "glob": "^7.1.4",
-    "r2pipe": "^2.7.1",
+    "r2pipe": "^2.7.2",
     "r2pipe-promise": "^1.5.1",
     "shell-escape": "*"
   },
