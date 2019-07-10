@@ -5,11 +5,18 @@ const shellEscape = require('shell-escape');
 const path = require('path');
 const fs = require('fs');
 
+function toPaddedHexString (num, len) {
+  const str = parseInt(num).toString(16);
+  return '0x' + ('0'.repeat(len - str.length) + str);
+}
+
 function walkSync (dir, arr) {
   if (arguments.length === 1) {
     arr = [];
   }
-  if (!fs.lstatSync(dir).isDirectory()) return dir;
+  if (!fs.lstatSync(dir).isDirectory()) {
+    return dir;
+  }
   const files = fs.readdirSync(dir).map(f => walkSync(path.join(dir, f), arr));
   arr.push(...files);
   return arr;
@@ -33,34 +40,51 @@ const walk = async (dir, filelist = []) => {
 };
 
 function processMethod (data, mode, offset, method) {
-  let lastOffset = parseInt(method.offset);
-  if (mode === 'll' || mode === 'hl') {
-    let res = ''; // method.offset + '  ' + method.name + '\n';
-    if (offset === lastOffset) {
-      return processMethod(data, 'all', offset, method);
+  function comment (addr, line) {
+    const b64line = Buffer.from(line).toString('base64');
+    if (b64line.length > 2048) {
+      return 'CCu toolong @ ' + addr + '\n';
     }
-    for (let line of method.lines) {
-      if (parseInt(line.offset) === offset - 16) {
-        return processMethod(data, 'all', offset, method);
-      }
-    }
-    return res;
+    return 'CCu base64:' + b64line + ' @ ' + addr + '\n';
   }
+  let lastOffset = parseInt(method.offset);
   if (mode === 'all' || mode === 'ahl') {
-    let res = '\n' + method.offset + '  ' + method.name + ':\n';
+    // decompile selected method with offset + text format
+    let res = '\n' + toPaddedHexString(method.offset, 8) + '  ' + method.name + ':\n';
     for (let line of method.lines) {
-      res += (line.offset || lastOffset) + '  ' + line.code + '\n';
+      res += toPaddedHexString(line.offset || lastOffset, 8) + '  ' + line.code + '\n';
       if (line.offset) {
         lastOffset = line.offset;
       }
     }
     return res;
   }
+  if (mode === 'r') {
+    offset = 0;
+    mode = 'r2';
+  }
 
-  let res = 'CCu base64:' + Buffer.from(method.name).toString('base64') + ' @ ' + method.offset + '\n';
+  if (mode === 'll' || mode === 'hl') {
+    // decompile given method for r2
+    let res = '';
+    if (offset === lastOffset) {
+      return processMethod(data, 'r2', offset, method);
+    }
+    for (let line of method.lines) {
+      if (parseInt(line.offset) === offset - 16) {
+        res += processMethod(data, 'r2', offset, method);
+      }
+    }
+    return res;
+  }
+
+  // mode === 'r2'
+  let res = comment(parseInt(method.offset) + 16, method.name);
   for (let line of method.lines) {
     // TODO: use CL console.error('CL ' + line.offset + ' base64:' + line.code);
-    res += 'CCu base64:' + Buffer.from(line.code).toString('base64') + ' @ ' + (line.offset || lastOffset) + '\n';
+    const addr = parseInt(line.offset || lastOffset);
+    res += comment(addr, line.code.trim());
+    // 'CCu base64:' + Buffer.from(line.code).toString('base64') + ' @ ' + parseInt(line.offset || lastOffset) + '\n';
     if (line.offset) {
       lastOffset = line.offset;
     }
@@ -69,11 +93,13 @@ function processMethod (data, mode, offset, method) {
 }
 
 function processClass (data, mode, offset) {
+  offset = parseInt(offset);
   let res = '';
   if (data.methods) {
     for (let method of data.methods) {
       switch (mode) {
         case 'cat':
+        case 'r':
         case 'r2':
         case 'all':
         case 'ahl':
@@ -95,36 +121,34 @@ function dex2path (target) {
 }
 
 async function crawl (target, mode, arg) {
-  console.log('crawling', arguments);
+  // console.log('crawling', arguments);
   switch (mode) {
+    case 'r':
+      return crawlFiles(path.join(target, 'll'), mode, arg);
     case 'r2':
+      return crawlFiles(path.join(target, 'hl'), mode, arg);
+    case 'll':
+      return crawlFiles(path.join(target, 'll'), mode, arg);
+    case 'hl':
+      return crawlFiles(path.join(target, 'hl'), mode, arg);
+    case 'ahl':
       return crawlFiles(path.join(target, 'hl'), mode, arg);
     case 'all':
       return crawlFiles(path.join(target, 'll'), mode, arg);
-    case 'll':
-      return crawlFiles(path.join(target, 'll'), mode, arg);
-    case 'ahl':
-      return crawlFiles(path.join(target, 'hl'), mode, arg);
-    case 'hl':
-      return crawlFiles(path.join(target, 'hl'), mode, arg);
     case 'cat':
       return crawlFiles(path.join(target, 'cat'), mode, arg);
     case '?':
     case 'h':
     case 'help':
     default:
-      return 'Usage: !*r2jadx ([filename])[ll,hl,cat,help]';
+      return 'Usage: !*r2jadx ([filename])[ll,hl,all,ahl,cat,help]';
   }
 }
 
 async function crawlFiles (target, mode, arg) {
-  let ext = 'json';
-  switch (mode) {
-    case 'cat':
-      ext = 'java';
-      break;
-  }
-  console.error('FINDUS', target);
+  const ext = (mode === 'cat') ? 'java' : 'json';
+
+  // console.error('FINDUS', target);
   const files = walkSync(target).filter(_ => (_.endsWith && _.endsWith(ext)));
   let res = '';
   for (let fileName of files) {
@@ -151,22 +175,32 @@ async function crawlFiles (target, mode, arg) {
 async function decompile (target, mode, arg) {
   const outdir = dex2path(target);
   if (!fs.existsSync(outdir)) {
+    if (!check()) {
+      console.error('Invalid version of jadx. We need >= 1.x');
+      process.exit(1);
+    }
     const options = { }; // stderr: 'inherit' };
 
-    console.error('jadx: Performing the low level decompilation...');
-    let cmd = [ 'r2pm', '-r', 'jadx',
-      '--output-format', 'json', '--illegal-access=warn',
-      '-f', '-d', path.join(outdir, 'll'), target ];
-    execSync(shellEscape(cmd, options));
+    try {
+      console.error('jadx: Performing the low level decompilation...');
+      const cmd = [ 'r2pm', '-r', 'jadx', '--output-format', 'json', '-f', '-d', path.join(outdir, 'll'), target ];
+      execSync(shellEscape(cmd, options));
+    } catch (e) {
+    }
 
-    console.error('jadx: Performing the high level decompilation...');
-    cmd = [ 'r2pm', '-r', 'jadx', '--illegal-access=warn', '-d', path.join(outdir, 'hl'), target ];
-    execSync(shellEscape(cmd, options));
+    try {
+      console.error('jadx: Performing the high level decompilation...');
+      const cmd = [ 'r2pm', '-r', 'jadx', '--output-format', 'java', '-d', path.join(outdir, 'hl'), target ];
+      execSync(shellEscape(cmd, options));
+    } catch (e) {
+    }
 
-    console.error('jadx: Constructing the high level jsons...');
-    cmd = [ 'r2pm', '-r', 'jadx', '--illegal-access=warn', '--output-format', 'json',
-      '-d', path.join(outdir, 'hl'), target ];
-    execSync(shellEscape(cmd, options));
+    try {
+      console.error('jadx: Constructing the high level jsons...');
+      const cmd = [ 'r2pm', '-r', 'jadx', '--output-format', 'json', '-d', path.join(outdir, 'hl'), target ];
+      execSync(shellEscape(cmd, options));
+    } catch (e) {
+    }
   }
   return crawl(outdir, mode, arg);
 }

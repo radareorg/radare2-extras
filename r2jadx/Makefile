@@ -6,6 +6,9 @@ node_modules:
 	mkdir -p node_modules
 	npm i
 
+indent:
+	node_modules/.bin/semistandard --fix *.js
+
 install:
 	ln -fs "$(shell pwd)"/r2jadx.js "$(R2PM_BINDIR)"/r2jadx
 
