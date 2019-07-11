@@ -41,6 +41,28 @@ const walk = async (dir, filelist = []) => {
 
 function processMethod (data, mode, offset, method) {
   function comment (addr, line) {
+    if (mode === 'c' || mode === 'cat') {
+      // console.error(data.name);
+      // console.log(data.source);
+if (!data.source) {
+return '';
+}
+      let lastOffset = parseInt(method.offset);
+      if (mode === 'cat' || (mode === 'c' && addr === lastOffset)) {
+        const source = data.source.replace('.json', '.java');
+        const fileData = fs.readFileSync(source);
+        return fileData.toString('utf8');
+      }
+      return '';
+    }
+
+    if (mode === 'f') {
+      let lastOffset = parseInt(method.offset);
+      if (addr === lastOffset) {
+        return toPaddedHexString(addr, 8) + '  ' + line + '\n';
+      }
+      return '';
+    }
     const b64line = Buffer.from(line).toString('base64');
     if (b64line.length > 2048) {
       return 'CCu toolong @ ' + addr + '\n';
@@ -98,6 +120,9 @@ function processClass (data, mode, offset) {
   if (data.methods) {
     for (let method of data.methods) {
       switch (mode) {
+        case 'a':
+        case 'c':
+        case 'f':
         case 'cat':
         case 'r':
         case 'r2':
@@ -123,6 +148,12 @@ function dex2path (target) {
 async function crawl (target, mode, arg) {
   // console.log('crawling', arguments);
   switch (mode) {
+    case 'f':
+      return crawlFiles(path.join(target, 'hl'), mode, arg);
+    case 'c':
+      return crawlFiles(path.join(target, 'hl'), 'c', arg);
+    case 'a':
+      return crawlFiles(path.join(target, 'hl'), 'cat', arg);
     case 'r':
       return crawlFiles(path.join(target, 'll'), mode, arg);
     case 'r2':
@@ -146,21 +177,23 @@ async function crawl (target, mode, arg) {
 }
 
 async function crawlFiles (target, mode, arg) {
-  const ext = (mode === 'cat') ? 'java' : 'json';
+  const ext = 'json'; // (mode === 'cat' || mode === 'c') ? 'java' : 'json';
 
   // console.error('FINDUS', target);
   const files = walkSync(target).filter(_ => (_.endsWith && _.endsWith(ext)));
   let res = '';
   for (let fileName of files) {
     try {
-      const fileData = fs.readFileSync(fileName);
       if (mode === 'cat') {
+        const fileData = fs.readFileSync(fileName.replace('.json', '.java'));
         res += fileData;
       } else {
+        const fileData = fs.readFileSync(fileName);
         const data = JSON.parse(fileData);
         res += processClass(data, mode, arg);
         if (data['inner-classes']) {
           for (let klass of data['inner-classes']) {
+            klass.source = fileName;
             res += processClass(klass, mode, arg);
           }
         }
@@ -190,14 +223,14 @@ async function decompile (target, mode, arg) {
 
     try {
       console.error('jadx: Performing the high level decompilation...');
-      const cmd = [ 'r2pm', '-r', 'jadx', '--output-format', 'java', '-d', path.join(outdir, 'hl'), target ];
+      const cmd = [ 'r2pm', '-r', 'jadx', '--show-bad-code', '--output-format', 'java', '-d', path.join(outdir, 'hl'), target ];
       execSync(shellEscape(cmd, options));
     } catch (e) {
     }
 
     try {
       console.error('jadx: Constructing the high level jsons...');
-      const cmd = [ 'r2pm', '-r', 'jadx', '--output-format', 'json', '-d', path.join(outdir, 'hl'), target ];
+      const cmd = [ 'r2pm', '-r', 'jadx', '--show-bad-code', '--output-format', 'json', '-d', path.join(outdir, 'hl'), target ];
       execSync(shellEscape(cmd, options));
     } catch (e) {
     }

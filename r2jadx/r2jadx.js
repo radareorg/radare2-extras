@@ -61,7 +61,11 @@ switch (process.argv[2]) {
     console.error('Usage: !*r2jadx [-mode]');
     console.error('Setup: e cmd.pdc=!*r2jadx');
     console.error('Modes: -r2 = r2 output');
-    console.error(' -cat = show ');
+    console.error(' -a   = show decompilation of all the classes');
+    console.error(' -c   = decompile current class');
+    console.error(' -f   = decompile current function');
+    console.error(' -r   = load all decompilation output as comments (ll)');
+    console.error(' -r2  = load all decompilation output as comments (hl)');
     console.error(' -ahl = all high level decompilation');
     console.error(' -all = all low level decompilation');
     console.error(' -hl = high level decompilation');
