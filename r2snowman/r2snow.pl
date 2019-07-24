@@ -4,6 +4,7 @@
 
 use MIME::Base64;
 
+
 sub rf {
   my ($file) = shift;
   open FH, $file or die "cannot open $file";
@@ -24,19 +25,6 @@ use constant {
   R2SNOW_ADDROF => "r2snow-addrof.txt"
 };
 
-if ($arg == '-a') {
-  print($ts);
-}
-
-if ($arg == '-f') {
-my $off = $ENV{"R2_OFFSET"};
-print(functionAt(lineFor(scalar $off)));
-  exit();
-
-}
-if ($arg == '-r') {
-# do nothing, defaults
-}
 
 my $source = join("", rf(R2SNOW_SOURCE));
 my @addrof = rf(R2SNOW_ADDROF);
@@ -82,12 +70,24 @@ sub functionAt($) {
   return "";
 }
 
-sub lineFor($) {
+sub addrFor($) {
   my ($offset) = @_;
   my $line = 0;
   foreach my $a (@addrof) {
     my ($addr, $off) = split(" ", $a);
-    if (hex($addr) >= $offset) {
+    if ($addr >= $offset) {
+      return $line;
+    }
+    $line++;
+  }
+  return 0;
+}
+
+sub lineFor($) {
+  my ($offset) = @_;
+  my $line = 0;
+  foreach my $nl (@nls) {
+    if ($nl >= $offset) {
       return $line;
     }
     $line++;
@@ -96,17 +96,35 @@ sub lineFor($) {
 }
 
 initNewlines();
-
-
-foreach my $a (@addrof) {
-  my ($addr, $offset) = split(" ", $a);
-  my $file = R2SNOW_SOURCE . ".txt";
-  my $line = lineFor($offset);
-  my $text = @nts[$line - 1];
-  my $txt64 = encode_base64($text);
-  $txt64 =~ s/\n//g;
-  print "CCu base64:$txt64 @ $addr\n";
-  #print "CL $file:$line $addr\n";
+my $arg = $ARGV[0];
+if ($arg eq '-h') {
+  print('Usage: !r2snow [-a,-f,-r]');
+  print(' -a : show all the program decompiled');
+  print(' -f : decompile current function');
+  print(' -r : import decompiler output as comments');
+} elsif ($arg eq '-a') {
+  print($ts);
+} elsif ($arg eq '-f') {
+  my $off = $ENV{"R2_OFFSET"};
+  print(functionAt(addrFor(scalar $off)));
+} else {
+  local $oaddr = '';
+  local $oline = 0;
+  foreach my $a (@addrof) {
+    my ($addr, $offset) = split(" ", $a);
+    my $file = R2SNOW_SOURCE . ".txt";
+    my $line = lineFor($offset);
+    my $text = @nts[$line - 1];
+    my $txt64 = encode_base64($text);
+    $txt64 =~ s/\n//g;
+    unless ($oaddr eq $addr or $oline == $line) {
+      print "CCu base64:$txt64 @ $addr\n";
+      ##print "CC $line @ $addr\n"; #u base64:$txt64 @ $addr\n";
+    }
+    $oaddr = $addr;
+    $oline = $line;
+    #print "CL $file:$line $addr\n";
+  }
 }
 
 unlink(R2SNOW_SOURCE);
