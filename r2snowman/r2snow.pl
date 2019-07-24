@@ -2,6 +2,8 @@
 # generate r2 script out of a snowman decompilation
 # author : pancake // nopcode.org // 2016
 
+use MIME::Base64;
+
 sub rf {
   my ($file) = shift;
   open FH, $file or die "cannot open $file";
@@ -28,6 +30,8 @@ my $ts = $source;
 $ts =~s/reinterpret_cast//g;
 $ts =~s/static_cast//g;
 wf(R2SNOW_SOURCE . ".txt", $ts);
+
+local @nts = split /\n/g,$ts;
 
 local @nls = ();
 sub initNewlines() {
@@ -58,5 +62,12 @@ foreach my $a (@addrof) {
   my ($addr, $offset) = split(" ", $a);
   my $file = R2SNOW_SOURCE . ".txt";
   my $line = lineFor($offset);
-  print "CL $file:$line $addr\n";
+  my $text = @nts[$line - 1];
+  my $txt64=encode_base64($text);
+  $txt64=~ s/\n//g;
+  print "CCu base64:$txt64 @ $addr\n";
+  #print "CL $file:$line $addr\n";
 }
+
+unlink(R2SNOW_SOURCE);
+unlink(R2SNOW_SOURCE.".txt");
