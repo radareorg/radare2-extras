@@ -19,9 +19,9 @@
 #define get_field_imm(instr)       get_imm   (ctx, instr)
 
 struct mb_anal_ctx {
-	int immval;
+	unsigned immval;
 	bool immfound;
-	bool immfound_addr;
+	unsigned immfound_addr;
 	RAnal *anal;
 	RAnalOp *op;
 };
@@ -68,7 +68,7 @@ microblaze_our_get_target_address (long inst, bool immfound, int immval,
 			targetaddr = r2val;
 			*targetvalid = true;
 			if (op->inst_offset_type == INST_PC_OFFSET)
-				targetaddr += pcval;
+				targetaddr = (targetaddr + pcval) & 0xFFFFFFFF;
 			break;
 		case INST_TYPE_IMM:
 			*unconditionalbranch = true;
@@ -84,7 +84,7 @@ microblaze_our_get_target_address (long inst, bool immfound, int immval,
 					targetaddr |= 0xFFFF0000;
 			}
 			if (op->inst_offset_type == INST_PC_OFFSET)
-				targetaddr += pcval;
+				targetaddr = (targetaddr + pcval) & 0xFFFFFFFF;
 			*targetvalid = true;
 			break;
 		default:
@@ -162,6 +162,7 @@ static void analyse_arithmetic_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	char *rb = get_field_r2(insn);
 	char *rd = get_field_rd(insn);
 	char *imm = get_imm(ctx, insn);
+
 	switch (mb_op->instr) {
 	case add:
 		r_strbuf_setf(&op->esil, "%s,%s,+,%s,=",ra, rb, rd);
@@ -389,9 +390,9 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn, str
 			&targetvalid,
 			&unconditionalbranch);
 
-	// hack until I figure where the bug is in this gnu fcn
+	// Mask on 32 bits to handle negative immediate value
 	if (!ctx->immfound)
-		jump_addr &= 0xFFFF;
+		jump_addr &= 0xFFFFFFFF;
 
 	imm = long_to_string(jump_addr);
 
@@ -611,9 +612,9 @@ static void analyse_return_inst(struct mb_anal_ctx *ctx, unsigned long insn, str
 			&targetvalid,
 			&unconditionalbranch);
 
-	// hack until I figure where the bug is in this gnu fcn
+	// Mask on 32 bits to handle negative immediate value
 	if (!ctx->immfound)
-		jump_addr &= 0xFFFF;
+		jump_addr &= 0xFFFFFFFF;
 
 	imm = long_to_string(jump_addr);
 
