@@ -9,129 +9,126 @@
 #include "microblaze-opc.h"
 #include "dis-asm.h"
 
-#define get_int_field_imm(instr)   ((instr & IMM_MASK) >> IMM_LOW)
-#define get_int_field_r1(instr)    ((instr & RA_MASK) >> RA_LOW)
-#define get_int_field_r2(instr)    ((instr & RB_MASK) >> RB_LOW)
+#define UT32_16U UT16_MAX << 16
+#define UT32_16L UT16_MAX
 
-#define get_field_rd(instr)        get_field (instr, RD_MASK, RD_LOW)
-#define get_field_r1(instr)        get_field (instr, RA_MASK, RA_LOW)
-#define get_field_r2(instr)        get_field (instr, RB_MASK, RB_LOW)
-#define get_field_imm(instr)       get_imm   (ctx, instr)
+#define get_int_field_imm(instr) ((instr & IMM_MASK) >> IMM_LOW)
+#define get_int_field_r1(instr) ((instr & RA_MASK) >> RA_LOW)
+#define get_int_field_r2(instr) ((instr & RB_MASK) >> RB_LOW)
+
+#define get_field_rd(instr) get_field(instr, RD_MASK, RD_LOW)
+#define get_field_r1(instr) get_field(instr, RA_MASK, RA_LOW)
+#define get_field_r2(instr) get_field(instr, RB_MASK, RB_LOW)
+#define get_field_imm(instr) get_imm(ctx, instr)
 
 struct mb_anal_ctx {
-	unsigned immval;
-	bool immfound;
-	unsigned immfound_addr;
-	RAnal *anal;
-	RAnalOp *op;
+  ut16 immval;
+  bool immfound;
+  ut32 immfound_addr;
+  RAnal *anal;
+  RAnalOp *op;
 };
 
-static char *get_field (long instr, long mask, unsigned short low) {
-	char tmpstr[25];
-	sprintf (tmpstr, "%s%d", register_prefix, (int)((instr & mask) >> low));
-	return strdup (tmpstr);
+static char *get_field(long instr, long mask, unsigned short low) {
+  char tmpstr[25];
+  sprintf(tmpstr, "%s%d", register_prefix, (int)((instr & mask) >> low));
+  return strdup(tmpstr);
 }
-
-
-
 
 static unsigned char bytes[4];
-static int microblaze_read_memory (bfd_vma memaddr, bfd_byte *myaddr, unsigned int length, struct disassemble_info *info) {
-	memcpy (myaddr, bytes, length);
-	return 0;
+static int microblaze_read_memory(bfd_vma memaddr, bfd_byte *myaddr,
+                                  unsigned int length,
+                                  struct disassemble_info *info) {
+  memcpy(myaddr, bytes, length);
+  return 0;
 }
 
-unsigned long
-microblaze_our_get_target_address (long inst, bool immfound, int immval,
-				   long pcval, long r1val, long r2val,
-				   bool *targetvalid,
-				   bool *unconditionalbranch)
-{
-	struct op_code_struct * op;
-	unsigned long targetaddr = 0;
+ut32 microblaze_our_get_target_address(long inst, bool immfound, int immval,
+                                       ut32 pcval, long r1val, long r2val,
+                                       bool *targetvalid,
+                                       bool *unconditionalbranch) {
+  struct op_code_struct *op;
+  ut32 targetaddr = 0;
 
-	*unconditionalbranch = false;
-	/* Just a linear search of the table.  */
-	for (op = opcodes; op->name != 0; op ++)
-		if (op->bit_sequence == (inst & op->opcode_mask))
-			break;
+  *unconditionalbranch = false;
+  /* Just a linear search of the table.  */
+  for (op = opcodes; op->name != 0; op++)
+    if (op->bit_sequence == (inst & op->opcode_mask))
+      break;
 
-	if (op->name == 0)
-		*targetvalid = false;
-	else if (op->instr_type == branch_inst) {
-		switch (op->inst_type) {
-		case INST_TYPE_R2:
-			*unconditionalbranch = true;
-		/* Fall through.  */
-		case INST_TYPE_RD_R2:
-		case INST_TYPE_R1_R2:
-			targetaddr = r2val;
-			*targetvalid = true;
-			if (op->inst_offset_type == INST_PC_OFFSET)
-				targetaddr = (targetaddr + pcval) & 0xFFFFFFFF;
-			break;
-		case INST_TYPE_IMM:
-			*unconditionalbranch = true;
-		/* Fall through.  */
-		case INST_TYPE_RD_IMM:
-		case INST_TYPE_R1_IMM:
-			if (immfound) {
-				targetaddr = (immval << 16) & 0xffff0000;
-				targetaddr |= (get_int_field_imm (inst) & 0x0000ffff);
-			} else {
-				targetaddr = get_int_field_imm (inst);
-				if (targetaddr & 0x8000)
-					targetaddr |= 0xFFFF0000;
-			}
-			if (op->inst_offset_type == INST_PC_OFFSET)
-				targetaddr = (targetaddr + pcval) & 0xFFFFFFFF;
-			*targetvalid = true;
-			break;
-		default:
-			*targetvalid = false;
-			break;
-		}
-	} else if (op->instr_type == return_inst) {
-		if (immfound) {
-			targetaddr = (immval << 16) & 0xffff0000;
-			targetaddr |= (get_int_field_imm (inst) & 0x0000ffff);
-		}
-		else {
-			targetaddr = get_int_field_imm (inst);
-			if (targetaddr & 0x8000)
-				targetaddr |= 0xFFFF0000;
-		}
-		targetaddr += r1val;
-		*targetvalid = true;
-	}
-	else
-		*targetvalid = false;
-	return targetaddr;
+  if (op->name == 0)
+    *targetvalid = false;
+  else if (op->instr_type == branch_inst) {
+    switch (op->inst_type) {
+    case INST_TYPE_R2:
+      *unconditionalbranch = true;
+    /* Fall through.  */
+    case INST_TYPE_RD_R2:
+    case INST_TYPE_R1_R2:
+      targetaddr = r2val;
+      *targetvalid = true;
+      if (op->inst_offset_type == INST_PC_OFFSET)
+        targetaddr += pcval;
+      break;
+    case INST_TYPE_IMM:
+      *unconditionalbranch = true;
+    /* Fall through.  */
+    case INST_TYPE_RD_IMM:
+    case INST_TYPE_R1_IMM:
+      if (immfound) {
+        targetaddr = (immval << 16) & UT32_16U;
+        targetaddr |= (get_int_field_imm(inst) & UT32_16L);
+      } else {
+        targetaddr = get_int_field_imm(inst);
+        if (targetaddr & 0x8000)
+          targetaddr |= UT32_16U;
+      }
+      if (op->inst_offset_type == INST_PC_OFFSET)
+        targetaddr += pcval;
+      *targetvalid = true;
+      break;
+    default:
+      *targetvalid = false;
+      break;
+    }
+  } else if (op->instr_type == return_inst) {
+    if (immfound) {
+      targetaddr = (immval << 16) & UT32_16U;
+      targetaddr |= (get_int_field_imm(inst) & UT32_16L);
+    } else {
+      targetaddr = get_int_field_imm(inst);
+      if (targetaddr & 0x8000)
+        targetaddr |= UT32_16U;
+    }
+    targetaddr += r1val;
+    *targetvalid = true;
+  } else
+    *targetvalid = false;
+  return targetaddr;
 }
 
-static unsigned long
-read_insn_microblaze (bfd_vma memaddr,
-		      struct disassemble_info *info,
-		      struct op_code_struct **opr)
-{
-  unsigned char       ibytes[4];
-  int                 status;
-  struct op_code_struct * op;
+static unsigned long read_insn_microblaze(bfd_vma memaddr,
+                                          struct disassemble_info *info,
+                                          struct op_code_struct **opr) {
+  unsigned char ibytes[4];
+  int status;
+  struct op_code_struct *op;
   unsigned long inst;
 
-  status = info->read_memory_func (memaddr, ibytes, 4, info);
+  status = info->read_memory_func(memaddr, ibytes, 4, info);
 
-  if (status != 0) return 0;
+  if (status != 0)
+    return 0;
 
   if (info->endian == BFD_ENDIAN_BIG)
     inst = (ibytes[0] << 24) | (ibytes[1] << 16) | (ibytes[2] << 8) | ibytes[3];
   else if (info->endian == BFD_ENDIAN_LITTLE)
     inst = (ibytes[3] << 24) | (ibytes[2] << 16) | (ibytes[1] << 8) | ibytes[0];
   else
-    abort ();
+    abort();
 
   /* Just a linear search of the table.  */
-  for (op = opcodes; op->name != 0; op ++)
+  for (op = opcodes; op->name != 0; op++)
     if (op->bit_sequence == (inst & op->opcode_mask))
       break;
 
@@ -139,509 +136,503 @@ read_insn_microblaze (bfd_vma memaddr,
   return inst;
 }
 
-static char *get_imm (struct mb_anal_ctx *ctx, int instr) {
-	char tmpstr[25];
-	int immval = 0;
-	if (ctx->immfound)
-		immval = ctx->immval << 16 & 0xFFFF0000;
-	immval |= get_int_field_imm(instr);
-	sprintf (tmpstr, "%d", immval);
-	return strdup(tmpstr);
+static char *get_imm(struct mb_anal_ctx *ctx, int instr) {
+  char tmpstr[25];
+  int immval = 0;
+  if (ctx->immfound)
+    immval = ctx->immval << 16 & UT32_16U;
+  immval |= get_int_field_imm(instr);
+  sprintf(tmpstr, "%d", immval);
+  return strdup(tmpstr);
 }
 
-static void handle_immediate_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
-	if (mb_op->instr == imm) {
-		ctx->immval = get_int_field_imm (insn);
-		ctx->immfound_addr = ctx->op->addr;
-	}
+static void handle_immediate_inst(struct mb_anal_ctx *ctx, unsigned long insn,
+                                  struct op_code_struct *mb_op) {
+  if (mb_op->instr == imm) {
+    ctx->immval = get_int_field_imm(insn);
+    ctx->immfound_addr = ctx->op->addr;
+  }
 }
 
-static void analyse_arithmetic_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
-	RAnalOp *op = ctx->op;
-	char *ra = get_field_r1(insn);
-	char *rb = get_field_r2(insn);
-	char *rd = get_field_rd(insn);
-	char *imm = get_imm(ctx, insn);
+static void analyse_arithmetic_inst(struct mb_anal_ctx *ctx, unsigned long insn,
+                                    struct op_code_struct *mb_op) {
+  RAnalOp *op = ctx->op;
+  char *ra = get_field_r1(insn);
+  char *rb = get_field_r2(insn);
+  char *rd = get_field_rd(insn);
+  char *imm = get_imm(ctx, insn);
 
-	switch (mb_op->instr) {
-	case add:
-		r_strbuf_setf(&op->esil, "%s,%s,+,%s,=",ra, rb, rd);
-		op->type = R_ANAL_OP_TYPE_ADD;
-		break;
-	case rsub:
-		r_strbuf_setf(&op->esil, "%s,%s,-,%s,=",ra, rb, rd);
-		op->type = R_ANAL_OP_TYPE_SUB;
-		break;
-	case addc:
-		op->type = R_ANAL_OP_TYPE_ADD;
-		break;
-	case rsubc:
-		op->type = R_ANAL_OP_TYPE_SUB;
-		break;
-	case addk:
-		/* should keep carry */
-		r_strbuf_setf(&op->esil, "%s,%s,+,%s,=",ra, rb, rd);
-		op->type = R_ANAL_OP_TYPE_ADD;
-		break;
-	case rsubk:
-		/* should keep carry */
-		r_strbuf_setf(&op->esil, "%s,%s,-,%s,=",ra, rb, rd);
-		op->type = R_ANAL_OP_TYPE_SUB;
-		break;
-	case cmp:
-		op->type = R_ANAL_OP_TYPE_CMP;
-		break;
-	case cmpu:
-		op->type = R_ANAL_OP_TYPE_CMP;
-		break;
-	case addkc:
-		op->type = R_ANAL_OP_TYPE_ADD;
-		break;
-	case rsubkc:
-		op->type = R_ANAL_OP_TYPE_SUB;
-		break;
-	case addi:
-		r_strbuf_setf(&op->esil, "%s,%s,+,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_ADD;
-		break;
-	case rsubi:
-		r_strbuf_setf(&op->esil, "%s,%s,-,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_SUB;
-		break;
-	case addic:
-		/* should use carry */
-		r_strbuf_setf(&op->esil, "%s,%s,+,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_ADD;
-		break;
-	case rsubic:
-		/* should use carry */
-		r_strbuf_setf(&op->esil, "%s,%s,-,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_SUB;
-		break;
-	case addik:
-		/* should keep carry */
-		r_strbuf_setf(&op->esil, "%s,%s,+,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_ADD;
-		break;
-	case rsubik:
-		/* should keep carry */
-		r_strbuf_setf(&op->esil, "%s,%s,-,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_SUB;
-		break;
-	case addikc:
-		/* should use and keep carry */
-		r_strbuf_setf(&op->esil, "%s,%s,+,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_ADD;
-		break;
-	case rsubikc:
-		/* should use and keep carry */
-		r_strbuf_setf(&op->esil, "%s,%s,-,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_SUB;
-		break;
-	case swapb:
-		break;
-	case swaph:
-		break;
-	default:
-		break;
-	}
+  switch (mb_op->instr) {
+  case add:
+    r_strbuf_setf(&op->esil, "%s,%s,+,%s,=", ra, rb, rd);
+    op->type = R_ANAL_OP_TYPE_ADD;
+    break;
+  case rsub:
+    r_strbuf_setf(&op->esil, "%s,%s,-,%s,=", ra, rb, rd);
+    op->type = R_ANAL_OP_TYPE_SUB;
+    break;
+  case addc:
+    op->type = R_ANAL_OP_TYPE_ADD;
+    break;
+  case rsubc:
+    op->type = R_ANAL_OP_TYPE_SUB;
+    break;
+  case addk:
+    /* should keep carry */
+    r_strbuf_setf(&op->esil, "%s,%s,+,%s,=", ra, rb, rd);
+    op->type = R_ANAL_OP_TYPE_ADD;
+    break;
+  case rsubk:
+    /* should keep carry */
+    r_strbuf_setf(&op->esil, "%s,%s,-,%s,=", ra, rb, rd);
+    op->type = R_ANAL_OP_TYPE_SUB;
+    break;
+  case cmp:
+    op->type = R_ANAL_OP_TYPE_CMP;
+    break;
+  case cmpu:
+    op->type = R_ANAL_OP_TYPE_CMP;
+    break;
+  case addkc:
+    op->type = R_ANAL_OP_TYPE_ADD;
+    break;
+  case rsubkc:
+    op->type = R_ANAL_OP_TYPE_SUB;
+    break;
+  case addi:
+    r_strbuf_setf(&op->esil, "%s,%s,+,%s,=", ra, imm, rd);
+    op->type = R_ANAL_OP_TYPE_ADD;
+    break;
+  case rsubi:
+    r_strbuf_setf(&op->esil, "%s,%s,-,%s,=", ra, imm, rd);
+    op->type = R_ANAL_OP_TYPE_SUB;
+    break;
+  case addic:
+    /* should use carry */
+    r_strbuf_setf(&op->esil, "%s,%s,+,%s,=", ra, imm, rd);
+    op->type = R_ANAL_OP_TYPE_ADD;
+    break;
+  case rsubic:
+    /* should use carry */
+    r_strbuf_setf(&op->esil, "%s,%s,-,%s,=", ra, imm, rd);
+    op->type = R_ANAL_OP_TYPE_SUB;
+    break;
+  case addik:
+    /* should keep carry */
+    r_strbuf_setf(&op->esil, "%s,%s,+,%s,=", ra, imm, rd);
+    op->type = R_ANAL_OP_TYPE_ADD;
+    break;
+  case rsubik:
+    /* should keep carry */
+    r_strbuf_setf(&op->esil, "%s,%s,-,%s,=", ra, imm, rd);
+    op->type = R_ANAL_OP_TYPE_SUB;
+    break;
+  case addikc:
+    /* should use and keep carry */
+    r_strbuf_setf(&op->esil, "%s,%s,+,%s,=", ra, imm, rd);
+    op->type = R_ANAL_OP_TYPE_ADD;
+    break;
+  case rsubikc:
+    /* should use and keep carry */
+    r_strbuf_setf(&op->esil, "%s,%s,-,%s,=", ra, imm, rd);
+    op->type = R_ANAL_OP_TYPE_SUB;
+    break;
+  case swapb:
+    break;
+  case swaph:
+    break;
+  default:
+    break;
+  }
 }
 
-static void analyse_logical_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
-	RAnalOp *op = ctx->op;
-	char *ra = get_field_r1(insn);
-	char *rb = get_field_r2(insn);
-	char *rd = get_field_rd(insn);
-	char *imm = get_imm(ctx, insn);
-	switch (mb_op->instr) {
-	case or:
-		r_strbuf_setf(&op->esil, "%s,%s,|,%s,=", ra, rb, rd);
-		op->type = R_ANAL_OP_TYPE_OR;
-		break;
-	case and:
-		r_strbuf_setf(&op->esil, "%s,%s,&,%s,=", ra, rb, rd);
-		op->type = R_ANAL_OP_TYPE_AND;
-		break;
-	case xor:
-		r_strbuf_setf(&op->esil, "%s,%s,^,%s,=", ra, rb, rd);
-		op->type = R_ANAL_OP_TYPE_XOR;
-		break;
-	case andn:
-		/* nand */
-		r_strbuf_setf(&op->esil, "%s,%s,!,&,%s,=", ra, rb, rd);
-		op->type = R_ANAL_OP_TYPE_NOT;
-		break;
-	case pcmpbf:
-		break;
-	case pcmpbc:
-		break;
-	case pcmpeq:
-		break;
-	case pcmpne:
-		break;
-	case sra:
-		break;
-	case src:
-		break;
-	case srl:
-		break;
-	case sext8:
-		break;
-	case sext16:
-		break;
-	case ori:
-		r_strbuf_setf(&op->esil, "%s,%s,|,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_OR;
-		break;
-	case andi:
-		r_strbuf_setf(&op->esil, "%s,%s,&,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_AND;
-		break;
-	case xori:
-		r_strbuf_setf(&op->esil, "%s,%s,^,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_XOR;
-		break;
-	case andni:
-		r_strbuf_setf(&op->esil, "%s,!,%s,&,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_NOT;
-		break;
-	default:
-		break;
-	}
+static void analyse_logical_inst(struct mb_anal_ctx *ctx, unsigned long insn,
+                                 struct op_code_struct *mb_op) {
+  RAnalOp *op = ctx->op;
+  char *ra = get_field_r1(insn);
+  char *rb = get_field_r2(insn);
+  char *rd = get_field_rd(insn);
+  char *imm = get_imm(ctx, insn);
+  switch (mb_op->instr) {
+  case or:
+    r_strbuf_setf(&op->esil, "%s,%s,|,%s,=", ra, rb, rd);
+    op->type = R_ANAL_OP_TYPE_OR;
+    break;
+  case and:
+    r_strbuf_setf(&op->esil, "%s,%s,&,%s,=", ra, rb, rd);
+    op->type = R_ANAL_OP_TYPE_AND;
+    break;
+  case xor:
+    r_strbuf_setf(&op->esil, "%s,%s,^,%s,=", ra, rb, rd);
+    op->type = R_ANAL_OP_TYPE_XOR;
+    break;
+  case andn:
+    /* nand */
+    r_strbuf_setf(&op->esil, "%s,%s,!,&,%s,=", ra, rb, rd);
+    op->type = R_ANAL_OP_TYPE_NOT;
+    break;
+  case pcmpbf:
+    break;
+  case pcmpbc:
+    break;
+  case pcmpeq:
+    break;
+  case pcmpne:
+    break;
+  case sra:
+    break;
+  case src:
+    break;
+  case srl:
+    break;
+  case sext8:
+    break;
+  case sext16:
+    break;
+  case ori:
+    r_strbuf_setf(&op->esil, "%s,%s,|,%s,=", ra, imm, rd);
+    op->type = R_ANAL_OP_TYPE_OR;
+    break;
+  case andi:
+    r_strbuf_setf(&op->esil, "%s,%s,&,%s,=", ra, imm, rd);
+    op->type = R_ANAL_OP_TYPE_AND;
+    break;
+  case xori:
+    r_strbuf_setf(&op->esil, "%s,%s,^,%s,=", ra, imm, rd);
+    op->type = R_ANAL_OP_TYPE_XOR;
+    break;
+  case andni:
+    r_strbuf_setf(&op->esil, "%s,!,%s,&,%s,=", ra, imm, rd);
+    op->type = R_ANAL_OP_TYPE_NOT;
+    break;
+  default:
+    break;
+  }
 }
 
-static void analyse_mult_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
-	RAnalOp *op = ctx->op;
-	char *ra = get_field_r1(insn);
-	char *rb = get_field_r2(insn);
-	char *rd = get_field_rd(insn);
-	char *imm = get_imm(ctx, insn);
-	switch (mb_op->instr) {
-	case mul:
-		/* should get the LSW of the mul */
-		r_strbuf_setf(&op->esil, "%s,%s,*,%s,=", ra, rb, rd);
-		op->type = R_ANAL_OP_TYPE_MUL;
-		break;
-	case mulh:
-		/* should get the signed MSW of the mul */
-		op->type = R_ANAL_OP_TYPE_MUL;
-		break;
-	case mulhu:
-		/* should get the unsigned MSW of the mul */
-		op->type = R_ANAL_OP_TYPE_MUL;
-		break;
-	case mulhsu:
-		/* should get the signed MSW of the mul signed * unsigned */
-		op->type = R_ANAL_OP_TYPE_MUL;
-		break;
-	case muli:
-		/* should get the LSW of the mul */
-		r_strbuf_setf(&op->esil, "%s,%s,*,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_MUL;
-	default:
-		break;
-	}
+static void analyse_mult_inst(struct mb_anal_ctx *ctx, unsigned long insn,
+                              struct op_code_struct *mb_op) {
+  RAnalOp *op = ctx->op;
+  char *ra = get_field_r1(insn);
+  char *rb = get_field_r2(insn);
+  char *rd = get_field_rd(insn);
+  char *imm = get_imm(ctx, insn);
+  switch (mb_op->instr) {
+  case mul:
+    /* should get the LSW of the mul */
+    r_strbuf_setf(&op->esil, "%s,%s,*,%s,=", ra, rb, rd);
+    op->type = R_ANAL_OP_TYPE_MUL;
+    break;
+  case mulh:
+    /* should get the signed MSW of the mul */
+    op->type = R_ANAL_OP_TYPE_MUL;
+    break;
+  case mulhu:
+    /* should get the unsigned MSW of the mul */
+    op->type = R_ANAL_OP_TYPE_MUL;
+    break;
+  case mulhsu:
+    /* should get the signed MSW of the mul signed * unsigned */
+    op->type = R_ANAL_OP_TYPE_MUL;
+    break;
+  case muli:
+    /* should get the LSW of the mul */
+    r_strbuf_setf(&op->esil, "%s,%s,*,%s,=", ra, imm, rd);
+    op->type = R_ANAL_OP_TYPE_MUL;
+  default:
+    break;
+  }
 }
 
-static void analyse_div_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
-	RAnalOp *op = ctx->op;
-	char *ra = get_field_r1(insn);
-	char *rb = get_field_r2(insn);
-	char *rd = get_field_rd(insn);
+static void analyse_div_inst(struct mb_anal_ctx *ctx, unsigned long insn,
+                             struct op_code_struct *mb_op) {
+  RAnalOp *op = ctx->op;
+  char *ra = get_field_r1(insn);
+  char *rb = get_field_r2(insn);
+  char *rd = get_field_rd(insn);
 
-	r_strbuf_setf(&op->esil, "");
-	switch (mb_op->instr) {
-	case idiv:
-		r_strbuf_setf(&op->esil, "%s,%s,/,%s,=", ra, rb, rd);
-		op->type = R_ANAL_OP_TYPE_DIV;
-		break;
-	case idivu:
-		r_strbuf_setf(&op->esil, "%s,%s,/,%s,=", ra, rb, rd);
-		op->type = R_ANAL_OP_TYPE_DIV;
-		break;
-	default:
-		break;
-	}
+  r_strbuf_setf(&op->esil, "");
+  switch (mb_op->instr) {
+  case idiv:
+    r_strbuf_setf(&op->esil, "%s,%s,/,%s,=", ra, rb, rd);
+    op->type = R_ANAL_OP_TYPE_DIV;
+    break;
+  case idivu:
+    r_strbuf_setf(&op->esil, "%s,%s,/,%s,=", ra, rb, rd);
+    op->type = R_ANAL_OP_TYPE_DIV;
+    break;
+  default:
+    break;
+  }
 }
 
 static char *long_to_string(long imm) {
-	char tmpstr[25];
-	sprintf(tmpstr, "%"PFMT64d, (ut64)imm);
-	return strdup(tmpstr);
+  char tmpstr[25];
+  sprintf(tmpstr, "%" PFMT64d, (ut64)imm);
+  return strdup(tmpstr);
 }
 
-static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
-	RAnalOp *op = ctx->op;
-	bool targetvalid;
-	bool unconditionalbranch;
-	long r1 = get_int_field_r1(insn);
-	long r2 = get_int_field_r2(insn);
-	char *ra = get_field_r1(insn);
-	char *rb = get_field_r2(insn);
-	char *rd = get_field_rd(insn);
-	char *imm;
-	unsigned long jump_addr = 0;
-	r_strbuf_setf(&op->esil, "");
+static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
+                                struct op_code_struct *mb_op) {
+  RAnalOp *op = ctx->op;
+  bool targetvalid;
+  bool unconditionalbranch;
+  long r1 = get_int_field_r1(insn);
+  long r2 = get_int_field_r2(insn);
+  char *ra = get_field_r1(insn);
+  char *rb = get_field_r2(insn);
+  char *rd = get_field_rd(insn);
+  char *imm;
+  ut32 jump_addr = 0;
+  r_strbuf_setf(&op->esil, "");
 
+  jump_addr = microblaze_our_get_target_address(
+      insn, ctx->immfound, ctx->immval, ctx->op->addr, r1, r2, &targetvalid,
+      &unconditionalbranch);
 
-	jump_addr = microblaze_our_get_target_address (insn,
-			ctx->immfound, ctx->immval,
-			ctx->op->addr, r1, r2,
-			&targetvalid,
-			&unconditionalbranch);
+  imm = long_to_string(jump_addr);
 
-	// Mask on 32 bits to handle negative immediate value
-	if (!ctx->immfound)
-		jump_addr &= 0xFFFFFFFF;
-
-	imm = long_to_string(jump_addr);
-
-	switch (mb_op->instr) {
-	case br:
-		r_strbuf_setf(&op->esil, "%s,pc,=+", rb);
-		op->type = R_ANAL_OP_TYPE_UJMP;
-		break;
-	case brd:
-		r_strbuf_setf(&op->esil, "%s,pc,=+", rb);
-		op->type = R_ANAL_OP_TYPE_UJMP;
-		break;
-	case brld:
-		r_strbuf_setf(&op->esil, "%s,pc,=+,pc,%s,=,", rb, rd);
-		op->type = R_ANAL_OP_TYPE_UJMP;
-		op->delay = 1;
-		break;
-	case bra:
-		r_strbuf_setf(&op->esil, "%s,pc,=", rb);
-		op->type = R_ANAL_OP_TYPE_UJMP;
-		break;
-	case brad:
-		r_strbuf_setf(&op->esil, "%s,pc,=", rb);
-		op->type = R_ANAL_OP_TYPE_UJMP;
-		op->delay = 1;
-		break;
-	case brald:
-		r_strbuf_setf(&op->esil, "%s,pc,=,pc,%s,=,", rb, rd);
-		op->type = R_ANAL_OP_TYPE_UJMP;
-		op->delay = 1;
-		break;
-	case microblaze_brk:
-		r_strbuf_setf(&op->esil, "%s,pc,=,pc,%s,=,TRAP", rb, rd);
-		op->type = R_ANAL_OP_TYPE_UJMP;
-		break;
-	case beq:
-		r_strbuf_setf(&op->esil, "%s,0,==,?{,%s,pc,=,}", ra, rb);
-		op->type = R_ANAL_OP_TYPE_UCJMP;
-		break;
-	case beqd:
-		r_strbuf_setf(&op->esil, "%s,0,==,?{,%s,pc,=,}", ra, rb);
-		op->type = R_ANAL_OP_TYPE_UCJMP;
-		op->delay = 1;
-		break;
-	case bne:
-		r_strbuf_setf(&op->esil, "%s,0,==,!,?{,%s,pc,=,}", ra, rb);
-		op->type = R_ANAL_OP_TYPE_UCJMP;
-		break;
-	case bned:
-		r_strbuf_setf(&op->esil, "%s,0,==,!,?{,%s,pc,=,}", ra, rb);
-		op->type = R_ANAL_OP_TYPE_UCJMP;
-		op->delay = 1;
-		break;
-	case blt:
-		r_strbuf_setf(&op->esil, "0,%s,<,?{,%s,pc,=,}", ra, rb);
-		op->type = R_ANAL_OP_TYPE_UCJMP;
-		break;
-	case bltd:
-		r_strbuf_setf(&op->esil, "0,%s,<,?{,%s,pc,=,}", ra, rb);
-		op->type = R_ANAL_OP_TYPE_UCJMP;
-		op->delay = 1;
-		break;
-	case ble:
-		r_strbuf_setf(&op->esil, "0,%s,<=,?{,%s,pc,=,}", ra, rb);
-		op->type = R_ANAL_OP_TYPE_UCJMP;
-		break;
-	case bgt:
-		r_strbuf_setf(&op->esil, "0,%s,>,?{,%s,pc,=,}", ra, rb);
-		op->type = R_ANAL_OP_TYPE_UCJMP;
-		break;
-	case bgtd:
-		r_strbuf_setf(&op->esil, "0,%s,>,?{,%s,pc,=,}", ra, rb);
-		op->type = R_ANAL_OP_TYPE_UCJMP;
-		op->delay = 1;
-		break;
-	case bge:
-		r_strbuf_setf(&op->esil, "0,%s,>=,?{,%s,pc,=,}", ra, rb);
-		op->type = R_ANAL_OP_TYPE_UCJMP;
-		break;
-	case bged:
-		r_strbuf_setf(&op->esil, "0,%s,>=,?{,%s,pc,=,}", ra, rb);
-		op->type = R_ANAL_OP_TYPE_UCJMP;
-		op->delay = 1;
-		break;
-	case bri:
-		r_strbuf_setf(&op->esil, "%s,pc,=", imm);
-		op->type = R_ANAL_OP_TYPE_JMP;
-		op->jump = jump_addr;
-		break;
-	case brid:
-		r_strbuf_setf(&op->esil, "%s,pc,=", imm);
-		op->type = R_ANAL_OP_TYPE_JMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		break;
-	case brlid:
-		r_strbuf_setf(&op->esil, "%s,pc,=", imm);
-		op->type = R_ANAL_OP_TYPE_JMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		break;
-	case brai:
-		r_strbuf_setf(&op->esil, "%s,pc,=", imm);
-		op->type = R_ANAL_OP_TYPE_JMP;
-		op->jump = jump_addr;
-		break;
-	case braid:
-		r_strbuf_setf(&op->esil, "%s,pc,=", imm);
-		op->type = R_ANAL_OP_TYPE_JMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		break;
-	case bralid:
-		r_strbuf_setf(&op->esil, "%s,pc,=", imm);
-		op->type = R_ANAL_OP_TYPE_JMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		break;
-	case brki:
-		r_strbuf_setf(&op->esil, "TRAP", imm);
-		op->type = R_ANAL_OP_TYPE_JMP;
-		op->jump = jump_addr;
-		break;
-	case beqi:
-		r_strbuf_setf(&op->esil, "0,%s,==,?{,%s,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case beqid:
-		r_strbuf_setf(&op->esil, "0,%s,==,?{,%s,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case bnei:
-		r_strbuf_setf(&op->esil, "0,%s,==,!,?{,%s,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case bneid:
-		r_strbuf_setf(&op->esil, "0,%s,==,!,?{,%s,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case blti:
-		r_strbuf_setf(&op->esil, "0,%s,<,?{,%s,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case bltid:
-		r_strbuf_setf(&op->esil, "0,%s,<,?{,%s,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case blei:
-		r_strbuf_setf(&op->esil, "0,%s,<=,?{,%s,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case bleid:
-		r_strbuf_setf(&op->esil, "0,%s,<=,?{,%s,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case bgti:
-		r_strbuf_setf(&op->esil, "0,%s,>,?{,%s,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case bgtid:
-		r_strbuf_setf(&op->esil, "0,%s,>,?{,%s,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case bgei:
-		r_strbuf_setf(&op->esil, "0,%s,>=,?{,%s,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case bgeid:
-		r_strbuf_setf(&op->esil, "0,%s,>=,?{,%s,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	default:
-		break;
-	}
+  switch (mb_op->instr) {
+  case br:
+    r_strbuf_setf(&op->esil, "%s,pc,=+", rb);
+    op->type = R_ANAL_OP_TYPE_UJMP;
+    break;
+  case brd:
+    r_strbuf_setf(&op->esil, "%s,pc,=+", rb);
+    op->type = R_ANAL_OP_TYPE_UJMP;
+    break;
+  case brld:
+    r_strbuf_setf(&op->esil, "%s,pc,=+,pc,%s,=,", rb, rd);
+    op->type = R_ANAL_OP_TYPE_UJMP;
+    op->delay = 1;
+    break;
+  case bra:
+    r_strbuf_setf(&op->esil, "%s,pc,=", rb);
+    op->type = R_ANAL_OP_TYPE_UJMP;
+    break;
+  case brad:
+    r_strbuf_setf(&op->esil, "%s,pc,=", rb);
+    op->type = R_ANAL_OP_TYPE_UJMP;
+    op->delay = 1;
+    break;
+  case brald:
+    r_strbuf_setf(&op->esil, "%s,pc,=,pc,%s,=,", rb, rd);
+    op->type = R_ANAL_OP_TYPE_UJMP;
+    op->delay = 1;
+    break;
+  case microblaze_brk:
+    r_strbuf_setf(&op->esil, "%s,pc,=,pc,%s,=,TRAP", rb, rd);
+    op->type = R_ANAL_OP_TYPE_UJMP;
+    break;
+  case beq:
+    r_strbuf_setf(&op->esil, "%s,0,==,?{,%s,pc,=,}", ra, rb);
+    op->type = R_ANAL_OP_TYPE_UCJMP;
+    break;
+  case beqd:
+    r_strbuf_setf(&op->esil, "%s,0,==,?{,%s,pc,=,}", ra, rb);
+    op->type = R_ANAL_OP_TYPE_UCJMP;
+    op->delay = 1;
+    break;
+  case bne:
+    r_strbuf_setf(&op->esil, "%s,0,==,!,?{,%s,pc,=,}", ra, rb);
+    op->type = R_ANAL_OP_TYPE_UCJMP;
+    break;
+  case bned:
+    r_strbuf_setf(&op->esil, "%s,0,==,!,?{,%s,pc,=,}", ra, rb);
+    op->type = R_ANAL_OP_TYPE_UCJMP;
+    op->delay = 1;
+    break;
+  case blt:
+    r_strbuf_setf(&op->esil, "0,%s,<,?{,%s,pc,=,}", ra, rb);
+    op->type = R_ANAL_OP_TYPE_UCJMP;
+    break;
+  case bltd:
+    r_strbuf_setf(&op->esil, "0,%s,<,?{,%s,pc,=,}", ra, rb);
+    op->type = R_ANAL_OP_TYPE_UCJMP;
+    op->delay = 1;
+    break;
+  case ble:
+    r_strbuf_setf(&op->esil, "0,%s,<=,?{,%s,pc,=,}", ra, rb);
+    op->type = R_ANAL_OP_TYPE_UCJMP;
+    break;
+  case bgt:
+    r_strbuf_setf(&op->esil, "0,%s,>,?{,%s,pc,=,}", ra, rb);
+    op->type = R_ANAL_OP_TYPE_UCJMP;
+    break;
+  case bgtd:
+    r_strbuf_setf(&op->esil, "0,%s,>,?{,%s,pc,=,}", ra, rb);
+    op->type = R_ANAL_OP_TYPE_UCJMP;
+    op->delay = 1;
+    break;
+  case bge:
+    r_strbuf_setf(&op->esil, "0,%s,>=,?{,%s,pc,=,}", ra, rb);
+    op->type = R_ANAL_OP_TYPE_UCJMP;
+    break;
+  case bged:
+    r_strbuf_setf(&op->esil, "0,%s,>=,?{,%s,pc,=,}", ra, rb);
+    op->type = R_ANAL_OP_TYPE_UCJMP;
+    op->delay = 1;
+    break;
+  case bri:
+    r_strbuf_setf(&op->esil, "%s,pc,=", imm);
+    op->type = R_ANAL_OP_TYPE_JMP;
+    op->jump = jump_addr;
+    break;
+  case brid:
+    r_strbuf_setf(&op->esil, "%s,pc,=", imm);
+    op->type = R_ANAL_OP_TYPE_JMP;
+    op->delay = 1;
+    op->jump = jump_addr;
+    break;
+  case brlid:
+    r_strbuf_setf(&op->esil, "%s,pc,=", imm);
+    op->type = R_ANAL_OP_TYPE_JMP;
+    op->delay = 1;
+    op->jump = jump_addr;
+    break;
+  case brai:
+    r_strbuf_setf(&op->esil, "%s,pc,=", imm);
+    op->type = R_ANAL_OP_TYPE_JMP;
+    op->jump = jump_addr;
+    break;
+  case braid:
+    r_strbuf_setf(&op->esil, "%s,pc,=", imm);
+    op->type = R_ANAL_OP_TYPE_JMP;
+    op->delay = 1;
+    op->jump = jump_addr;
+    break;
+  case bralid:
+    r_strbuf_setf(&op->esil, "%s,pc,=", imm);
+    op->type = R_ANAL_OP_TYPE_JMP;
+    op->delay = 1;
+    op->jump = jump_addr;
+    break;
+  case brki:
+    r_strbuf_setf(&op->esil, "TRAP", imm);
+    op->type = R_ANAL_OP_TYPE_JMP;
+    op->jump = jump_addr;
+    break;
+  case beqi:
+    r_strbuf_setf(&op->esil, "0,%s,==,?{,%s,pc,=,}", ra, imm);
+    op->type = R_ANAL_OP_TYPE_CJMP;
+    op->jump = jump_addr;
+    op->fail = op->addr + op->size;
+    break;
+  case beqid:
+    r_strbuf_setf(&op->esil, "0,%s,==,?{,%s,pc,=,}", ra, imm);
+    op->type = R_ANAL_OP_TYPE_CJMP;
+    op->delay = 1;
+    op->jump = jump_addr;
+    op->fail = op->addr + op->size;
+    break;
+  case bnei:
+    r_strbuf_setf(&op->esil, "0,%s,==,!,?{,%s,pc,=,}", ra, imm);
+    op->type = R_ANAL_OP_TYPE_CJMP;
+    op->jump = jump_addr;
+    op->fail = op->addr + op->size;
+    break;
+  case bneid:
+    r_strbuf_setf(&op->esil, "0,%s,==,!,?{,%s,pc,=,}", ra, imm);
+    op->type = R_ANAL_OP_TYPE_CJMP;
+    op->delay = 1;
+    op->jump = jump_addr;
+    op->fail = op->addr + op->size;
+    break;
+  case blti:
+    r_strbuf_setf(&op->esil, "0,%s,<,?{,%s,pc,=,}", ra, imm);
+    op->type = R_ANAL_OP_TYPE_CJMP;
+    op->jump = jump_addr;
+    op->fail = op->addr + op->size;
+    break;
+  case bltid:
+    r_strbuf_setf(&op->esil, "0,%s,<,?{,%s,pc,=,}", ra, imm);
+    op->type = R_ANAL_OP_TYPE_CJMP;
+    op->delay = 1;
+    op->jump = jump_addr;
+    op->fail = op->addr + op->size;
+    break;
+  case blei:
+    r_strbuf_setf(&op->esil, "0,%s,<=,?{,%s,pc,=,}", ra, imm);
+    op->type = R_ANAL_OP_TYPE_CJMP;
+    op->jump = jump_addr;
+    op->fail = op->addr + op->size;
+    break;
+  case bleid:
+    r_strbuf_setf(&op->esil, "0,%s,<=,?{,%s,pc,=,}", ra, imm);
+    op->type = R_ANAL_OP_TYPE_CJMP;
+    op->delay = 1;
+    op->jump = jump_addr;
+    op->fail = op->addr + op->size;
+    break;
+  case bgti:
+    r_strbuf_setf(&op->esil, "0,%s,>,?{,%s,pc,=,}", ra, imm);
+    op->type = R_ANAL_OP_TYPE_CJMP;
+    op->jump = jump_addr;
+    op->fail = op->addr + op->size;
+    break;
+  case bgtid:
+    r_strbuf_setf(&op->esil, "0,%s,>,?{,%s,pc,=,}", ra, imm);
+    op->type = R_ANAL_OP_TYPE_CJMP;
+    op->delay = 1;
+    op->jump = jump_addr;
+    op->fail = op->addr + op->size;
+    break;
+  case bgei:
+    r_strbuf_setf(&op->esil, "0,%s,>=,?{,%s,pc,=,}", ra, imm);
+    op->type = R_ANAL_OP_TYPE_CJMP;
+    op->jump = jump_addr;
+    op->fail = op->addr + op->size;
+    break;
+  case bgeid:
+    r_strbuf_setf(&op->esil, "0,%s,>=,?{,%s,pc,=,}", ra, imm);
+    op->type = R_ANAL_OP_TYPE_CJMP;
+    op->delay = 1;
+    op->jump = jump_addr;
+    op->fail = op->addr + op->size;
+    break;
+  default:
+    break;
+  }
 }
 
-static void analyse_return_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
-	RAnalOp *op = ctx->op;
-	long r1 = get_int_field_r1(insn);
-	long r2 = get_int_field_r2(insn);
-	char *ra = get_field_r1(insn);
-	char *imm;
-	bool targetvalid, unconditionalbranch;
-	long jump_addr = microblaze_our_get_target_address (insn,
-			ctx->immfound, ctx->immval,
-			ctx->op->addr, r1, r2,
-			&targetvalid,
-			&unconditionalbranch);
+static void analyse_return_inst(struct mb_anal_ctx *ctx, unsigned long insn,
+                                struct op_code_struct *mb_op) {
+  RAnalOp *op = ctx->op;
+  long r1 = get_int_field_r1(insn);
+  long r2 = get_int_field_r2(insn);
+  char *ra = get_field_r1(insn);
+  char *imm;
+  bool targetvalid, unconditionalbranch;
+  ut32 jump_addr = microblaze_our_get_target_address(
+      insn, ctx->immfound, ctx->immval, ctx->op->addr, r1, r2, &targetvalid,
+      &unconditionalbranch);
 
-	// Mask on 32 bits to handle negative immediate value
-	if (!ctx->immfound)
-		jump_addr &= 0xFFFFFFFF;
+  imm = long_to_string(jump_addr);
 
-	imm = long_to_string(jump_addr);
-
-	switch (mb_op->instr) {
-	case rtsd:
-		r_strbuf_setf(&op->esil, "%s,+,%s,pc,=", ra, imm);
-		op->type = R_ANAL_OP_TYPE_RET;
-		op->delay = 1;
-		break;
-	case rtid:
-		r_strbuf_setf(&op->esil, "%s,+,%s,pc,=", ra, imm);
-		op->type = R_ANAL_OP_TYPE_RET;
-		op->delay = 1;
-		break;
-	case rtbd:
-		r_strbuf_setf(&op->esil, "%s,+,%s,pc,=", ra, imm);
-		op->type = R_ANAL_OP_TYPE_RET;
-		op->delay = 1;
-		break;
-	case rted:
-		r_strbuf_setf(&op->esil, "%s,+,%s,pc,=", ra, imm);
-		op->type = R_ANAL_OP_TYPE_RET;
-		op->delay = 1;
-		break;
-	default:
-		break;
-	}
+  switch (mb_op->instr) {
+  case rtsd:
+    r_strbuf_setf(&op->esil, "%s,+,%s,pc,=", ra, imm);
+    op->type = R_ANAL_OP_TYPE_RET;
+    op->delay = 1;
+    break;
+  case rtid:
+    r_strbuf_setf(&op->esil, "%s,+,%s,pc,=", ra, imm);
+    op->type = R_ANAL_OP_TYPE_RET;
+    op->delay = 1;
+    break;
+  case rtbd:
+    r_strbuf_setf(&op->esil, "%s,+,%s,pc,=", ra, imm);
+    op->type = R_ANAL_OP_TYPE_RET;
+    op->delay = 1;
+    break;
+  case rted:
+    r_strbuf_setf(&op->esil, "%s,+,%s,pc,=", ra, imm);
+    op->type = R_ANAL_OP_TYPE_RET;
+    op->delay = 1;
+    break;
+  default:
+    break;
+  }
 }
 
 static void analyse_special_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
