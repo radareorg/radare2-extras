@@ -32,7 +32,7 @@ struct mb_anal_ctx {
 static char *get_field(long instr, long mask, unsigned short low) {
 	char *tmpstr;
 	tmpstr = r_str_newf ("%s%d", register_prefix, (int)((instr & mask) >> low));
-	return strdup (tmpstr);
+	return tmpstr;
 }
 
 static unsigned char bytes[4];
@@ -156,7 +156,7 @@ static char *get_imm(struct mb_anal_ctx *ctx, int instr) {
 	}
 	immval |= get_int_field_imm (instr);
 	tmpstr = r_str_newf ("%d", immval);
-	return strdup(tmpstr);
+	return tmpstr;
 }
 
 static void handle_immediate_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -382,7 +382,7 @@ static void analyse_div_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 static char *long_to_string(long imm) {
 	char *tmpstr;
 	tmpstr = r_str_newf ("%" PFMT64d, (ut64)imm);
-	return strdup (tmpstr);
+	return tmpstr;
 }
 
 static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
