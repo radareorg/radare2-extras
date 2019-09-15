@@ -412,7 +412,6 @@ static struct op_code_struct
 
 /* Prefix for register names.  */
 char register_prefix[] = "r";
-char special_register_prefix[] = "spr";
 char fsl_register_prefix[] = "rfsl";
 char pvr_register_prefix[] = "rpvr";
 
