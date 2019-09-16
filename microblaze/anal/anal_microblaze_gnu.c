@@ -121,7 +121,7 @@ static unsigned long read_insn_microblaze(bfd_vma memaddr,
 	struct op_code_struct *op;
 	unsigned long inst;
 
-	status = info->read_memory_func(memaddr, ibytes, 4, info);
+	status = info->read_memory_func (memaddr, ibytes, 4, info);
 
 	if (status != 0) {
 		return 0;
@@ -322,7 +322,7 @@ static void analyse_arithmetic_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		break;
 	}
     // Reset _imm value to zero even if not used.
-    r_strbuf_appendf(&op->esil, ",0,_imm,=");
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_logical_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -388,7 +388,7 @@ static void analyse_logical_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		break;
 	}
 	// Reset _imm value to zero even if not used.
-    r_strbuf_appendf(&op->esil, ",0,_imm,=");
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_mult_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -424,7 +424,7 @@ static void analyse_mult_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		break;
 	}
 	// Reset _imm value to zero even if not used.
-    r_strbuf_appendf(&op->esil, ",0,_imm,=");
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_div_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -448,7 +448,7 @@ static void analyse_div_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		break;
 	}
 	// Reset _imm value to zero even if not used.
-    r_strbuf_appendf(&op->esil, ",0,_imm,=");
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static char *long_to_string(long imm) {
@@ -679,7 +679,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		break;
 	}
 	// Reset _imm value to zero even if not used.
-    r_strbuf_appendf(&op->esil, ",0,_imm,=");
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_return_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -721,7 +721,7 @@ static void analyse_return_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		break;
 	}
 	// Reset _imm value to zero even if not used.
-    r_strbuf_appendf(&op->esil, ",0,_imm,=");
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_special_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
@@ -751,7 +751,7 @@ static void analyse_special_inst(struct mb_anal_ctx *ctx, unsigned long insn, st
 		break;
 	}
 	// Reset _imm value to zero even if not used.
-    r_strbuf_appendf(&op->esil, ",0,_imm,=");
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 static void analyse_anyware_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
 	RAnalOp *op = ctx->op;
@@ -776,7 +776,7 @@ static void analyse_anyware_inst(struct mb_anal_ctx *ctx, unsigned long insn, st
 		break;
 	}
 	// Reset _imm value to zero even if not used.
-    r_strbuf_appendf(&op->esil, ",0,_imm,=");
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_memory_load_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
@@ -811,7 +811,7 @@ static void analyse_memory_load_inst(struct mb_anal_ctx *ctx, unsigned long insn
 		op->type = R_ANAL_OP_TYPE_LOAD;
 		break;
 	case lwx:
-		r_strbuf_setf(&op->esil, "%s,%s,[],+,%s,=", ra, rb, rd);
+		r_strbuf_setf (&op->esil, "%s,%s,[],+,%s,=", ra, rb, rd);
 		op->type = R_ANAL_OP_TYPE_LOAD;
 		break;
 	case lbui:
@@ -917,7 +917,7 @@ static void analyse_barrel_shift_inst(struct mb_anal_ctx *ctx, unsigned long ins
 		break;
 	}
 	// Reset _imm value to zero even if not used.
-    r_strbuf_appendf(&op->esil, ",0,_imm,=");
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 
@@ -957,7 +957,7 @@ static int microblaze_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 		return oplen;
 	}
 
-	memset (op, 0, sizeof (RAnalOp));
+    memset (op, 0, sizeof (RAnalOp));
 	op->type = R_ANAL_OP_TYPE_NULL;
 	op->jump = op->fail = -1;
 	op->size = oplen;
@@ -1077,7 +1077,7 @@ static int microblaze_set_reg_profile(RAnal* anal) {
 		"gpr    btr    .32     144     0\n" /* branch target register */
 		"gpr    fsr    .32     148     0\n" /* floating point status register */
 		"gpr    slr    .32     152     0\n" /* stack low register */
-		"gpr    shr    .32     156     0\n"/* stack high register */
+		"gpr    shr    .32     156     0\n" /* stack high register */
         //      _imm
         //              this is the temporary upper immadiate value used internally by
         //              the CPU for the following type B instruction.
