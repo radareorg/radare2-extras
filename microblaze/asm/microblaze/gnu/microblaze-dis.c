@@ -27,6 +27,7 @@
 #include "dis-asm.h"
 #include <stdlib.h>
 #include <string.h>
+#include <r_asm.h>
 #include "microblaze-opc.h"
 #include "microblaze-dis.h"
 
@@ -96,8 +97,8 @@ get_field_imm15 (long instr)
 static char *
 get_field_special (long instr, struct op_code_struct * op)
 {
-  char tmpstr[25];
-  char spr[6];
+	char *tmpstr;
+	char spr[6];
 
   switch ((((instr & IMM_MASK) >> IMM_LOW) ^ op->immval_mask))
     {
@@ -150,18 +151,18 @@ get_field_special (long instr, struct op_code_struct * op)
       if (((((instr & IMM_MASK) >> IMM_LOW) ^ op->immval_mask) & 0xE000)
           == REG_PVR_MASK)
         {
-	  sprintf (tmpstr, "%spvr%d", register_prefix,
+	  tmpstr = r_str_newf ("%spvr%d", register_prefix,
 		   (unsigned short)(((instr & IMM_MASK) >> IMM_LOW)
                                     ^ op->immval_mask) ^ REG_PVR_MASK);
-	  return (strdup (tmpstr));
+	  return (tmpstr);
         }
       else
         strcpy (spr, "pc");
       break;
     }
 
-   sprintf (tmpstr, "%s%s", register_prefix, spr);
-   return (strdup (tmpstr));
+	tmpstr = r_str_newf ("%s", spr);
+   	return (tmpstr);
 }
 
 static unsigned long

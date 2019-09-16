@@ -121,7 +121,7 @@ static unsigned long read_insn_microblaze(bfd_vma memaddr,
 	struct op_code_struct *op;
 	unsigned long inst;
 
-	status = info->read_memory_func(memaddr, ibytes, 4, info);
+	status = info->read_memory_func (memaddr, ibytes, 4, info);
 
 	if (status != 0) {
 		return 0;
@@ -151,19 +151,83 @@ static unsigned long read_insn_microblaze(bfd_vma memaddr,
 static char *get_imm(struct mb_anal_ctx *ctx, int instr) {
 	char *tmpstr;
 	int immval = 0;
-	if (ctx->immfound) {
-		immval = ctx->immval << 16 & UT32_16U;
-	}
-	immval |= get_int_field_imm (instr);
-	tmpstr = r_str_newf ("%d", immval);
+	immval = get_int_field_imm (instr);
+	tmpstr = r_str_newf ("%u", immval);
 	return tmpstr;
+}
+
+static char *
+get_field_special (long instr, struct op_code_struct * op)
+{
+	char *tmpstr;
+	char spr[6];
+
+  	switch ((((instr & IMM_MASK) >> IMM_LOW) ^ op->immval_mask))
+    {
+    	case REG_MSR_MASK :
+	  		strcpy (spr, "msr");
+	  		break;
+		case REG_PC_MASK :
+      		strcpy (spr, "pc");
+      		break;
+    	case REG_EAR_MASK :
+	  		strcpy (spr, "ear");
+	  		break;
+		case REG_ESR_MASK :
+			strcpy (spr, "esr");
+			break;
+		case REG_FSR_MASK :
+			strcpy (spr, "fsr");
+			break;
+		case REG_BTR_MASK :
+			strcpy (spr, "btr");
+			break;
+		case REG_EDR_MASK :
+			strcpy (spr, "edr");
+			break;
+		case REG_PID_MASK :
+			strcpy (spr, "pid");
+			break;
+		case REG_ZPR_MASK :
+			strcpy (spr, "zpr");
+			break;
+		case REG_TLBX_MASK :
+			strcpy (spr, "tlbx");
+			break;
+		case REG_TLBLO_MASK :
+			strcpy (spr, "tlblo");
+			break;
+		case REG_TLBHI_MASK :
+			strcpy (spr, "tlbhi");
+			break;
+		case REG_TLBSX_MASK :
+			strcpy (spr, "tlbsx");
+			break;
+		case REG_SHR_MASK :
+			strcpy (spr, "shr");
+			break;
+		case REG_SLR_MASK :
+	  		strcpy (spr, "slr");
+		  	break;
+    	default :
+        	strcpy (spr, "pc");
+      break;
+    }
+
+	tmpstr = r_str_newf ("%s", spr);
+   	return (tmpstr);
 }
 
 static void handle_immediate_inst(struct mb_anal_ctx *ctx, unsigned long insn,
                                   struct op_code_struct *mb_op) {
+    char *tmpstr;
+    RAnalOp *op = ctx->op;
+
 	if (mb_op->instr == imm) {
 		ctx->immval = get_int_field_imm (insn);
 		ctx->immfound_addr = ctx->op->addr;
+        tmpstr = r_str_newf ("%u", (ctx->immval << 16) & UT32_16U);
+        r_strbuf_setf (&op->esil, "%s,_imm,=", tmpstr);
 	}
 }
 
@@ -213,26 +277,26 @@ static void analyse_arithmetic_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->type = R_ANAL_OP_TYPE_SUB;
 		break;
 	case addi:
-		r_strbuf_setf (&op->esil, "%s,%s,+,%s,=", ra, imm, rd);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,%s,+,%s,=", ra, imm, rd);
 		op->type = R_ANAL_OP_TYPE_ADD;
 		break;
 	case rsubi:
-		r_strbuf_setf (&op->esil, "%s,%s,-,%s,=", ra, imm, rd);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,%s,-,%s,=", ra, imm, rd);
 		op->type = R_ANAL_OP_TYPE_SUB;
 		break;
 	case addic:
 		/* should use carry */
-		r_strbuf_setf (&op->esil, "%s,%s,+,%s,=", ra, imm, rd);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,%s,+,%s,=", ra, imm, rd);
 		op->type = R_ANAL_OP_TYPE_ADD;
 		break;
 	case rsubic:
 		/* should use carry */
-		r_strbuf_setf (&op->esil, "%s,%s,-,%s,=", ra, imm, rd);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,%s,-,%s,=", ra, imm, rd);
 		op->type = R_ANAL_OP_TYPE_SUB;
 		break;
 	case addik:
 		/* should keep carry */
-		r_strbuf_setf (&op->esil, "%s,%s,+,%s,=", ra, imm, rd);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,%s,+,%s,=", imm, ra, rd);
 		op->type = R_ANAL_OP_TYPE_ADD;
 		break;
 	case rsubik:
@@ -257,6 +321,8 @@ static void analyse_arithmetic_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	default:
 		break;
 	}
+    // Reset _imm value to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_logical_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -303,15 +369,15 @@ static void analyse_logical_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	case sext16:
 		break;
 	case ori:
-		r_strbuf_setf (&op->esil, "%s,%s,|,%s,=", ra, imm, rd);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,%s,|,%s,=", ra, imm, rd);
 		op->type = R_ANAL_OP_TYPE_OR;
 		break;
 	case andi:
-		r_strbuf_setf (&op->esil, "%s,%s,&,%s,=", ra, imm, rd);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,%s,&,%s,=", ra, imm, rd);
 		op->type = R_ANAL_OP_TYPE_AND;
 		break;
 	case xori:
-		r_strbuf_setf (&op->esil, "%s,%s,^,%s,=", ra, imm, rd);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,%s,^,%s,=", ra, imm, rd);
 		op->type = R_ANAL_OP_TYPE_XOR;
 		break;
 	case andni:
@@ -321,6 +387,8 @@ static void analyse_logical_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	default:
 		break;
 	}
+	// Reset _imm value to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_mult_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -355,6 +423,8 @@ static void analyse_mult_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	default:
 		break;
 	}
+	// Reset _imm value to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_div_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -377,6 +447,8 @@ static void analyse_div_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	default:
 		break;
 	}
+	// Reset _imm value to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static char *long_to_string(long imm) {
@@ -498,7 +570,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->jump = jump_addr;
 		break;
 	case brlid:
-		r_strbuf_setf (&op->esil, "%s,pc,=", imm);
+		r_strbuf_setf (&op->esil, "pc,%s,=,%s,pc,=", rd, imm);
 		op->type = R_ANAL_OP_TYPE_JMP;
 		op->delay = 1;
 		op->jump = jump_addr;
@@ -606,6 +678,8 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	default:
 		break;
 	}
+	// Reset _imm value to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_return_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -646,10 +720,14 @@ static void analyse_return_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	default:
 		break;
 	}
+	// Reset _imm value to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_special_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
 	RAnalOp *op = ctx->op;
+	char *rd = get_field_r1 (insn);
+	char *rs = get_field_special (insn, mb_op);
 	switch (mb_op->instr) {
 	case wic:
 		break;
@@ -664,12 +742,16 @@ static void analyse_special_inst(struct mb_anal_ctx *ctx, unsigned long insn, st
 	case wdcextflush:
 		break;
 	case mts:
+		r_strbuf_setf (&op->esil, "%s,%s,=", rd, rs);
+		op->type = R_ANAL_OP_TYPE_MOV;
 		break;
 	case mfs:
 		break;
 	default:
 		break;
 	}
+	// Reset _imm value to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 static void analyse_anyware_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
 	RAnalOp *op = ctx->op;
@@ -693,6 +775,8 @@ static void analyse_anyware_inst(struct mb_anal_ctx *ctx, unsigned long insn, st
 	default:
 		break;
 	}
+	// Reset _imm value to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_memory_load_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
@@ -727,24 +811,27 @@ static void analyse_memory_load_inst(struct mb_anal_ctx *ctx, unsigned long insn
 		op->type = R_ANAL_OP_TYPE_LOAD;
 		break;
 	case lwx:
-		r_strbuf_setf(&op->esil, "%s,%s,[],+,%s,=", ra, rb, rd);
+		r_strbuf_setf (&op->esil, "%s,%s,[],+,%s,=", ra, rb, rd);
 		op->type = R_ANAL_OP_TYPE_LOAD;
 		break;
 	case lbui:
-		r_strbuf_setf (&op->esil, "%s,%s,[],+,%s,=", ra, imm, rd);
+		r_strbuf_setf (&op->esil, "%s,%s,_imm,|,+,[1],%s,=", ra, imm, rd);
 		op->type = R_ANAL_OP_TYPE_LOAD;
 		break;
 	case lhui:
-		r_strbuf_setf (&op->esil, "%s,%s,[],+,%s,=", ra, imm, rd);
+		r_strbuf_setf (&op->esil, "%s,%s,_imm,|,+,[4],%s,=", ra, imm, rd);
+		r_strbuf_appendf (&op->esil, ",16,%s,>>=",rd);
 		op->type = R_ANAL_OP_TYPE_LOAD;
 		break;
 	case lwi:
-		r_strbuf_setf (&op->esil, "%s,%s,[],+,%s,=", ra, imm, rd);
+		r_strbuf_setf (&op->esil, "%s,%s,_imm,|,+,[4],%s,=", ra, imm, rd);
 		op->type = R_ANAL_OP_TYPE_LOAD;
 		break;
 	default:
 		break;
 	}
+	// Reset _imm value to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_memory_store_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
@@ -755,28 +842,28 @@ static void analyse_memory_store_inst(struct mb_anal_ctx *ctx, unsigned long ins
 	char *imm = get_imm (ctx, insn);
 	switch (mb_op->instr) {
 	case sb:
-		r_strbuf_setf (&op->esil, "%s,%s,+,%s,=[]", rd, ra, rb);
+		r_strbuf_setf (&op->esil, "%s,%s,%s,+,=[1]", rd, ra, rb);
 		op->type = R_ANAL_OP_TYPE_STORE;
 		break;
 	case sbr:
-		r_strbuf_setf (&op->esil, "%s,%s,+,%s,=[]", rd, ra, rb);
+		r_strbuf_setf (&op->esil, "%s,%s,%s,+,=[1]", rd, ra, rb);
 		op->type = R_ANAL_OP_TYPE_STORE;
 		break;
 	case sh:
-		r_strbuf_setf (&op->esil, "%s,%s,+,%s,=[]", rd, ra, rb);
+		r_strbuf_setf (&op->esil, "%s,%s,%s,+,=[2]", rd, ra, rb);
 		op->type = R_ANAL_OP_TYPE_STORE;
 		break;
 	case shr:
-		r_strbuf_setf (&op->esil, "%s,%s,+,%s,=[]", rd, ra, rb);
+		r_strbuf_setf (&op->esil, "%s,%s,%s,+,=[2]", rd, ra, rb);
 		op->type = R_ANAL_OP_TYPE_STORE;
 		break;
 	case sw:
-		r_strbuf_setf (&op->esil, "%s,%s,+,%s,=[]", rd, ra, rb);
+		r_strbuf_setf (&op->esil, "%s,%s,%s,+,=[4]", rd, ra, rb);
 		op->type = R_ANAL_OP_TYPE_STORE;
 		break;
 	case swr:
 		/* what's the diff ? not documented */
-		r_strbuf_setf (&op->esil, "%s,%s,+,%s,=[]", rd, ra, rb);
+		r_strbuf_setf (&op->esil, "%s,%s,%s,+,=[4]", rd, ra, rb);
 		op->type = R_ANAL_OP_TYPE_STORE;
 		break;
 	case swx:
@@ -785,22 +872,24 @@ static void analyse_memory_store_inst(struct mb_anal_ctx *ctx, unsigned long ins
 		op->type = R_ANAL_OP_TYPE_STORE;
 		break;
 	case sbi:
-		/* should only store lsb */
-		r_strbuf_setf (&op->esil, "%s,%s,+,%s,=[]", rd, ra, imm);
+		/* Only store least significant byte */
+		r_strbuf_setf (&op->esil, ",%s,%s,%s,_imm,|,+,=[1]", rd, ra, imm);
 		op->type = R_ANAL_OP_TYPE_STORE;
 		break;
 	case shi:
-		/* should only store msb */
-		r_strbuf_setf (&op->esil, "%s,%s,+,%s,=[]", rd, ra, imm);
+		/* Only store least significant halword */
+		r_strbuf_setf (&op->esil, ",%s,%s,%s,_imm,|,+,=[2]", rd, ra, imm);
 		op->type = R_ANAL_OP_TYPE_STORE;
 		break;
 	case swi:
-		r_strbuf_setf (&op->esil, "%s,%s,+,%s,=[]", rd, ra, imm);
+		r_strbuf_setf (&op->esil, "%s,%s,%s,_imm,|,+,=[]", rd, ra, imm);
 		op->type = R_ANAL_OP_TYPE_STORE;
 		break;
 	default:
 		break;
 	}
+	// Reset _imm value to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_barrel_shift_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
@@ -827,6 +916,8 @@ static void analyse_barrel_shift_inst(struct mb_anal_ctx *ctx, unsigned long ins
 	default:
 		break;
 	}
+	// Reset _imm value to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 
@@ -866,7 +957,7 @@ static int microblaze_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 		return oplen;
 	}
 
-	memset (op, 0, sizeof (RAnalOp));
+    memset (op, 0, sizeof (RAnalOp));
 	op->type = R_ANAL_OP_TYPE_NULL;
 	op->jump = op->fail = -1;
 	op->size = oplen;
@@ -979,15 +1070,18 @@ static int microblaze_set_reg_profile(RAnal* anal) {
 		"gpr	r29	.32	116	0\n"
 		"gpr	r30	.32	120	0\n"
 		"gpr	r31	.32	124	0\n"
-		"gpr    pc      .32     128     0\n"
+		"gpr    pc     .32     128     0\n"
 		"gpr    msr    .32     132     0\n" /* machine status register */
 		"gpr    ear    .32     136     0\n" /* exception address register */
 		"gpr    esr    .32     140     0\n" /* exception status register */
 		"gpr    btr    .32     144     0\n" /* branch target register */
 		"gpr    fsr    .32     148     0\n" /* floating point status register */
 		"gpr    slr    .32     152     0\n" /* stack low register */
-		"gpr    shr    .32     156     0\n";/* stack high register */
-
+		"gpr    shr    .32     156     0\n" /* stack high register */
+        //      _imm
+        //              this is the temporary upper immadiate value used internally by
+        //              the CPU for the following type B instruction.
+        "gpr    _imm   .32      160     0\n";
 	return r_reg_set_profile_string(anal->reg, p);
 }
 
