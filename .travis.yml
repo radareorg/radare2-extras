@@ -44,7 +44,7 @@ env:
 #  - TESTS="r2pm -i io-ewf" # https://github.com/travis-ci/apt-package-whitelist/issues/3205
 #  - TESTS="r2pm -i keystone-lib && r2pm -i keystone && cd radare2-regressions && make keystone && cd .." [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i mc6809"
-  - TESTS="r2pm -i microblaze"
+  - TESTS="r2pm -i microblaze && cd radare2-regressions && make microblaze"
   - TESTS="r2pm -i msil"
   - TESTS="r2pm -i pcap"
   - TESTS="r2pm -i ppcdisasm"

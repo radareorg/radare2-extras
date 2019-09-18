@@ -249,6 +249,8 @@ static void analyse_arithmetic_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->type = R_ANAL_OP_TYPE_SUB;
 		break;
 	case addc:
+		r_strbuf_setf (&op->esil, "%s,%s,c,+,+,%s,=", ra, rb, rd);
+		r_strbuf_appendf (&op->esil, "32,%s,>>,c,+=", rd);
 		op->type = R_ANAL_OP_TYPE_ADD;
 		break;
 	case rsubc:
@@ -265,12 +267,17 @@ static void analyse_arithmetic_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->type = R_ANAL_OP_TYPE_SUB;
 		break;
 	case cmp:
+		r_strbuf_setf (&op->esil, "%s,%s,-,0x7fffffff,&,%s,=,", ra, rb, rd);
+		r_strbuf_appendf (&op->esil, "31,%s,%s,>,<<,%s,|=", ra, rb, rd);
 		op->type = R_ANAL_OP_TYPE_CMP;
 		break;
 	case cmpu:
+		r_strbuf_setf (&op->esil, "%s,%s,-,0x7fffffff,&,%s,=,", ra, rb, rd);
+		r_strbuf_appendf (&op->esil, "31,%s,%s,>,<<,%s,|=", ra, rb, rd);
 		op->type = R_ANAL_OP_TYPE_CMP;
 		break;
 	case addkc:
+		r_strbuf_setf (&op->esil, "%s,%s,c,+,+,%s,=", ra, rb, rd);
 		op->type = R_ANAL_OP_TYPE_ADD;
 		break;
 	case rsubkc:
@@ -1072,6 +1079,7 @@ static int microblaze_set_reg_profile(RAnal* anal) {
 		"gpr	r31	.32	124	0\n"
 		"gpr    pc     .32     128     0\n"
 		"gpr    msr    .32     132     0\n" /* machine status register */
+		"gpr    c      .1      132.29  0\n" /* arithmetic carry */
 		"gpr    ear    .32     136     0\n" /* exception address register */
 		"gpr    esr    .32     140     0\n" /* exception status register */
 		"gpr    btr    .32     144     0\n" /* branch target register */
