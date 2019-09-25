@@ -94,7 +94,7 @@ cache:
 before_script:
   - export WORKING_DIR=${TRAVIS_BUILD_DIR}/..
   - cd ${WORKING_DIR}
-  - rm -rf ~/.nvm && git clone https://github.com/creationix/nvm.git ~/.nvm && (cd ~/.nvm && git checkout `git describe --abbrev=0 --tags`) && source ~/.nvm/nvm.sh && nvm install 7
+  - rm -rf ~/.nvm && git clone https://github.com/creationix/nvm.git ~/.nvm && (cd ~/.nvm && git checkout `git describe --abbrev=0 --tags`) && source ~/.nvm/nvm.sh && nvm install 10
   - git clone https://github.com/radare/radare2-regressions
   - git clone https://github.com/radare/radare2 && cd radare2
   - export CC=gcc-7
