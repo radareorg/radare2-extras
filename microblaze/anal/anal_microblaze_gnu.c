@@ -9,6 +9,7 @@
 #include "microblaze-opc.h"
 #include "dis-asm.h"
 
+#define UT15_MAX 0x7fff
 #define UT32_16U UT16_MAX << 16
 #define UT32_16L UT16_MAX
 
@@ -154,6 +155,13 @@ static char *get_imm(struct mb_anal_ctx *ctx, int instr) {
 	immval = get_int_field_imm (instr);
 	tmpstr = r_str_newf ("%u", immval);
 	return tmpstr;
+}
+
+static char *get_field_imm15 (long instr)
+{
+	char *tmpstr;
+  	tmpstr = r_str_newf ("%u", (short)((instr & IMM15_MASK) >> IMM_LOW));
+  	return (tmpstr);
 }
 
 static char *
@@ -482,7 +490,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 			insn, ctx->immfound, ctx->immval, ctx->op->addr, r1, r2, &targetvalid,
 			&unconditionalbranch);
 
-	imm = long_to_string (jump_addr);
+	imm = get_imm (ctx, insn);
 
 	switch (mb_op->instr) {
 	case br:
@@ -567,117 +575,125 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->delay = 1;
 		break;
 	case bri:
-		r_strbuf_setf (&op->esil, "%s,pc,=", imm);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,pc,+=", imm);
 		op->type = R_ANAL_OP_TYPE_JMP;
 		op->jump = jump_addr;
 		break;
 	case brid:
-		r_strbuf_setf (&op->esil, "%s,pc,=", imm);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,pc,+=", imm);
 		op->type = R_ANAL_OP_TYPE_JMP;
 		op->delay = 1;
 		op->jump = jump_addr;
 		break;
 	case brlid:
+<<<<<<< HEAD
+		r_strbuf_setf (&op->esil, "pc,%s,=,%s,_imm,|,pc,+=", rd, imm);
+=======
 		r_strbuf_setf (&op->esil, "pc,%s,=,%s,pc,=", rd, imm);
+>>>>>>> 5728877632ac1ac2e5f83a58aef8c24838efe81c
 		op->type = R_ANAL_OP_TYPE_UCALL;
 		op->delay = 1;
 		op->jump = jump_addr;
 		break;
 	case brai:
-		r_strbuf_setf (&op->esil, "%s,pc,=", imm);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,pc,=", imm);
 		op->type = R_ANAL_OP_TYPE_JMP;
 		op->jump = jump_addr;
 		break;
 	case braid:
-		r_strbuf_setf (&op->esil, "%s,pc,=", imm);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,pc,=", imm);
 		op->type = R_ANAL_OP_TYPE_JMP;
 		op->delay = 1;
 		op->jump = jump_addr;
 		break;
 	case bralid:
+<<<<<<< HEAD
+		r_strbuf_setf (&op->esil, "pc,%s,=,%s,_imm,|,pc,=", rd, imm);
+=======
 		r_strbuf_setf (&op->esil, "%s,pc,=", imm);
+>>>>>>> 5728877632ac1ac2e5f83a58aef8c24838efe81c
 		op->type = R_ANAL_OP_TYPE_UCALL;
 		op->delay = 1;
 		op->jump = jump_addr;
 		break;
 	case brki:
-		r_strbuf_setf (&op->esil, "TRAP", imm);
+		r_strbuf_setf (&op->esil, "TRAP");
 		op->type = R_ANAL_OP_TYPE_JMP;
 		op->jump = jump_addr;
 		break;
 	case beqi:
-		r_strbuf_setf (&op->esil, "0,%s,==,?{,%s,pc,=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,==,?{,%s,_imm,|,pc,+=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size;
 		break;
 	case beqid:
-		r_strbuf_setf (&op->esil, "0,%s,==,?{,%s,pc,=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,==,?{,%s,_imm,|,pc,+=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size * 2;
 		break;
 	case bnei:
-		r_strbuf_setf (&op->esil, "0,%s,==,!,?{,%s,pc,=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,==,!,?{,%s,_imm,|,pc,+=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size;
 		break;
 	case bneid:
-		r_strbuf_setf (&op->esil, "0,%s,==,!,?{,%s,pc,=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,==,!,?{,%s,_imm,|,pc,+=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size * 2;
 		break;
 	case blti:
-		r_strbuf_setf (&op->esil, "0,%s,<,?{,%s,pc,=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,<,?{,%s,_imm,|,pc,+=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size;
 		break;
 	case bltid:
-		r_strbuf_setf (&op->esil, "0,%s,<,?{,%s,pc,=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,<,?{,%s,_imm,|,pc,+=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size * 2;
 		break;
 	case blei:
-		r_strbuf_setf (&op->esil, "0,%s,<=,?{,%s,pc,=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,<=,?{,%s,_imm,|,pc,+=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size;
 		break;
 	case bleid:
-		r_strbuf_setf (&op->esil, "0,%s,<=,?{,%s,pc,=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,<=,?{,%s,_imm,|,pc,+=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size * 2;
 		break;
 	case bgti:
-		r_strbuf_setf (&op->esil, "0,%s,>,?{,%s,pc,=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,>,?{,%s,_imm,|,pc,+=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size;
 		break;
 	case bgtid:
-		r_strbuf_setf (&op->esil, "0,%s,>,?{,%s,pc,=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,>,?{,%s,_imm,|,pc,+=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size * 2;
 		break;
 	case bgei:
-		r_strbuf_setf (&op->esil, "0,%s,>=,?{,%s,pc,=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,>=,?{,%s,_imm,|,pc,+=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size;
 		break;
 	case bgeid:
-		r_strbuf_setf (&op->esil, "0,%s,>=,?{,%s,pc,=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,>=,?{,%s,_imm,|,pc,+=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
@@ -693,35 +709,27 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 static void analyse_return_inst(struct mb_anal_ctx *ctx, unsigned long insn,
                                 struct op_code_struct *mb_op) {
 	RAnalOp *op = ctx->op;
-	long r1 = get_int_field_r1 (insn);
-	long r2 = get_int_field_r2 (insn);
 	char *ra = get_field_r1 (insn);
-	char *imm;
-	bool targetvalid, unconditionalbranch;
-	ut32 jump_addr = microblaze_our_get_target_address(
-			insn, ctx->immfound, ctx->immval, ctx->op->addr, r1, r2, &targetvalid,
-			&unconditionalbranch);
-
-	imm = long_to_string (jump_addr);
+	char *imm = get_imm (ctx, insn);
 
 	switch (mb_op->instr) {
 	case rtsd:
-		r_strbuf_setf (&op->esil, "%s,+,%s,pc,=", ra, imm);
+		r_strbuf_setf (&op->esil, "%s,%s,+,pc,=", ra, imm);
 		op->type = R_ANAL_OP_TYPE_RET;
 		op->delay = 1;
 		break;
 	case rtid:
-		r_strbuf_setf (&op->esil, "%s,+,%s,pc,=", ra, imm);
+		r_strbuf_setf (&op->esil, "%s,%s,+,pc,=", ra, imm);
 		op->type = R_ANAL_OP_TYPE_RET;
 		op->delay = 1;
 		break;
 	case rtbd:
-		r_strbuf_setf (&op->esil, "%s,+,%s,pc,=", ra, imm);
+		r_strbuf_setf (&op->esil, "%s,%s,+,pc,=", ra, imm);
 		op->type = R_ANAL_OP_TYPE_RET;
 		op->delay = 1;
 		break;
 	case rted:
-		r_strbuf_setf (&op->esil, "%s,+,%s,pc,=", ra, imm);
+		r_strbuf_setf (&op->esil, "%s,%s,+,pc,=", ra, imm);
 		op->type = R_ANAL_OP_TYPE_RET;
 		op->delay = 1;
 		break;
@@ -734,8 +742,11 @@ static void analyse_return_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 
 static void analyse_special_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
 	RAnalOp *op = ctx->op;
-	char *rd = get_field_r1 (insn);
+	char *ra = get_field_r1 (insn);
+	char *rd = get_field_rd (insn);
 	char *rs = get_field_special (insn, mb_op);
+	char *imm15 = get_field_imm15 (insn);
+
 	switch (mb_op->instr) {
 	case wic:
 		break;
@@ -750,10 +761,22 @@ static void analyse_special_inst(struct mb_anal_ctx *ctx, unsigned long insn, st
 	case wdcextflush:
 		break;
 	case mts:
-		r_strbuf_setf (&op->esil, "%s,%s,=", rd, rs);
+		r_strbuf_setf (&op->esil, "%s,%s,=", ra, rs);
 		op->type = R_ANAL_OP_TYPE_MOV;
 		break;
 	case mfs:
+		r_strbuf_setf (&op->esil, "%s,%s,=", rs, rd);
+		op->type = R_ANAL_OP_TYPE_MOV;
+		break;
+	case msrclr:
+		r_strbuf_setf (&op->esil, "msr,%s,=", rd);
+		r_strbuf_appendf (&op->esil, ",%s,UT15_MAX,^⁼,msr,&=", imm15);
+		op->type = R_ANAL_OP_TYPE_MOV;
+		break;
+	case msrset:
+		r_strbuf_setf (&op->esil, "msr,%s,=", rd);
+		r_strbuf_appendf (&op->esil, ",%s,msr,|=", imm15);
+		op->type = R_ANAL_OP_TYPE_MOV;
 		break;
 	default:
 		break;
