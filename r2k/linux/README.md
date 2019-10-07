@@ -1,9 +1,9 @@
 # r2k
 kernel module for radare2
 
-This module is going to be part of radare2 (https://github.com/radare/radare2).
+This module is going to be part of radare2 (https://github.com/radareorg/radare2).
 
-It will work together with an userland program (https://github.com/radare/radare2/blob/master/libr/io/p/io_r2k.c)
+It will work together with an userland program (https://github.com/radareorg/radare2/blob/master/libr/io/p/io_r2k.c)
 
 This module allows to:
 

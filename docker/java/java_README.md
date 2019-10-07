@@ -39,7 +39,7 @@ RUN apt-get install -y python-pip jython
 RUN cd /opt/code; wget http://download.gnome.org/sources/vala/0.24/vala-0.24.0.tar.xz; tar -Jxf vala-0.24.0.tar.xz
 RUN cd /opt/code/vala-0.24.0; ./configure --prefix=/usr ; make && make install
 # compile radare
-RUN cd /opt/code; git clone https://github.com/radare/radare2.git; cd radare2; ./sys/all.sh
+RUN cd /opt/code; git clone https://github.com/radareorg/radare2.git; cd radare2; ./sys/all.sh
 
 # Clean up APT when done.
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -48,7 +48,7 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 RUN cd /opt/code; wget http://download.gnome.org/sources/vala/0.24/vala-0.24.0.tar.xz; tar -Jxf vala-0.24.0.tar.xz
 RUN cd /opt/code/vala-0.24.0; ./configure --prefix=/usr ; make && make install
 # compile radare
-RUN cd /opt/code; git clone https://github.com/radare/radare2.git; cd radare2; ./sys/all.sh
+RUN cd /opt/code; git clone https://github.com/radareorg/radare2.git; cd radare2; ./sys/all.sh
 
 
 #install oracle jre stuffs

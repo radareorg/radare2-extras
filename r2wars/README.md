@@ -63,7 +63,7 @@ Q&A
 
 Where can I find some sample programs to take as a template?
 ---
-https://github.com/radare/radare2-extras/tree/master/r2wars/t
+https://github.com/radareorg/radare2-extras/tree/master/r2wars/t
 
 How to make awesome warrior that wins r2wars if I'm a n00b?
 ---
@@ -79,7 +79,7 @@ ARM and MIPS have memory alignment restrictions, so you dont want to run code or
 
 This is pending to be implemented, but will be done before r2con. See those bugs for more details
 
-https://github.com/radare/radare2/labels/r2wars
+https://github.com/radareorg/radare2/labels/r2wars
 
 How is this code executed?
 ---

@@ -28,7 +28,7 @@ make install
 
 There are two known warnings:
 
-* be sure to have the latest [radare2 from git](https://github.com/radare/radare2)
+* be sure to have the latest [radare2 from git](https://github.com/radareorg/radare2)
 * on mac systems radare2 should be installed with sys/install.sh (and not sys/user.sh) because the Makefile relies on a properly working `pkg-config`
 
 ## Example
