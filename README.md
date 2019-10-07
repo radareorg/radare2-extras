@@ -1,4 +1,4 @@
-radare2-extras [![Build Status](https://travis-ci.org/radare/radare2-extras.svg?branch=master)](https://travis-ci.org/radare/radare2-extras)
+radare2-extras [![Build Status](https://travis-ci.org/radareorg/radare2-extras.svg?branch=master)](https://travis-ci.org/radareorg/radare2-extras)
 ==============
 This repository contains extra plugins for radare2.
 
@@ -33,4 +33,4 @@ Building
 The recommended way to build and install those plugins for users
 is to use r2pm. See the radare2-pm repository for details:
 
-	https://github.com/radare/radare2-pm
+	https://github.com/radareorg/radare2-pm
