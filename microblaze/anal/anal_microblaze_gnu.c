@@ -492,10 +492,11 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	case brd:
 		r_strbuf_setf (&op->esil, "%s,pc,=+", rb);
 		op->type = R_ANAL_OP_TYPE_UJMP;
+		op->delay = 1;
 		break;
 	case brld:
 		r_strbuf_setf (&op->esil, "%s,pc,=+,pc,%s,=,", rb, rd);
-		op->type = R_ANAL_OP_TYPE_UJMP;
+		op->type = R_ANAL_OP_TYPE_UCALL;
 		op->delay = 1;
 		break;
 	case bra:
@@ -509,7 +510,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		break;
 	case brald:
 		r_strbuf_setf (&op->esil, "%s,pc,=,pc,%s,=,", rb, rd);
-		op->type = R_ANAL_OP_TYPE_UJMP;
+		op->type = R_ANAL_OP_TYPE_UCALL;
 		op->delay = 1;
 		break;
 	case microblaze_brk:
@@ -578,7 +579,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		break;
 	case brlid:
 		r_strbuf_setf (&op->esil, "pc,%s,=,%s,pc,=", rd, imm);
-		op->type = R_ANAL_OP_TYPE_JMP;
+		op->type = R_ANAL_OP_TYPE_UCALL;
 		op->delay = 1;
 		op->jump = jump_addr;
 		break;
@@ -595,7 +596,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		break;
 	case bralid:
 		r_strbuf_setf (&op->esil, "%s,pc,=", imm);
-		op->type = R_ANAL_OP_TYPE_JMP;
+		op->type = R_ANAL_OP_TYPE_UCALL;
 		op->delay = 1;
 		op->jump = jump_addr;
 		break;
@@ -615,7 +616,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
+		op->fail = op->addr + op->size * 2;
 		break;
 	case bnei:
 		r_strbuf_setf (&op->esil, "0,%s,==,!,?{,%s,pc,=,}", ra, imm);
@@ -628,7 +629,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
+		op->fail = op->addr + op->size * 2;
 		break;
 	case blti:
 		r_strbuf_setf (&op->esil, "0,%s,<,?{,%s,pc,=,}", ra, imm);
@@ -641,7 +642,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
+		op->fail = op->addr + op->size * 2;
 		break;
 	case blei:
 		r_strbuf_setf (&op->esil, "0,%s,<=,?{,%s,pc,=,}", ra, imm);
@@ -654,7 +655,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
+		op->fail = op->addr + op->size * 2;
 		break;
 	case bgti:
 		r_strbuf_setf (&op->esil, "0,%s,>,?{,%s,pc,=,}", ra, imm);
@@ -667,7 +668,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
+		op->fail = op->addr + op->size * 2;
 		break;
 	case bgei:
 		r_strbuf_setf (&op->esil, "0,%s,>=,?{,%s,pc,=,}", ra, imm);
@@ -680,7 +681,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
+		op->fail = op->addr + op->size * 2;
 		break;
 	default:
 		break;

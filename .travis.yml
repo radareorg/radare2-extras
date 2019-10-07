@@ -32,17 +32,17 @@ addons:
 env:
   - TESTS="r2pm -i armthumb"
   - TESTS="r2pm -i baleful"
-#  - TESTS="r2pm -i bcl" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
+#  - TESTS="r2pm -i bcl" [BR] https://travis-ci.org/radareorg/radare2-extras/builds/157522362
   - TESTS="r2pm -i blackfin"
   - TESTS="r2pm -i blessr2"
-#  - TESTS="r2pm -i bpf" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
-#  - TESTS="r2pm -i dlang" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
+#  - TESTS="r2pm -i bpf" [BR] https://travis-ci.org/radareorg/radare2-extras/builds/157522362
+#  - TESTS="r2pm -i dlang" [BR] https://travis-ci.org/radareorg/radare2-extras/builds/157522362
   - TESTS="r2pm -i dirtycow"
   - TESTS="r2pm -i lang-duktape"
   - TESTS="git clone git://git.code.sf.net/p/libdwarf/code libdwarf-code && cd libdwarf-code && ./configure && make && cd .. && r2pm -i dwarf-parser && cd radare2-regressions && ./r2r dwarf && cd .. && r2pm -u libdwarf && rm -rf libdwarf-code" #need to remove libdwarf? or travis destroys the vm so no issue in that?
   - TESTS="r2pm -i r2frida"
 #  - TESTS="r2pm -i io-ewf" # https://github.com/travis-ci/apt-package-whitelist/issues/3205
-#  - TESTS="r2pm -i keystone-lib && r2pm -i keystone && cd radare2-regressions && make keystone && cd .." [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
+#  - TESTS="r2pm -i keystone-lib && r2pm -i keystone && cd radare2-regressions && make keystone && cd .." [BR] https://travis-ci.org/radareorg/radare2-extras/builds/157522362
   - TESTS="r2pm -i mc6809"
   - TESTS="r2pm -i microblaze && cd radare2-regressions && make microblaze"
   - TESTS="r2pm -i msil"
@@ -50,15 +50,15 @@ env:
   - TESTS="r2pm -i ppcdisasm"
   - TESTS="r2pm -i psosvm"
   - TESTS="r2pm -i pyc"
-#  - TESTS="r2pm -i vala && r2pm -i valabind && r2pm -i r2api-python" [BR] https://travis-ci.org/radare/radare2-extras/builds/387043680
-#  - TESTS="r2pm -i r2pipe-cs" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
-#  - TESTS="r2pm -i r2pipe-go" [BR] https://travis-ci.org/radare/radare2-extras/builds/387043680
+#  - TESTS="r2pm -i vala && r2pm -i valabind && r2pm -i r2api-python" [BR] https://travis-ci.org/radareorg/radare2-extras/builds/387043680
+#  - TESTS="r2pm -i r2pipe-cs" [BR] https://travis-ci.org/radareorg/radare2-extras/builds/157522362
+#  - TESTS="r2pm -i r2pipe-go" [BR] https://travis-ci.org/radareorg/radare2-extras/builds/387043680
   - TESTS="r2pm -i r2pipe-js"
   - TESTS="r2pm -i r2pipe-py"
   - TESTS="r2pm -i r2pipe-rb"
-#  - TESTS="r2pm -i r2pipe-vala" https://travis-ci.org/radare/radare2-extras/builds/157522362
+#  - TESTS="r2pm -i r2pipe-vala" https://travis-ci.org/radareorg/radare2-extras/builds/157522362
   - TESTS="r2pm -i radare2"
-#  - TESTS="r2pm -i r2snow" https://travis-ci.org/radare/radare2-extras/jobs/199500082
+#  - TESTS="r2pm -i r2snow" https://travis-ci.org/radareorg/radare2-extras/jobs/199500082
 #  - TESTS="r2pm -i radeco" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
   - TESTS="r2pm -i retdec"
   - TESTS="r2pm -i swf && cd radare2-regressions && make swf && cd .."
@@ -95,8 +95,8 @@ before_script:
   - export WORKING_DIR=${TRAVIS_BUILD_DIR}/..
   - cd ${WORKING_DIR}
   - rm -rf ~/.nvm && git clone https://github.com/creationix/nvm.git ~/.nvm && (cd ~/.nvm && git checkout `git describe --abbrev=0 --tags`) && source ~/.nvm/nvm.sh && nvm install 10
-  - git clone https://github.com/radare/radare2-regressions
-  - git clone https://github.com/radare/radare2 && cd radare2
+  - git clone https://github.com/radareorg/radare2-regressions
+  - git clone https://github.com/radareorg/radare2 && cd radare2
   - export CC=gcc-7
   - ./configure --prefix=${WORKING_DIR}/install > /dev/null
   - make -s -j2 > /dev/null
