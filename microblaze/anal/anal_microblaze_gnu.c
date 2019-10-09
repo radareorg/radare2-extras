@@ -151,9 +151,9 @@ static unsigned long read_insn_microblaze(bfd_vma memaddr,
 
 static char *get_imm(struct mb_anal_ctx *ctx, int instr) {
 	char *tmpstr;
-	int immval = 0;
+	st16 immval = 0;
 	immval = get_int_field_imm (instr);
-	tmpstr = r_str_newf ("%u", immval);
+	tmpstr = r_str_newf ("%d", immval);
 	return tmpstr;
 }
 
@@ -494,11 +494,11 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 
 	switch (mb_op->instr) {
 	case br:
-		r_strbuf_setf (&op->esil, "%s,pc,=+", rb);
+		r_strbuf_setf (&op->esil, "%s,$$,+,pc,=", rb);
 		op->type = R_ANAL_OP_TYPE_UJMP;
 		break;
 	case brd:
-		r_strbuf_setf (&op->esil, "%s,pc,=+", rb);
+		r_strbuf_setf (&op->esil, "%s,$$,+,pc,=", rb);
 		op->type = R_ANAL_OP_TYPE_UJMP;
 		op->delay = 1;
 		break;
@@ -575,22 +575,18 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->delay = 1;
 		break;
 	case bri:
-		r_strbuf_setf (&op->esil, "%s,_imm,|,pc,+=", imm);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,$$,+,pc,=", imm);
 		op->type = R_ANAL_OP_TYPE_JMP;
 		op->jump = jump_addr;
 		break;
 	case brid:
-		r_strbuf_setf (&op->esil, "%s,_imm,|,pc,+=", imm);
+		r_strbuf_setf (&op->esil, "%s,_imm,|,$$,+,pc,=", imm);
 		op->type = R_ANAL_OP_TYPE_JMP;
 		op->delay = 1;
 		op->jump = jump_addr;
 		break;
 	case brlid:
-<<<<<<< HEAD
-		r_strbuf_setf (&op->esil, "pc,%s,=,%s,_imm,|,pc,+=", rd, imm);
-=======
-		r_strbuf_setf (&op->esil, "pc,%s,=,%s,pc,=", rd, imm);
->>>>>>> 5728877632ac1ac2e5f83a58aef8c24838efe81c
+		r_strbuf_setf (&op->esil, "$$,%s,=,%s,_imm,|,$$,+,pc,=", rd, imm);
 		op->type = R_ANAL_OP_TYPE_UCALL;
 		op->delay = 1;
 		op->jump = jump_addr;
@@ -607,11 +603,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->jump = jump_addr;
 		break;
 	case bralid:
-<<<<<<< HEAD
-		r_strbuf_setf (&op->esil, "pc,%s,=,%s,_imm,|,pc,=", rd, imm);
-=======
-		r_strbuf_setf (&op->esil, "%s,pc,=", imm);
->>>>>>> 5728877632ac1ac2e5f83a58aef8c24838efe81c
+		r_strbuf_setf (&op->esil, "$$,%s,=,%s,_imm,|,pc,=", rd, imm);
 		op->type = R_ANAL_OP_TYPE_UCALL;
 		op->delay = 1;
 		op->jump = jump_addr;
@@ -654,46 +646,46 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->fail = op->addr + op->size;
 		break;
 	case bltid:
-		r_strbuf_setf (&op->esil, "0,%s,<,?{,%s,_imm,|,pc,+=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,<,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size * 2;
 		break;
 	case blei:
-		r_strbuf_setf (&op->esil, "0,%s,<=,?{,%s,_imm,|,pc,+=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,<=,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size;
 		break;
 	case bleid:
-		r_strbuf_setf (&op->esil, "0,%s,<=,?{,%s,_imm,|,pc,+=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,<=,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size * 2;
 		break;
 	case bgti:
-		r_strbuf_setf (&op->esil, "0,%s,>,?{,%s,_imm,|,pc,+=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,>,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size;
 		break;
 	case bgtid:
-		r_strbuf_setf (&op->esil, "0,%s,>,?{,%s,_imm,|,pc,+=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,>,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size * 2;
 		break;
 	case bgei:
-		r_strbuf_setf (&op->esil, "0,%s,>=,?{,%s,_imm,|,pc,+=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,>=,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->jump = jump_addr;
 		op->fail = op->addr + op->size;
 		break;
 	case bgeid:
-		r_strbuf_setf (&op->esil, "0,%s,>=,?{,%s,_imm,|,pc,+=,}", ra, imm);
+		r_strbuf_setf (&op->esil, "0,%s,>=,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
 		op->type = R_ANAL_OP_TYPE_CJMP;
 		op->delay = 1;
 		op->jump = jump_addr;
@@ -730,7 +722,7 @@ static void analyse_return_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		break;
 	case rted:
 		r_strbuf_setf (&op->esil, "%s,%s,+,pc,=", ra, imm);
-		op->type = R_ANAL_OP_TYPE_RET;
+		op->type = R_ANAL_OP_TYPE_RET;q
 		op->delay = 1;
 		break;
 	default:
