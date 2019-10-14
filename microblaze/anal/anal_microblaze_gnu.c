@@ -60,7 +60,7 @@ ut32 microblaze_our_get_target_address(long inst, bool immfound, int immval,
 	if (op->name == 0) {
 		*targetvalid = false;
 	}
-	else if (op->instr_type == branch_inst) {
+	else if ((op->instr_type == branch_inst) || (op->instr_type == branch_inst_imm)) {
 		switch (op->inst_type) {
 		case INST_TYPE_R2:
 			*unconditionalbranch = true;
@@ -219,7 +219,7 @@ get_field_special (long instr, struct op_code_struct * op)
 		  	break;
     	default :
         	strcpy (spr, "pc");
-      break;
+      		break;
     }
 
 	tmpstr = r_str_newf ("%s", spr);
@@ -253,16 +253,16 @@ static void analyse_arithmetic_inst_imm(struct mb_anal_ctx *ctx, unsigned long i
 
     switch (mb_op->instr) {
     case addi:
-		r_strbuf_setf (&op->esil, "_imm,%s,+,%s,=", ra, rd);
+		r_strbuf_appendf (&op->esil, "_imm,%s,+,%s,=", ra, rd);
 	    op->type = R_ANAL_OP_TYPE_ADD;
 		break;
 	case rsubi:
-		r_strbuf_setf (&op->esil, "_imm,%s,-,%s,=", ra, imm, rd);
+		r_strbuf_appendf (&op->esil, "_imm,%s,-,%s,=", ra, rd);
 		op->type = R_ANAL_OP_TYPE_SUB;
 		break;
 	case addic:
 		/* should use carry */
-		r_strbuf_setf (&op->esil, "_imm,%s,+,%s,=", ra, imm, rd);
+		r_strbuf_appendf (&op->esil, "_imm,%s,+,%s,=", ra, rd);
 		op->type = R_ANAL_OP_TYPE_ADD;
 		break;
 	case rsubic:
@@ -277,22 +277,23 @@ static void analyse_arithmetic_inst_imm(struct mb_anal_ctx *ctx, unsigned long i
 		break;
 	case rsubik:
 		/* should keep carry */
-		r_strbuf_setf (&op->esil, "_imm,%s,-,%s,=", ra, rd);
+		r_strbuf_appendf (&op->esil, "_imm,%s,-,%s,=", ra, rd);
 		op->type = R_ANAL_OP_TYPE_SUB;
 		break;
 	case addikc:
 		/* should use and keep carry */
-		r_strbuf_setf (&op->esil, "_imm,%s,+,%s,=", ra, rd);
+		r_strbuf_appendf (&op->esil, "_imm,%s,+,%s,=", ra, rd);
 		op->type = R_ANAL_OP_TYPE_ADD;
 		break;
 	case rsubikc:
 		/* should use and keep carry */
-		r_strbuf_setf (&op->esil, "_imm,%s,-,%s,=", ra, rd);
+		r_strbuf_appendf (&op->esil, "_imm,%s,-,%s,=", ra, rd);
 		op->type = R_ANAL_OP_TYPE_SUB;
 		break;
     }
     // Reset _immf to zero even if not used.
     r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_arithmetic_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -355,6 +356,7 @@ static void analyse_arithmetic_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	}
     // Reset _immf to zero even if not used.
     r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_logical_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -423,6 +425,7 @@ static void analyse_logical_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	}
 	// Reset _immf to zero even if not used.
     r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_mult_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -459,6 +462,7 @@ static void analyse_mult_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	}
 	// Reset _immf to zero even if not used.
     r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_div_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -483,12 +487,161 @@ static void analyse_div_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	}
 	// Reset _immf to zero even if not used.
     r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static char *long_to_string(long imm) {
 	char *tmpstr;
 	tmpstr = r_str_newf ("%" PFMT64d, (ut64)imm);
 	return tmpstr;
+}
+
+static void analyse_branch_inst_imm(struct mb_anal_ctx *ctx, unsigned long insn,
+                                struct op_code_struct *mb_op) {
+	RAnalOp *op = ctx->op;
+	bool targetvalid;
+	bool unconditionalbranch;
+	long r1 = get_int_field_r1 (insn);
+	long r2 = get_int_field_r2 (insn);
+	char *ra = get_field_r1 (insn);
+	char *rb = get_field_r2 (insn);
+	char *rd = get_field_rd (insn);
+	char *imm;
+	ut32 jump_addr = 0;
+	r_strbuf_setf (&op->esil, "");
+
+	jump_addr = microblaze_our_get_target_address(
+			insn, ctx->immfound, ctx->immval, ctx->op->addr, r1, r2, &targetvalid,
+			&unconditionalbranch);
+
+	imm = get_imm (ctx, insn);
+	r_strbuf_setf (&op->esil, "1,_immf,==,$z,?{,%s,%u,&,_imm,|,_imm,=,},", imm, UT16_MAX);
+    r_strbuf_appendf (&op->esil, "0,_immf,==,$z,?{,%s,_imm,=,},", imm);	
+
+	switch (mb_op->instr) {
+		case bri:
+		r_strbuf_appendf (&op->esil, "_imm,$$,+,pc,=");
+		op->type = R_ANAL_OP_TYPE_JMP;
+		op->jump = jump_addr;
+		break;
+	case brid:
+		r_strbuf_appendf (&op->esil, "_imm,$$,+,pc,=");
+		op->type = R_ANAL_OP_TYPE_JMP;
+		op->delay = 1;
+		op->jump = jump_addr;
+		break;
+	case brlid:
+		r_strbuf_appendf (&op->esil, "$$,%s,=,_imm,$$,+,pc,=", rd);
+		op->type = R_ANAL_OP_TYPE_UCALL;
+		op->delay = 1;
+		op->jump = jump_addr;
+		break;
+	case brai:
+		r_strbuf_setf (&op->esil, "_imm,pc,=");
+		op->type = R_ANAL_OP_TYPE_JMP;
+		op->jump = jump_addr;
+		break;
+	case braid:
+		r_strbuf_appendf (&op->esil, "_imm,|,pc,=");
+		op->type = R_ANAL_OP_TYPE_JMP;
+		op->delay = 1;
+		op->jump = jump_addr;
+		break;
+	case bralid:
+		r_strbuf_appendf (&op->esil, "$$,%s,=,_imm,pc,=", rd);
+		op->type = R_ANAL_OP_TYPE_UCALL;
+		op->delay = 1;
+		op->jump = jump_addr;
+		break;
+	case brki:
+		r_strbuf_appendf (&op->esil, "TRAP");
+		op->type = R_ANAL_OP_TYPE_JMP;
+		op->jump = jump_addr;
+		break;
+	case beqi:
+		r_strbuf_appendf (&op->esil, "0,%s,==,?{,_imm,$$,+,pc,=,}", ra);
+		op->type = R_ANAL_OP_TYPE_CJMP;
+		op->jump = jump_addr;
+		op->fail = op->addr + op->size;
+		break;
+	case beqid:
+		r_strbuf_appendf (&op->esil, "0,%s,==,?{,_imm,$$,+,pc,=,}", ra);
+		op->type = R_ANAL_OP_TYPE_CJMP;
+		op->delay = 1;
+		op->jump = jump_addr;
+		op->fail = op->addr + op->size * 2;
+		break;
+	case bnei:
+		r_strbuf_appendf (&op->esil, "0,%s,==,!,?{,_imm,$$,+,pc,=,}", ra);
+		op->type = R_ANAL_OP_TYPE_CJMP;
+		op->jump = jump_addr;
+		op->fail = op->addr + op->size;
+		break;
+	case bneid:
+		r_strbuf_appendf (&op->esil, "0,%s,==,!,?{,_imm,$$,+,pc,=,}", ra);
+		op->type = R_ANAL_OP_TYPE_CJMP;
+		op->delay = 1;
+		op->jump = jump_addr;
+		op->fail = op->addr + op->size * 2;
+		break;
+	case blti:
+		r_strbuf_appendf (&op->esil, "0,%s,<,?{,_imm,$$,+,pc,=,}", ra);
+		op->type = R_ANAL_OP_TYPE_CJMP;
+		op->jump = jump_addr;
+		op->fail = op->addr + op->size;
+		break;
+	case bltid:
+		r_strbuf_appendf (&op->esil, "0,%s,<,?{,_imm,$$,+,pc,=,}", ra);
+		op->type = R_ANAL_OP_TYPE_CJMP;
+		op->delay = 1;
+		op->jump = jump_addr;
+		op->fail = op->addr + op->size * 2;
+		break;
+	case bleid:
+		r_strbuf_appendf (&op->esil, "0,%s,<=,?{,_imm,$$,+,pc,=,}", ra);
+		op->type = R_ANAL_OP_TYPE_CJMP;
+		op->delay = 1;
+		op->jump = jump_addr;
+		op->fail = op->addr + op->size * 2;
+		break;
+	case bgti:
+		r_strbuf_appendf (&op->esil, "0,%s,>,?{,_imm,$$,+,pc,=,}", ra);
+		op->type = R_ANAL_OP_TYPE_CJMP;
+		op->jump = jump_addr;
+		op->fail = op->addr + op->size;
+		break;
+	case bgtid:
+		r_strbuf_appendf (&op->esil, "0,%s,>,?{,_imm,$$,+,pc,=,}", ra);
+		op->type = R_ANAL_OP_TYPE_CJMP;
+		op->delay = 1;
+		op->jump = jump_addr;
+		op->fail = op->addr + op->size * 2;
+		break;
+	case blei:
+		r_strbuf_appendf (&op->esil, "0,%s,<=,?{,_imm,$$,+,pc,=,}", ra);
+		op->type = R_ANAL_OP_TYPE_CJMP;
+		op->jump = jump_addr;
+		op->fail = op->addr + op->size;
+		break;
+	case bgeid:
+		r_strbuf_appendf (&op->esil, "0,%s,>=,?{,_imm,$$,+,pc,=,}", ra);
+		op->type = R_ANAL_OP_TYPE_CJMP;
+		op->delay = 1;
+		op->jump = jump_addr;
+		op->fail = op->addr + op->size * 2;
+		break;
+	case bgei:
+		r_strbuf_appendf (&op->esil, "0,%s,>=,?{,_imm,$$,+,pc,=,}", ra);
+		op->type = R_ANAL_OP_TYPE_CJMP;
+		op->jump = jump_addr;
+		op->fail = op->addr + op->size;
+		break;
+	default:
+		break;
+	}
+	// Reset _immf to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -508,8 +661,6 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	jump_addr = microblaze_our_get_target_address(
 			insn, ctx->immfound, ctx->immval, ctx->op->addr, r1, r2, &targetvalid,
 			&unconditionalbranch);
-
-	imm = get_imm (ctx, insn);
 
 	switch (mb_op->instr) {
 	case br:
@@ -593,128 +744,12 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->type = R_ANAL_OP_TYPE_UCJMP;
 		op->delay = 1;
 		break;
-	case bri:
-		r_strbuf_setf (&op->esil, "%s,_imm,|,$$,+,pc,=", imm);
-		op->type = R_ANAL_OP_TYPE_JMP;
-		op->jump = jump_addr;
-		break;
-	case brid:
-		r_strbuf_setf (&op->esil, "%s,_imm,|,$$,+,pc,=", imm);
-		op->type = R_ANAL_OP_TYPE_JMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		break;
-	case brlid:
-		r_strbuf_setf (&op->esil, "$$,%s,=,%s,_imm,|,$$,+,pc,=", rd, imm);
-		op->type = R_ANAL_OP_TYPE_UCALL;
-		op->delay = 1;
-		op->jump = jump_addr;
-		break;
-	case brai:
-		r_strbuf_setf (&op->esil, "%s,_imm,|,pc,=", imm);
-		op->type = R_ANAL_OP_TYPE_JMP;
-		op->jump = jump_addr;
-		break;
-	case braid:
-		r_strbuf_setf (&op->esil, "%s,_imm,|,pc,=", imm);
-		op->type = R_ANAL_OP_TYPE_JMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		break;
-	case bralid:
-		r_strbuf_setf (&op->esil, "$$,%s,=,%s,_imm,|,pc,=", rd, imm);
-		op->type = R_ANAL_OP_TYPE_UCALL;
-		op->delay = 1;
-		op->jump = jump_addr;
-		break;
-	case brki:
-		r_strbuf_setf (&op->esil, "TRAP");
-		op->type = R_ANAL_OP_TYPE_JMP;
-		op->jump = jump_addr;
-		break;
-	case beqi:
-		r_strbuf_setf (&op->esil, "0,%s,==,?{,%s,_imm,|,pc,+=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case beqid:
-		r_strbuf_setf (&op->esil, "0,%s,==,?{,%s,_imm,|,pc,+=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size * 2;
-		break;
-	case bnei:
-		r_strbuf_setf (&op->esil, "0,%s,==,!,?{,%s,_imm,|,pc,+=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case bneid:
-		r_strbuf_setf (&op->esil, "0,%s,==,!,?{,%s,_imm,|,pc,+=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size * 2;
-		break;
-	case blti:
-		r_strbuf_setf (&op->esil, "0,%s,<,?{,%s,_imm,|,pc,+=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case bltid:
-		r_strbuf_setf (&op->esil, "0,%s,<,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size * 2;
-		break;
-	case blei:
-		r_strbuf_setf (&op->esil, "0,%s,<=,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case bleid:
-		r_strbuf_setf (&op->esil, "0,%s,<=,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size * 2;
-		break;
-	case bgti:
-		r_strbuf_setf (&op->esil, "0,%s,>,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case bgtid:
-		r_strbuf_setf (&op->esil, "0,%s,>,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size * 2;
-		break;
-	case bgei:
-		r_strbuf_setf (&op->esil, "0,%s,>=,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size;
-		break;
-	case bgeid:
-		r_strbuf_setf (&op->esil, "0,%s,>=,?{,%s,_imm,|,$$,+,pc,=,}", ra, imm);
-		op->type = R_ANAL_OP_TYPE_CJMP;
-		op->delay = 1;
-		op->jump = jump_addr;
-		op->fail = op->addr + op->size * 2;
-		break;
 	default:
 		break;
 	}
 	// Reset _immf to zero even if not used.
     r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_return_inst(struct mb_anal_ctx *ctx, unsigned long insn,
@@ -794,6 +829,7 @@ static void analyse_special_inst(struct mb_anal_ctx *ctx, unsigned long insn, st
 	}
 	// Reset _immf to zero even if not used.
     r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 static void analyse_anyware_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
 	RAnalOp *op = ctx->op;
@@ -819,6 +855,7 @@ static void analyse_anyware_inst(struct mb_anal_ctx *ctx, unsigned long insn, st
 	}
 	// Reset _immf to zero even if not used.
     r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_memory_load_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
@@ -874,6 +911,7 @@ static void analyse_memory_load_inst(struct mb_anal_ctx *ctx, unsigned long insn
 	}
 	// Reset _immf to zero even if not used.
     r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_memory_store_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
@@ -932,6 +970,7 @@ static void analyse_memory_store_inst(struct mb_anal_ctx *ctx, unsigned long ins
 	}
 	// Reset _immf to zero even if not used.
     r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_barrel_shift_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
@@ -1041,6 +1080,9 @@ static int microblaze_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 		break;
 	case branch_inst:
 		analyse_branch_inst (&ctx, insn, mb_op);
+		break;
+	case branch_inst_imm:
+		analyse_branch_inst_imm (&ctx, insn, mb_op);
 		break;
 	case return_inst:
 		analyse_return_inst (&ctx, insn, mb_op);

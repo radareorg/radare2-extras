@@ -476,7 +476,7 @@ microblaze_get_target_address (long inst, bfd_boolean immfound, int immval,
     {
       *targetvalid = FALSE;
     }
-  else if (op->instr_type == branch_inst)
+  else if ((op->instr_type == branch_inst) || (op->instr_type == branch_inst_imm))
     {
       switch (op->inst_type)
 	{
