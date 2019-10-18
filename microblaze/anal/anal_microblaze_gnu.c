@@ -251,7 +251,6 @@ static void analyse_arithmetic_inst_imm(struct mb_anal_ctx *ctx, unsigned long i
                                     struct op_code_struct *mb_op) {
 	RAnalOp *op = ctx->op;
 	char *ra = get_field_r1 (insn);
-	char *rb = get_field_r2 (insn);
 	char *rd = get_field_rd (insn);
 	char *imm = get_imm (ctx, insn);
     
@@ -367,13 +366,48 @@ static void analyse_arithmetic_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
+static void analyse_logical_inst_imm(struct mb_anal_ctx *ctx, unsigned long insn,
+                                 struct op_code_struct *mb_op) {
+	RAnalOp *op = ctx->op;
+	char *ra = get_field_r1 (insn);
+	char *rd = get_field_rd (insn);
+	char *imm = get_imm (ctx, insn);
+
+	r_strbuf_setf (&op->esil, "1,_immf,==,$z,?{,%s,%u,&,_imm,|,_imm,=,},", imm, UT16_MAX);
+    r_strbuf_appendf (&op->esil, "0,_immf,==,$z,?{,%s,_imm,=,},", imm);
+
+	switch (mb_op->instr) {
+	case ori:
+		r_strbuf_appendf (&op->esil, "_imm,%s,|,%s,=", ra, rd);
+		op->type = R_ANAL_OP_TYPE_OR;
+		break;
+	case andi:
+		r_strbuf_appendf (&op->esil, "_imm,%s,&,%s,=", ra, rd);
+		op->type = R_ANAL_OP_TYPE_AND;
+		break;
+	case xori:
+		r_strbuf_appendf (&op->esil, "_imm,%s,^,%s,=", ra, rd);
+		op->type = R_ANAL_OP_TYPE_XOR;
+		break;
+	case andni:
+		r_strbuf_appendf (&op->esil, "_imm,!,%s,&,%s,=", ra, rd);
+		op->type = R_ANAL_OP_TYPE_NOT;
+		break;
+	default:
+		break;
+	}
+	// Reset _immf to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
+}
+
 static void analyse_logical_inst(struct mb_anal_ctx *ctx, unsigned long insn,
                                  struct op_code_struct *mb_op) {
 	RAnalOp *op = ctx->op;
 	char *ra = get_field_r1 (insn);
 	char *rb = get_field_r2 (insn);
 	char *rd = get_field_rd (insn);
-	char *imm = get_imm (ctx, insn);
+
 	switch (mb_op->instr) {
 	case or:
 		r_strbuf_setf (&op->esil, "%s,%s,|,%s,=", ra, rb, rd);
@@ -422,22 +456,6 @@ static void analyse_logical_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	case sext16:
         r_strbuf_setf (&op->esil, "%s,%s,=,15,%s,>>,?{,0xffff0000,%s,|=,}", ra, rd, ra, rd);
         op->type = R_ANAL_OP_TYPE_CAST;
-		break;
-	case ori:
-		r_strbuf_setf (&op->esil, "%s,_imm,|,%s,|,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_OR;
-		break;
-	case andi:
-		r_strbuf_setf (&op->esil, "%s,_imm,|,%s,&,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_AND;
-		break;
-	case xori:
-		r_strbuf_setf (&op->esil, "%s,_imm,|,%s,^,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_XOR;
-		break;
-	case andni:
-		r_strbuf_setf (&op->esil, "%s,!,%s,&,%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_NOT;
 		break;
 	default:
 		break;
@@ -1103,6 +1121,9 @@ static int microblaze_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 		break;
 	case logical_inst:
 		analyse_logical_inst (&ctx, insn, mb_op);
+		break;
+	case logical_inst_imm:
+		analyse_logical_inst_imm (&ctx, insn, mb_op);
 		break;
 	case mult_inst:
 		analyse_mult_inst (&ctx, insn, mb_op);

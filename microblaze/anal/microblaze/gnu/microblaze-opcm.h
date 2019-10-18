@@ -61,9 +61,10 @@ enum microblaze_instr
 
 enum microblaze_instr_type
 {
-	arithmetic_inst, arithmetic_inst_imm, logical_inst, mult_inst, div_inst, branch_inst,
-	branch_inst_imm, return_inst, immediate_inst, special_inst, memory_load_inst,
-	memory_store_inst, barrel_shift_inst, anyware_inst
+	arithmetic_inst, arithmetic_inst_imm, logical_inst, logical_inst_imm,
+	mult_inst, div_inst, branch_inst, branch_inst_imm, return_inst,
+	immediate_inst, special_inst, memory_load_inst,	memory_store_inst,
+	barrel_shift_inst, anyware_inst
 };
 
 #define INST_WORD_SIZE 4
