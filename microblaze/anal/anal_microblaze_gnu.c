@@ -1052,7 +1052,7 @@ static void analyse_barrel_shift_inst(struct mb_anal_ctx *ctx, unsigned long ins
 }
 
 
-static int microblaze_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len) {
+static int microblaze_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len, RAnalOpMask mask) {
 	int oplen = 4;
 	static struct mb_anal_ctx ctx;
 	static bool first_time = true;
@@ -1104,6 +1104,9 @@ static int microblaze_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 	if (insn == 0) {
 		op->type = R_ANAL_OP_TYPE_ILL;
 		return oplen;
+	}
+	if (mask & R_ANAL_OP_MASK_DISASM) {
+		op->mnemonic = strdup (mb_op->name);
 	}
 
 	r_strbuf_setf (&op->esil, "");
