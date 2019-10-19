@@ -896,12 +896,43 @@ static void analyse_anyware_inst(struct mb_anal_ctx *ctx, unsigned long insn, st
 	r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
+static void analyse_memory_load_inst_imm(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
+	RAnalOp *op = ctx->op;
+	char *ra = get_field_r1 (insn);
+	char *rd = get_field_rd (insn);
+	char *imm = get_imm (ctx, insn);
+
+	r_strbuf_setf (&op->esil, "1,_immf,==,$z,?{,%s,%u,&,_imm,|,_imm,=,},", imm, UT16_MAX);
+	r_strbuf_appendf (&op->esil, "0,_immf,==,$z,?{,%s,_imm,=,},", imm);
+
+	switch (mb_op->instr) {
+	case lbui:
+		r_strbuf_appendf (&op->esil, "%s,_imm,+,[1],%s,=", ra, rd);
+		op->type = R_ANAL_OP_TYPE_LOAD;
+		break;
+	case lhui:
+		r_strbuf_appendf (&op->esil, "%s,_imm,+,[4],%s,=", ra, rd);
+		r_strbuf_appendf (&op->esil, ",16,%s,>>=",rd);
+		op->type = R_ANAL_OP_TYPE_LOAD;
+		break;
+	case lwi:
+		r_strbuf_appendf (&op->esil, "%s,_imm,+,[4],%s,=", ra, rd);
+		op->type = R_ANAL_OP_TYPE_LOAD;
+		break;
+	default:
+		break;
+	}
+	// Reset _immf to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
+}
+
 static void analyse_memory_load_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
 	RAnalOp *op = ctx->op;
 	char *ra = get_field_r1 (insn);
 	char *rb = get_field_r2 (insn);
 	char *rd = get_field_rd (insn);
-	char *imm = get_imm (ctx, insn);
+
 	switch (mb_op->instr) {
 	case lbu:
 		r_strbuf_setf (&op->esil, "%s,%s,[],+,%s,=", ra, rb, rd);
@@ -931,18 +962,37 @@ static void analyse_memory_load_inst(struct mb_anal_ctx *ctx, unsigned long insn
 		r_strbuf_setf (&op->esil, "%s,%s,[],+,%s,=", ra, rb, rd);
 		op->type = R_ANAL_OP_TYPE_LOAD;
 		break;
-	case lbui:
-		r_strbuf_setf (&op->esil, "%s,%s,_imm,|,+,[1],%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_LOAD;
+	default:
 		break;
-	case lhui:
-		r_strbuf_setf (&op->esil, "%s,%s,_imm,|,+,[4],%s,=", ra, imm, rd);
-		r_strbuf_appendf (&op->esil, ",16,%s,>>=",rd);
-		op->type = R_ANAL_OP_TYPE_LOAD;
+	}
+	// Reset _immf to zero even if not used.
+    r_strbuf_appendf (&op->esil, ",0,_immf,=");
+	r_strbuf_appendf (&op->esil, ",0,_imm,=");
+}
+
+static void analyse_memory_store_inst_imm(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
+	RAnalOp *op = ctx->op;
+	char *ra = get_field_r1 (insn);
+	char *rd = get_field_rd (insn);
+	char *imm = get_imm (ctx, insn);
+
+	r_strbuf_setf (&op->esil, "1,_immf,==,$z,?{,%s,%u,&,_imm,|,_imm,=,},", imm, UT16_MAX);
+    r_strbuf_appendf (&op->esil, "0,_immf,==,$z,?{,%s,_imm,=,},", imm);
+
+	switch (mb_op->instr) {
+	case sbi:
+		/* Only store least significant byte */
+		r_strbuf_appendf (&op->esil, "%s,%s,_imm,+,=[1]", rd, ra);
+		op->type = R_ANAL_OP_TYPE_STORE;
 		break;
-	case lwi:
-		r_strbuf_setf (&op->esil, "%s,%s,_imm,|,+,[4],%s,=", ra, imm, rd);
-		op->type = R_ANAL_OP_TYPE_LOAD;
+	case shi:
+		/* Only store least significant halword */
+		r_strbuf_appendf (&op->esil, "%s,%s,_imm,+,=[2]", rd, ra);
+		op->type = R_ANAL_OP_TYPE_STORE;
+		break;
+	case swi:
+		r_strbuf_appendf (&op->esil, "%s,%s,_imm,+,=[]", rd, ra);
+		op->type = R_ANAL_OP_TYPE_STORE;
 		break;
 	default:
 		break;
@@ -957,7 +1007,7 @@ static void analyse_memory_store_inst(struct mb_anal_ctx *ctx, unsigned long ins
 	char *ra = get_field_r1 (insn);
 	char *rb = get_field_r2 (insn);
 	char *rd = get_field_rd (insn);
-	char *imm = get_imm (ctx, insn);
+
 	switch (mb_op->instr) {
 	case sb:
 		r_strbuf_setf (&op->esil, "%s,%s,%s,+,=[1]", rd, ra, rb);
@@ -987,20 +1037,6 @@ static void analyse_memory_store_inst(struct mb_anal_ctx *ctx, unsigned long ins
 	case swx:
 		/* should set reservation bit (semaphore) */
 		r_strbuf_setf (&op->esil, "%s,%s,+,%s,=[]", rd, ra, rb);
-		op->type = R_ANAL_OP_TYPE_STORE;
-		break;
-	case sbi:
-		/* Only store least significant byte */
-		r_strbuf_setf (&op->esil, ",%s,%s,%s,_imm,|,+,=[1]", rd, ra, imm);
-		op->type = R_ANAL_OP_TYPE_STORE;
-		break;
-	case shi:
-		/* Only store least significant halword */
-		r_strbuf_setf (&op->esil, ",%s,%s,%s,_imm,|,+,=[2]", rd, ra, imm);
-		op->type = R_ANAL_OP_TYPE_STORE;
-		break;
-	case swi:
-		r_strbuf_setf (&op->esil, "%s,%s,%s,_imm,|,+,=[]", rd, ra, imm);
 		op->type = R_ANAL_OP_TYPE_STORE;
 		break;
 	default:
@@ -1149,8 +1185,14 @@ static int microblaze_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 	case memory_load_inst:
 		analyse_memory_load_inst (&ctx, insn, mb_op);
 		break;
+	case memory_load_inst_imm:
+		analyse_memory_load_inst_imm (&ctx, insn, mb_op);
+		break;
 	case memory_store_inst:
 		analyse_memory_store_inst (&ctx, insn, mb_op);
+		break;
+	case memory_store_inst_imm:
+		analyse_memory_store_inst_imm (&ctx, insn, mb_op);
 		break;
 	case barrel_shift_inst:
 		analyse_barrel_shift_inst (&ctx, insn, mb_op);
