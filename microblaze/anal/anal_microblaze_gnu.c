@@ -164,6 +164,13 @@ static char *get_field_imm15 (long instr)
   	return (tmpstr);
 }
 
+static char *get_field_imm5 (long instr)
+{
+    char *tmpstr;
+    tmpstr = r_str_newf ("%u", (short)((instr & IMM5_MASK) >> IMM_LOW));
+    return (tmpstr);
+}
+
 static char *
 get_field_special (long instr, struct op_code_struct * op)
 {
@@ -393,16 +400,22 @@ static void analyse_logical_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	case pcmpne:
 		break;
 	case sra:
-        r_strbuf_setf (&op->esil, "1,%s,>>>,%s,=", ra, rd);
+        r_strbuf_setf (&op->esil, "1,%s,>>>>,%s,=", ra, rd);
         op->type = R_ANAL_OP_TYPE_SAR;
 		break;
 	case src:
 		break;
 	case srl:
+        r_strbuf_setf (&op->esil, "1,%s,>>,%s,=", ra, rd);
+        op->type = R_ANAL_OP_TYPE_SHR;
 		break;
 	case sext8:
+        r_strbuf_setf (&op->esil, "%s,%s,=,7,%s,>>,?{,0xffffff00,%s,|=,}", ra, rd, ra, rd);
+        op->type = R_ANAL_OP_TYPE_CAST;
 		break;
 	case sext16:
+        r_strbuf_setf (&op->esil, "%s,%s,=,15,%s,>>,?{,0xffff0000,%s,|=,}", ra, rd, ra, rd);
+        op->type = R_ANAL_OP_TYPE_CAST;
 		break;
 	case ori:
 		r_strbuf_setf (&op->esil, "%s,_imm,|,%s,|,%s,=", ra, imm, rd);
@@ -537,12 +550,12 @@ static void analyse_branch_inst_imm(struct mb_anal_ctx *ctx, unsigned long insn,
 		op->jump = jump_addr;
 		break;
 	case brai:
-		r_strbuf_setf (&op->esil, "_imm,pc,=");
+		r_strbuf_appendf (&op->esil, "_imm,pc,=");
 		op->type = R_ANAL_OP_TYPE_JMP;
 		op->jump = jump_addr;
 		break;
 	case braid:
-		r_strbuf_appendf (&op->esil, "_imm,|,pc,=");
+		r_strbuf_appendf (&op->esil, "_imm,pc,=");
 		op->type = R_ANAL_OP_TYPE_JMP;
 		op->delay = 1;
 		op->jump = jump_addr;
@@ -784,6 +797,7 @@ static void analyse_return_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	}
 	// Reset _immf to zero even if not used.
     r_strbuf_appendf (&op->esil, ",0,_immf,=");
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 static void analyse_special_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
@@ -975,23 +989,34 @@ static void analyse_memory_store_inst(struct mb_anal_ctx *ctx, unsigned long ins
 
 static void analyse_barrel_shift_inst(struct mb_anal_ctx *ctx, unsigned long insn, struct op_code_struct *mb_op) {
 	RAnalOp *op = ctx->op;
+    char *ra = get_field_r1 (insn);
+	char *rb = get_field_r2 (insn);
+	char *rd = get_field_rd (insn);
+    char *imm5 = get_field_imm5 (insn);
+
 	switch (mb_op->instr) {
 	case bsll:
+        r_strbuf_setf (&op->esil, ",%s,%s,<<,%s,=", rb, ra, rd);
 		op->type = R_ANAL_OP_TYPE_SHL;
 		break;
 	case bsra:
+        r_strbuf_setf (&op->esil, ",%s,%s,>>>>,%s,=", rb, ra, rd);
 		op->type = R_ANAL_OP_TYPE_SAR;
 		break;
 	case bsrl:
+        r_strbuf_setf (&op->esil, ",%s,%s,>>,%s,=", rb, ra, rd);
 		op->type = R_ANAL_OP_TYPE_SHR;
 		break;
 	case bslli:
+        r_strbuf_setf (&op->esil, ",%s,%s,<<,%s,=", imm5, ra, rd);
 		op->type = R_ANAL_OP_TYPE_SHL;
 		break;
 	case bsrai:
+        r_strbuf_setf (&op->esil, ",%s,%s,>>>>,%s,=", imm5, ra, rd);
 		op->type = R_ANAL_OP_TYPE_SAR;
 		break;
 	case bsrli:
+        r_strbuf_setf (&op->esil, ",%s,%s,>>,%s,=", imm5, ra, rd);
 		op->type = R_ANAL_OP_TYPE_SHR;
 		break;
 	default:
@@ -999,6 +1024,7 @@ static void analyse_barrel_shift_inst(struct mb_anal_ctx *ctx, unsigned long ins
 	}
 	// Reset _immf to zero even if not used.
     r_strbuf_appendf (&op->esil, ",0,_immf,=");
+    r_strbuf_appendf (&op->esil, ",0,_imm,=");
 }
 
 
