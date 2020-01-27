@@ -268,7 +268,8 @@ char *generic_array_obj_to_string (RList *l) {
     ut32 size = 256, used = 0;
     char *r = NULL, *buf = NULL;
 
-    buf = (char*)calloc (1024, 0);
+    // add good enough space
+    buf = (char*)calloc (size+10, 1);
     r_list_foreach (l, iter, e) {
         while ( !(strlen (e->data) < size) ) {
             size *= 2;
