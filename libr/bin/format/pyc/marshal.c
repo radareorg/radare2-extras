@@ -2,7 +2,6 @@
 
 #include <r_io.h>
 #include <r_bin.h>
-#include <gmp.h>
 #include "marshal.h"
 
 #define SIZE32_MAX  0x7FFFFFFF
@@ -151,6 +150,9 @@ static pyc_object *get_int64_object (RBuffer *buffer) {
 
 /* long is used when the number is > MAX_INT64 */
 static pyc_object *get_long_object (RBuffer *buffer) {
+    eprintf("not implemented");
+    return NULL;
+    /*
     pyc_object *ret = NULL;
     bool error = false;
     bool neg = false;
@@ -177,15 +179,15 @@ static pyc_object *get_long_object (RBuffer *buffer) {
     mpz_init (N);
     mpz_init (s);
     mpz_set_ui (pow, 1);
-    /* N += digits[i]*(pow); pow *= base */
+    // N += digits[i]*(pow); pow *= base
     for (i = 0; i < ndigits; i++) {
         mpz_mul_ui(s, pow, get_ut16(buffer, &error));
         mpz_add(N, N, s);
         mpz_mul_ui(pow, pow, base);
         mpz_set_ui(s, 0);
     }
-    /*negative number */
-    if (neg) 
+    //negative number
+    if (neg)
         mpz_neg(N, N);
     char *buf = malloc (mpz_sizeinbase(N, 10) + 2);
     mpz_get_str (buf, 10, N);
@@ -195,6 +197,7 @@ static pyc_object *get_long_object (RBuffer *buffer) {
     mpz_clear (N);
     mpz_clear (s);
     return ret;
+    */
 }
 
 static pyc_object *get_stringref_object (RBuffer *buffer) {
