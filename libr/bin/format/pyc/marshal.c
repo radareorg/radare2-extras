@@ -234,7 +234,7 @@ static pyc_object *get_float_object (RBuffer *buffer) {
     ret = R_NEW0 (pyc_object);
     if (!ret) 
         return NULL;
-    ut8 *s = malloc (n);
+    ut8 *s = malloc (n + 1);
     if (!s) 
         return NULL;
     /* object contain string representation of the number */
