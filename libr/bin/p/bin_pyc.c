@@ -10,7 +10,7 @@ static struct pyc_version version;
 /* used from marshall.c */
 RList *interned_table = NULL;
 
-static bool check_bytes(const ut8 *buf, ut64 length) {
+static bool check_buffer(const ut8 *buf, ut64 length) {
 	if (!buf || length < 8) {
 		// magic + timestamp 
 		return false;
@@ -19,8 +19,8 @@ static bool check_bytes(const ut8 *buf, ut64 length) {
 	return version.magic != -1;
 }
 
-static bool load_bytes(RBinFile *bf, void **bin_obj, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb) {
-	return check_bytes (buf, sz);
+static bool load_buffer(RBinFile *bf, void **bin_obj, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb) {
+	return check_buffer (buf, sz);
 }
 
 static RBinInfo *info(RBinFile *arch) {
@@ -85,8 +85,8 @@ RBinPlugin r_bin_plugin_pyc = {
 	.desc = "Python byte-compiled file plugin",
 	.license = "LGPL3",
 	.info = &info,
-	.load_bytes = &load_bytes,
-	.check_bytes = &check_bytes,
+	.load_buffer = &load_buffer,
+	.check_buffer = &check_buffer,
 	.entries = &entries,
 	.sections = &sections,
 };
