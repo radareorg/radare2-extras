@@ -764,9 +764,9 @@ static pyc_object *get_code_object (RBuffer *buffer) {
     cobj->flags = get_ut32 (buffer, &error);
 
     //to help disassemble the code
-    cobj->start_offset = buffer->cur + 4; 
+    cobj->start_offset = r_buf_tell(buffer) + 4;
     cobj->code = get_object (buffer);
-    cobj->end_offset = buffer->cur;
+    cobj->end_offset = r_buf_tell(buffer);
 
     cobj->consts = get_object (buffer);
     cobj->names = get_object (buffer);
