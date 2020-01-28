@@ -10,17 +10,18 @@ static struct pyc_version version;
 /* used from marshall.c */
 RList *interned_table = NULL;
 
-static bool check_buffer(const ut8 *buf, ut64 length) {
-	if (!buf || length < 8) {
-		// magic + timestamp 
-		return false;
-	}
-	version = get_pyc_version (*(ut32*)buf);
-	return version.magic != -1;
+static bool check_buffer(RBuffer *b) {
+    if (r_buf_size (b) > 4) {
+        ut32 buf;
+        r_buf_read_at (b, 0, (ut8 *) &buf, sizeof (buf));
+        version = get_pyc_version (buf);
+        return version.magic != -1;
+    }
+    return false;
 }
 
-static bool load_buffer(RBinFile *bf, void **bin_obj, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb) {
-	return check_buffer (buf, sz);
+static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *buf,  ut64 loadaddr, Sdb *sdb) {
+	return check_buffer (buf);
 }
 
 static RBinInfo *info(RBinFile *arch) {
