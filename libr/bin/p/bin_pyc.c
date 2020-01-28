@@ -81,6 +81,10 @@ static RList *entries(RBinFile *arch) {
 	return entries;
 }
 
+static ut64 baddr(RBinFile *bf) {
+	return 0;
+}
+
 RBinPlugin r_bin_plugin_pyc = {
 	.name = "pyc",
 	.desc = "Python byte-compiled file plugin",
@@ -90,6 +94,7 @@ RBinPlugin r_bin_plugin_pyc = {
 	.check_buffer = &check_buffer,
 	.entries = &entries,
 	.sections = &sections,
+	.baddr = &baddr,
 };
 
 #ifndef R2_PLUGIN_INCORE
