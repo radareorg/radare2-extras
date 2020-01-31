@@ -29,8 +29,7 @@ static RBinInfo *info(RBinFile *arch) {
 	if (!ret)
 		return NULL;
 	ret->file = strdup (arch->file);
-	ret->type = r_str_newf ("Python %s%s byte-compiled file", version.version,
-				version.unicode ? " Unicode" : "");
+	ret->type = r_str_newf ("Python %s byte-compiled file", version.version);
 	ret->bclass = strdup ("Python byte-compiled file");
 	ret->rclass = strdup ("pyc");
 	ret->machine = r_str_newf ("Python %s VM (rev %s)", version.version,
