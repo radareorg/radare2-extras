@@ -1,4 +1,4 @@
-/* radare - LGPL3 - Copyright 2016 - Matthieu (c0riolis) Tardy */
+/* radare - LGPL3 - Copyright 2016-2020 - c0riolis, x0urc3 */
 
 #ifndef PYC_MAGIC_H
 #define PYC_MAGIC_H

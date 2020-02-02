@@ -1,4 +1,4 @@
-/* radare - LGPL3 - Copyright 2016 - Matthieu (c0riolis) Tardy */
+/* radare - LGPL3 - Copyright 2016-2020 - c0riolis, x0urc3 */
 
 #include "pyc.h"
 #include "marshal.h"
@@ -7,144 +7,17 @@ bool pyc_get_sections(RList *sections, RList *cobjs, RBuffer *buf, ut32 magic) {
 	return get_sections_from_code_objects (buf, sections, cobjs);
 }
 
-ut64 pyc_get_entrypoint(ut32 magic) {
-	switch (magic) {
-	case MAGIC_0_9_4_BETA:
-	case MAGIC_0_9_9_v0:
-	case MAGIC_0_9_9_v1:
-	case MAGIC_0_9_9_v2:
-	case MAGIC_1_0_1:
-	case MAGIC_1_1:
-	case MAGIC_1_2:
-	case MAGIC_1_3_B1:
-	case MAGIC_1_4_B1_v0:
-	case MAGIC_1_4_B1_v1:
-	case MAGIC_1_4:
-	case MAGIC_1_5_A1:
-	case MAGIC_1_6_A2:
-	case MAGIC_2_0_B1_v0:
-	case MAGIC_2_0_B1_v1_U:
-	case MAGIC_2_0_B1_v2:
-	case MAGIC_2_0_B1_v2_U:
-	case MAGIC_2_0_B1_v3:
-	case MAGIC_2_0_B1_v3_U:
-	case MAGIC_2_0_B1_v4:
-	case MAGIC_2_0_B1_v4_U:
-	case MAGIC_2_0_B1_v5_U:
-	case MAGIC_2_0_B1_v6_U:
-	case MAGIC_2_1_A1:
-	case MAGIC_2_1_A1_U:
-	case MAGIC_2_1_A2:
-	case MAGIC_2_1_A2_U:
-	case MAGIC_2_2_A0:
-	case MAGIC_2_2_A0_U:
-	case MAGIC_2_2_A1:
-	case MAGIC_2_2_A1_U:
-	case MAGIC_2_3_A0_v0:
-	case MAGIC_2_3_A0_v0_U:
-	case MAGIC_2_3_A0_v1:
-	case MAGIC_2_3_A0_v1_U:
-	case MAGIC_2_3_A0_v2:
-	case MAGIC_2_3_A0_v2_U:
-	case MAGIC_2_4_A0_v0:
-	case MAGIC_2_4_A0_v0_U:
-	case MAGIC_2_4_A0_v1:
-	case MAGIC_2_4_A0_v1_U:
-	case MAGIC_2_4_A2:
-	case MAGIC_2_4_A2_U:
-	case MAGIC_2_4_A3:
-	case MAGIC_2_4_A3_U:
-	case MAGIC_2_5_A0_v0:
-	case MAGIC_2_5_A0_v0_U:
-	case MAGIC_2_5_A0_v1:
-	case MAGIC_2_5_A0_v1_U:
-	case MAGIC_2_5_A0_v2:
-	case MAGIC_2_5_A0_v2_U:
-	case MAGIC_2_5_A0_v3_U:
-	case MAGIC_2_5_B2_v0:
-	case MAGIC_2_5_B2_v0_U:
-	case MAGIC_2_5_B2_v1:
-	case MAGIC_2_5_B2_v1_U:
-	case MAGIC_2_5_C3:
-	case MAGIC_2_5_C3_U:
-	case MAGIC_2_6_A0_v0:
-	case MAGIC_2_6_A0_v0_U:
-	case MAGIC_2_6_A0_v1:
-	case MAGIC_2_6_A0_v1_U:
-	case MAGIC_2_6_A0_v2:
-	case MAGIC_2_6_A0_v2_U:
-	case MAGIC_2_6_A1_PLUS_v0:
-	case MAGIC_2_6_A1_PLUS_v0_U:
-	case MAGIC_2_6_A1_PLUS_v1:
-	case MAGIC_2_6_A1_PLUS_v1_U:
-	case MAGIC_2_7_A0_v0:
-	case MAGIC_2_7_A0_v0_U:
-	case MAGIC_2_7_A0_v1:
-	case MAGIC_2_7_A0_v1_U:
-	case MAGIC_2_7_A0_v2:
-	case MAGIC_2_7_A0_v2_U:
-	case MAGIC_2_7_A2_PLUS_v0:
-	case MAGIC_2_7_A2_PLUS_v0_U:
-	case MAGIC_2_7_A2_PLUS_v1:
-	case MAGIC_2_7_A2_PLUS_v1_U:
-	case MAGIC_3_0X_v0:
-	case MAGIC_3_0X_v0_U:
-	case MAGIC_3_0X_v1:
-	case MAGIC_3_0X_v1_U:
-	case MAGIC_3_0X_v2:
-	case MAGIC_3_0X_v2_U:
-	case MAGIC_3_0X_v3:
-	case MAGIC_3_0X_v3_U:
-	case MAGIC_3_0X_v4:
-	case MAGIC_3_0X_v4_U:
-	case MAGIC_3_0X_v5:
-	case MAGIC_3_0X_v5_U:
-	case MAGIC_3_0X_v6:
-	case MAGIC_3_0X_v6_U:
-	case MAGIC_3_0_A1_v0:
-	case MAGIC_3_0_A1_v0_U:
-	case MAGIC_3_0_A1_v1:
-	case MAGIC_3_0_A1_v1_U:
-	case MAGIC_3_0_A1_PLUS:
-	case MAGIC_3_0_A1_PLUS_U:
-	case MAGIC_3_0_A2:
-	case MAGIC_3_0_A2_U:
-	case MAGIC_3_0_A2_PLUS:
-	case MAGIC_3_0_A2_PLUS_U:
-	case MAGIC_3_0_A3_PLUS:
-	case MAGIC_3_0_A3_PLUS_U:
-	case MAGIC_3_0_A5_PLUS:
-	case MAGIC_3_0_A5_PLUS_U:
-	case MAGIC_3_1_A0_v0:
-	case MAGIC_3_1_A0_v0_U:
-	case MAGIC_3_1_A0_v1:
-	case MAGIC_3_1_A0_v1_U:
-	case MAGIC_3_2_A0:
-	case MAGIC_3_2_A0_U:
-	case MAGIC_3_2_A1_PLUS_U:
-	case MAGIC_3_2_A2_PLUS_U:
-	case MAGIC_3_3_A0_U:
-	case MAGIC_3_3_0_A0_v0_U:
-		return 0x8;
-	case MAGIC_3_3_0_A0_v1_U:
-	case MAGIC_3_3_0_A1_PLUS_U:
-	case MAGIC_3_3_0_A3_PLUS_U:
-	case MAGIC_3_4_0_A0_v0_U:
-	case MAGIC_3_4_0_A0_v1_U:
-	case MAGIC_3_4_0_A0_v2_U:
-	case MAGIC_3_4_0_A0_v3_U:
-	case MAGIC_3_4_0_A0_v4_U:
-	case MAGIC_3_4_0_A3_PLUS_v0_U:
-	case MAGIC_3_4_0_A3_PLUS_v1_U:
-	case MAGIC_3_4_0_RC1_PLUS_U:
-	case MAGIC_3_5_0_A0_U:
-	case MAGIC_3_5_0_A4_PLUS_U:
-	case MAGIC_3_5_0_B1_PLUS_U:
-	case MAGIC_3_5_0_B2_PLUS_U:
-	case MAGIC_3_6_0_A0_v0_U:
-	case MAGIC_3_6_0_A0_v1_U:
-		return 0xc;
-	default:
-		return 0x0;
-	}
+bool pyc_is_object(ut32 b, pyc_marshal_type type) {
+    bool ret = false;
+	if (b == type) {
+        ret = true;
+    }
+    return ret;
+}
+
+bool pyc_is_code(ut32 b) {
+    if (pyc_is_object((b & ~FLAG_REF), TYPE_CODE_v1)) {
+        return true;
+    }
+    return false;
 }
