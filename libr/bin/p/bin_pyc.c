@@ -1,7 +1,6 @@
-/* radare - LGPL3 - Copyright 2016-2017 - Matthieu (c0riolis) Tardy */
+/* radare - LGPL3 - Copyright 2016-2020 - c0riolis, x0urc3 */
 
 #include <r_bin.h>
-#include "pyc_magic.h"
 #include "pyc.h"
 
 // XXX: to not use globals
@@ -22,6 +21,17 @@ static bool check_buffer(RBuffer *b) {
 
 static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *buf,  ut64 loadaddr, Sdb *sdb) {
 	return check_buffer (buf);
+}
+
+static ut64 get_entrypoint(RBuffer *buf) {
+    ut32 b;
+    for (int addr = 0x8; addr <= 0x10; addr += 0x4) {
+        r_buf_read_at (buf, addr, &b, sizeof (b));
+        if (pyc_is_code(b)) {
+            return addr;
+        }
+    }
+    return NULL;
 }
 
 static RBinInfo *info(RBinFile *arch) {
@@ -72,7 +82,7 @@ static RList *entries(RBinFile *arch) {
 	if (!addr) {
 		return NULL;
 	}
-	ut64 entrypoint = pyc_get_entrypoint (version.magic);
+	ut64 entrypoint = get_entrypoint (arch->buf);
 	addr->paddr = entrypoint;
 	addr->vaddr = entrypoint;
 	r_buf_seek (arch->buf, entrypoint, R_IO_SEEK_CUR);
