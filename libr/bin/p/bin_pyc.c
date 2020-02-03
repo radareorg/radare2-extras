@@ -24,7 +24,7 @@ static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *buf,  ut64 loadad
 }
 
 static ut64 get_entrypoint(RBuffer *buf) {
-    ut32 b;
+    ut8 b;
     for (int addr = 0x8; addr <= 0x10; addr += 0x4) {
         r_buf_read_at (buf, addr, &b, sizeof (b));
         if (pyc_is_code(b)) {
@@ -85,7 +85,7 @@ static RList *entries(RBinFile *arch) {
 	ut64 entrypoint = get_entrypoint (arch->buf);
 	addr->paddr = entrypoint;
 	addr->vaddr = entrypoint;
-	r_buf_seek (arch->buf, entrypoint, R_IO_SEEK_CUR);
+	r_buf_seek (arch->buf, entrypoint, R_IO_SEEK_SET);
 	r_list_append (entries, addr);
 	return entries;
 }

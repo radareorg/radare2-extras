@@ -956,7 +956,8 @@ static bool extract_sections (pyc_object *obj, RList *sections, RList *cobjs, ch
                 prefix ? "." : "", cobj->name->data);
     if (!prefix || !section)
         goto fail;
-    if (!strncpy ((char*)&section->name, prefix, R_BIN_SIZEOF_STRINGS))
+    section->name = strdup(prefix);
+    if (!section->name)
         goto fail;
     section->paddr = cobj->start_offset+1;
     section->vaddr = cobj->start_offset+1;
