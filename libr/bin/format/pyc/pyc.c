@@ -7,7 +7,7 @@ bool pyc_get_sections(RList *sections, RList *cobjs, RBuffer *buf, ut32 magic) {
 	return get_sections_from_code_objects (buf, sections, cobjs);
 }
 
-bool pyc_is_object(ut32 b, pyc_marshal_type type) {
+bool pyc_is_object(ut8 b, pyc_marshal_type type) {
     bool ret = false;
 	if (b == type) {
         ret = true;
@@ -15,7 +15,7 @@ bool pyc_is_object(ut32 b, pyc_marshal_type type) {
     return ret;
 }
 
-bool pyc_is_code(ut32 b) {
+bool pyc_is_code(ut8 b) {
     if (pyc_is_object((b & ~FLAG_REF), TYPE_CODE_v1)) {
         return true;
     }
