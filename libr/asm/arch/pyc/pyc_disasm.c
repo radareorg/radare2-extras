@@ -140,14 +140,14 @@ int r_pyc_disasm (RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *intern
     RList *consts;
     RList *names;
     ut8 op;
-  
+
     r_list_foreach (cobjs, iter, t) {
         start_offset = t->start_offset;
         end_offset = t->end_offset;
         if (pc > start_offset && pc < end_offset) {
             cobj = t;
             break;
-        }   
+        }
     }
 
     if (cobj != NULL) {
@@ -172,8 +172,8 @@ int r_pyc_disasm (RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *intern
               arg = parse_arg (op, oparg, names, consts, varnames, interned_table);
             if (arg != NULL) {
                 r_strbuf_appendf (&opstruct->buf_asm, "%20s", arg);
-            }   
-        }       
+            }
+        }
         return i;
     }
     return 0;
