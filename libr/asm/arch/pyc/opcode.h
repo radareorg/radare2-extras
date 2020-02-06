@@ -1,3 +1,8 @@
+/* radare - LGPL3 - Copyright 2016-2020 - c0riolis, x0urc3 */
+
+#ifndef OPCODE_H
+#define OPCODE_H
+
 #define STOP_CODE	0
 #define POP_TOP		1
 #define ROT_TWO		2
@@ -154,3 +159,4 @@
 
 char *op_name[0xff + 1];
 
+#endif

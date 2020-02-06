@@ -1,5 +1,5 @@
 OBJ_PYC=asm_pyc.o
-OBJ_PYC+=../arch/pyc/pyc_disasm.o
+OBJ_PYC+=../arch/pyc/pyc_dis.o
 
 STATIC_OBJ+=${OBJ_PYC}
 TARGET_PYC=asm_pyc.$(LIBEXT)

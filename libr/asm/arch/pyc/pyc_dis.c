@@ -1,3 +1,5 @@
+/* radare - LGPL3 - Copyright 2016-2020 - c0riolis, x0urc3 */
+
 #include "pyc_dis.h"
 
 void init_opname_table () {

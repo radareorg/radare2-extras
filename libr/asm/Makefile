@@ -53,6 +53,7 @@ clean:
 	rm -f p/asm_x86_bea.$(LIBEXT)
 	rm -f p/asm_x86_tab.$(LIBEXT)
 	rm -f p/asm_x86_olly.$(LIBEXT)
+	rm -f p/asm_pyc.$(LIBEXT)
 	rm -f p/asm_m68k.$(LIBEXT)
 	rm -f p/asm_x86_zyan.$(LIBEXT)
 	rm -f p/asm_atombios.{$(LIBEXT),o}

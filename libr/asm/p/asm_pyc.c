@@ -1,3 +1,5 @@
+/* radare - LGPL3 - Copyright 2016-2020 - c0riolis, x0urc3 */
+
 #include <r_types.h>
 #include <r_lib.h>
 #include <r_util.h>
@@ -73,7 +75,7 @@ RAsmPlugin r_asm_plugin_pyc = {
 	.init = &init,
 };
 
-#ifndef CORELIB
+#ifndef R2_PLUGIN_INCORE
 struct r_lib_struct_t radare_plugin = {
 	.type = R_LIB_TYPE_ASM,
 	.data = &r_asm_plugin_pyc,
