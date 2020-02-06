@@ -150,5 +150,7 @@
 #define SET_ADD         146
 #define MAP_ADD         147
 
+#define HAS_ARG(op) ((op) >= HAVE_ARGUMENT)
+
 char *op_name[0xff + 1];
 
