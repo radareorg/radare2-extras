@@ -34,12 +34,21 @@ static int dis (RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 
     if (op_name[buf[0]]) {
         if (HAS_ARG(buf[0])) {
-            ut16 operand = (buf[2] << 8) | buf[1];
-            buf_asm = sdb_fmt ("%s %d",op_name[buf[0]], operand);
-            size = 3; // < 3.6
+            if (a->bits == 16) {
+                ut16 operand = (buf[2] << 8) | buf[1];
+                buf_asm = sdb_fmt ("%s %d",op_name[buf[0]], operand);
+                size = 3; // < 3.6
+            } else {
+                buf_asm = sdb_fmt ("%s %d",op_name[buf[0]], buf[1]);
+                size = 2; // >= 3.6
+            }
         } else {
             buf_asm = sdb_fmt (op_name[buf[0]]);
-            size = 1;
+            if (buf[1] == STOP_CODE) {
+                size = 2;
+            } else {
+                size = 1;
+            }
         }
     }
 //    eprintf("kmbs: f:%s\tbuf_asm:%s\n",__func__,buf_asm);
@@ -58,7 +67,7 @@ RAsmPlugin r_asm_plugin_pyc = {
 	.name = "pyc",
 	.arch = "pyc",
 	.license = "LGPL3",
-	.bits = 32,
+	.bits = 16 | 8,
 	.desc = "PYC disassemble plugin",
 	.disassemble = &dis,
 	.init = &init,
