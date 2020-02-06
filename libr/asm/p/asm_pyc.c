@@ -12,7 +12,7 @@ static int disassemble (RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 
 	RBin *bin = a->binb.bin;
 	ut64 pc = a->pc;
-  
+
 	RBinPlugin *plugin = bin && bin->cur && bin->cur->o ?
 		bin->cur->o->plugin : NULL;
 
