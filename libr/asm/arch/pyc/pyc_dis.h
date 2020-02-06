@@ -1,3 +1,8 @@
+/* radare - LGPL3 - Copyright 2016-2020 - c0riolis, x0urc3 */
+
+#ifndef PYC_DIS_H
+#define PYC_DIS_H
+
 #include <r_types.h>
 #include <r_lib.h>
 #include <r_util.h>
@@ -74,3 +79,5 @@ char *generic_array_obj_to_string (RList *l);
 void dump_cobj (pyc_code_object *c);
 void init_opname_table ();
 void dump (RList *l);
+
+#endif
