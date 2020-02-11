@@ -20,7 +20,10 @@ static int disassemble(RAsm *a, RAsmOp *aop, const ut8 *buf, int len) {
 	ZydisStatus st = ZydisDecoderDecodeInstruction (&decr, buf, len, a->pc, &info);
 	if (ZYDIS_SUCCESS (st)) {
 		ZydisFormatterInitInstructionFormatter (&fmtr, ZYDIS_FORMATTER_STYLE_INTEL);
-		ZydisFormatterFormatInstruction (&fmtr, &info, aop->buf_asm, R_ASM_BUFSIZE);
+		char str[128];
+		str[0] = 0;
+		ZydisFormatterFormatInstruction (&fmtr, &info, str, sizeof (str));
+		r_strbuf_set (&aop->buf_asm, str);
 	}
 
 	return aop->size = info.length;
