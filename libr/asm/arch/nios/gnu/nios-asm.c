@@ -1054,10 +1054,12 @@ nios_cgen_assemble_insn (CGEN_CPU_DESC cd,
 
       str = start;
 
+#if 0
       /* Skip this insn if str doesn't look right lexically.  */
       if (CGEN_INSN_RX (insn) != NULL &&
 	  regexec ((regex_t *) CGEN_INSN_RX (insn), str, 0, NULL, 0) == REG_NOMATCH)
 	continue;
+#endif
 
       /* Allow parse/insert handlers to obtain length of insn.  */
       CGEN_FIELDS_BITSIZE (fields) = CGEN_INSN_BITSIZE (insn);

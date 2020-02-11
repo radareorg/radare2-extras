@@ -1612,9 +1612,10 @@ nios_cgen_cpu_open_1 (const char *mach_name, enum cgen_endian endian)
 void
 nios_cgen_cpu_close (CGEN_CPU_DESC cd)
 {
-  unsigned int i;
-  const CGEN_INSN *insns;
 
+#if 0
+  const CGEN_INSN *insns;
+  unsigned int i;
   if (cd->macro_insn_table.init_entries)
     {
       insns = cd->macro_insn_table.init_entries;
@@ -1630,6 +1631,7 @@ nios_cgen_cpu_close (CGEN_CPU_DESC cd)
 	if (CGEN_INSN_RX (insns))
 	  regfree (CGEN_INSN_RX (insns));
     }
+#endif
 
   if (cd->macro_insn_table.init_entries)
     free ((CGEN_INSN *) cd->macro_insn_table.init_entries);

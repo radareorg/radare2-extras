@@ -37,6 +37,7 @@ static void		 add_insn_to_hash_chain (CGEN_INSN_LIST *,
 						 CGEN_INSN_LIST **,
 						 unsigned int);
 
+#if 0
 bfd_uint64_t
 bfd_get_bits (const void *p, int bits, bfd_boolean big_p)
 {
@@ -59,6 +60,7 @@ bfd_get_bits (const void *p, int bits, bfd_boolean big_p)
 
   return data;
 }
+#endif
 
 void
 bfd_put_bits (bfd_uint64_t data, void *p, int bits, bfd_boolean big_p)
