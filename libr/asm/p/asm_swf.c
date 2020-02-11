@@ -13,7 +13,10 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 
 	obj = bin->cur->o;
 
-	int dlen = r_asm_swf_disass (obj, op->buf_asm, buf, len, a->pc);
+	char res[1024];
+	res[0] = 0;
+	int dlen = r_asm_swf_disass (obj, res, buf, len, a->pc);
+	r_strbuf_set (&op->buf_asm, res);
 	op->size = dlen;
 	return dlen;
 }
