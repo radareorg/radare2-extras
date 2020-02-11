@@ -7,14 +7,15 @@
 #include "../format/swf/swf_specs.h"
 #include "../format/swf/swf.h"
 
-static int check(RBinFile *arch);
-static int check_bytes(const ut8 *buf, ut64 length);
+static bool check_buffer(RBuffer *b);
 
 static char compression;
 static char flashVersion;
 
-static bool load_bytes(RBinFile *bf, void **bin_obj, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb){
-	if (check_bytes (buf, sz)) {
+static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *b, ut64 loadaddr, Sdb *sdb){
+	if (check_buffer (b)) {
+		ut8 buf[4];
+		r_buf_read_at (b, 0, buf, 4);
 		compression = buf[0];
 		flashVersion = buf[3];
 		return true;
@@ -22,12 +23,21 @@ static bool load_bytes(RBinFile *bf, void **bin_obj, const ut8 *buf, ut64 sz, ut
 	return false;
 }
 
-static int check_bytes(const ut8 *buf, ut64 length) {
-	if (!buf || length < 4) return false;
-
-	if ((*buf == ISWF_MAGIC_0_0 || *buf == ISWF_MAGIC_0_1 ||
-			*buf == ISWF_MAGIC_0_2) && (!memcmp (buf+1, ISWF_MAGIC, 2)))
-		return true;
+static bool check_buffer(RBuffer *b) {
+	ut8 buf[4];
+	if (r_buf_size (b) < 4) {
+		return false;
+	}
+	r_buf_read_at (b, 0, buf, 4);
+	switch (buf[0]) {
+	case ISWF_MAGIC_0_0:
+	case ISWF_MAGIC_0_1:
+	case ISWF_MAGIC_0_2:
+		if (!memcmp (buf + 1, ISWF_MAGIC, 2)) {
+			return true;
+		}
+		break;
+	}
 
 	return false;
 }
@@ -92,8 +102,8 @@ RBinPlugin r_bin_plugin_swf = {
 	.name = "swf",
 	.desc = "SWF",
 	.license = "LGPL3",
-	.load_bytes = &load_bytes,
-	.check_bytes = &check_bytes,
+	.load_buffer = &load_buffer,
+	.check_buffer = &check_buffer,
 	.entries = &entries,
 	.sections = &sections,
 	.info = &info,

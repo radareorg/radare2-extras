@@ -52,6 +52,12 @@ static bool check_bytes(const ut8 *buf, ut64 length) {
 	return false;
 }
 
+static bool check_buffer(RBuffer *b) {
+	ut8 buf[1024];
+	r_buf_read_at (b, 0, buf, sizeof (buf));
+	return check_bytes (buf, sizeof (buf));
+}
+
 static void *load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb) {
 	if (!buf || !sz || sz < sizeof (pcap_file_hdr_t) || sz == UT64_MAX) {
 		return NULL;
@@ -117,9 +123,9 @@ static void _read_ipv4_sym(RList *list, const ut8 *buf, ut64 off, ut64 sz, int e
 	ptr->name = r_str_newf ("0x%"PFMT64x": IPV%d, Src: %d.%d.%d.%d, Dst: %d.%d.%d.%d",
 		off, (ipv4.ver_len >> 4) & 0x0F, (ipv4.src >> 24) & 0xFF,
 		(ipv4.src >> 16) & 0xFF, (ipv4.src >> 8) & 0xFF,
-		ipv4.src && 0xFF, (ipv4.dst >> 24) & 0xFF,
+		ipv4.src & 0xFF, (ipv4.dst >> 24) & 0xFF,
 		(ipv4.dst >> 16) & 0xFF, (ipv4.dst >> 8) & 0xFF,
-		ipv4.dst && 0xFF);
+		ipv4.dst & 0xFF);
 	ptr->paddr = ptr->vaddr = off;
 	r_list_append (list, ptr);
 	if (off + ipv4.tot_len > sz) {
@@ -249,15 +255,15 @@ static RList *symbols(RBinFile *arch) {
 	RBinSymbol *ptr = NULL;
 	RList *ret = NULL;
 	pcap_obj_t *obj = NULL;
-	const ut8 *buf = NULL;
 	ut64 sz = 0;
 	ut64 off;
 	ut64 pkt_num = 0;
-	if (!arch || !arch->o || !arch->o->bin_obj || !arch->buf || !arch->buf->buf) {
+	if (!arch || !arch->o || !arch->o->bin_obj || !arch->buf) {
 		return NULL;
 	}
 	obj = arch->o->bin_obj;
-	buf = r_buf_buffer (arch->buf);
+	ut8 buf[1024]; // sizeof(pcap_file-hdr
+	r_buf_read_at (arch->buf, 0, buf, sizeof (buf));
 	sz = r_buf_size (arch->buf);
 	if (sz == 0 || sz == UT64_MAX) {
 		return NULL;
@@ -315,15 +321,15 @@ static RList *strings(RBinFile *arch) {
 	RBinString *ptr = NULL;
 	RList *ret = NULL;
 	pcap_obj_t *obj = NULL;
-	const ut8 *buf = NULL;
 	char *tmp = NULL;
 	ut64 sz = 0;
 	ut64 off;
-	if (!arch || !arch->o || !arch->o->bin_obj || !arch->buf || !arch->buf->buf) {
+	if (!arch || !arch->o || !arch->o->bin_obj || !arch->buf) {
 		return NULL;
 	}
 	obj = arch->o->bin_obj;
-	buf = r_buf_buffer (arch->buf);
+	ut8 buf[1024];
+	r_buf_read_at (arch->buf, 0, buf, sizeof (buf));
 	sz = r_buf_size (arch->buf);
 	if (sz == 0 || sz == UT64_MAX) {
 		return NULL;
@@ -412,13 +418,18 @@ static bool load(RBinFile *arch) {
 	if (!arch || !arch->o) {
 		return false;
 	}
-	const ut8 *bytes = r_buf_buffer (arch->buf);
 	ut64 size = r_buf_size (arch->buf);
+	ut8 *bytes = malloc (size);
 	if (!bytes || size == 0 || size == UT64_MAX) {
 		return false;
 	}
+	r_buf_read_at (arch->buf, 0, bytes, size);
 	arch->o->bin_obj = load_bytes (arch, bytes, size, arch->o->loadaddr, arch->sdb);
 	return arch->o->bin_obj != NULL;
+}
+
+static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *buf, ut64 loadaddr, Sdb *sdb) {
+	return load(bf);
 }
 
 RBinPlugin r_bin_plugin_pcap = {
@@ -426,11 +437,10 @@ RBinPlugin r_bin_plugin_pcap = {
 	.desc = "libpcap .pcap format r2 plugin",
 	.license = "LGPL3",
 	.info = info,
-	.load = load,
 	.strings = strings,
 	.symbols = symbols,
-	.load_bytes = load_bytes,
-	.check_bytes = check_bytes,
+	.load_buffer= load_buffer,
+	.check_buffer = check_buffer,
 };
 
 #ifndef CORELIB
