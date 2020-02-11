@@ -60,7 +60,7 @@ env:
   - TESTS="r2pm -i radare2"
 #  - TESTS="r2pm -i r2snow" https://travis-ci.org/radareorg/radare2-extras/jobs/199500082
 #  - TESTS="r2pm -i radeco" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
-  - TESTS="r2pm -i retdec"
+#  - TESTS="r2pm -i retdec"
   - TESTS="r2pm -i swf && cd radare2-regressions && make swf && cd .."
 #  - TESTS="r2pm -i m68k-net && cd radare2-regressions && make m68k-extras && cd .." [BR] https://travis-ci.org/radare/radare2-extras/builds/387043680
 #  - TESTS="r2pm -i swig" Sorry. This package cannot be installed in your home.
