@@ -13,6 +13,8 @@
 // true if the plugin has been initialized.
 static int initialized = false;
 
+static bool print_strings = 0;
+
 static int callback(int message, void* rule, void* data);
 static int r_cmd_yara_add (const RCore* core, const char* input);
 static int r_cmd_yara_add_file (const char* rules_path);
@@ -21,7 +23,7 @@ static int r_cmd_yara_clear();
 static int r_cmd_yara_init(void *user, const char *cmd);
 static int r_cmd_yara_help(const RCore* core);
 static int r_cmd_yara_process(const RCore* core, const char* input);
-static int r_cmd_yara_scan(const RCore* core);
+static int r_cmd_yara_scan(const RCore* core, const char* option);
 static int r_cmd_yara_load_default_rules (const RCore* core);
 
 static const char* yara_rule_template = "rule RULE_NAME {\n\tstrings:\n\n\tcondition:\n}";
@@ -33,9 +35,27 @@ static const char* yara_rule_template = "rule RULE_NAME {\n\tstrings:\n\n\tcondi
 static RList* rules_list;
 
 static int callback (int message, void *msg_data, void *user_data) {
+	RPrint *print = (RPrint *)user_data;
 	YR_RULE* rule = msg_data;
+
 	if (message == CALLBACK_MSG_RULE_MATCHING)
-		r_cons_printf ("%s\n", rule->identifier);
+	{
+		YR_STRING* string;
+		r_cons_printf("%s\n", rule->identifier);
+
+		if (print_strings) {
+			yr_rule_strings_foreach(rule, string)
+			{
+				YR_MATCH* match;
+
+				yr_string_matches_foreach(string, match)
+				{
+					r_cons_printf("0x%08" PRIx64 ": %s : ", match->base + match->offset, string->identifier);
+					r_print_bytes(print, match->data, match->data_length, "%02x ");
+				}
+			}
+		}
+	}
 	return CALLBACK_CONTINUE;
 }
 
@@ -45,7 +65,7 @@ static void compiler_callback(int error_level, const char* file_name,
 	return;
 }
 
-static int r_cmd_yara_scan(const RCore* core) {
+static int r_cmd_yara_scan(const RCore* core, const char* option) {
 	RListIter* rules_it;
 	YR_RULES* rules;
 	void* to_scan;
@@ -54,6 +74,18 @@ static int r_cmd_yara_scan(const RCore* core) {
 
 	if (to_scan_size < 1) {
 		eprintf ("Invalid file size\n");
+		return false;
+	}
+
+	if( *option == '\0') {
+		print_strings = 0;
+	}
+	else if (*option == 'S') {
+		print_strings = 1;
+	}
+	else {
+		print_strings = 0;
+		eprintf ("Invalid option\n");
 		return false;
 	}
 
@@ -71,7 +103,7 @@ static int r_cmd_yara_scan(const RCore* core) {
 	}
 
 	r_list_foreach (rules_list, rules_it, rules) {
-		yr_rules_scan_mem (rules, to_scan, to_scan_size, 0, callback, NULL, 0);
+		yr_rules_scan_mem (rules, to_scan, to_scan_size, 0, callback, core->print, 0);
 	}
 
 	free (to_scan);
@@ -136,7 +168,7 @@ static int r_cmd_yara_tag (const char * search_tag) {
 
 	r_list_foreach (rules_list, rules_it, rules) {
 		yr_rules_foreach (rules, rule) {
-			yr_rule_tags_foreach(rule, tag_name) {
+			yr_rule_tags_foreach(rule, tag_name) {eprintf ("Invalid option\n");
 				if (r_str_casestr (tag_name, search_tag)) {
 					r_cons_printf("%s\n", rule->identifier);
 					break;
@@ -296,7 +328,7 @@ static int r_cmd_yara_help(const RCore* core) {
 		"clear", "", "Clear all rules",
 		"help", "", "Show this help",
 		"list", "", "List all rules",
-		"scan", "", "Scan the current file",
+		"scan", "[S]", "Scan the current file, if S option is given it prints matching strings.",
 		"show", " name", "Show rules containing name",
 		"tag", " name", "List rules with tag 'name'",
 		"tags", "", "List tags from the loaded rules",
@@ -316,7 +348,7 @@ static int r_cmd_yara_process(const RCore* core, const char* input) {
     else if (!strncmp (input, "list", 4))
         return r_cmd_yara_list ();
     else if (!strncmp (input, "scan", 4))
-        return r_cmd_yara_scan (core);
+        return r_cmd_yara_scan (core, input + 4);
     else if (!strncmp (input, "show", 4))
         return r_cmd_yara_show (input + 5);
     else if (!strncmp (input, "tags", 4))
