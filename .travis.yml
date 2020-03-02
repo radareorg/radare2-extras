@@ -32,7 +32,7 @@ addons:
 env:
   - TESTS="r2pm -i armthumb"
   - TESTS="r2pm -i baleful"
-#  - TESTS="r2pm -i bcl" [BR] https://travis-ci.org/radareorg/radare2-extras/builds/157522362
+  - TESTS="r2pm -i bcl"
   - TESTS="r2pm -i blackfin"
   - TESTS="r2pm -i blessr2"
 #  - TESTS="r2pm -i bpf" [BR] https://travis-ci.org/radareorg/radare2-extras/builds/157522362
