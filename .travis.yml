@@ -44,7 +44,7 @@ env:
 #  - TESTS="r2pm -i io-ewf" # https://github.com/travis-ci/apt-package-whitelist/issues/3205
 #  - TESTS="r2pm -i keystone-lib && r2pm -i keystone && cd radare2-regressions && make keystone && cd .." [BR] https://travis-ci.org/radareorg/radare2-extras/builds/157522362
   - TESTS="r2pm -i mc6809"
-  - TESTS="r2pm -i microblaze && cd radare2-regressions && make microblaze"
+  - TESTS="r2pm -i microblaze && cd radare2/test && make microblaze && cd ../.."
   - TESTS="r2pm -i msil"
   - TESTS="r2pm -i pcap"
   - TESTS="r2pm -i ppcdisasm"
@@ -61,7 +61,7 @@ env:
 #  - TESTS="r2pm -i r2snow" https://travis-ci.org/radareorg/radare2-extras/jobs/199500082
 #  - TESTS="r2pm -i radeco" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
 #  - TESTS="r2pm -i retdec"
-  - TESTS="r2pm -i swf && cd radare2-regressions && make swf && cd .."
+  - TESTS="r2pm -i swf && cd radare2/test && make swf && cd ../.."
 #  - TESTS="r2pm -i m68k-net && cd radare2-regressions && make m68k-extras && cd .." [BR] https://travis-ci.org/radare/radare2-extras/builds/387043680
 #  - TESTS="r2pm -i swig" Sorry. This package cannot be installed in your home.
   - TESTS="r2pm -i syms2elf"
@@ -79,9 +79,9 @@ env:
   - TESTS="r2pm -i x86udis"
   - TESTS="r2pm -i x86bea"
   - TESTS="r2pm -i x86tab"
-  - TESTS="r2pm -i x86olly && cd radare2-regressions && make olly-extras && cd .."
+  - TESTS="r2pm -i x86olly && cd radare2/test && make olly-extras && cd ../.."
   - TESTS="r2pm -i z80-nc"
-  - TESTS="r2pm -i yara && r2pm -i yara-r2"
+  - TESTS="r2pm -i yara && r2pm -i yara-r2 && cd radare2/test && make yara && cd ../.."
   - TESTS="r2pm -i x86zyan"
 language:
   - rust
