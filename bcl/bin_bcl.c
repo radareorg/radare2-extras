@@ -5,8 +5,11 @@
 #include <r_lib.h>
 #include <r_bin.h>
 
-static int check_bytes(const ut8 *buf, ut64 length) {
-	if (buf && length >= 4) {
+static bool __check_buffer(RBuffer *b) {
+	ut8 buf[8];
+	int length = r_buf_size (b);
+	int r = r_buf_read_at (b, 0, buf, sizeof (buf));
+	if (r == sizeof (buf)) {
 		ut32 cls = r_mem_get_num (buf, 4);
 		ut32 cls2 = r_mem_get_num (buf + 4, 4);
 		if (cls + 4 == length && !cls2) {
@@ -16,64 +19,49 @@ static int check_bytes(const ut8 *buf, ut64 length) {
 	return false;
 }
 
-static int check(RBinFile *arch) {
-	const ut8 *bytes = arch ? r_buf_buffer (arch->buf) : NULL;
-	ut64 sz = arch ? r_buf_size (arch->buf): 0;
-	return check_bytes (bytes, sz);
+static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *buf, ut64 loadaddr, Sdb *sdb) {
+	return __check_buffer (buf);
 }
 
-static Sdb* get_sdb (RBinObject *o) {
-	if (!o) return NULL;
-	//struct r_bin_[NAME]_obj_t *bin = (struct r_bin_r_bin_[NAME]_obj_t *) o->bin_obj;
-	//if (bin->kv) return kv;
-	return NULL;
-}
-
-static void * load_bytes(RBinFile *arch, const ut8 *buf, ut64 sz, ut64 loadaddr, Sdb *sdb){
-	return (void*)(size_t)check_bytes (buf, sz);
-}
-
-static int load(RBinFile *arch) {
-	return check(arch);
-}
-
-static int destroy (RBinFile *arch) {
-	return true;
-}
-
-static ut64 baddr(RBinFile *arch) {
+static ut64 baddr(RBinFile *bf) {
 	return 4;
 }
 
-static RBinAddr* binsym(RBinFile *arch, int type) {
+static RBinAddr* binsym(RBinFile *bf, int type) {
 	return NULL; // TODO
 }
 
 static ut64 findEntry(RBuffer *buf, int n) {
+	ut8 b;
+	ut64 buf_size = r_buf_size (buf);
 	int i;
-	for (i=4;i<buf->length; i++) {
-		if (buf->buf[i] != 0) {
+	for (i = 4; i < buf_size; i++) {
+		if (r_buf_read_at (buf, i, &b, 1) != 1) {
+			break;
+		}
+		if (b != 0) {
 			if (n == 0) {
 				return i;
 			}
 			n--;
-			for (++i; i<buf->length; i++) {
-				if (!buf->buf[i])
+			for (++i; i < buf_size && b; i++) {
+				if (r_buf_read_at (buf, i, &b, 1) != 1) {
 					break;
+				}
 			}
 		}
 	}
 	return 0;
 }
 
-static RList* entries(RBinFile *arch) {
+static RList* entries(RBinFile *bf) {
 	RList* ret = r_list_newf (free);
 	RBinAddr *ptr = NULL;
 	if (ret) {
 		if ((ptr = R_NEW0 (RBinAddr))) {
-			ut64 entry = findEntry (arch->buf, 2);
-			if (!entry) entry = findEntry (arch->buf, 1);
-			if (!entry) entry = findEntry (arch->buf, 0);
+			ut64 entry = findEntry (bf->buf, 2);
+			if (!entry) entry = findEntry (bf->buf, 1);
+			if (!entry) entry = findEntry (bf->buf, 0);
 			if (!entry) entry = 4;
 			ptr->paddr = entry;
 			ptr->vaddr = entry;
@@ -86,79 +74,74 @@ static RList* entries(RBinFile *arch) {
 	return ret;
 }
 
-static RList* sections(RBinFile *arch) {
+static RList* sections(RBinFile *bf) {
 	RList *ret = NULL;
 	RBinSection *ptr = NULL;
 	ut64 textsize, datasize, symssize, spszsize, pcszsize;
-	ut64 entry0 = findEntry (arch->buf, 0);
-	ut64 entry1 = findEntry (arch->buf, 1);
-	ut64 entry2 = findEntry (arch->buf, 2);
+	ut64 entry0 = findEntry (bf->buf, 0);
+	ut64 entry1 = findEntry (bf->buf, 1);
+	ut64 entry2 = findEntry (bf->buf, 2);
 
 	if (!(ret = r_list_newf (free))) {
 		return NULL;
 	}
 	// add text segment
-	textsize = r_mem_get_num (arch->buf->buf + 4, 4);
+	ut8 str[4] = {0};
+	r_buf_read_at (bf->buf, 4, str, 4);
+	textsize = r_mem_get_num (str, 4);
 	if (!(ptr = R_NEW0 (RBinSection))) {
 		return ret;
 	}
 	if (!entry1) {
-		entry1 = arch->buf->length;
+		entry1 = r_buf_size (bf->buf);
 	}
-	strncpy (ptr->name, "init", R_BIN_SIZEOF_STRINGS);
-	ptr->size = entry1-entry0;
-	ptr->vsize = entry1-entry0;
+	ptr->name = strdup ("init");
+	ptr->size = entry1 - entry0;
+	ptr->vsize = entry1 - entry0;
 	ptr->paddr = entry0 + 4;
 	ptr->vaddr = entry0;
-	ptr->srwx = R_BIN_SCN_READABLE | R_BIN_SCN_EXECUTABLE | R_BIN_SCN_MAP; // r-x
+	ptr->add = true;
+	ptr->perm = R_PERM_RX;
 	r_list_append (ret, ptr);
 
 	if (entry1) {
 		if (entry2) {
-			if (!(ptr = R_NEW0 (RBinSection)))
+			if (!(ptr = R_NEW0 (RBinSection))) {
 				return ret;
-			strncpy (ptr->name, "fini", R_BIN_SIZEOF_STRINGS);
-			ptr->size = entry2-entry1;
-			ptr->vsize = entry2-entry1;
+			}
+			ptr->name = strdup ("fini");
+			ptr->size = entry2 - entry1;
+			ptr->vsize = entry2 - entry1;
 			ptr->paddr = entry1 + 4;
 			ptr->vaddr = entry1;
-			ptr->srwx = R_BIN_SCN_READABLE | R_BIN_SCN_EXECUTABLE | R_BIN_SCN_MAP; // r-x
+			ptr->perm = R_PERM_RX;
+			ptr->add = true;
 			r_list_append (ret, ptr);
 		} else {
 			entry2 = entry1;
 		}
 	}
 	if (entry2) {
-		if (!(ptr = R_NEW0 (RBinSection)))
+		if (!(ptr = R_NEW0 (RBinSection))) {
 			return ret;
-		strncpy (ptr->name, "text", R_BIN_SIZEOF_STRINGS);
-		ptr->size = arch->buf->length - entry2;
-		ptr->vsize = arch->buf->length - entry2;
+		}
+		ptr->name = strdup ("text");
+		ut64 filesize = r_buf_size (bf->buf);
+		ptr->size = filesize - entry2;
+		ptr->vsize = filesize - entry2;
 		ptr->paddr = entry2 + 4;
 		ptr->vaddr = entry2;
-		ptr->srwx = R_BIN_SCN_READABLE | R_BIN_SCN_EXECUTABLE | R_BIN_SCN_MAP; // r-x
+		ptr->perm = R_PERM_RX;
+		ptr->add = true;
 		r_list_append (ret, ptr);
 	}
 	return ret;
 }
 
-static RList* symbols(RBinFile *arch) {
-	// TODO: parse symbol table
-	return NULL;
-}
-
-static RList* imports(RBinFile *arch) {
-	return NULL;
-}
-
-static RList* libs(RBinFile *arch) {
-	return NULL;
-}
-
-static RBinInfo* info(RBinFile *arch) {
+static RBinInfo* info(RBinFile *bf) {
 	RBinInfo *ret = R_NEW0 (RBinInfo);
 	if (ret) {
-		ret->file = strdup (arch->file);
+		ret->file = strdup (bf->file);
 		ret->bclass = strdup ("dna");
 		ret->rclass = strdup ("bcl");
 		ret->os = strdup ("Illumina DNA Sequences");
@@ -174,18 +157,17 @@ static RBinInfo* info(RBinFile *arch) {
 	return ret;
 }
 
-static ut64 size(RBinFile *arch) {
-	ut64 text, data, syms, spsz;
-	int big_endian;
-	if (!arch->o->info) {
-		arch->o->info = info (arch);
+static ut64 size(RBinFile *bf) {
+	if (!bf->o->info) {
+		bf->o->info = info (bf);
 	}
-	big_endian = arch->o->info->big_endian;
+	ut8 str[32] = {0};
+	r_buf_read_at (bf->buf, 0, str, 32);
 	// TODO: reuse section list
-	text = r_mem_get_num (arch->buf->buf + 4, 4);
-	data = r_mem_get_num (arch->buf->buf + 8, 4);
-	syms = r_mem_get_num (arch->buf->buf + 16, 4);
-	spsz = r_mem_get_num (arch->buf->buf + 24, 4);
+	ut64 text = r_mem_get_num (str + 4, 4);
+	ut64 data = r_mem_get_num (str + 8, 4);
+	ut64 syms = r_mem_get_num (str + 16, 4);
+	ut64 spsz = r_mem_get_num (str + 24, 4);
 	return text + data + syms + spsz + (6 * 4);
 }
 
@@ -193,25 +175,18 @@ RBinPlugin r_bin_plugin_bcl = {
 	.name = "bcl",
 	.desc = "Base Call DNA Illumina",
 	.license = "BSD",
-	.get_sdb = &get_sdb,
-	.load = &load,
-	.load_bytes = &load_bytes,
+	.load_buffer = &load_buffer,
+	.check_buffer = &__check_buffer,
 	.size = &size,
-	.destroy = &destroy,
-	.check = &check,
-	.check_bytes = &check_bytes,
 	.baddr = &baddr,
 	.binsym = &binsym,
 	.entries = &entries,
 	.sections = &sections,
-	.symbols = &symbols,
-	.imports = &imports,
 	.info = &info,
-	.libs = &libs,
 };
 
 #ifndef CORELIB
-struct r_lib_struct_t radare_plugin = {
+RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_BIN,
 	.data = &r_bin_plugin_bcl,
 	.version = R2_VERSION

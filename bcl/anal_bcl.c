@@ -37,7 +37,7 @@ static int findpair(ut64 addr, const ut8 *buf, int len, int base) {
 	return 0;
 }
 
-static int bcl_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len) {
+static int bcl_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len, RAnalOpMask mask) {
 	int i;
 	char cache[256] = {0};
 	ut64 dst = 0LL;

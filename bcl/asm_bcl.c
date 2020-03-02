@@ -9,21 +9,23 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	const char *bases = "ACGT";
 	if (a->pc == 0) {
 		ut32 *clusters = (ut32*)buf;
-		snprintf (op->buf_asm, sizeof (op->buf_asm), "clusters %d\n", *clusters);
+		r_strbuf_setf (&op->buf_asm, "clusters %d", *clusters);
+		// snprintf (op->buf_asm, sizeof (op->buf_asm), "clusters %d\n", *clusters);
 		return op->size = 4;
 	}
 	if (*buf != 0) {
 		char base = bases[*buf & 3];
 		int qual = *buf >> 2;
-		snprintf (op->buf_asm, sizeof (op->buf_asm), "%c ; %d", base, qual);
+		r_strbuf_setf (&op->buf_asm, "%c ; %d", base, qual);
 		op->size = 1;
 		return 1;
 	}
-	strcpy (op->buf_asm, ".");
+	r_strbuf_setf (&op->buf_asm, ".");
 	return 0;
 }
 
 static int assemble(RAsm *a, RAsmOp *op, const char *buf) {
+#if 0
 	bool qmode = false;
 	int quality = 0;
 	int outsz = 128;
@@ -76,6 +78,7 @@ static int assemble(RAsm *a, RAsmOp *op, const char *buf) {
 		out[op->size] = (quality<<2) | base;
 		op->size ++;
 	}
+#endif
 	return op->size;
 }
 
