@@ -17,8 +17,6 @@ static struct pyc_version versions[] = {
 	{0x0a0d4e99, "1.5a1",      "104a646fc7a67f27df25d4e941b20035e5876f9f"},
 	{0x0a0dc4fc, "1.6a2",      "84cd52b560e571eba371d7136abcc9c42c27b002"},
 	{0x0a0dc61b, "2.0b1",      "f79434ee41fa86019216240ba32be660bcfc5419"},
-	{0x0a0dc4fc, "2.0b1",      "4388249506d190a76a4dbbbc70294ef6ba0656d5"},
-	{0x0a0dc4fd, "2.0b1",      "4388249506d190a76a4dbbbc70294ef6ba0656d5"},
 	{0x0a0dc67b, "2.0b1",      "4eaa463c031a1bdb5e7791c370d04108e0682dd4"},
 	{0x0a0dc67c, "2.0b1",      "4eaa463c031a1bdb5e7791c370d04108e0682dd4"},
 	{0x0a0dc67f, "2.0b1",      "18385172fac0b7099bd2d2264df614ed4466f083"},
@@ -43,8 +41,6 @@ static struct pyc_version versions[] = {
 	{0x0a0df23c, "2.3a0",      "d6ae544acd24a1f72ce00534fed464fde91ee504"},
 	{0x0a0df245, "2.3a0",      "cf5928fab108de9fbe02632d07176c717c2b3aa7"},
 	{0x0a0df246, "2.3a0",      "cf5928fab108de9fbe02632d07176c717c2b3aa7"},
-	{0x0a0df23b, "2.3a0",      "5fe4d93df429134ef8695c12e59ff962ff8b73d2"},
-	{0x0a0df23c, "2.3a0",      "5fe4d93df429134ef8695c12e59ff962ff8b73d2"},
 	{0x0a0df24f, "2.4a0",      "adb42a71169604d3609ac2fbdb64cf8cd1c7250b"},
 	{0x0a0df250, "2.4a0",      "adb42a71169604d3609ac2fbdb64cf8cd1c7250b"},
 	{0x0a0df259, "2.4a0",      "3df36e2e5ddc1149af8eb52e20bc225d806236d4"},
@@ -77,8 +73,6 @@ static struct pyc_version versions[] = {
 	{0x0a0df2d2, "2.6a1+",     "343597c7d682b3552580352deddd0cdb36978a04"},
 	{0x0a0df2d3, "2.6a1+",     "eac41f90296c69c6d07d29f1feb453a4c0e400d1"},
 	{0x0a0df2d4, "2.6a1+",     "eac41f90296c69c6d07d29f1feb453a4c0e400d1"},
-	{0x0a0df2d1, "2.6a1+",     "a0ea3a0efc710934ad66e3907211230ff227d6a1"},
-	{0x0a0df2d2, "2.6a1+",     "a0ea3a0efc710934ad66e3907211230ff227d6a1"},
 	{0x0a0df2db, "2.7a0",      "94e79d78dff0dfb5c53f49842c7df65ad5b79e66"},
 	{0x0a0df2dc, "2.7a0",      "94e79d78dff0dfb5c53f49842c7df65ad5b79e66"},
 	{0x0a0df2e5, "2.7a0",      "ef8fe90886968b1eb468cb91ebae103f773fa17f"},
@@ -145,7 +139,6 @@ static struct pyc_version versions[] = {
 	{0x0a0d0d20, "3.6.0a0",    "1ddeb2e175df5009571b3632a709c6b74995cb29"},
 	{0x0a0d0d21, "3.6.0a0",    "775b74e0e103f816382a0fc009b6ac51ea956750"},
 	{0x0a0d0d33, "v3.6.0",     "5c4568a05a0a62b5947c55f68f9f2ecfb90a4f12"},
-	{0x0a0d0d21, "v3.6.0a1",   "cec00a7d87e7280b30eaef2e2567ebd0da5b8b9c"},
 	{0x0a0d0d2c, "v3.6.0a2",   "fa42893546010a0c649ba0d85d41a8bb980086f0"},
 	{0x0a0d0d2c, "v3.6.0a3",   "a731a68cf6611b0b23da758d735f056ff661757e"},
 	{0x0a0d0d2c, "v3.6.0a4",   "b87d6000f38e6158bbe1d9df5c6136f27aeace12"},
@@ -177,7 +170,6 @@ static struct pyc_version versions[] = {
 	{0x0a0d0d33, "v3.6.8rc1",  "036b0b3833a10aef6e326d8369524fd61f49ffc7"},
 	{0x0a0d0d33, "v3.6.9",     "3406378668cca081c0747e765cfe9dc80bdefa89"},
 	{0x0a0d0d33, "v3.6.9rc1",  "734d1d9fbb7cc685b13a11f081e6afa35df3b27f"},
-	{0x0a0d0d42, "v3.7.0",     "ae1f6af15f3e4110616801e235873e47fd7d1977"},
 	{0x0a0d0d3e, "v3.7.0a1",   "c9a8ad52ed621cd429361c12bf96d019e79eac84"},
 	{0x0a0d0d3f, "v3.7.0a2",   "02ffd31e928bfb492ec4f23635590df36ddda134"},
 	{0x0a0d0d3f, "v3.7.0a3",   "4ccd273feeb9692d7171d2923969359e58c96498"},
@@ -186,6 +178,7 @@ static struct pyc_version versions[] = {
 	{0x0a0d0d41, "v3.7.0b2",   "511db7b8ecceb74fb2e738ce41e5394516b871f8"},
 	{0x0a0d0d41, "v3.7.0b3",   "aa8b7b7c6c1dbe44789745108396b20b85dbec39"},
 	{0x0a0d0d41, "v3.7.0b4",   "58bb10ac350a934a2cd75506d6cc70cdb2e0ee3b"},
+	{0x0a0d0d42, "v3.7.0",     "ae1f6af15f3e4110616801e235873e47fd7d1977"},
 	{0x0a0d0d42, "v3.7.0b5",   "6f05d12b03c4681d6488645e027b5bc5c19ce406"},
 	{0x0a0d0d42, "v3.7.0rc1",  "2cbc466248a1a5b6b2639d6cf63945e71446b857"},
 	{0x0a0d0d42, "v3.7.1",     "520d6b8e38c078e5560597592c790ce160c8d75c"},
@@ -202,7 +195,6 @@ static struct pyc_version versions[] = {
 	{0x0a0d0d42, "v3.7.5rc1",  "4d4c87da17c34d9eb169801d6bc01158c00171dc"},
 	{0x0a0d0d42, "v3.7.6",     "ef8e77cea43fb83c1398d058b8f639fede8fba76"},
 	{0x0a0d0d42, "v3.7.6rc1",  "73ffb22c7f371ff4ea04fdee86a8e71ce1ba56f9"},
-	{0x0a0d0d55, "v3.8.0",     "5d714034866ce1e9f89dc141fe4cc0b50cf20a8e"},
 	{0x0a0d0d49, "v3.8.0a1",   "8cb4789728241d25bca2c15568317c6655389f1b"},
 	{0x0a0d0d49, "v3.8.0a2",   "c31af9d3dd4560d12dfe943347379f0fc6f47a50"},
 	{0x0a0d0d49, "v3.8.0a3",   "d53bead39cd475e581c13307b7838160e603a6fd"},
@@ -210,8 +202,9 @@ static struct pyc_version versions[] = {
 	{0x0a0d0d52, "v3.8.0b1",   "5191895b326e520473c501736239271685a2a077"},
 	{0x0a0d0d53, "v3.8.0b2",   "0bb25c6b3dc78355870758bdf88d1d543cdf4203"},
 	{0x0a0d0d54, "v3.8.0b3",   "108336b63a31356dc9c1f35f91843d6893e26e00"},
+	{0x0a0d0d55, "v3.8.0",     "5d714034866ce1e9f89dc141fe4cc0b50cf20a8e"},
 	{0x0a0d0d55, "v3.8.0b4",   "122a9b489cfe94b04801d057e5b510d51710fab3"},
-	{0x0a0d0d55, "v3.8.0rc1     41f60748364a6afda7360e6cc6e846af569b7ab9"},
+	{0x0a0d0d55, "v3.8.0rc1",  "41f60748364a6afda7360e6cc6e846af569b7ab9"},
 	{0x0a0d0d55, "v3.8.1",     "d2529ef779ce819a5ea833b264e47440efcbac29"},
 	{0x0a0d0d55, "v3.8.1rc1",  "827f6399a61be9d14f8ccfa5be73a6030ec45f1d"},
 	{0x0a0d0d5c, "v3.9.0a1",   "fd757083df79c21eee862e8d89aeefefe45f64a0"},
@@ -220,10 +213,52 @@ static struct pyc_version versions[] = {
 };
 
 struct pyc_version get_pyc_version(ut32 magic) {
-	struct pyc_version fail = {-1, 0, 0, false};
+	struct pyc_version fail = {-1, 0, 0};
 	ut32 i;
 	for (i = 0; i < sizeof (versions) / sizeof (*versions); ++i)
 		if (versions[i].magic == magic)
 			return versions[i];
 	return fail;
+}
+
+bool magic_int_within(ut32 target_magic, ut32 lower, ut32 upper, bool *error) {
+	if (*error) 
+		return false;
+	ut64 ti = 0, li = 0, ui = 0;
+	ut64 size = sizeof(versions) / sizeof(struct pyc_version);
+	for (; ti < size && versions[ti].magic != target_magic; ++ti) {}
+	if (ti == size) {
+		*error = true;
+		eprintf("target_magic not found in versions[]");
+		return false;
+	}
+
+	for (; li < size && (versions[li].magic & 0xffff) != lower; ++li) {}
+	if (li == size) {
+		*error = true;
+		eprintf("lower magic_int not found in versions[]");
+		return false;
+	}
+
+	for (; ui < size && (versions[ui].magic & 0xffff) != upper; ++ui) {}
+	if (ui == size) {
+		*error = true;
+		eprintf("upper magic_int not found in versions[]");
+		return false;
+	}
+
+	return (li <= ti) && (ti <= ui);
+}
+
+bool version2double(const char *version) {
+	unsigned idx = 0, buf_idx = 0;
+	ut8 buf[20];
+	while (!('0' <= version[idx] && version[idx] <= '9'))
+		++idx;
+	for (; version[idx] != '.'; ++idx)
+		buf[buf_idx++] = version[idx];
+	buf[buf_idx++] = version[idx++];
+	for (; '0' <= version[idx] && version[idx] <= '9'; ++idx)
+		buf[buf_idx++] = version[idx];
+	return atof(buf);
 }
