@@ -53,17 +53,18 @@ int r_pyc_disasm (RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *intern
 			}
             extended_arg = 0;
             if (op == ops->extended_arg) {
-				if (ops->bits == 16) 
+				if (ops->bits == 16) {
                 	extended_arg = oparg*65536;
-				else
+                } else {
                 	extended_arg = oparg << 8;
+                }
 			}
             arg = parse_arg (&ops->opcodes[op], oparg, names, consts, varnames, interned_table, freevars, cellvars, ops->opcode_arg_fmt);
             if (arg != NULL) {
                 r_strbuf_appendf (&opstruct->buf_asm, "%20s", arg);
             }
         } else if (ops->bits == 8) {
-				i += 1;
+			i += 1;
 		}
 
         return i;
@@ -80,13 +81,15 @@ char *parse_arg (pyc_opcode_object *op, ut32 oparg, RList *names, RList *consts,
 
 	// version-specific formatter for certain opcodes
 	r_list_foreach (opcode_arg_fmt, i, fmt)
-		if (!strcmp (fmt->op_name, op->op_name)) 
+		if (!strcmp (fmt->op_name, op->op_name)) {
 			return fmt->formatter (oparg);
+        }
 
 	if (op->type & HASCONST) {
         t = (pyc_object*)r_list_get_n (consts, oparg);
-        if (t == NULL)
+        if (t == NULL) {
             return NULL;
+        }
         switch (t->type) {
 			case TYPE_CODE_v0:
         	case TYPE_CODE_v1:
@@ -110,8 +113,9 @@ char *parse_arg (pyc_opcode_object *op, ut32 oparg, RList *names, RList *consts,
 	}
 	if (op->type & HASNAME) {
         t = (pyc_object*)r_list_get_n (names, oparg);
-        if (t == NULL)
+        if (t == NULL) {
             return NULL;
+        }
         arg = t->data;
 	}
 	if ((op->type & HASJREL) || (op->type & HASJABS)) {
@@ -127,17 +131,19 @@ char *parse_arg (pyc_opcode_object *op, ut32 oparg, RList *names, RList *consts,
 		arg = cmp_op[oparg];
 	}
 	if (op->type & HASFREE) {
-		if (!cellvars || !freevars)
+		if (!cellvars || !freevars) {
         	arg = r_str_newf ("%u", oparg);
+        }
 
-		if (oparg < r_list_length (cellvars)) 
+		if (oparg < r_list_length (cellvars)) {
         	t = (pyc_object*)r_list_get_n (cellvars, oparg);
-		else if ((oparg - r_list_length (cellvars)) < r_list_length(freevars))
+        } else if ((oparg - r_list_length (cellvars)) < r_list_length(freevars)) {
         	t = (pyc_object*)r_list_get_n (freevars, oparg);
-		else 
+        } else 
         	arg = r_str_newf ("%u", oparg);
-        if (t == NULL)
+        if (t == NULL) {
             return NULL;
+        }
 
 		arg = t->data;
 	}

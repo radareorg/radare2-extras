@@ -26,10 +26,10 @@ static int disassemble (RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	}
 	cobjs = r_list_get_n (shared, 0);
 	interned_table = r_list_get_n (shared, 1);
-	pyc_opcodes *opcodes = get_opcode_by_version(a->cpu);
+	pyc_opcodes *opcodes = get_opcode_by_version (a->cpu);
 	opcodes->bits = a->bits;
 	int r = r_pyc_disasm (opstruct, buf, cobjs, interned_table, pc, opcodes);
-	free_opcode(opcodes);
+	free_opcode (opcodes);
 	opstruct->size = r;
 	return r;
 }

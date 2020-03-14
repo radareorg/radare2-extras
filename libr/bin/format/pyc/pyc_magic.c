@@ -217,14 +217,16 @@ struct pyc_version get_pyc_version(ut32 magic) {
 	struct pyc_version fail = {-1, 0, 0};
 	ut32 i;
 	for (i = 0; i < sizeof (versions) / sizeof (*versions); ++i)
-		if (versions[i].magic == magic)
+		if (versions[i].magic == magic) {
 			return versions[i];
+        }
 	return fail;
 }
 
 bool magic_int_within(ut32 target_magic, ut32 lower, ut32 upper, bool *error) {
-	if (*error) 
+	if (*error) {
 		return false;
+    }
 	ut64 ti = 0, li = 0, ui = 0;
 	ut64 size = sizeof(versions) / sizeof(struct pyc_version);
 	for (; ti < size && versions[ti].magic != target_magic; ++ti) {}
