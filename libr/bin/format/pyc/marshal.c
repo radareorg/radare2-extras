@@ -191,14 +191,14 @@ static pyc_object *get_long_object (RBuffer *buffer) {
 			bignum_add (&long_val, &tmp, &operand); // operand = tmp + long_val 
 			bignum_assign (&long_val, &operand);       // long_val = operand
 		}
-		size = (46 * 10 * ndigits + 10 - 1) / 10 + 2;
-		char *buf = malloc(size); // max length is log_10{2^{15*ndigits}} = (15)/(log_2{10}) * ndigits
+		size = 4 * ndigits;
+		char *buf = malloc(size); // max length is log_16{2^{15*ndigits}} = 3.75 * ndigits
+		bignum_to_string (&long_val, buf, size);
 		if (neg) {
-			buf[0] = '-';
-			bignum_to_string (&long_val, buf + 1, size - 2);
+			ret->data = r_str_newf ("-0x%s", buf);
 		} else
-			bignum_to_string (&long_val, buf, size - 1);
-		ret->data = buf;
+			ret->data = r_str_newf ("0x%s", buf);
+		free (buf);
 		return ret;
 	}
 }
@@ -843,7 +843,7 @@ static pyc_object *get_code_object (RBuffer *buffer) {
     	cobj->flags = get_ut32 (buffer, &error);
 	
     //to help disassemble the code
-    cobj->start_offset = r_buf_tell(buffer) + 4;
+    cobj->start_offset = r_buf_tell(buffer) + 5; // 1 from get_object() and 4 from get_string_object()
     cobj->code = get_object (buffer);
     cobj->end_offset = r_buf_tell(buffer);
 
@@ -927,7 +927,6 @@ static pyc_object *get_object (RBuffer *buffer) {
         return get_none_object ();
     case TYPE_REF:
         return get_ref_object (buffer);
-    
     case TYPE_SMALL_TUPLE:
         ret = get_small_tuple_object (buffer);
         break;
@@ -1031,7 +1030,7 @@ static bool extract_sections (pyc_object *obj, RList *sections, RList *cobjs, ch
     RListIter *i = NULL;
 
     //each code object is a section
-    if (!obj || (obj->type != TYPE_CODE_v1))
+    if (!obj || (obj->type != TYPE_CODE_v1 && obj->type != TYPE_CODE_v0))
         return false;
     cobj = obj->data;
     if (!cobj || !cobj->name)
@@ -1051,13 +1050,13 @@ static bool extract_sections (pyc_object *obj, RList *sections, RList *cobjs, ch
     section->name = strdup(prefix);
     if (!section->name)
         goto fail;
-    section->paddr = cobj->start_offset+1;
-    section->vaddr = cobj->start_offset+1;
-    section->size = cobj->end_offset - cobj->start_offset- 1;
-    section->vsize = cobj->end_offset - cobj->start_offset - 1;
+    section->paddr = cobj->start_offset;
+    section->vaddr = cobj->start_offset;
+    section->size = cobj->end_offset - cobj->start_offset;
+    section->vsize = cobj->end_offset - cobj->start_offset;
     if (!r_list_append (sections, section))
         goto fail;
-    if (cobj->consts->type != TYPE_TUPLE)
+    if (cobj->consts->type != TYPE_TUPLE && cobj->consts->type != TYPE_SMALL_TUPLE)
         return false;
     r_list_foreach (((RList*)(cobj->consts->data)), i, obj)
         extract_sections (obj, sections, cobjs, prefix);

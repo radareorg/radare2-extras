@@ -2,135 +2,9 @@
 
 #include "pyc_dis.h"
 
-void init_opname_table () {
-    int i;
+static const char *cmp_op[] = {"<", "<=", "==", "!=", ">", ">=", "in", "not in", "is", "is not", "exception match", "BAD"};
 
-    for(i = 0; i < 0xff+1; i++)
-        op_name[i] = NULL;
-
-    op_name[STOP_CODE] = "STOP_CODE";
-    op_name[POP_TOP] = "POP_TOP";
-    op_name[ROT_TWO] = "ROT_TWO";
-    op_name[ROT_THREE] = "ROT_THREE";
-    op_name[DUP_TOP] = "DUP_TOP";
-    op_name[ROT_FOUR] = "ROT_FOUR";
-    op_name[NOP] = "NOP";
-    op_name[UNARY_POSITIVE] = "UNARY_POSITIVE";
-    op_name[UNARY_NEGATIVE] = "UNARY_NEGATIVE";
-    op_name[UNARY_NOT] = "UNARY_NOT";
-    op_name[UNARY_CONVERT] = "UNARY_CONVERT";
-    op_name[UNARY_INVERT] = "UNARY_INVERT";
-    op_name[BINARY_POWER] = "BINARY_POWER";
-    op_name[BINARY_MULTIPLY] = "BINARY_MULTIPLY";
-    op_name[BINARY_DIVIDE] = "BINARY_DIVIDE";
-    op_name[BINARY_MODULO] = "BINARY_MODULO";
-    op_name[BINARY_ADD] = "BINARY_ADD";
-    op_name[BINARY_SUBTRACT] = "BINARY_SUBTRACT";
-    op_name[BINARY_SUBSCR] = "BINARY_SUBSCR";
-    op_name[BINARY_FLOOR_DIVIDE] = "BINARY_FLOOR_DIVIDE";
-    op_name[BINARY_TRUE_DIVIDE] = "BINARY_TRUE_DIVIDE";
-    op_name[INPLACE_FLOOR_DIVIDE] = "INPLACE_FLOOR_DIVIDE";
-    op_name[INPLACE_TRUE_DIVIDE] = "INPLACE_TRUE_DIVIDE";
-    op_name[SLICE] = "SLICE";
-    op_name[SLICE_1] = "SLICE_1";
-    op_name[SLICE_2] = "SLICE_2";
-    op_name[SLICE_3] = "SLICE_3";
-    op_name[STORE_SLICE] = "STORE_SLICE";
-    op_name[STORE_SLICE_1] = "STORE_SLICE_1";
-    op_name[STORE_SLICE_2] = "STORE_SLICE_2";
-    op_name[STORE_SLICE_3] = "STORE_SLICE_3";
-    op_name[DELETE_SLICE] = "DELETE_SLICE";
-    op_name[DELETE_SLICE_1] = "DELETE_SLICE_1";
-    op_name[DELETE_SLICE_2] = "DELETE_SLICE_2";
-    op_name[DELETE_SLICE_3] = "DELETE_SLICE_3";
-    op_name[STORE_MAP] = "STORE_MAP";
-    op_name[INPLACE_ADD] = "INPLACE_ADD";
-    op_name[INPLACE_SUBTRACT] = "INPLACE_SUBTRACT";
-    op_name[INPLACE_MULTIPLY] = "INPLACE_MULTIPLY";
-    op_name[INPLACE_DIVIDE] = "INPLACE_DIVIDE";
-    op_name[INPLACE_MODULO] = "INPLACE_MODULO";
-    op_name[STORE_SUBSCR] = "STORE_SUBSCR";
-    op_name[DELETE_SUBSCR] = "DELETE_SUBSCR";
-    op_name[BINARY_LSHIFT] = "BINARY_LSHIFT";
-    op_name[BINARY_RSHIFT] = "BINARY_RSHIFT";
-    op_name[BINARY_AND] = "BINARY_AND";
-    op_name[BINARY_XOR] = "BINARY_XOR";
-    op_name[BINARY_OR] = "BINARY_OR";
-    op_name[INPLACE_POWER] = "INPLACE_POWER";
-    op_name[GET_ITER] = "GET_ITER";
-    op_name[PRINT_EXPR] = "PRINT_EXPR";
-    op_name[PRINT_ITEM] = "PRINT_ITEM";
-    op_name[PRINT_NEWLINE] = "PRINT_NEWLINE";
-    op_name[PRINT_ITEM_TO] = "PRINT_ITEM_TO";
-    op_name[PRINT_NEWLINE_TO] = "PRINT_NEWLINE_TO";
-    op_name[INPLACE_LSHIFT] = "INPLACE_LSHIFT";
-    op_name[INPLACE_RSHIFT] = "INPLACE_RSHIFT";
-    op_name[INPLACE_AND] = "INPLACE_AND";
-    op_name[INPLACE_XOR] = "INPLACE_XOR";
-    op_name[INPLACE_OR] = "INPLACE_OR";
-    op_name[BREAK_LOOP] = "BREAK_LOOP";
-    op_name[WITH_CLEANUP] = "WITH_CLEANUP";
-    op_name[LOAD_LOCALS] = "LOAD_LOCALS";
-    op_name[RETURN_VALUE] = "RETURN_VALUE";
-    op_name[IMPORT_STAR] = "IMPORT_STAR";
-    op_name[EXEC_STMT] = "EXEC_STMT";
-    op_name[YIELD_VALUE] = "YIELD_VALUE";
-    op_name[POP_BLOCK] = "POP_BLOCK";
-    op_name[END_FINALLY] = "END_FINALLY";
-    op_name[BUILD_CLASS] = "BUILD_CLASS";
-    op_name[HAVE_ARGUMENT] = "HAVE_ARGUMENT";
-    op_name[STORE_NAME] = "STORE_NAME";
-    op_name[DELETE_NAME] = "DELETE_NAME";
-    op_name[UNPACK_SEQUENCE] = "UNPACK_SEQUENCE";
-    op_name[FOR_ITER] = "FOR_ITER";
-    op_name[LIST_APPEND] = "LIST_APPEND";
-    op_name[STORE_ATTR] = "STORE_ATTR";
-    op_name[DELETE_ATTR] = "DELETE_ATTR";
-    op_name[STORE_GLOBAL] = "STORE_GLOBAL";
-    op_name[DELETE_GLOBAL] = "DELETE_GLOBAL";
-    op_name[DUP_TOPX] = "DUP_TOPX";
-    op_name[LOAD_CONST] = "LOAD_CONST";
-    op_name[LOAD_NAME] = "LOAD_NAME";
-    op_name[BUILD_TUPLE] = "BUILD_TUPLE";
-    op_name[BUILD_LIST] = "BUILD_LIST";
-    op_name[BUILD_SET] = "BUILD_SET";
-    op_name[BUILD_MAP] = "BUILD_MAP";
-    op_name[LOAD_ATTR] = "LOAD_ATTR";
-    op_name[COMPARE_OP] = "COMPARE_OP";
-    op_name[IMPORT_NAME] = "IMPORT_NAME";
-    op_name[IMPORT_FROM] = "IMPORT_FROM";
-    op_name[JUMP_FORWARD] = "JUMP_FORWARD";
-    op_name[JUMP_IF_FALSE_OR_POP] = "JUMP_IF_FALSE_OR_POP";
-    op_name[JUMP_IF_TRUE_OR_POP] = "JUMP_IF_TRUE_OR_POP";
-    op_name[JUMP_ABSOLUTE] = "JUMP_ABSOLUTE";
-    op_name[POP_JUMP_IF_FALSE] = "POP_JUMP_IF_FALSE";
-    op_name[POP_JUMP_IF_TRUE] = "POP_JUMP_IF_TRUE";
-    op_name[LOAD_GLOBAL] = "LOAD_GLOBAL";
-    op_name[CONTINUE_LOOP] = "CONTINUE_LOOP";
-    op_name[SETUP_LOOP] = "SETUP_LOOP";
-    op_name[SETUP_EXCEPT] = "SETUP_EXCEPT";
-    op_name[SETUP_FINALLY] = "SETUP_FINALLY";
-    op_name[LOAD_FAST] = "LOAD_FAST";
-    op_name[STORE_FAST] = "STORE_FAST";
-    op_name[DELETE_FAST] = "DELETE_FAST";
-    op_name[RAISE_VARARGS] = "RAISE_VARARGS";
-    op_name[CALL_FUNCTION] = "CALL_FUNCTION";
-    op_name[MAKE_FUNCTION] = "MAKE_FUNCTION";
-    op_name[BUILD_SLICE] = "BUILD_SLICE";
-    op_name[MAKE_CLOSURE] = "MAKE_CLOSURE";
-    op_name[LOAD_CLOSURE] = "LOAD_CLOSURE";
-    op_name[LOAD_DEREF] = "LOAD_DEREF";
-    op_name[STORE_DEREF] = "STORE_DEREF";
-    op_name[CALL_FUNCTION_VAR] = "CALL_FUNCTION_VAR";
-    op_name[CALL_FUNCTION_KW] = "CALL_FUNCTION_KW";
-    op_name[CALL_FUNCTION_VAR_KW] = "CALL_FUNCTION_VAR_KW";
-    op_name[SETUP_WITH] = "SETUP_WITH";
-    op_name[EXTENDED_ARG] = "EXTENDED_ARG";
-    op_name[SET_ADD] = "SET_ADD";
-    op_name[MAP_ADD] = "MAP_ADD";
-}
-
-int r_pyc_disasm (RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *interned_table, ut64 pc) {
+int r_pyc_disasm (RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *interned_table, ut64 pc, pyc_opcodes *ops) {
     pyc_code_object *cobj = NULL, *t = NULL;
     ut32 extended_arg = 0, i = 0, oparg;
     st64 start_offset, end_offset;
@@ -141,12 +15,14 @@ int r_pyc_disasm (RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *intern
     RList *varnames;
     RList *consts;
     RList *names;
+	RList *freevars;
+	RList *cellvars;
     ut8 op;
 
     r_list_foreach (cobjs, iter, t) {
         start_offset = t->start_offset;
         end_offset = t->end_offset;
-        if (pc > start_offset && pc < end_offset) {
+        if (start_offset <= pc && pc < end_offset) { // pc in [start_offset, end_offset)
             cobj = t;
             break;
         }
@@ -157,96 +33,121 @@ int r_pyc_disasm (RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *intern
         varnames = cobj->varnames->data;
         consts = cobj->consts->data;
         names = cobj->names->data;
+		freevars = cobj->freevars->data;
+		cellvars = cobj->cellvars->data;
 
         op = code[i];
         i += 1;
-        name = op_name[op];
+        name = ops->opcodes[op].op_name;
         r_strbuf_set (&opstruct->buf_asm, name);
         if (name == NULL) {
             return 0;
         }
-        if (op >= HAVE_ARGUMENT) {
-            oparg = code[i] + code[i+1]*256 + extended_arg;
+        if (op >= ops->have_argument) {
+			if (ops->bits == 16) {
+            	oparg = code[i] + code[i+1]*256 + extended_arg;
+            	i += 2;
+			} else {
+            	oparg = code[i] + extended_arg;
+            	i += 1;
+			}
             extended_arg = 0;
-            i += 2;
-            if (op == EXTENDED_ARG)
-                  extended_arg = oparg*65536;
-              arg = parse_arg (op, oparg, names, consts, varnames, interned_table);
+            if (op == ops->extended_arg) {
+				if (ops->bits == 16) 
+                	extended_arg = oparg*65536;
+				else
+                	extended_arg = oparg << 8;
+			}
+            arg = parse_arg (&ops->opcodes[op], oparg, names, consts, varnames, interned_table, freevars, cellvars, ops->opcode_arg_fmt);
             if (arg != NULL) {
                 r_strbuf_appendf (&opstruct->buf_asm, "%20s", arg);
             }
-        }
+        } else if (ops->bits == 8) {
+				i += 1;
+		}
+
         return i;
     }
     return 0;
 }
 
-char *parse_arg (ut8 op, ut32 oparg, RList *names, RList *consts, RList *varnames, RList *interned_table) {
+char *parse_arg (pyc_opcode_object *op, ut32 oparg, RList *names, RList *consts, RList *varnames, RList *interned_table, RList *freevars, RList *cellvars, RList *opcode_arg_fmt) {
     pyc_object *t = NULL;
     char *arg = NULL;
+	pyc_code_object *tmp_cobj;
+	pyc_arg_fmt *fmt;
+	RListIter *i = NULL;
 
-    switch (op) {
-    case DUP_TOPX:
-    case UNPACK_SEQUENCE:
-    case BUILD_TUPLE:
-    case BUILD_LIST: //checked
-    case BUILD_SET:
-    case JUMP_FORWARD:
-    case CONTINUE_LOOP:
-    case SETUP_LOOP:
-    case BUILD_SLICE:
-    case CALL_FUNCTION:
-    case POP_JUMP_IF_FALSE:
-    case POP_JUMP_IF_TRUE:
-    case JUMP_ABSOLUTE:
-    case JUMP_IF_TRUE_OR_POP:
-    case JUMP_IF_FALSE_OR_POP:
-    case LOAD_CLOSURE:
-    case LOAD_DEREF:
-    case CALL_FUNCTION_KW:
-        arg = r_str_newf ("%u", oparg);
-    break;
-    case LOAD_FAST:
-    case STORE_FAST:
-    case DELETE_FAST:
-        t = (pyc_object*)r_list_get_n (varnames, oparg);
-        if (t == NULL)
-            return NULL;
-        arg = t->data;
-    break;
-    case LOAD_CONST:
+	// version-specific formatter for certain opcodes
+	r_list_foreach (opcode_arg_fmt, i, fmt)
+		if (!strcmp (fmt->op_name, op->op_name)) 
+			return fmt->formatter (oparg);
+
+	if (op->type & HASCONST) {
         t = (pyc_object*)r_list_get_n (consts, oparg);
         if (t == NULL)
             return NULL;
         switch (t->type) {
-        case TYPE_CODE_v1:
-            arg = strdup("CodeObject");
-        break;
-        case TYPE_TUPLE:
-            arg = generic_array_obj_to_string (t->data);
-        break;
-        case TYPE_STRING:
-        case TYPE_INTERNED:
-        case TYPE_STRINGREF:
-            arg = r_str_newf ("'%s'", t->data);
-        break;
-        default:
-            arg = t->data;
-        }
-    break;
-    case STORE_NAME:
-    case STORE_ATTR:
-    case LOAD_NAME:
-    case LOAD_ATTR:
-    case IMPORT_NAME:
-    case IMPORT_FROM:
-    case LOAD_GLOBAL:
+			case TYPE_CODE_v0:
+        	case TYPE_CODE_v1:
+				tmp_cobj = t->data;
+				arg = r_str_newf ("CodeObject(%s)", tmp_cobj->name->data);
+        		break;
+        	case TYPE_TUPLE:
+			case TYPE_SET:
+			case TYPE_FROZENSET:
+			case TYPE_LIST:
+			case TYPE_SMALL_TUPLE:
+            	arg = generic_array_obj_to_string (t->data);
+        		break;
+        	case TYPE_STRING:
+        	case TYPE_INTERNED:
+        	case TYPE_STRINGREF:
+            	arg = r_str_newf ("'%s'", t->data);
+			default:
+            	arg = t->data;
+		}
+	}
+	if (op->type & HASNAME) {
         t = (pyc_object*)r_list_get_n (names, oparg);
         if (t == NULL)
             return NULL;
         arg = t->data;
-    break;
-    }
+	}
+	if ((op->type & HASJREL) || (op->type & HASJABS)) {
+        arg = r_str_newf ("%u", oparg);
+	}
+	if (op->type & HASLOCAL) {
+        t = (pyc_object*)r_list_get_n (varnames, oparg);
+        if (t == NULL)
+            return NULL;
+        arg = t->data;
+	}
+	if (op->type & HASCOMPARE) {
+		arg = cmp_op[oparg];
+	}
+	if (op->type & HASFREE) {
+		if (!cellvars || !freevars)
+        	arg = r_str_newf ("%u", oparg);
+
+		if (oparg < r_list_length (cellvars)) 
+        	t = (pyc_object*)r_list_get_n (cellvars, oparg);
+		else if ((oparg - r_list_length (cellvars)) < r_list_length(freevars))
+        	t = (pyc_object*)r_list_get_n (freevars, oparg);
+		else 
+        	arg = r_str_newf ("%u", oparg);
+        if (t == NULL)
+            return NULL;
+
+		arg = t->data;
+	}
+	if (op->type & HASNARGS) {
+		arg = r_str_newf ("%u", oparg); 
+	}
+	if (op->type & HASVARGS) {
+		arg = r_str_newf ("%u", oparg);
+	}
+
     return arg;
 }
 

@@ -1,6 +1,7 @@
 /* radare - LGPL3 - Copyright 2016-2020 - c0riolis, x0urc3 */
 
 #include "pyc_magic.h"
+#include <stdlib.h>
 
 static struct pyc_version versions[] = {
 	{0x00949494, "0.9.4 beta", "77b80a91d357c1d95d8e7cd4cbbe799e5deb777e"},
@@ -250,9 +251,11 @@ bool magic_int_within(ut32 target_magic, ut32 lower, ut32 upper, bool *error) {
 	return (li <= ti) && (ti <= ui);
 }
 
-bool version2double(const char *version) {
+double version2double(const char *version) {
 	unsigned idx = 0, buf_idx = 0;
-	ut8 buf[20];
+	char buf[20];
+	double result;
+
 	while (!('0' <= version[idx] && version[idx] <= '9'))
 		++idx;
 	for (; version[idx] != '.'; ++idx)
@@ -260,5 +263,7 @@ bool version2double(const char *version) {
 	buf[buf_idx++] = version[idx++];
 	for (; '0' <= version[idx] && version[idx] <= '9'; ++idx)
 		buf[buf_idx++] = version[idx];
-	return atof(buf);
+	buf[buf_idx] = '\x00';
+	sscanf (buf, "%lf", &result);
+	return result;
 }
