@@ -27,9 +27,9 @@ static ut64 get_entrypoint(RBuffer *buf) {
     ut8 b;
     for (int addr = 0x8; addr <= 0x10; addr += 0x4) {
         r_buf_read_at (buf, addr, &b, sizeof (b));
-        if (pyc_is_code(b)) {
-            return addr;
-        }
+        if (pyc_is_code(b, version.magic)) {
+		return addr;
+	}
     }
     return NULL;
 }
@@ -45,7 +45,8 @@ static RBinInfo *info(RBinFile *arch) {
 	ret->machine = r_str_newf ("Python %s VM (rev %s)", version.version,
 				version.revision);
 	ret->os = strdup ("any");
-	ret->bits = 32;
+	ret->bits = version2double(version.version) < 3.6 ? 16 : 8;
+	ret->cpu = strdup (version.version); // pass version info in cpu, Asm plugin will get it
 	return ret;
 }
 

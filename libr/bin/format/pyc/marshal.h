@@ -51,6 +51,7 @@ typedef struct {
 
 typedef struct {
 	ut32 argcount;
+	ut32 posonlyargcount;
 	ut32 kwonlyargcount;
 	ut32 nlocals;
 	ut32 stacksize;
@@ -69,6 +70,6 @@ typedef struct {
 	st64 end_offset;
 } pyc_code_object;
 
-bool get_sections_from_code_objects(RBuffer *buffer, RList *sections, RList *objs);
+bool get_sections_from_code_objects(RBuffer *buffer, RList *sections, RList *objs, ut32 magic);
 
 #endif

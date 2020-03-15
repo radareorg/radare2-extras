@@ -6,8 +6,9 @@
 #include <r_asm.h>
 
 #include "pyc_dis.h"
+#include "opcode.h"
 
-static int disassemble (RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
+static int disassemble(RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	RList *interned_table = NULL;
 	RList *shared = NULL;
 	RList *cobjs = NULL;
@@ -15,8 +16,7 @@ static int disassemble (RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	RBin *bin = a->binb.bin;
 	ut64 pc = a->pc;
 
-	RBinPlugin *plugin = bin && bin->cur && bin->cur->o ?
-		bin->cur->o->plugin : NULL;
+	RBinPlugin *plugin = bin && bin->cur && bin->cur->o? bin->cur->o->plugin: NULL;
 
 	if (plugin) {
 		if (!strcmp (plugin->name, "pyc")) {
@@ -25,12 +25,16 @@ static int disassemble (RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	}
 	cobjs = r_list_get_n (shared, 0);
 	interned_table = r_list_get_n (shared, 1);
-	int r = r_pyc_disasm (opstruct, buf, cobjs, interned_table, pc);
+	pyc_opcodes *opcodes = get_opcode_by_version (a->cpu);
+	opcodes->bits = a->bits;
+	int r = r_pyc_disasm (opstruct, buf, cobjs, interned_table, pc, opcodes);
+	free_opcode (opcodes);
 	opstruct->size = r;
 	return r;
 }
 
-static int dis (RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
+/*
+static int dis(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
     const char *buf_asm = "invalid";
     int size = -1;
 
@@ -59,11 +63,7 @@ static int dis (RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
     op->size = size;
     return size;
 }
-
-static bool init (void *user) {
-	init_opname_table ();
-	return true;
-}
+*/
 
 RAsmPlugin r_asm_plugin_pyc = {
 	.name = "pyc",
@@ -71,8 +71,7 @@ RAsmPlugin r_asm_plugin_pyc = {
 	.license = "LGPL3",
 	.bits = 16 | 8,
 	.desc = "PYC disassemble plugin",
-	.disassemble = &dis,
-	.init = &init,
+	.disassemble = &disassemble,
 };
 
 #ifndef R2_PLUGIN_INCORE

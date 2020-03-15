@@ -3,160 +3,139 @@
 #ifndef OPCODE_H
 #define OPCODE_H
 
-#define STOP_CODE	0
-#define POP_TOP		1
-#define ROT_TWO		2
-#define ROT_THREE	3
-#define DUP_TOP		4
-#define ROT_FOUR	5
-#define NOP		9
+#include <r_types.h>
+#include <r_list.h>
+#include <r_util.h>
 
-#define UNARY_POSITIVE	10
-#define UNARY_NEGATIVE	11
-#define UNARY_NOT	12
-#define UNARY_CONVERT	13
+typedef enum {
+	HASCOMPARE   = 0x1,
+	HASCONDITION = 0x2,    // conditional operator; has jump offset
+	HASCONST     = 0x4,
+	HASFREE      = 0x8,
+	HASJABS      = 0x10,
+	HASJREL      = 0x20,
+	HASLOCAL     = 0x40,
+	hASNAME      = 0x80,
+	HASNARGS     = 0x100,  // For function-like calls
+	HASSTORE     = 0x200,  // Some sort of store operation
+	HASVARGS     = 0x400,  // Similar but for operators BUILD_xxx
+	NOFOLLOW     = 0x800,  // Instruction doesn't fall to the next opcode
+	HASNAME      = 0x1000,
+} pyc_opcode_type;
 
-#define UNARY_INVERT	15
+typedef enum {
+	NAME_OP   = 0x1,
+	LOCAL_OP  = 0x2,    
+	FREE_OP   = 0x4,
+	DEF_OP    = 0x8,
+} pyc_store_op_func;
 
-#define BINARY_POWER	19
+typedef struct {
+	char *op_name;
+	ut16 type;
+	ut8 op_code;
+	st8 op_push;
+	st8 op_pop;
+} pyc_opcode_object;
 
-#define BINARY_MULTIPLY	20
-#define BINARY_DIVIDE	21
-#define BINARY_MODULO	22
-#define BINARY_ADD	23
-#define BINARY_SUBTRACT	24
-#define BINARY_SUBSCR	25
-#define BINARY_FLOOR_DIVIDE 26
-#define BINARY_TRUE_DIVIDE 27
-#define INPLACE_FLOOR_DIVIDE 28
-#define INPLACE_TRUE_DIVIDE 29
+typedef struct {
+	ut8 extended_arg; 
+	ut8 have_argument;
+	ut8 bits;
+	RList *opcode_arg_fmt;
+	pyc_opcode_object *opcodes;
+} pyc_opcodes;
 
-#define SLICE		30
-/* Also uses 31-33 */
-#define SLICE_1		31
-#define SLICE_2		32
-#define SLICE_3		33
+typedef struct {
+	char *op_name;
+	const char *(*formatter) (ut32 oparg);
+} pyc_arg_fmt;
 
-#define STORE_SLICE	40
-/* Also uses 41-43 */
-#define STORE_SLICE_1	41
-#define STORE_SLICE_2	42
-#define STORE_SLICE_3	43
+typedef struct {
+    char *version;
+    pyc_opcodes *(*opcode_func) ();
+} version_opcode;
 
-#define DELETE_SLICE	50
-/* Also uses 51-53 */
-#define DELETE_SLICE_1	51
-#define DELETE_SLICE_2	52
-#define DELETE_SLICE_3	53
+pyc_opcodes *opcode_2x();
+pyc_opcodes *opcode_3x();
+pyc_opcodes *opcode_10();
+pyc_opcodes *opcode_11();
+pyc_opcodes *opcode_12();
+pyc_opcodes *opcode_13();
+pyc_opcodes *opcode_14();
+pyc_opcodes *opcode_15();
+pyc_opcodes *opcode_16();
+pyc_opcodes *opcode_20();
+pyc_opcodes *opcode_21();
+pyc_opcodes *opcode_22();
+pyc_opcodes *opcode_23();
+pyc_opcodes *opcode_24();
+pyc_opcodes *opcode_25();
+pyc_opcodes *opcode_26();
+pyc_opcodes *opcode_27();
+pyc_opcodes *opcode_30();
+pyc_opcodes *opcode_31();
+pyc_opcodes *opcode_32();
+pyc_opcodes *opcode_33();
+pyc_opcodes *opcode_34();
+pyc_opcodes *opcode_35();
+pyc_opcodes *opcode_36();
+pyc_opcodes *opcode_37();
+pyc_opcodes *opcode_38();
+pyc_opcodes *opcode_39();
 
-#define STORE_MAP	54
-#define INPLACE_ADD	55
-#define INPLACE_SUBTRACT	56
-#define INPLACE_MULTIPLY	57
-#define INPLACE_DIVIDE	58
-#define INPLACE_MODULO	59
-#define STORE_SUBSCR	60
-#define DELETE_SUBSCR	61
+pyc_opcodes *get_opcode_by_version(char *version);
 
-#define BINARY_LSHIFT	62
-#define BINARY_RSHIFT	63
-#define BINARY_AND	64
-#define BINARY_XOR	65
-#define BINARY_OR	66
-#define INPLACE_POWER	67
-#define GET_ITER	68
+pyc_opcodes *new_pyc_opcodes();
+void free_opcode(pyc_opcodes *opcodes);
 
-#define PRINT_EXPR	70
-#define PRINT_ITEM	71
-#define PRINT_NEWLINE	72
-#define PRINT_ITEM_TO   73
-#define PRINT_NEWLINE_TO 74
-#define INPLACE_LSHIFT	75
-#define INPLACE_RSHIFT	76
-#define INPLACE_AND	77
-#define INPLACE_XOR	78
-#define INPLACE_OR	79
-#define BREAK_LOOP	80
-#define WITH_CLEANUP    81
-#define LOAD_LOCALS	82
-#define RETURN_VALUE	83
-#define IMPORT_STAR	84
-#define EXEC_STMT	85
-#define YIELD_VALUE	86
-#define POP_BLOCK	87
-#define END_FINALLY	88
-#define BUILD_CLASS	89
+void add_arg_fmt(pyc_opcodes *ret, const char *op_name, const char *(*formatter) (ut32 oparg));
 
-#define HAVE_ARGUMENT	90	/* Opcodes from here have an argument: */
+const char *format_MAKE_FUNCTION_arg_3x (ut32 oparg);
+const char *format_extended_arg (ut32 oparg);
+const char *format_CALL_FUNCTION_pos_name_encoded (ut32 oparg);
+const char *format_CALL_FUNCTION_KW_36 (ut32 oparg);
+const char *format_CALL_FUNCTION_EX_36 (ut32 oparg);
+const char *format_MAKE_FUNCTION_arg_36 (ut32 oparg);
+const char *format_value_flags_36 (ut32 oparg);
+const char *format_extended_arg_36 (ut32 oparg);
 
-#define STORE_NAME	90	/* Index in name list */
-#define DELETE_NAME	91	/* "" */
-#define UNPACK_SEQUENCE	92	/* Number of sequence items */
-#define FOR_ITER	93
-#define LIST_APPEND	94
+struct op_parameter { pyc_opcode_object* op_obj; const char *op_name; ut8 op_code; st8 pop; st8 push; pyc_store_op_func func; bool conditional; bool fallthrough; };
 
-#define STORE_ATTR	95	/* Index in name list */
-#define DELETE_ATTR	96	/* "" */
-#define STORE_GLOBAL	97	/* "" */
-#define DELETE_GLOBAL	98	/* "" */
-#define DUP_TOPX	99	/* number of items to duplicate */
-#define LOAD_CONST	100	/* Index in const list */
-#define LOAD_NAME	101	/* Index in name list */
-#define BUILD_TUPLE	102	/* Number of tuple items */
-#define BUILD_LIST	103	/* Number of list items */
-#define BUILD_SET	104     /* Number of set items */
-#define BUILD_MAP	105	/* Always zero for now */
-#define LOAD_ATTR	106	/* Index in name list */
-#define COMPARE_OP	107	/* Comparison operator */
-#define IMPORT_NAME	108	/* Index in name list */
-#define IMPORT_FROM	109	/* Index in name list */
-#define JUMP_FORWARD	110	/* Number of bytes to skip */
+#define def_op(...) def_op ((struct op_parameter) {.pop = -2, .push = -2, .fallthrough = true, __VA_ARGS__})
+void (def_op) (struct op_parameter par);
 
-#define JUMP_IF_FALSE_OR_POP 111 /* Target byte offset from beginning
-                                    of code */
-#define JUMP_IF_TRUE_OR_POP 112	/* "" */
-#define JUMP_ABSOLUTE	113	/* "" */
-#define POP_JUMP_IF_FALSE 114	/* "" */
-#define POP_JUMP_IF_TRUE 115	/* "" */
+#define name_op(...) name_op ((struct op_parameter) {.pop = -2, .push = -2, __VA_ARGS__})
+void (name_op) (struct op_parameter par);
 
-#define LOAD_GLOBAL	116	/* Index in name list */
+#define local_op(...) local_op ((struct op_parameter) {.pop = 0, .push = 1, __VA_ARGS__})
+void (local_op) (struct op_parameter par);
 
-#define CONTINUE_LOOP	119	/* Start of loop (absolute) */
-#define SETUP_LOOP	120	/* Target address (relative) */
-#define SETUP_EXCEPT	121	/* "" */
-#define SETUP_FINALLY	122	/* "" */
+#define free_op(...) free_op ((struct op_parameter) {.pop = 0, .push = 1, __VA_ARGS__})
+void (free_op) (struct op_parameter par);
 
-#define LOAD_FAST	124	/* Local variable number */
-#define STORE_FAST	125	/* Local variable number */
-#define DELETE_FAST	126	/* Local variable number */
+#define store_op(...) store_op ((struct op_parameter) {.pop = 0, .push = 1, .func = DEF_OP, __VA_ARGS__})
+void (store_op) (struct op_parameter par);
 
-#define RAISE_VARARGS	130	/* Number of raise arguments (1, 2 or 3) */
-/* CALL_FUNCTION_XXX opcodes defined below depend on this definition */
-#define CALL_FUNCTION	131	/* #args + (#kwargs<<8) */
-#define MAKE_FUNCTION	132	/* #defaults */
-#define BUILD_SLICE 	133	/* Number of items */
+#define varargs_op(...) varargs_op ((struct op_parameter) {.pop = -1, .push = 1, __VA_ARGS__})
+void (varargs_op) (struct op_parameter par);
 
-#define MAKE_CLOSURE    134     /* #free vars */
-#define LOAD_CLOSURE    135     /* Load free variable from closure */
-#define LOAD_DEREF      136     /* Load and dereference from closure cell */
-#define STORE_DEREF     137     /* Store into cell */
+#define const_op(...) const_op ((struct op_parameter) {.pop = 0, .push = 1, __VA_ARGS__})
+void (const_op) (struct op_parameter par);
 
-/* The next 3 opcodes must be contiguous and satisfy
-   (CALL_FUNCTION_VAR - CALL_FUNCTION) & 3 == 1  */
-#define CALL_FUNCTION_VAR          140	/* #args + (#kwargs<<8) */
-#define CALL_FUNCTION_KW           141	/* #args + (#kwargs<<8) */
-#define CALL_FUNCTION_VAR_KW       142	/* #args + (#kwargs<<8) */
+#define compare_op(...) compare_op ((struct op_parameter) {.pop = 2, .push = 1, __VA_ARGS__})
+void (compare_op) (struct op_parameter par);
 
-#define SETUP_WITH 143
+#define jabs_op(...) jabs_op ((struct op_parameter) {.pop = 0, .push = 0, .conditional = false, .fallthrough = true, __VA_ARGS__})
+void (jabs_op) (struct op_parameter par);
 
-/* Support for opargs more than 16 bits long */
-#define EXTENDED_ARG  145
+#define jrel_op(...) jrel_op ((struct op_parameter) {.pop = 0, .push = 0, .conditional = false, .fallthrough = true, __VA_ARGS__})
+void (jrel_op) (struct op_parameter par);
 
-#define SET_ADD         146
-#define MAP_ADD         147
+#define nargs_op(...) nargs_op ((struct op_parameter) {.pop = -2, .push = -2, __VA_ARGS__})
+void (nargs_op) (struct op_parameter par);
 
-#define HAS_ARG(op) ((op) >= HAVE_ARGUMENT)
-
-char *op_name[0xff + 1];
+#define rm_op(...) rm_op ((struct op_parameter) {__VA_ARGS__})
+void (rm_op) (struct op_parameter par);
 
 #endif
