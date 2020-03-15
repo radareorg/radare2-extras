@@ -28,8 +28,8 @@ static ut64 get_entrypoint(RBuffer *buf) {
     for (int addr = 0x8; addr <= 0x10; addr += 0x4) {
         r_buf_read_at (buf, addr, &b, sizeof (b));
         if (pyc_is_code(b, version.magic)) {
-            return addr;
-        }
+		return addr;
+	}
     }
     return NULL;
 }

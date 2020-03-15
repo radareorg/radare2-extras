@@ -8,7 +8,7 @@
 #include "pyc_dis.h"
 #include "opcode.h"
 
-static int disassemble (RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
+static int disassemble(RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	RList *interned_table = NULL;
 	RList *shared = NULL;
 	RList *cobjs = NULL;
@@ -16,8 +16,7 @@ static int disassemble (RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	RBin *bin = a->binb.bin;
 	ut64 pc = a->pc;
 
-	RBinPlugin *plugin = bin && bin->cur && bin->cur->o ?
-		bin->cur->o->plugin : NULL;
+	RBinPlugin *plugin = bin && bin->cur && bin->cur->o? bin->cur->o->plugin: NULL;
 
 	if (plugin) {
 		if (!strcmp (plugin->name, "pyc")) {
@@ -35,7 +34,7 @@ static int disassemble (RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 }
 
 /*
-static int dis (RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
+static int dis(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
     const char *buf_asm = "invalid";
     int size = -1;
 
