@@ -51,6 +51,11 @@ typedef struct {
 	const char *(*formatter) (ut32 oparg);
 } pyc_arg_fmt;
 
+typedef struct {
+    char *version;
+    pyc_opcodes *(*opcode_func) ();
+} version_opcode;
+
 pyc_opcodes *opcode_2x();
 pyc_opcodes *opcode_3x();
 pyc_opcodes *opcode_10();
