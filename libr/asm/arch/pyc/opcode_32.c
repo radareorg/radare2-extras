@@ -1,7 +1,7 @@
-#include "opcode.h" 
+#include "opcode.h"
 
-pyc_opcodes *opcode_32() {
-	pyc_opcodes *ret = opcode_3x();
+pyc_opcodes *opcode_32 () {
+	pyc_opcodes *ret = opcode_3x ();
 	if (!ret)
 		return NULL;
 

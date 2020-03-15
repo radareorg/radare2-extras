@@ -1,17 +1,17 @@
-#include "opcode.h" 
+#include "opcode.h"
 
-pyc_opcodes *opcode_37() {
-	pyc_opcodes *ret = opcode_36();
+pyc_opcodes *opcode_37 () {
+	pyc_opcodes *ret = opcode_36 ();
 	if (!ret)
 		return NULL;
 
 	// These are removed since 3.6...
 	// and STORE_ANNOTATION introduced in 3.6!
-	rm_op(.op_obj = ret->opcodes, .op_name = "STORE_ANNOTATION", .op_code = 127);
+	rm_op (.op_obj = ret->opcodes, .op_name = "STORE_ANNOTATION", .op_code = 127);
 
 	// These are new since Python 3.7
-	name_op(.op_obj = ret->opcodes, .op_name = "LOAD_METHOD", .op_code = 160);
-	nargs_op(.op_obj = ret->opcodes, .op_name = "CALL_METHOD", .op_code = 161);
+	name_op (.op_obj = ret->opcodes, .op_name = "LOAD_METHOD", .op_code = 160);
+	nargs_op (.op_obj = ret->opcodes, .op_name = "CALL_METHOD", .op_code = 161);
 
 	r_list_purge (ret->opcode_arg_fmt);
 	add_arg_fmt (ret, "CALL_FUNCTION_KW", format_CALL_FUNCTION_KW_36);
