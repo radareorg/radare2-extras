@@ -122,6 +122,16 @@ static version_opcode version_op[] = {
     { "v3.9.0a3", opcode_39 },
 };
 
+bool pyc_opcodes_equal (pyc_opcodes *op, const char *version) {
+    for (ut32 i = 0; i < sizeof(version_op) / sizeof(version_opcode); i++) {
+        if (!strcmp (version_op[i].version, version)) {
+            if (version_op[i].opcode_func == op->version_sig)
+                return true;
+        }
+    }
+    return false;
+}
+
 pyc_opcodes *get_opcode_by_version(char *version) {
     for (ut32 i = 0; i < sizeof(version_op) / sizeof(version_opcode); i++) {
         if (!strcmp (version_op[i].version, version)) {

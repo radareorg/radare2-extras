@@ -2,36 +2,45 @@
 
 #include <r_bin.h>
 #include "pyc.h"
+#include "marshal.h"
 
 // XXX: to not use globals
 
+static ut64 code_start_offset = 0;
 static struct pyc_version version;
 /* used from marshall.c */
 RList *interned_table = NULL;
 
 static bool check_buffer(RBuffer *b) {
-    if (r_buf_size (b) > 4) {
-        ut32 buf;
-        r_buf_read_at (b, 0, (ut8 *) &buf, sizeof (buf));
-        version = get_pyc_version (buf);
-        return version.magic != -1;
-    }
-    return false;
+	if (r_buf_size (b) > 4) {
+		ut32 buf;
+		r_buf_read_at (b, 0, (ut8 *)&buf, sizeof (buf));
+		version = get_pyc_version (buf);
+		return version.magic != -1;
+	}
+	return false;
 }
 
-static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *buf,  ut64 loadaddr, Sdb *sdb) {
+static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *buf, ut64 loadaddr, Sdb *sdb) {
 	return check_buffer (buf);
 }
 
 static ut64 get_entrypoint(RBuffer *buf) {
     ut8 b;
+    ut64 result;
     for (int addr = 0x8; addr <= 0x10; addr += 0x4) {
-        r_buf_read_at (buf, addr, &b, sizeof (b));
-        if (pyc_is_code(b, version.magic)) {
-		return addr;
-	}
+	    r_buf_read_at (buf, addr, &b, sizeof (b));
+	    if (pyc_is_code (b, version.magic)) {
+		    code_start_offset = addr;
+		    r_buf_seek (buf, addr + 1, R_BUF_SET);
+		    if ((result = get_code_object_addr (buf, version.magic)) == 0) {
+			    return addr;
+		    } else {
+			    return result;
+		    }
+	    }
     }
-    return NULL;
+    return 0;
 }
 
 static RBinInfo *info(RBinFile *arch) {
@@ -45,7 +54,7 @@ static RBinInfo *info(RBinFile *arch) {
 	ret->machine = r_str_newf ("Python %s VM (rev %s)", version.version,
 				version.revision);
 	ret->os = strdup ("any");
-	ret->bits = version2double(version.version) < 3.6 ? 16 : 8;
+	ret->bits = version2double(version.version) < 3.6? 16: 8;
 	ret->cpu = strdup (version.version); // pass version info in cpu, Asm plugin will get it
 	return ret;
 }
@@ -70,8 +79,10 @@ static RList *sections(RBinFile *arch) {
 	if (!sections) {
 		return NULL;
 	}
-	pyc_get_sections (sections, cobjs, arch->buf, version.magic);
-	return sections;
+    RBuffer *buffer = arch->buf;
+    r_buf_seek (buffer, code_start_offset, R_BUF_SET);
+    pyc_get_sections (sections, cobjs, buffer, version.magic);
+    return sections;
 }
 
 static RList *entries(RBinFile *arch) {
