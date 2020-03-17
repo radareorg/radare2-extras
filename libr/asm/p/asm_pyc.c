@@ -28,19 +28,19 @@ static int disassemble(RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	cobjs = r_list_get_n (shared, 0);
 	interned_table = r_list_get_n (shared, 1);
     if (!opcodes_cache || !pyc_opcodes_equal (opcodes_cache, a->cpu)) {
-        opcodes_cache = get_opcode_by_version (a->cpu);
-        opcodes_cache->bits = a->bits;
+	    opcodes_cache = get_opcode_by_version (a->cpu);
+	    opcodes_cache->bits = a->bits;
     }
-	int r = r_pyc_disasm (opstruct, buf, cobjs, interned_table, pc, opcodes_cache);
-	opstruct->size = r;
-	return r;
+    int r = r_pyc_disasm (opstruct, buf, cobjs, interned_table, pc, opcodes_cache);
+    opstruct->size = r;
+    return r;
 }
 
-void finish() {
-    if (opcodes_cache) {
-	    free_opcode (opcodes_cache);
-        opcodes_cache = NULL;
-    }
+void finish () {
+	if (opcodes_cache) {
+		free_opcode (opcodes_cache);
+		opcodes_cache = NULL;
+	}
 }
 
 /*

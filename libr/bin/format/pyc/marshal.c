@@ -912,16 +912,16 @@ static pyc_object *get_code_object(RBuffer *buffer) {
 	//to help disassemble the code
 	cobj->start_offset = r_buf_tell (buffer) + 5; // 1 from get_object() and 4 from get_string_object()
     if (!refs) {
-        return ret; //return for entried part to get the root object of this file
+	    return ret; //return for entried part to get the root object of this file
     }
-	cobj->code = get_object (buffer);
-	cobj->end_offset = r_buf_tell (buffer);
+    cobj->code = get_object (buffer);
+    cobj->end_offset = r_buf_tell (buffer);
 
-	cobj->consts = get_object (buffer);
-	cobj->names = get_object (buffer);
+    cobj->consts = get_object (buffer);
+    cobj->names = get_object (buffer);
 
-	if (v10_to_12) {
-		cobj->varnames = NULL;
+    if (v10_to_12) {
+	    cobj->varnames = NULL;
 	} else {
 		cobj->varnames = get_object (buffer);
 	}
