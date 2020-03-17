@@ -10,7 +10,7 @@
 
 static ut32 magic_int;
 
-static RList *refs = NULL;
+static RList *refs = NULL; // If you don't have a good reason, do not change this. And also checkout !refs in get_code_object()
 
 /* interned_table is used to handle TYPE_INTERNED object */
 extern RList *interned_table;
@@ -212,7 +212,7 @@ static pyc_object *get_long_object(RBuffer *buffer) {
 			bignum_add (&long_val, &tmp, &operand); // operand = tmp + long_val
 			bignum_assign (&long_val, &operand); // long_val = operand
 		}
-		size = 4 * ndigits;
+		size = 4 * ndigits + 4;
 		char *buf = malloc (size); // max length is log_16{2^{15*ndigits}} = 3.75 * ndigits
 		bignum_to_string (&long_val, buf, size);
 		if (neg) {
@@ -911,6 +911,9 @@ static pyc_object *get_code_object(RBuffer *buffer) {
 
 	//to help disassemble the code
 	cobj->start_offset = r_buf_tell (buffer) + 5; // 1 from get_object() and 4 from get_string_object()
+    if (!refs) {
+        return ret; //return for entried part to get the root object of this file
+    }
 	cobj->code = get_object (buffer);
 	cobj->end_offset = r_buf_tell (buffer);
 
@@ -960,8 +963,24 @@ static pyc_object *get_code_object(RBuffer *buffer) {
 		free_object (cobj->lnotab);
 		free (cobj);
 		R_FREE (ret);
+        return NULL;
 	}
 	return ret;
+}
+
+ut64 get_code_object_addr (RBuffer *buffer, ut32 magic) {
+    magic_int = magic;
+    pyc_object *co = get_code_object (buffer);
+    ut64 result = 0;
+    if (!co)
+        return 0;
+
+    pyc_code_object *cobj = co->data;
+    result = cobj->start_offset;
+    free (co->data);
+	free (co);
+
+    return result;
 }
 
 static pyc_object *get_object(RBuffer *buffer) {

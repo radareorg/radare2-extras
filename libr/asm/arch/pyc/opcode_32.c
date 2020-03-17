@@ -5,6 +5,8 @@ pyc_opcodes *opcode_32 () {
 	if (!ret)
 		return NULL;
 
+    ret->version_sig = (void * (*)())opcode_32;
+
 	// There are no opcodes to add or change.
 	// If there were, they'd be listed below.
 

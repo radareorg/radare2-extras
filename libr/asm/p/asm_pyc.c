@@ -8,6 +8,8 @@
 #include "pyc_dis.h"
 #include "opcode.h"
 
+static pyc_opcodes *opcodes_cache = NULL;
+
 static int disassemble(RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	RList *interned_table = NULL;
 	RList *shared = NULL;
@@ -25,12 +27,20 @@ static int disassemble(RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	}
 	cobjs = r_list_get_n (shared, 0);
 	interned_table = r_list_get_n (shared, 1);
-	pyc_opcodes *opcodes = get_opcode_by_version (a->cpu);
-	opcodes->bits = a->bits;
-	int r = r_pyc_disasm (opstruct, buf, cobjs, interned_table, pc, opcodes);
-	free_opcode (opcodes);
+    if (!opcodes_cache || !pyc_opcodes_equal (opcodes_cache, a->cpu)) {
+        opcodes_cache = get_opcode_by_version (a->cpu);
+        opcodes_cache->bits = a->bits;
+    }
+	int r = r_pyc_disasm (opstruct, buf, cobjs, interned_table, pc, opcodes_cache);
 	opstruct->size = r;
 	return r;
+}
+
+void finish() {
+    if (opcodes_cache) {
+	    free_opcode (opcodes_cache);
+        opcodes_cache = NULL;
+    }
 }
 
 /*
@@ -72,6 +82,7 @@ RAsmPlugin r_asm_plugin_pyc = {
 	.bits = 16 | 8,
 	.desc = "PYC disassemble plugin",
 	.disassemble = &disassemble,
+    .fini = &finish,
 };
 
 #ifndef R2_PLUGIN_INCORE

@@ -2,9 +2,11 @@
 
 #include <r_bin.h>
 #include "pyc.h"
+#include "marshal.h"
 
 // XXX: to not use globals
 
+static ut64 code_start_offset = 0;
 static struct pyc_version version;
 /* used from marshall.c */
 RList *interned_table = NULL;
@@ -25,13 +27,20 @@ static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *buf,  ut64 loadad
 
 static ut64 get_entrypoint(RBuffer *buf) {
     ut8 b;
+    ut64 result;
     for (int addr = 0x8; addr <= 0x10; addr += 0x4) {
         r_buf_read_at (buf, addr, &b, sizeof (b));
         if (pyc_is_code(b, version.magic)) {
-		return addr;
-	}
+            code_start_offset = addr;
+            r_buf_seek (buf, addr + 1, R_BUF_SET);
+            if ((result = get_code_object_addr (buf, version.magic)) == 0) {
+                return addr;
+            } else {
+                return result;
+            }
+	    }
     }
-    return NULL;
+    return 0;
 }
 
 static RBinInfo *info(RBinFile *arch) {
@@ -70,7 +79,9 @@ static RList *sections(RBinFile *arch) {
 	if (!sections) {
 		return NULL;
 	}
-	pyc_get_sections (sections, cobjs, arch->buf, version.magic);
+    RBuffer *buffer = arch->buf;
+    r_buf_seek (buffer, code_start_offset, R_BUF_SET);
+	pyc_get_sections (sections, cobjs, buffer, version.magic);
 	return sections;
 }
 

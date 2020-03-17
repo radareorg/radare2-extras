@@ -5,6 +5,8 @@ pyc_opcodes *opcode_15 () {
 	if (!ret)
 		return NULL;
 
+    ret->version_sig = (void * (*)())opcode_15;
+
 	def_op (.op_obj = ret->opcodes, .op_name = "STOP_CODE", .op_code = 0, .pop = 0, .push = 0, .fallthrough = false);
 	def_op (.op_obj = ret->opcodes, .op_name = "POP_TOP", .op_code = 1);
 	def_op (.op_obj = ret->opcodes, .op_name = "ROT_TWO", .op_code = 2);

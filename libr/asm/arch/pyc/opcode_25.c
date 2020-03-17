@@ -5,6 +5,8 @@ pyc_opcodes *opcode_25 () {
 	if (!ret)
 		return NULL;
 
+    ret->version_sig = (void * (*)())opcode_25;
+
 	// Bytecodes added in 2.5 from 2.4
 	def_op (.op_obj = ret->opcodes, .op_name = "WITH_CLEANUP", .op_code = 81);
 
