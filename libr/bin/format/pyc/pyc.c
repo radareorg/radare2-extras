@@ -3,8 +3,8 @@
 #include "pyc.h"
 #include "marshal.h"
 
-bool pyc_get_sections(RList *sections, RList *cobjs, RBuffer *buf, ut32 magic) {
-	return get_sections_from_code_objects (buf, sections, cobjs, magic);
+bool pyc_get_sections_symbols(RList *sections, RList *symbols, RList* cobjs, RBuffer *buf, ut32 magic) {
+	return get_sections_symbols_from_code_objects (buf, sections, symbols, cobjs, magic);
 }
 
 bool pyc_is_object(ut8 b, pyc_marshal_type type) {
