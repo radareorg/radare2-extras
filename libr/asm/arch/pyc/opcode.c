@@ -194,7 +194,7 @@ void (def_op) (struct op_parameter par) {
 	par.op_obj[par.op_code].op_code = par.op_code;
 	par.op_obj[par.op_code].op_pop = par.pop;
 	par.op_obj[par.op_code].op_push = par.push;
-	if (par.fallthrough) {
+	if (!par.fallthrough) {
 		par.op_obj[par.op_code].type |= NOFOLLOW;
     }
 }
