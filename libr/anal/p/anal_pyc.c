@@ -35,7 +35,7 @@ static char *get_reg_profile(RAnal *anal) {
 
 static int pyc_op (RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len, RAnalOpMask mask) {
     ut32 extended_arg = 0, oparg;
-    ut8 op_code = data[addr];
+    ut8 op_code = data[0];
     pyc_opcodes *ops;
     op->jump = UT64_MAX;
     op->fail = UT64_MAX;
@@ -43,6 +43,7 @@ static int pyc_op (RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len, R
     op->addr = addr;
     op->sign = true;
     op->type = R_ANAL_OP_TYPE_UNK;
+    op->id = op_code;
 
     if (!(ops = get_opcode_by_version (a->cpu))) {
         return -1;
@@ -63,9 +64,9 @@ static int pyc_op (RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len, R
 
 	if (op_code >= ops->have_argument) {
 		if (!is_python36) {
-			oparg = data[addr + 1] + data[addr + 2] * 256 + extended_arg;
+			oparg = data[1] + data[2] * 256 + extended_arg;
 		} else {
-			oparg = data[addr + 1] + extended_arg;
+			oparg = data[1] + extended_arg;
 		}
 		extended_arg = 0;
 		if (op_code == ops->extended_arg) {
@@ -83,7 +84,7 @@ static int pyc_op (RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len, R
 
         if (op_obj->type & HASCONDITION) {
             op->type = R_ANAL_OP_TYPE_CJMP;
-            op->fail = ((is_python36) ? 2 : 3);
+            op->fail = addr + ((is_python36) ? 2 : 3);
         } 
         goto anal_end;
     }
@@ -93,7 +94,7 @@ static int pyc_op (RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len, R
 
         if (op_obj->type & HASCONDITION) {
             op->type = R_ANAL_OP_TYPE_CJMP;
-            op->fail = ((is_python36) ? 2 : 3);
+            op->fail = addr + ((is_python36) ? 2 : 3);
         } 
         goto anal_end;
     }
@@ -119,7 +120,7 @@ RAnalPlugin r_anal_plugin_pyc = {
     .archinfo = archinfo,
     .get_reg_profile = get_reg_profile,
     .op = &pyc_op,
-    .esil = true
+    .esil = false,
 };
 
 #ifndef CORELIB
