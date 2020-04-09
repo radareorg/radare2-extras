@@ -20,21 +20,15 @@ static void anal_BEFORE_ASYNC_WITH (RAnalOp *op, pyc_opcode_object *op_obj, ut32
 }
 
 static void anal_BEGIN_FINALLY (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_UPUSH;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_push (op, op_obj, oparg, R_ANAL_OP_TYPE_UNK, 1);
 }
 
 static void anal_BINARY_ADD (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_UNK;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_ADD, 1);
 }
 
 static void anal_BINARY_AND (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_AND;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_AND, 1);
 }
 
 static void anal_BINARY_CALL (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
@@ -44,81 +38,55 @@ static void anal_BINARY_CALL (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg
 }
 
 static void anal_BINARY_DIVIDE (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_DIV;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_DIV, 1);
 }
 
 static void anal_BINARY_FLOOR_DIVIDE (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_DIV;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_DIV, 1);
 }
 
 static void anal_BINARY_LSHIFT (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_SHL;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_SHL, 1);
 }
 
 static void anal_BINARY_MATRIX_MULTIPLY (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_UNK;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_UNK, 1);
 }
 
 static void anal_BINARY_MODULO (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_MOD;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_MOD, 1);
 }
 
 static void anal_BINARY_MULTIPLY (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_MUL;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_MUL, 1);
 }
 
 static void anal_BINARY_OR (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_OR;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_OR, 1);
 }
 
 static void anal_BINARY_POWER (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_UNK;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_UNK, 1);
 }
 
 static void anal_BINARY_RSHIFT (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_SHR;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_SHR, 1);
 }
 
 static void anal_BINARY_SUBSCR (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_UNK;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_UNK, 1);
 }
 
 static void anal_BINARY_SUBTRACT (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_SUB;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_SUB, 1);
 }
 
 static void anal_BINARY_TRUE_DIVIDE (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_DIV;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_DIV, 1);
 }
 
 static void anal_BINARY_XOR (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_XOR;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_XOR, 1);
 }
 
 static void anal_BREAK_LOOP (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
@@ -128,15 +96,11 @@ static void anal_BREAK_LOOP (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg)
 }
 
 static void anal_BUILD_CLASS (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -(2 * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, 2);
 }
 
 static void anal_BUILD_CONST_KEY_MAP (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -((oparg - 1) * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, oparg);
 }
 
 static void anal_BUILD_FUNCTION (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
@@ -144,75 +108,51 @@ static void anal_BUILD_FUNCTION (RAnalOp *op, pyc_opcode_object *op_obj, ut32 op
 }
 
 static void anal_BUILD_LIST (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -((oparg - 1) * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, oparg);
 }
 
 static void anal_BUILD_LIST_UNPACK (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -((oparg - 1) * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, oparg - 1);
 }
 
 static void anal_BUILD_MAP (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -((oparg * 2 - 1) * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, 2 * oparg - 1);
 }
 
 static void anal_BUILD_MAP_UNPACK (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -((oparg - 1) * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, oparg - 1);
 }
 
 static void anal_BUILD_MAP_UNPACK_WITH_CALL (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -(oparg * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, oparg);
 }
 
 static void anal_BUILD_SET (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -((oparg - 1) * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, oparg - 1);
 }
 
 static void anal_BUILD_SET_UNPACK (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -((oparg - 1) * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, oparg - 1);
 }
 
 static void anal_BUILD_SLICE (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -((oparg - 1) * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, oparg - 1);
 }
 
 static void anal_BUILD_STRING (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -((oparg - 1) * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, oparg - 1);
 }
 
 static void anal_BUILD_TUPLE (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -((oparg - 1) * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, oparg - 1);
 }
 
 static void anal_BUILD_TUPLE_UNPACK (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -((oparg - 1) * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, oparg - 1);
 }
 
 static void anal_BUILD_TUPLE_UNPACK_WITH_CALL (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_NEW;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -(oparg * OBJECT_SIZE_ON_STACK);
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_NEW, oparg);
 }
 
 static void anal_CALL_FUNCTION (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
@@ -289,21 +229,15 @@ static void anal_DELETE_SUBSCR (RAnalOp *op, pyc_opcode_object *op_obj, ut32 opa
 }
 
 static void anal_DUP_TOP (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_UPUSH;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = OBJECT_SIZE_ON_STACK;
+    anal_push (op, op_obj, oparg, R_ANAL_OP_TYPE_UPUSH, 1);
 }
 
 static void anal_DUP_TOPX (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_UPUSH;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = OBJECT_SIZE_ON_STACK * oparg;
+    anal_push (op, op_obj, oparg, R_ANAL_OP_TYPE_UPUSH, 1);
 }
 
 static void anal_DUP_TOP_TWO (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_UPUSH;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = OBJECT_SIZE_ON_STACK * 2;
+    anal_push (op, op_obj, oparg, R_ANAL_OP_TYPE_UPUSH, 2);
 }
 
 static void anal_END_ASYNC_FOR (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
@@ -343,9 +277,7 @@ static void anal_GET_AITER (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) 
 }
 
 static void anal_GET_ANEXT (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_UNK;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = OBJECT_SIZE_ON_STACK;
+    anal_push (op, op_obj, oparg, R_ANAL_OP_TYPE_UNK, 1);
 }
 
 static void anal_GET_AWAITABLE (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
@@ -361,21 +293,15 @@ static void anal_GET_YIELD_FROM_ITER (RAnalOp *op, pyc_opcode_object *op_obj, ut
 }
 
 static void anal_IMPORT_FROM (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_UNK;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = OBJECT_SIZE_ON_STACK;
+    anal_push (op, op_obj, oparg, R_ANAL_OP_TYPE_UNK, 1);
 }
 
 static void anal_IMPORT_NAME (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_UNK;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_UNK, 1);
 }
 
 static void anal_IMPORT_STAR (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_UNK;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_UNK, 1);
 }
 
 static void anal_INPLACE_ADD (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
@@ -435,9 +361,7 @@ static void anal_INPLACE_XOR (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg
 }
 
 static void anal_LIST_APPEND (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_UNK;
-    op->stackop = R_ANAL_STACK_INC;
-    op->stackptr = -OBJECT_SIZE_ON_STACK;
+    anal_pop (op, op_obj, oparg, R_ANAL_OP_TYPE_UNK, 1);
 }
 
 static void anal_LOAD_ASSERTION_ERROR (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
