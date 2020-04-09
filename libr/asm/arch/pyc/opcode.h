@@ -11,18 +11,18 @@
 #define OBJECT_SIZE_ON_STACK 1
 
 typedef enum {
-	HASCOMPARE   = 0x1,
-	HASCONDITION = 0x2,    // conditional operator; has jump offset
-	HASCONST     = 0x4,
-	HASFREE      = 0x8,
-	HASJABS      = 0x10,   // Will appear with HASCONDITION sometimes
-	HASJREL      = 0x20,   // Will appear with HASCONDITION sometimes
-	HASLOCAL     = 0x40,
-	HASNAME      = 0x80,
-	HASNARGS     = 0x100,  // For function-like calls
-	HASSTORE     = 0x200,  // Some sort of store operation
-	HASVARGS     = 0x400,  // Similar but for operators BUILD_xxx
-	NOFOLLOW     = 0x800,  // Instruction doesn't fall to the next opcode
+	HASCOMPARE = 0x1,
+	HASCONDITION = 0x2, // conditional operator; has jump offset
+	HASCONST = 0x4,
+	HASFREE = 0x8,
+	HASJABS = 0x10, // Will appear with HASCONDITION sometimes
+	HASJREL = 0x20, // Will appear with HASCONDITION sometimes
+	HASLOCAL = 0x40,
+	HASNAME = 0x80,
+	HASNARGS = 0x100, // For function-like calls
+	HASSTORE = 0x200, // Some sort of store operation
+	HASVARGS = 0x400, // Similar but for operators BUILD_xxx
+	NOFOLLOW = 0x800, // Instruction doesn't fall to the next opcode
 } pyc_opcode_type;
 
 typedef enum {
