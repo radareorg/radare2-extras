@@ -74,7 +74,7 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 		if (!(head_sect = R_NEW0 (RBinSection))) {
 			return false;
 		}
-		strcpy (head_sect->name, "Header");
+		head_sect->name = r_str_newf("Header");
 		head_sect->paddr = 0;
 		head_sect->vaddr = 0;
 		ut8 start = 0x8; // signature + version + size
@@ -107,7 +107,7 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 		if (!(head_sect = R_NEW0 (RBinSection))) {
 			return false;
 		}
-		strcpy (head_sect->name, "Header");
+		head_sect->name = r_str_newf("Header");
 		head_sect->paddr = 0;
 		head_sect->vaddr = 0;
 		ut8 start = 0x8; // signature + version + size
@@ -135,7 +135,7 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 		if (!(head_sect = R_NEW0 (RBinSection))) {
 			return false;
 		}
-		strcpy(head_sect->name, "Header");
+		head_sect->name = r_str_newf("Header");
 		head_sect->paddr = 0;
 		head_sect->vaddr = 0;
 		ut32 start = header.rect_size + SWF_HDR_MIN_SIZE; // rect + min_size
@@ -173,7 +173,7 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 				return false;
 			}
 			swf_tag_t tag = r_asm_swf_gettag (tagCode);
-			strcpy (new->name, tag.name);
+			new->name = r_str_newf(tag.name);
 			new->paddr = start;
 			new->vaddr = start;
 
