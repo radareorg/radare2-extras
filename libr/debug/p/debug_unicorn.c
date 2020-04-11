@@ -204,12 +204,11 @@ static RList *r_debug_unicorn_pids(RDebug *dbg, int pid) {
 static RList *r_debug_unicorn_map_get(RDebug *dbg) {
 	RDebugMap *m;
 	RList *list;
-	SdbListIter *iter;
 	RIOMap *map;
 	int i = 0;
 	list = r_list_new ();
 	//list->free = r_debug_map_free;
-	ls_foreach (dbg->iob.io->maps, iter, map) {
+	r_vector_foreach (&dbg->iob.io->maps.v, map) {
 		m = r_debug_map_new (map->name,
 			map->itv.addr,
 			map->itv.addr + map->itv.size,
@@ -237,7 +236,7 @@ static RDebugInfo* r_debug_unicorn_info(RDebug *dbg, const char *arg) {
 	return rdi;
 }
 
-static RDebugMap * r_debug_unicorn_map_alloc(RDebug *dbg, ut64 addr, int size) {
+static RDebugMap * r_debug_unicorn_map_alloc(RDebug *dbg, ut64 addr, int size, bool thp) {
 	RDebugMap *map;
 	uc_err err = uc_mem_map (uh, addr, size, UC_PROT_WRITE | UC_PROT_READ);
 	if (err) {
@@ -263,7 +262,7 @@ static int r_debug_unicorn_map_dealloc(RDebug *dbg, ut64 addr, int size) {
 	return 0;
 }
 
-static int r_debug_unicorn_detach(int pid) {
+static int r_debug_unicorn_detach(RDebug *dbg, int pid) {
 	if (uh) {
 		/* unicorn lib doesnt checks for null. it just crashes -_-U */
 		uc_close (uh);
@@ -275,7 +274,7 @@ static int r_debug_unicorn_detach(int pid) {
 static bool r_debug_unicorn_kill(RDebug *dbg, int pid, int tid, int sig) {
 	// TODO: implement thread support signaling here
 	message ("TODO: r_debug_unicorn_kill\n");
-	(void)r_debug_unicorn_detach(pid);
+	(void)r_debug_unicorn_detach(dbg, pid);
 	return false;
 }
 
@@ -390,7 +389,10 @@ static void _insn_out(uc_engine *handle, uint32_t port, int size, uint32_t value
 static bool _mem_invalid(uc_engine *handle, uc_mem_type type,
 		uint64_t address, int size, int64_t value, void *user_data) {
 	const char *typestr = "";
-	switch(type) {
+	switch (type) {
+	case UC_MEM_READ_AFTER:
+			typestr = "read-after";
+			break;
 	case UC_MEM_READ:
 			typestr = "read";
 			break;
@@ -485,7 +487,7 @@ static int r_debug_unicorn_attach(RDebug *dbg, int pid) {
 	return ret;
 #endif
 	//if (!uh) {
-		r_debug_unicorn_detach (pid);
+		r_debug_unicorn_detach (dbg, pid);
 		r_debug_unicorn_init (dbg);
 	//}
 	return 'U' + 'N' + 'I' + 'C' + 'O' + 'R' + 'N';
@@ -508,7 +510,6 @@ static int r_debug_unicorn_wait(RDebug *dbg, int pid) {
 }
 
 static int r_debug_unicorn_init(RDebug *dbg) {
-	SdbListIter *iter;
 	int code_is_mapped;
 	RIOMap *map;
 	int bits = (dbg->bits & R_SYS_BITS_64) ? 64: 32;
@@ -532,7 +533,7 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		return false;
 	}
 	ut64 lastvaddr = 0LL;
-	int n_sect = ls_length (dbg->iob.io->maps);
+	size_t n_sect = dbg->iob.io->maps.v.len;
 	if (n_sect == 0) {
 		message (logo);
 		message ("[UNICORN] dpa            # reatach to initialize the unicorn\n");
@@ -540,7 +541,7 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 	}
 	code_is_mapped = 0;
 
-	ls_foreach (dbg->iob.io->maps, iter, map) {
+	r_vector_foreach (&dbg->iob.io->maps.v, map) {
 		int perms = 0;
 		if (map->perm & R_PERM_R) perms |= UC_PROT_READ;
 		if (map->perm & R_PERM_W) perms |= UC_PROT_WRITE;
