@@ -1,4 +1,4 @@
-/* radare - LGPL3 - 2016 - xarkes */
+/* radare - LGPL3 - 2016-2020 - xarkes */
 
 #include <r_types.h>
 #include <r_util.h>

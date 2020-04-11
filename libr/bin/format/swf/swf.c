@@ -74,7 +74,7 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 		if (!(head_sect = R_NEW0 (RBinSection))) {
 			return false;
 		}
-		strcpy (head_sect->name, "Header");
+		head_sect->name = strdup ("Header");
 		head_sect->paddr = 0;
 		head_sect->vaddr = 0;
 		ut8 start = 0x8; // signature + version + size
@@ -89,7 +89,7 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 		if (!(data = R_NEW0 (RBinSection)))
 			return false;
 
-		snprintf(data->name, R_BIN_SIZEOF_STRINGS, "ZlibData");
+		data->name = strdup ("ZlibData");
 		data->paddr = start;
 		data->vaddr = start;
 		data->size = r_buf_size(arch->buf) - start;
@@ -107,7 +107,7 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 		if (!(head_sect = R_NEW0 (RBinSection))) {
 			return false;
 		}
-		strcpy (head_sect->name, "Header");
+		head_sect->name = strdup ("Header");
 		head_sect->paddr = 0;
 		head_sect->vaddr = 0;
 		ut8 start = 0x8; // signature + version + size
@@ -121,7 +121,7 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 		if (!data) {
 			return false;
 		}
-		snprintf(data->name, R_BIN_SIZEOF_STRINGS, "LzmaData");
+		data->name = strdup ("LzmaData");
 		data->paddr = start;
 		data->vaddr = start;
 		data->size = r_buf_size(arch->buf) - start;
@@ -135,7 +135,7 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 		if (!(head_sect = R_NEW0 (RBinSection))) {
 			return false;
 		}
-		strcpy(head_sect->name, "Header");
+		head_sect->name = strdup ("Header");
 		head_sect->paddr = 0;
 		head_sect->vaddr = 0;
 		ut32 start = header.rect_size + SWF_HDR_MIN_SIZE; // rect + min_size
@@ -173,7 +173,7 @@ int r_bin_swf_get_sections(RList *list, RBinFile *arch) {
 				return false;
 			}
 			swf_tag_t tag = r_asm_swf_gettag (tagCode);
-			strcpy (new->name, tag.name);
+			new->name = strdup (tag.name);
 			new->paddr = start;
 			new->vaddr = start;
 
