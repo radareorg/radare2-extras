@@ -27,6 +27,7 @@ OBJ_PYC+=../arch/pyc/opcode_38.o
 OBJ_PYC+=../arch/pyc/opcode_39.o
 OBJ_PYC+=../arch/pyc/opcode_3x.o
 OBJ_PYC+=../arch/pyc/opcode_arg_fmt.o
+OBJ_PYC+=../arch/pyc/opcode_anal.o
 OBJ_PYC+=../arch/pyc/opcode.o
 OBJ_PYC+=../arch/pyc/pyc_dis.o
 

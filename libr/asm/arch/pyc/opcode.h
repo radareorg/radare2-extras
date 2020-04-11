@@ -6,21 +6,23 @@
 #include <r_types.h>
 #include <r_list.h>
 #include <r_util.h>
+#include <r_anal.h>
+
+#define OBJECT_SIZE_ON_STACK 1
 
 typedef enum {
-	HASCOMPARE   = 0x1,
-	HASCONDITION = 0x2,    // conditional operator; has jump offset
-	HASCONST     = 0x4,
-	HASFREE      = 0x8,
-	HASJABS      = 0x10,
-	HASJREL      = 0x20,
-	HASLOCAL     = 0x40,
-	hASNAME      = 0x80,
-	HASNARGS     = 0x100,  // For function-like calls
-	HASSTORE     = 0x200,  // Some sort of store operation
-	HASVARGS     = 0x400,  // Similar but for operators BUILD_xxx
-	NOFOLLOW     = 0x800,  // Instruction doesn't fall to the next opcode
-	HASNAME      = 0x1000,
+	HASCOMPARE = 0x1,
+	HASCONDITION = 0x2, // conditional operator; has jump offset
+	HASCONST = 0x4,
+	HASFREE = 0x8,
+	HASJABS = 0x10, // Will appear with HASCONDITION sometimes
+	HASJREL = 0x20, // Will appear with HASCONDITION sometimes
+	HASLOCAL = 0x40,
+	HASNAME = 0x80,
+	HASNARGS = 0x100, // For function-like calls
+	HASSTORE = 0x200, // Some sort of store operation
+	HASVARGS = 0x400, // Similar but for operators BUILD_xxx
+	NOFOLLOW = 0x800, // Instruction doesn't fall to the next opcode
 } pyc_opcode_type;
 
 typedef enum {
@@ -56,6 +58,13 @@ typedef struct {
     char *version;
     pyc_opcodes *(*opcode_func) ();
 } version_opcode;
+
+typedef struct {
+    char *op_name;
+    void (*func) (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg);
+} op_anal_func;
+
+void anal_pyc_op(RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg);
 
 pyc_opcodes *opcode_2x();
 pyc_opcodes *opcode_3x();

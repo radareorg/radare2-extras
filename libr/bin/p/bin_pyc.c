@@ -10,6 +10,7 @@ static ut64 code_start_offset = 0;
 static struct pyc_version version;
 /* used from marshall.c */
 RList *interned_table = NULL;
+static RList *sections_cache = NULL;
 
 static bool check_buffer(RBuffer *b) {
 	if (r_buf_size (b) > 4) {
@@ -26,21 +27,21 @@ static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *buf, ut64 loadadd
 }
 
 static ut64 get_entrypoint(RBuffer *buf) {
-    ut8 b;
-    ut64 result;
-    for (int addr = 0x8; addr <= 0x10; addr += 0x4) {
-	    r_buf_read_at (buf, addr, &b, sizeof (b));
-	    if (pyc_is_code (b, version.magic)) {
-		    code_start_offset = addr;
-		    r_buf_seek (buf, addr + 1, R_BUF_SET);
-		    if ((result = get_code_object_addr (buf, version.magic)) == 0) {
-			    return addr;
-		    } else {
-			    return result;
-		    }
-	    }
-    }
-    return 0;
+	ut8 b;
+	ut64 result;
+	for (int addr = 0x8; addr <= 0x10; addr += 0x4) {
+		r_buf_read_at (buf, addr, &b, sizeof (b));
+		if (pyc_is_code (b, version.magic)) {
+			code_start_offset = addr;
+			r_buf_seek (buf, addr + 1, R_BUF_SET);
+			if ((result = get_code_object_addr (buf, version.magic)) == 0) {
+				return addr;
+			} else {
+				return result;
+			}
+		}
+	}
+	return 0;
 }
 
 static RBinInfo *info(RBinFile *arch) {
@@ -60,29 +61,7 @@ static RBinInfo *info(RBinFile *arch) {
 }
 
 static RList *sections(RBinFile *arch) {
-	RList *shared = r_list_new ();
-	if (!shared) {
-		return NULL;
-	}
-	RList *cobjs = r_list_new ();
-	if (!cobjs) {
-		return NULL;
-	}
-	interned_table = r_list_new ();
-	if (!interned_table) {
-		return NULL;
-	}
-	r_list_append (shared, cobjs);
-	r_list_append (shared, interned_table);
-	arch->o->bin_obj = shared;
-	RList *sections = r_list_new ();
-	if (!sections) {
-		return NULL;
-	}
-    RBuffer *buffer = arch->buf;
-    r_buf_seek (buffer, code_start_offset, R_BUF_SET);
-    pyc_get_sections (sections, cobjs, buffer, version.magic);
-    return sections;
+    return sections_cache;
 }
 
 static RList *entries(RBinFile *arch) {
@@ -106,6 +85,38 @@ static ut64 baddr(RBinFile *bf) {
 	return 0;
 }
 
+static RList *symbols(RBinFile *arch) {
+	RList *shared = r_list_new ();
+	if (!shared) {
+		return NULL;
+	}
+	RList *cobjs = r_list_new ();
+	if (!cobjs) {
+		return NULL;
+	}
+	interned_table = r_list_new ();
+	if (!interned_table) {
+		return NULL;
+	}
+	r_list_append (shared, cobjs);
+	r_list_append (shared, interned_table);
+	arch->o->bin_obj = shared;
+	RList *sections = r_list_new ();
+	if (!sections) {
+		return NULL;
+	}
+	RList *symbols = r_list_new ();
+	if (!symbols) {
+		r_list_free (sections);
+		return NULL;
+	}
+	RBuffer *buffer = arch->buf;
+	r_buf_seek (buffer, code_start_offset, R_BUF_SET);
+	pyc_get_sections_symbols (sections, symbols, cobjs, buffer, version.magic);
+	sections_cache = sections;
+	return symbols;
+}
+
 RBinPlugin r_bin_plugin_pyc = {
 	.name = "pyc",
 	.desc = "Python byte-compiled file plugin",
@@ -116,6 +127,7 @@ RBinPlugin r_bin_plugin_pyc = {
 	.entries = &entries,
 	.sections = &sections,
 	.baddr = &baddr,
+	.symbols = &symbols,
 };
 
 #ifndef R2_PLUGIN_INCORE

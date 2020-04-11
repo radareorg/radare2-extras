@@ -13,9 +13,13 @@ atombios:
 evm:
 	cd p ; $(MAKE) anal_evm.$(LIBEXT)
 
+pyc:
+	cd p ; $(MAKE) anal_pyc.$(LIBEXT)
+
 clean:
 	rm -f p/anal_x86_bea.$(LIBEXT)
 	rm -f p/anal_m68k_net.$(LIBEXT)
 	rm -f p/anal_atombios.{$(LIBEXT),o}
+	rm -f p/anal_pyc.$(LIBEXT)
 
 include ../../options.mk
