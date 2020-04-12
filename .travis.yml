@@ -61,7 +61,7 @@ env:
 #  - TESTS="r2pm -i r2snow" https://travis-ci.org/radareorg/radare2-extras/jobs/199500082
 #  - TESTS="r2pm -i radeco" [BR] https://travis-ci.org/radare/radare2-extras/builds/157522362
 #  - TESTS="r2pm -i retdec"
-  - TESTS="r2pm -i swf && cd radare2/test && make swf && cd ../.."
+  - TESTS="r2pm -i swf && make -C radare2/test swf"
 #  - TESTS="r2pm -i m68k-net && cd radare2-regressions && make m68k-extras && cd .." [BR] https://travis-ci.org/radare/radare2-extras/builds/387043680
 #  - TESTS="r2pm -i swig" Sorry. This package cannot be installed in your home.
   - TESTS="r2pm -i syms2elf"
@@ -95,7 +95,6 @@ before_script:
   - export WORKING_DIR=${TRAVIS_BUILD_DIR}/..
   - cd ${WORKING_DIR}
   - rm -rf ~/.nvm && git clone https://github.com/creationix/nvm.git ~/.nvm && (cd ~/.nvm && git checkout `git describe --abbrev=0 --tags`) && source ~/.nvm/nvm.sh && nvm install 10
-  - git clone https://github.com/radareorg/radare2-regressions
   - git clone https://github.com/radareorg/radare2 && cd radare2
   - export CC=gcc-7
   - ./configure --prefix=${WORKING_DIR}/install > /dev/null
