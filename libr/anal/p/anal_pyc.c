@@ -64,7 +64,7 @@ static int pyc_op (RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len, R
 	op->ptr = op->val = UT64_MAX;
 	op->addr = addr;
 	op->sign = true;
-	op->type = R_ANAL_OP_TYPE_UNK;
+	op->type = R_ANAL_OP_TYPE_ILL;
 	op->id = op_code;
 
 	if (!(ops = get_opcode_by_version (a->cpu))) {
