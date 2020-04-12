@@ -1,4 +1,4 @@
-OBJ_PYC=asm_pyc.o
+OBJ_PYC=anal_pyc.o
 OBJ_PYC+=../../asm/arch/pyc/opcode_10.o
 OBJ_PYC+=../../asm/arch/pyc/opcode_11.o
 OBJ_PYC+=../../asm/arch/pyc/opcode_12.o
