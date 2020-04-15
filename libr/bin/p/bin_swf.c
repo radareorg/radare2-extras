@@ -113,6 +113,7 @@ RBinPlugin r_bin_plugin_swf = {
 RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_BIN,
 	.data = &r_bin_plugin_swf,
-	.version = R2_VERSION
+	.version = R2_VERSION,
+	.pkgname = "swf"
 };
 #endif
