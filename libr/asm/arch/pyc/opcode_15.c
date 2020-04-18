@@ -5,7 +5,7 @@ pyc_opcodes *opcode_15 () {
 	if (!ret)
 		return NULL;
 
-    ret->version_sig = (void * (*)())opcode_15;
+	ret->version_sig = (void *(*)())opcode_15;
 
 	def_op (.op_obj = ret->opcodes, .op_name = "STOP_CODE", .op_code = 0, .pop = 0, .push = 0, .fallthrough = false);
 	def_op (.op_obj = ret->opcodes, .op_name = "POP_TOP", .op_code = 1);
@@ -98,8 +98,8 @@ pyc_opcodes *opcode_15 () {
 	name_op (.op_obj = ret->opcodes, .op_name = "LOAD_GLOBAL", .op_code = 116, .pop = 0, .push = 1); // Operand is in name list
 
 	jrel_op (.op_obj = ret->opcodes, .op_name = "SETUP_LOOP", .op_code = 120, .pop = 0, .push = 0, .conditional = true); // Distance to target address
-	jrel_op (.op_obj = ret->opcodes, .op_name = "SETUP_EXCEPT", .op_code = 121, .pop = 0, .push = 0); // ""
-	jrel_op (.op_obj = ret->opcodes, .op_name = "SETUP_FINALLY", .op_code = 122, .pop = 0, .push = 0); // ""
+	jrel_op (.op_obj = ret->opcodes, .op_name = "SETUP_EXCEPT", .op_code = 121, .pop = 0, .push = 0, .conditional = true); // ""
+	jrel_op (.op_obj = ret->opcodes, .op_name = "SETUP_FINALLY", .op_code = 122, .pop = 0, .push = 0, .conditional = true); // ""
 
 	local_op (.op_obj = ret->opcodes, .op_name = "LOAD_FAST", .op_code = 124, .pop = 0, .push = 1); // Local variable number
 	store_op (.op_obj = ret->opcodes, .op_name = "STORE_FAST", .op_code = 125, .pop = 1, .push = 0, .func = LOCAL_OP); // Local variable number

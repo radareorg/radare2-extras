@@ -213,8 +213,8 @@ static struct pyc_version versions[] = {
 	{ 0x0a0d0d60, "v3.9.0a3", "a36ea266c6470f6c65416f24de4497637e59af23" },
 };
 
-struct pyc_version get_pyc_version(ut32 magic) {
-	struct pyc_version fail = {-1, 0, 0};
+struct pyc_version get_pyc_version (ut32 magic) {
+	struct pyc_version fail = { -1, 0, 0 };
 	ut32 i;
 	for (i = 0; i < sizeof (versions) / sizeof (*versions); ++i)
 		if (versions[i].magic == magic) {
@@ -223,37 +223,40 @@ struct pyc_version get_pyc_version(ut32 magic) {
 	return fail;
 }
 
-bool magic_int_within(ut32 target_magic, ut32 lower, ut32 upper, bool *error) {
+bool magic_int_within (ut32 target_magic, ut32 lower, ut32 upper, bool *error) {
 	if (*error) {
 		return false;
-    }
+	}
 	ut64 ti = 0, li = 0, ui = 0;
-	ut64 size = sizeof(versions) / sizeof(struct pyc_version);
-	for (; ti < size && versions[ti].magic != target_magic; ++ti) {}
+	ut64 size = sizeof (versions) / sizeof (struct pyc_version);
+	for (; ti < size && versions[ti].magic != target_magic; ++ti) {
+	}
 	if (ti == size) {
 		*error = true;
-		eprintf("target_magic not found in versions[]");
+		eprintf ("target_magic not found in versions[]");
 		return false;
 	}
 
-	for (; li < size && (versions[li].magic & 0xffff) != lower; ++li) {}
+	for (; li < size && (versions[li].magic & 0xffff) != lower; ++li) {
+	}
 	if (li == size) {
 		*error = true;
-		eprintf("lower magic_int not found in versions[]");
+		eprintf ("lower magic_int not found in versions[]");
 		return false;
 	}
 
-	for (; ui < size && (versions[ui].magic & 0xffff) != upper; ++ui) {}
+	for (; ui < size && (versions[ui].magic & 0xffff) != upper; ++ui) {
+	}
 	if (ui == size) {
 		*error = true;
-		eprintf("upper magic_int not found in versions[]");
+		eprintf ("upper magic_int not found in versions[]");
 		return false;
 	}
 
 	return (li <= ti) && (ti <= ui);
 }
 
-double version2double(const char *version) {
+double version2double (const char *version) {
 	unsigned idx = 0, buf_idx = 0;
 	char buf[20];
 	double result;

@@ -10,7 +10,7 @@
 
 static pyc_opcodes *opcodes_cache = NULL;
 
-static int disassemble(RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
+static int disassemble (RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	RList *interned_table = NULL;
 	RList *shared = NULL;
 	RList *cobjs = NULL;
@@ -18,7 +18,7 @@ static int disassemble(RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	RBin *bin = a->binb.bin;
 	ut64 pc = a->pc;
 
-	RBinPlugin *plugin = bin && bin->cur && bin->cur->o? bin->cur->o->plugin: NULL;
+	RBinPlugin *plugin = bin && bin->cur && bin->cur->o ? bin->cur->o->plugin : NULL;
 
 	if (plugin) {
 		if (!strcmp (plugin->name, "pyc")) {
@@ -27,13 +27,13 @@ static int disassemble(RAsm *a, RAsmOp *opstruct, const ut8 *buf, int len) {
 	}
 	cobjs = r_list_get_n (shared, 0);
 	interned_table = r_list_get_n (shared, 1);
-    if (!opcodes_cache || !pyc_opcodes_equal (opcodes_cache, a->cpu)) {
-	    opcodes_cache = get_opcode_by_version (a->cpu);
-	    opcodes_cache->bits = a->bits;
-    }
-    int r = r_pyc_disasm (opstruct, buf, cobjs, interned_table, pc, opcodes_cache);
-    opstruct->size = r;
-    return r;
+	if (!opcodes_cache || !pyc_opcodes_equal (opcodes_cache, a->cpu)) {
+		opcodes_cache = get_opcode_by_version (a->cpu);
+		opcodes_cache->bits = a->bits;
+	}
+	int r = r_pyc_disasm (opstruct, buf, cobjs, interned_table, pc, opcodes_cache);
+	opstruct->size = r;
+	return r;
 }
 
 void finish () {
@@ -82,7 +82,7 @@ RAsmPlugin r_asm_plugin_pyc = {
 	.bits = 16 | 8,
 	.desc = "PYC disassemble plugin",
 	.disassemble = &disassemble,
-    .fini = &finish,
+	.fini = &finish,
 };
 
 #ifndef R2_PLUGIN_INCORE

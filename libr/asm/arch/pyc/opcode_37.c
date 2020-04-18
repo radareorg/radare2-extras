@@ -5,7 +5,7 @@ pyc_opcodes *opcode_37 () {
 	if (!ret)
 		return NULL;
 
-    ret->version_sig = (void * (*)())opcode_37;
+	ret->version_sig = (void *(*)())opcode_37;
 
 	// These are removed since 3.6...
 	// and STORE_ANNOTATION introduced in 3.6!

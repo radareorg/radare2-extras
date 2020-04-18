@@ -8,6 +8,8 @@
 #include "../../asm/arch/pyc/opcode.h"
 #include "../../asm/arch/pyc/pyc_dis.h"
 
+static pyc_opcodes *ops = NULL;
+
 static int archinfo (RAnal *anal, int query) {
 	if (!strcmp (anal->cpu, "x86")) {
 		return -1;
@@ -58,7 +60,6 @@ static int pyc_op (RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len, R
 	ut64 func_base = func->start_offset;
 	ut32 extended_arg = 0, oparg;
 	ut8 op_code = data[0];
-	pyc_opcodes *ops;
 	op->jump = UT64_MAX;
 	op->fail = UT64_MAX;
 	op->ptr = op->val = UT64_MAX;
@@ -67,8 +68,10 @@ static int pyc_op (RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len, R
 	op->type = R_ANAL_OP_TYPE_ILL;
 	op->id = op_code;
 
-	if (!(ops = get_opcode_by_version (a->cpu))) {
-		return -1;
+	if (!ops || !pyc_opcodes_equal (ops, a->cpu)) {
+		if (!(ops = get_opcode_by_version (a->cpu))) {
+			return -1;
+		}
 	}
 	bool is_python36 = a->bits == 8;
 	pyc_opcode_object *op_obj = &ops->opcodes[op_code];
@@ -113,12 +116,13 @@ static int pyc_op (RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len, R
 	if (op_obj->type & HASJREL) {
 		op->type = R_ANAL_OP_TYPE_JMP;
 		op->jump = addr + oparg + ((is_python36) ? 2 : 3);
+		op->fail = addr + ((is_python36) ? 2 : 3);
 
 		if (op_obj->type & HASCONDITION) {
 			op->type = R_ANAL_OP_TYPE_CJMP;
-			op->fail = addr + ((is_python36) ? 2 : 3);
+			//op->fail = addr + ((is_python36) ? 2 : 3);
 		}
-		goto anal_end;
+		//goto anal_end;
 	}
 
 	if (op_obj->type & HASCOMPARE) {
@@ -129,8 +133,15 @@ static int pyc_op (RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len, R
 	anal_pyc_op (op, op_obj, oparg);
 
 anal_end:
-	free_opcode (ops);
+	//free_opcode (ops);
 	return op->size;
+}
+
+static int finish (void *user) {
+	if (ops) {
+		free_opcode (ops);
+		ops = NULL;
+	}
 }
 
 RAnalPlugin r_anal_plugin_pyc = {
@@ -143,6 +154,7 @@ RAnalPlugin r_anal_plugin_pyc = {
 	.get_reg_profile = get_reg_profile,
 	.op = &pyc_op,
 	.esil = false,
+	.fini = &finish,
 };
 
 #ifndef R2_PLUGIN_INCORE

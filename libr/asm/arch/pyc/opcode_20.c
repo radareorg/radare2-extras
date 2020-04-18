@@ -5,7 +5,7 @@ pyc_opcodes *opcode_20 () {
 	if (!ret)
 		return NULL;
 
-    ret->version_sig = (void * (*)())opcode_20;
+	ret->version_sig = (void *(*)())opcode_20;
 
 	// 2.1 Bytecodes not in 2.0
 	rm_op (.op_obj = ret->opcodes, .op_name = "CONTINUE_LOOP", .op_code = 119);
