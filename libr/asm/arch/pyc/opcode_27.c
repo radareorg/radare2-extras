@@ -5,7 +5,7 @@ pyc_opcodes *opcode_27 () {
 	if (!ret)
 		return NULL;
 
-    ret->version_sig = (void * (*)())opcode_27;
+	ret->version_sig = (void *(*)())opcode_27;
 
 	// Below are opcode changes since Python 2.6
 	rm_op (.op_obj = ret->opcodes, .op_name = "BUILD_MAP", .op_code = 104);
@@ -29,7 +29,7 @@ pyc_opcodes *opcode_27 () {
 
 	jabs_op (.op_obj = ret->opcodes, .op_name = "JUMP_IF_FALSE_OR_POP", .op_code = 111, .conditional = true); // Target byte offset from beginning of code
 	jabs_op (.op_obj = ret->opcodes, .op_name = "JUMP_IF_TRUE_OR_POP", .op_code = 112, .conditional = true); // ""
-    jabs_op (.op_obj = ret->opcodes, .op_name = "POP_JUMP_IF_FALSE", .op_code = 114, .conditional = true); // ""
+	jabs_op (.op_obj = ret->opcodes, .op_name = "POP_JUMP_IF_FALSE", .op_code = 114, .conditional = true); // ""
 	jabs_op (.op_obj = ret->opcodes, .op_name = "POP_JUMP_IF_TRUE", .op_code = 115, .conditional = true); // ""
 	jrel_op (.op_obj = ret->opcodes, .op_name = "SETUP_WITH", .op_code = 143, .pop = 0, .push = 2);
 

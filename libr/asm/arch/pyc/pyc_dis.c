@@ -2,7 +2,7 @@
 
 #include "pyc_dis.h"
 
-static const char *cmp_op[] = {"<", "<=", "==", "!=", ">", ">=", "in", "not in", "is", "is not", "exception match", "BAD"};
+static const char *cmp_op[] = { "<", "<=", "==", "!=", ">", ">=", "in", "not in", "is", "is not", "exception match", "BAD" };
 
 int r_pyc_disasm (RAsmOp *opstruct, const ut8 *code, RList *cobjs, RList *interned_table, ut64 pc, pyc_opcodes *ops) {
 	pyc_code_object *cobj = NULL, *t = NULL;
@@ -132,86 +132,86 @@ char *parse_arg (pyc_opcode_object *op, ut32 oparg, RList *names, RList *consts,
 	}
 	if (op->type & HASFREE) {
 		if (!cellvars || !freevars) {
-        	arg = r_str_newf ("%u", oparg);
-        }
+			arg = r_str_newf ("%u", oparg);
+		}
 
 		if (oparg < r_list_length (cellvars)) {
-        	t = (pyc_object*)r_list_get_n (cellvars, oparg);
-        } else if ((oparg - r_list_length (cellvars)) < r_list_length(freevars)) {
-        	t = (pyc_object*)r_list_get_n (freevars, oparg);
-        } else 
-        	arg = r_str_newf ("%u", oparg);
-        if (t == NULL) {
-            return NULL;
-        }
+			t = (pyc_object *)r_list_get_n (cellvars, oparg);
+		} else if ((oparg - r_list_length (cellvars)) < r_list_length (freevars)) {
+			t = (pyc_object *)r_list_get_n (freevars, oparg);
+		} else
+			arg = r_str_newf ("%u", oparg);
+		if (t == NULL) {
+			return NULL;
+		}
 
 		arg = t->data;
 	}
 	if (op->type & HASNARGS) {
-		arg = r_str_newf ("%u", oparg); 
+		arg = r_str_newf ("%u", oparg);
 	}
 	if (op->type & HASVARGS) {
 		arg = r_str_newf ("%u", oparg);
 	}
 
-    return arg;
+	return arg;
 }
 
 /* for debugging purpose */
 void dump (RList *l) {
-    RListIter *it;
-    pyc_object *e = NULL;
+	RListIter *it;
+	pyc_object *e = NULL;
 
-    r_list_foreach (l, it, e) {
-        if (e->type == TYPE_TUPLE) {
-            eprintf ("[TYPE_TUPLE] %s\n", generic_array_obj_to_string(e->data));
-            return;
-        }
-        eprintf("[DATA] %s\n", (char *)e->data);
-    }
+	r_list_foreach (l, it, e) {
+		if (e->type == TYPE_TUPLE) {
+			eprintf ("[TYPE_TUPLE] %s\n", generic_array_obj_to_string (e->data));
+			return;
+		}
+		eprintf ("[DATA] %s\n", (char *)e->data);
+	}
 }
 
 char *generic_array_obj_to_string (RList *l) {
-    RListIter *iter = NULL;
-    pyc_object *e = NULL;
-    ut32 size = 256, used = 0;
-    char *r = NULL, *buf = NULL;
+	RListIter *iter = NULL;
+	pyc_object *e = NULL;
+	ut32 size = 256, used = 0;
+	char *r = NULL, *buf = NULL;
 
-    // add good enough space
-    buf = (char*)calloc (size+10, 1);
-    r_list_foreach (l, iter, e) {
-        while ( !(strlen (e->data) < size) ) {
-            size *= 2;
-            buf = realloc (buf, used + size);
-            if (!buf) {
-                eprintf ("generic_array_obj_to_string cannot request more memory");
-                return NULL;
-            }
-        }
-        strcat (buf, e->data);
-        strcat (buf, ",");
-        size -= strlen (e->data) + 1;
-        used += strlen (e->data) + 1;
-    }
-    /* remove last , */
-    buf[ strlen(buf)-1 ] = '\0';
-    r = r_str_newf ("(%s)", buf);
-    free(buf);
-    return r;
+	// add good enough space
+	buf = (char *)calloc (size + 10, 1);
+	r_list_foreach (l, iter, e) {
+		while (!(strlen (e->data) < size)) {
+			size *= 2;
+			buf = realloc (buf, used + size);
+			if (!buf) {
+				eprintf ("generic_array_obj_to_string cannot request more memory");
+				return NULL;
+			}
+		}
+		strcat (buf, e->data);
+		strcat (buf, ",");
+		size -= strlen (e->data) + 1;
+		used += strlen (e->data) + 1;
+	}
+	/* remove last , */
+	buf[strlen (buf) - 1] = '\0';
+	r = r_str_newf ("(%s)", buf);
+	free (buf);
+	return r;
 }
 
 void dump_cobj (pyc_code_object *c) {
-    eprintf("[DUMP]\n");
-    eprintf("name: %s\n", (char *)c->name->data);
-    eprintf("const_start\n");
-    dump(c->consts->data);
-    eprintf("consts_end\n");
+	eprintf ("[DUMP]\n");
+	eprintf ("name: %s\n", (char *)c->name->data);
+	eprintf ("const_start\n");
+	dump (c->consts->data);
+	eprintf ("consts_end\n");
 
-    eprintf("names_start\n");
-    dump(c->names->data);
-    eprintf("names_end\n");
+	eprintf ("names_start\n");
+	dump (c->names->data);
+	eprintf ("names_end\n");
 
-    eprintf("varnames_start\n");
-    dump(c->varnames->data);
-    eprintf("varnames_end\n");
+	eprintf ("varnames_start\n");
+	dump (c->varnames->data);
+	eprintf ("varnames_end\n");
 }

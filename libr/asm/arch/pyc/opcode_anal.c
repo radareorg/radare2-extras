@@ -91,7 +91,7 @@ static void anal_BINARY_XOR (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg)
 
 static void anal_BREAK_LOOP (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
 	//op->type = R_ANAL_OP_TYPE_CJMP;
-    // This is actually a jump, but require further analysis
+	// This is actually a jump, but require further analysis
 	op->type = R_ANAL_OP_TYPE_UNK;
 	op->jump = -1;
 	op->fail = -1;
@@ -249,8 +249,8 @@ static void anal_END_ASYNC_FOR (RAnalOp *op, pyc_opcode_object *op_obj, ut32 opa
 
 static void anal_END_FINALLY (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
 	//op->type = R_ANAL_OP_TYPE_CJMP;
-    // This is actually a jump, but require further analysis
-    op->type = R_ANAL_OP_TYPE_UNK;
+	// This is actually a jump, but require further analysis
+	op->type = R_ANAL_OP_TYPE_UNK;
 	op->jump = -1;
 	op->fail = -1;
 }
@@ -691,42 +691,42 @@ static void anal_YIELD_VALUE (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg
 }
 
 static void anal_FOR_ITER (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_CJMP;
-    ut64 mid = op->jump;
-    op->jump = op->fail;
-    op->fail = mid;
+	op->type = R_ANAL_OP_TYPE_CJMP;
+	ut64 mid = op->jump;
+	op->jump = op->fail;
+	op->fail = mid;
 }
 
 static void anal_SETUP_LOOP (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    ut64 mid = op->jump;
-    op->jump = op->fail;
-    op->fail = mid;
+	ut64 mid = op->jump;
+	op->jump = op->fail;
+	op->fail = mid;
 }
 
 static void anal_SETUP_EXCEPT (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    ut64 mid = op->jump;
-    op->jump = op->fail;
-    op->fail = mid;
+	ut64 mid = op->jump;
+	op->jump = op->fail;
+	op->fail = mid;
 }
 
 static void anal_SETUP_FINALLY (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    ut64 mid = op->jump;
-    op->jump = op->fail;
-    op->fail = mid;
+	ut64 mid = op->jump;
+	op->jump = op->fail;
+	op->fail = mid;
 }
 
 static void anal_SETUP_WITH (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_CJMP;
-    ut64 mid = op->jump;
-    op->jump = op->fail;
-    op->fail = mid;
+	op->type = R_ANAL_OP_TYPE_CJMP;
+	ut64 mid = op->jump;
+	op->jump = op->fail;
+	op->fail = mid;
 }
 
 static void anal_SETUP_ASYNC_WITH (RAnalOp *op, pyc_opcode_object *op_obj, ut32 oparg) {
-    op->type = R_ANAL_OP_TYPE_CJMP;
-    ut64 mid = op->jump;
-    op->jump = op->fail;
-    op->fail = mid;
+	op->type = R_ANAL_OP_TYPE_CJMP;
+	ut64 mid = op->jump;
+	op->jump = op->fail;
+	op->fail = mid;
 }
 
 static op_anal_func op_anal[] = {
@@ -887,7 +887,7 @@ static op_anal_func op_anal[] = {
 	{ "WITH_EXCEPT_START", anal_WITH_EXCEPT_START },
 	{ "YIELD_FROM", anal_YIELD_FROM },
 	{ "YIELD_VALUE", anal_YIELD_VALUE },
-    // Fix jump info
+	// Fix jump info
 	{ "FOR_ITER", anal_FOR_ITER },
 	{ "SETUP_LOOP", anal_SETUP_LOOP },
 	{ "SETUP_EXCEPT", anal_SETUP_EXCEPT },

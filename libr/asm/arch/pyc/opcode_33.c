@@ -5,7 +5,7 @@ pyc_opcodes *opcode_33 () {
 	if (!ret)
 		return NULL;
 
-    ret->version_sig = (void * (*)())opcode_33;
+	ret->version_sig = (void *(*)())opcode_33;
 
 	// Below are opcode changes since Python 3.2
 

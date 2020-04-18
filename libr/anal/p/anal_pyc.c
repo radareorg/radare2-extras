@@ -68,11 +68,11 @@ static int pyc_op (RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len, R
 	op->type = R_ANAL_OP_TYPE_ILL;
 	op->id = op_code;
 
-    if (!ops || !pyc_opcodes_equal (ops, a->cpu)) {
-	    if (!(ops = get_opcode_by_version (a->cpu))) {
-		    return -1;
-	    }
-    }
+	if (!ops || !pyc_opcodes_equal (ops, a->cpu)) {
+		if (!(ops = get_opcode_by_version (a->cpu))) {
+			return -1;
+		}
+	}
 	bool is_python36 = a->bits == 8;
 	pyc_opcode_object *op_obj = &ops->opcodes[op_code];
 	if (!op_obj->op_name) {
@@ -138,10 +138,10 @@ anal_end:
 }
 
 static int finish (void *user) {
-    if (ops) {
-        free_opcode (ops);
-        ops = NULL;
-    }
+	if (ops) {
+		free_opcode (ops);
+		ops = NULL;
+	}
 }
 
 RAnalPlugin r_anal_plugin_pyc = {
@@ -154,7 +154,7 @@ RAnalPlugin r_anal_plugin_pyc = {
 	.get_reg_profile = get_reg_profile,
 	.op = &pyc_op,
 	.esil = false,
-    .fini = &finish,
+	.fini = &finish,
 };
 
 #ifndef R2_PLUGIN_INCORE
