@@ -2,7 +2,6 @@ ARCHS=
 
 ARCHS+=dlang.mk
 ARCHS+=swf.mk
-ARCHS+=pyc.mk
 ARCHS+=pcap.mk
 ARCHS+=atombios.mk
 # doesnt build yet
