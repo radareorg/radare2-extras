@@ -15,7 +15,11 @@ static int initialized = false;
 
 static bool print_strings = 0;
 
+#if YR_MAJOR_VERSION < 4
+static int callback(int message, void* rule, void* data);
+#else
 static int callback(YR_SCAN_CONTEXT* context, int message, void* rule, void* data);
+#endif
 static int r_cmd_yara_add (const RCore* core, const char* input);
 static int r_cmd_yara_add_file (const char* rules_path);
 static int r_cmd_yara_call(void *user, const char *input);
@@ -34,6 +38,38 @@ static const char* yara_rule_template = "rule RULE_NAME {\n\tstrings:\n\n\tcondi
  */
 static RList* rules_list;
 
+#if YR_MAJOR_VERSION < 4
+static int callback (int message, void *msg_data, void *user_data) {
+	RPrint *print = (RPrint *)user_data;
+	YR_RULE* rule = msg_data;
+
+	if (message == CALLBACK_MSG_RULE_MATCHING)
+	{
+		YR_STRING* string;
+		r_cons_printf("%s\n", rule->identifier);
+
+		if (print_strings) {
+			yr_rule_strings_foreach(rule, string)
+			{
+				YR_MATCH* match;
+
+				yr_string_matches_foreach(string, match)
+				{
+					r_cons_printf("0x%08" PRIx64 ": %s : ", match->base + match->offset, string->identifier);
+					r_print_bytes(print, match->data, match->data_length, "%02x ");
+				}
+			}
+		}
+	}
+	return CALLBACK_CONTINUE;
+}
+
+static void compiler_callback(int error_level, const char* file_name,
+		int line_number, const char* message, void* user_data) {
+	eprintf ("file: %s line_number: %d.\n%s", file_name, line_number, message);
+	return;
+}
+#else
 static int callback (YR_SCAN_CONTEXT* context, int message, void *msg_data, void *user_data) {
 	RPrint *print = (RPrint *)user_data;
 	YR_RULE* rule = msg_data;
@@ -64,6 +100,7 @@ static void compiler_callback(int error_level, const char* file_name,
 	eprintf ("file: %s line_number: %d.\n%s", file_name, line_number, message);
 	return;
 }
+#endif
 
 static int r_cmd_yara_scan(const RCore* core, const char* option) {
 	RListIter* rules_it;
