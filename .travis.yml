@@ -49,7 +49,6 @@ env:
   - TESTS="r2pm -i pcap"
   - TESTS="r2pm -i ppcdisasm"
   - TESTS="r2pm -i psosvm"
-  - TESTS="r2pm -i pyc"
 #  - TESTS="r2pm -i vala && r2pm -i valabind && r2pm -i r2api-python" [BR] https://travis-ci.org/radareorg/radare2-extras/builds/387043680
 #  - TESTS="r2pm -i r2pipe-cs" [BR] https://travis-ci.org/radareorg/radare2-extras/builds/157522362
 #  - TESTS="r2pm -i r2pipe-go" [BR] https://travis-ci.org/radareorg/radare2-extras/builds/387043680
