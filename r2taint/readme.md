@@ -9,9 +9,9 @@ Usage:
 
 ### Demo1
 
-https://asciinema.org/a/332707
+[![asciicast](https://asciinema.org/a/332707.svg)](https://asciinema.org/a/332707)
 
 ### Demo2
 
-https://asciinema.org/a/332708
+[![asciicast](https://asciinema.org/a/332708.svg)](https://asciinema.org/a/332708)
 
