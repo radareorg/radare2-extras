@@ -5,7 +5,7 @@ Static taint analysis.
 
 Usage:
 
-	$taint -reg rax -mem 0xADDR -mem var_name -deep N -v 1
+	$taint -reg rax -mem 0xADDR -mem var_name -deep N -v
 
 ### Demo1
 
