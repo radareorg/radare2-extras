@@ -2,12 +2,15 @@
 import r2pipe
 import argparse
 
+__author__ = "s0i37"
+__version__ = 0.10
 
 parser = argparse.ArgumentParser( description='static taint analysis' )
 parser.add_argument("-reg", action="append", default=[], help='taint register')
 parser.add_argument("-mem", action="append", default=[], help='taint memory')
 parser.add_argument("-deep", type=int, default=1, help='max analysis deep')
-parser.add_argument("-v", type=bool, default=False, help='verbose')
+parser.add_argument("-v", action="store_true", help='verbose')
+parser.add_argument("--version", action="store_true", help='show version')
 args = parser.parse_args()
 r2 = r2pipe.open()
 
@@ -334,13 +337,21 @@ def main(args):
 		#	break
 
 
-try:
-	main(args)
-except:
-	pass
+if __name__ == '__main__':
+	if args.version:
+		print __version__
+		exit()
+	if args.reg == [] and args.mem == []:
+		parser.print_help()
+		exit()
 
-if tainted:
-	for t in tainted:
-		print t
-else:
-	print "[-] no taint"
+	try:
+		main(args)
+	except:
+		pass
+
+	if tainted:
+		for t in tainted:
+			print t
+	else:
+		print "[-] no taint"
