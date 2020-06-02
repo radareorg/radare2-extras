@@ -128,7 +128,6 @@ class Emu:
 		self.init()
 		self.rip = r2.cmdj("arj")[EIP]
 		self.__idx = 0
-		pass
 
 	def __del__(self):
 		self.clean()
@@ -155,7 +154,6 @@ class Emu:
 		esil_trace_log = r2.cmd("dte").split('\n')
 		esil_trace_log = filter(lambda l:l!='', esil_trace_log)
 		self.__idx = int(esil_trace_log[-1][4:])
-		access = []
 		for esil_event in esil_trace_log:
 			if esil_event.startswith("%d." % self.__idx):
 				if esil_event.find("mem.read.data") != -1:
@@ -188,12 +186,6 @@ def get_rip():
 
 def set_rip(addr):
 	r2.cmd("s {addr}".format(addr=addr))
-
-def get_var(addr):
-	try:
-		return r2.cmd("afvR; afvW ~0x%x" % addr).split()[0]
-	except:
-		pass
 
 def get_flag_by_addr(addr):
 	return r2.cmdj("fdj @{addr}".format(addr=addr))
@@ -347,8 +339,10 @@ if __name__ == '__main__':
 
 	try:
 		main(args)
+	except KeyboardInterrupt:
+		print "[!] interrupted"
 	except:
-		pass
+		print "[!] something went wrong"
 
 	if tainted:
 		for t in tainted:
