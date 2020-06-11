@@ -30,12 +30,13 @@ static int disassemble(RAsm *a, RAsmOp *aop, const ut8 *buf, int len) {
 		// invalid instruction
 		return aop->size = 2;
 	}
-	ilen = (buf2-(const ut8*)bof);
-	if (*operands)
+	ilen = buf2 - (const ut8*)bof;
+	if (*operands) {
 		buf_asm = sdb_fmt ("%s %s", opcode, operands);
-	else
+	} else {
 		buf_asm = sdb_fmt ("%s", opcode);
-	r_str_rmch (buf_asm, '#');
+	}
+	r_str_replace_ch (buf_asm, '#', 0, 1);
 	r_asm_op_set_asm (aop, buf_asm);
 	aop->size = ilen;
 	return aop->size;
