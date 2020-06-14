@@ -17,7 +17,7 @@ evm:
 	cd p ; $(MAKE) anal_evm.$(LIBEXT)
 
 clean:
-	rm -f p/anal_a2.$(LIBEXT)
+	rm -f p/anal_ba2.$(LIBEXT)
 	rm -f p/anal_x86_bea.$(LIBEXT)
 	rm -f p/anal_m68k_net.$(LIBEXT)
 	rm -f p/anal_atombios.{$(LIBEXT),o}

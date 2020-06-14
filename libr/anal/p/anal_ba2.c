@@ -1,9 +1,6 @@
-/* radare - LGPL - Copyright 2013-2019 - pancake, dkreuter, astuder  */
+/* radare - LGPL - Copyright 2020 - Jerome-PS  */
 
-#include <string.h>
-#include <r_types.h>
 #include <r_lib.h>
-#include <r_asm.h>
 #include <r_anal.h>
 
 #include "../../asm/arch/ba2/ba2_disas.c"
@@ -28,8 +25,7 @@ static int ba2_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len, 
 		op->size = 0; 
 		return 0;
 	}
-	if (ret > 0) {
-	}else{
+	if (ret <= 0) {
 		return -1;
 	}
 	return op->size = ret;
@@ -89,9 +85,7 @@ static bool set_reg_profile(RAnal *anal) {
             "gpr fl  .1      132 0\n"
             "gpr mac .64     136 0\n";
 
-	int retval = r_reg_set_profile_string (anal->reg, p);
-
-	return retval;
+	return r_reg_set_profile_string (anal->reg, p);
 }
 
 static int archinfo(RAnal *anal, int q) {

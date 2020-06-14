@@ -52,7 +52,8 @@ atombios-install:
 	cp -f bin/p/bin_atombios.$(LIBEXT) $(R2PM_PLUGDIR)
 
 ba2-install:
-	echo "TODO!!!"
+	cp -f asm/p/asm_ba2.$(LIBEXT) $(R2PM_PLUGDIR)
+	cp -f anal/p/anal_ba2.$(LIBEXT) $(R2PM_PLUGDIR)
 
 bea-install:
 	cp -f asm/p/asm_x86_bea.$(LIBEXT) $(R2PM_PLUGDIR)
