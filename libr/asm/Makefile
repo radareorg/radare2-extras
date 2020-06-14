@@ -3,6 +3,9 @@ R2PM_PLUGDIR ?=$(HOME)/.config/radare2/plugins
 atombios:
 	cd p ; $(MAKE) asm_atombios.$(LIBEXT)
 
+ba2:
+	cd p ; $(MAKE) asm_ba2.$(LIBEXT)
+
 blackfin:
 	cd p ; $(MAKE) asm_blackfin.$(LIBEXT)
 
@@ -48,6 +51,7 @@ zyan-uninstall:
 	
 clean:
 	rm -f p/asm_x86_bea.$(LIBEXT)
+	rm -f p/asm_ba2.$(LIBEXT)
 	rm -f p/asm_x86_tab.$(LIBEXT)
 	rm -f p/asm_x86_olly.$(LIBEXT)
 	rm -f p/asm_m68k.$(LIBEXT)

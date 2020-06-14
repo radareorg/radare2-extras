@@ -1,5 +1,6 @@
 ARCHS=
 
+ARCHS+=ba2.mk
 ARCHS+=x86_bea.mk
 #ARCHS+=x86_im.mk
 ARCHS+=x86_simple.mk
