@@ -1,3 +1,6 @@
+ba2:
+	cd p ; $(MAKE) anal_ba2.$(LIBEXT)
+
 bea:
 	cd p ; $(MAKE) anal_x86_bea.$(LIBEXT)
 
@@ -14,6 +17,7 @@ evm:
 	cd p ; $(MAKE) anal_evm.$(LIBEXT)
 
 clean:
+	rm -f p/anal_a2.$(LIBEXT)
 	rm -f p/anal_x86_bea.$(LIBEXT)
 	rm -f p/anal_m68k_net.$(LIBEXT)
 	rm -f p/anal_atombios.{$(LIBEXT),o}

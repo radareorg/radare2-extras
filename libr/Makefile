@@ -9,6 +9,10 @@ atombios:
 	$(MAKE) -C anal atombios
 	$(MAKE) -C bin atombios
 
+ba2:
+	$(MAKE) -C asm ba2	
+	$(MAKE) -C anal ba2
+
 blackfin:
 	$(MAKE) -C asm blackfin
 
@@ -46,6 +50,9 @@ atombios-install:
 	cp -f asm/p/asm_atombios.$(LIBEXT) $(R2PM_PLUGDIR)
 	cp -f anal/p/anal_atombios.$(LIBEXT) $(R2PM_PLUGDIR)
 	cp -f bin/p/bin_atombios.$(LIBEXT) $(R2PM_PLUGDIR)
+
+ba2-install:
+	echo "TODO!!!"
 
 bea-install:
 	cp -f asm/p/asm_x86_bea.$(LIBEXT) $(R2PM_PLUGDIR)
