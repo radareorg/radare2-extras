@@ -798,6 +798,14 @@ static int ba2_decode_opcode(ut64 pc, const ut8 *bytes, int len, struct op_cmd *
 		strcpy(cmd->instr, "b.sb");
 		snprintf(cmd->operands, sizeof(cmd->operands), "0x%x(r%d), r%d", h, a, b);
 		if(esil){r_strbuf_appendf(esil, "r%d,0x%x,r%d,+,=[1]", b, h, a);}
+		if(anal){
+			anal->type = R_ANAL_OP_TYPE_STORE;
+//			anal->dst = r_anal_value_new ();
+//			anal->src[0] = r_anal_value_new ();
+			if(a==0){					// r0 is always 0
+				anal->ptr = h;
+			}
+		}
 		return 6;
 
 //#TODO: zero extend
@@ -809,6 +817,14 @@ static int ba2_decode_opcode(ut64 pc, const ut8 *bytes, int len, struct op_cmd *
 		strcpy(cmd->instr, "b.lbz");
 		snprintf(cmd->operands, sizeof(cmd->operands), "r%d, 0x%x(r%d)", d, h, a);
 		if(esil){r_strbuf_appendf(esil, "0x%x,r%d,+,[1],r%d,=", h, a, d);}
+		if(anal){
+			anal->type = R_ANAL_OP_TYPE_LOAD;
+//			anal->dst = r_anal_value_new ();
+//			anal->src[0] = r_anal_value_new ();
+			if(a==0){					// r0 is always 0
+				anal->ptr = h;
+			}
+		}
 		return 6;
 
 
@@ -819,7 +835,15 @@ static int ba2_decode_opcode(ut64 pc, const ut8 *bytes, int len, struct op_cmd *
 		int i = revbits(((bytes[2]&0x7F) << 24) | ((bytes[3]&0xFF) << 16) | ((bytes[4]&0xFF) <<  8) | ((bytes[5]&0xFF) <<  0), 31);
 		strcpy(cmd->instr, "b.sh");
 		snprintf(cmd->operands, sizeof(cmd->operands), "0x%x(r%d), r%d", i*2, a, b);
-		if(esil){r_strbuf_appendf(esil, "r%d,0x%x,r%d,+,=[2]", b, i, a);}
+		if(esil){r_strbuf_appendf(esil, "r%d,0x%x,r%d,+,=[2]", b, i*2, a);}
+		if(anal){
+			anal->type = R_ANAL_OP_TYPE_STORE;
+//			anal->dst = r_anal_value_new ();
+//			anal->src[0] = r_anal_value_new ();
+			if(a==0){					// r0 is always 0
+				anal->ptr = i*2;
+			}
+		}
 		return 6;
 		
 //#TODO: zero extend
@@ -830,7 +854,15 @@ static int ba2_decode_opcode(ut64 pc, const ut8 *bytes, int len, struct op_cmd *
 		int i = revbits(((bytes[2]&0x7F) << 24) | ((bytes[3]&0xFF) << 16) | ((bytes[4]&0xFF) <<  8) | ((bytes[5]&0xFF) <<  0), 31);
 		strcpy(cmd->instr, "b.lhz");
 		snprintf(cmd->operands, sizeof(cmd->operands), "r%d, 0x%x(r%d)", d, i*2, a);
-		if(esil){r_strbuf_appendf(esil, "0x%x,r%d,+,[2],r%d,=", i, a, d);}
+		if(esil){r_strbuf_appendf(esil, "0x%x,r%d,+,[2],r%d,=", i*2, a, d);}
+		if(anal){
+			anal->type = R_ANAL_OP_TYPE_LOAD;
+//			anal->dst = r_anal_value_new ();
+//			anal->src[0] = r_anal_value_new ();
+			if(a==0){					// r0 is always 0
+				anal->ptr = i*2;
+			}
+		}
 		return 6;
 
 //@instruction("bw.sw", "w(rA),rB", "0x8 11 BB BBBA AAAA 00ww wwww wwww wwww wwww wwww wwww wwww", "r{B},{w},r{A},+,=[4]")
@@ -845,7 +877,15 @@ static int ba2_decode_opcode(ut64 pc, const ut8 *bytes, int len, struct op_cmd *
 		}else{
 			snprintf(cmd->operands, sizeof(cmd->operands), "0x%x(r%d), r%d", w*4, a, b);
 		}
-		if(esil){r_strbuf_appendf(esil, "r%d,0x%x,r%d,+,=[4]", b, w, a);}
+		if(esil){r_strbuf_appendf(esil, "r%d,0x%x,r%d,+,=[4]", b, w*4, a);}
+		if(anal){
+			anal->type = R_ANAL_OP_TYPE_STORE;
+//			anal->dst = r_anal_value_new ();
+//			anal->src[0] = r_anal_value_new ();
+			if(a==0){					// r0 is always 0
+				anal->ptr = w*4;
+			}
+		}
 		return 6;
 
 //@instruction("bw.lwz", "rD,w(rA)", "0x8 11 DD DDDA AAAA 01ww wwww wwww wwww wwww wwww wwww wwww", "{w},r{A},+,[4],r{D},=")
@@ -855,9 +895,13 @@ static int ba2_decode_opcode(ut64 pc, const ut8 *bytes, int len, struct op_cmd *
 		int w = revbits(((bytes[2]&0x3F) << 24) | ((bytes[3]&0xFF) << 16) | ((bytes[4]&0xFF) <<  8) | ((bytes[5]&0xFF) <<  0), 30);
 		strcpy(cmd->instr, "b.lwz");
 		snprintf(cmd->operands, sizeof(cmd->operands), "r%d, 0x%x(r%d)", d, w*4, a);
-		if(esil){r_strbuf_appendf(esil, "0x%x,r%d,+,[4],r%d,=", w, a, d);}
+		if(esil){r_strbuf_appendf(esil, "0x%x,r%d,+,[4],r%d,=", w*4, a, d);}
 		if(anal){
-			anal->type = R_ANAL_OP_TYPE_MOV;
+//			anal->type = R_ANAL_OP_TYPE_MOV;
+			anal->type = R_ANAL_OP_TYPE_LOAD;
+			if(a==0){					// r0 is always 0
+				anal->ptr = w*4;
+			}
 		}
 		return 6;
 
@@ -871,6 +915,9 @@ static int ba2_decode_opcode(ut64 pc, const ut8 *bytes, int len, struct op_cmd *
 		if(esil){r_strbuf_appendf(esil, "0x%x,r%d,+,r%d,=", g, a, d);}
 		if(anal){
 			anal->type = R_ANAL_OP_TYPE_ADD;
+			if(a==0){					// r0 is always 0
+				anal->val = g;
+			}
 		}
 		return 6;
 
@@ -903,6 +950,11 @@ static int ba2_decode_opcode(ut64 pc, const ut8 *bytes, int len, struct op_cmd *
 		if(esil){r_strbuf_appendf(esil, "0x%x,r%d,|,r%d,=", h, a, d);}
 		if(anal){
 			anal->type = R_ANAL_OP_TYPE_OR;
+//			anal->dst = r_anal_value_new ();
+//			anal->src[0] = r_anal_value_new ();
+			if(a==0){					// r0 is always 0
+				anal->val = h;
+			}
 		}
 		return 6;
 
