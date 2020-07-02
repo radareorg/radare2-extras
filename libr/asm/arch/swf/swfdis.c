@@ -162,7 +162,7 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 		}
 		case SWFACTION_GETURL: {
 			char* url = (char*) buf+1;
-			sprintf (buf_asm, "%s %s", op.name, url);
+			snprintf (buf_asm, 1024,"%s %s", op.name, url);
 			dlen = strlen (url) + 2;
 			break;
 		}
@@ -203,7 +203,7 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 		}
 		case SWFACTION_SETTARGET: {
 			char* target = (char*) buf+1;
-			sprintf (buf_asm, "%s %s", op.name, target);
+			sprintf (buf_asm, 1024,"%s %s", op.name, target);
 			dlen = 1;
 			break;
 		}
