@@ -89,7 +89,7 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 				case 0: { /* String */
 					char* str = (char*) (buf+i);
 					i += strlen (str);
-					sprintf (name, "str: \"%s\"", str);
+					snprintf (name,strsize, "str: \"%s\"", str);
 					break;
 				}
 				case 1: { /* Floating point */
