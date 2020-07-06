@@ -222,7 +222,7 @@ int evm_dis(EvmOp *op, const unsigned char *buf, int buf_len) {
 	}
 	break;
 	default:
-		settxtf (op, "invalid");
+		settxtf (op, "unassigned");
 		op->len = 0;
 		break;
 	}
