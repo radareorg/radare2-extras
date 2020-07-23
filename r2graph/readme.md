@@ -22,20 +22,20 @@ w           webGL 3D graph
 
 	aGx - just printing
 
-(img/aGx.png)
+![](img/aGx.png)
 
 	aGxv - interactive ascii graph
 
-(img/aGxv.png)
+![](img/aGxv.png)
 
 ### Xrefs from graph:
 
 	aGcd - graphviz dot graph
 
-(img/aGcd.png)
+![](img/aGcd.png)
 
 ### Global calls graph:
 
 	aGCw - webGL 3D graph
 
-(img/aGCw.gif)
+![](img/aGCw.gif)
