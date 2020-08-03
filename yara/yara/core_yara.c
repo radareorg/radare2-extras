@@ -14,6 +14,7 @@
 static int initialized = false;
 
 static bool print_strings = 0;
+static unsigned int flagidx = 0;
 
 #if YR_MAJOR_VERSION < 4
 static int callback(int message, void* rule, void* data);
@@ -40,26 +41,33 @@ static RList* rules_list;
 
 #if YR_MAJOR_VERSION < 4
 static int callback (int message, void *msg_data, void *user_data) {
-	RPrint *print = (RPrint *)user_data;
+	RCore *core = (RCore *) user_data;
+	RPrint *print = core->print;
+	unsigned int ruleidx;
+
 	YR_RULE* rule = msg_data;
 
 	if (message == CALLBACK_MSG_RULE_MATCHING)
 	{
 		YR_STRING* string;
 		r_cons_printf("%s\n", rule->identifier);
+		ruleidx = 0;
+		yr_rule_strings_foreach(rule, string)
+		{
+			YR_MATCH* match;
 
-		if (print_strings) {
-			yr_rule_strings_foreach(rule, string)
+			yr_string_matches_foreach(string, match)
 			{
-				YR_MATCH* match;
-
-				yr_string_matches_foreach(string, match)
-				{
-					r_cons_printf("0x%08" PRIx64 ": %s : ", match->base + match->offset, string->identifier);
-					r_print_bytes(print, match->data, match->data_length, "%02x ");
+				const char *flag = sdb_fmt ("%s%d_%s_%d", "yara", flagidx, rule->identifier, ruleidx);
+				if (print_strings) {
+					r_cons_printf("0x%08" PRIx64 ": %s : ", match->base + match->offset, flag);
+					r_print_bytes(print, match->data, match->data_length, "%02x");
 				}
+				r_flag_set (core->flags, flag, match->base + match->offset, match->data_length);
+				ruleidx++;
 			}
 		}
+		flagidx++;
 	}
 	return CALLBACK_CONTINUE;
 }
@@ -71,26 +79,33 @@ static void compiler_callback(int error_level, const char* file_name,
 }
 #else
 static int callback (YR_SCAN_CONTEXT* context, int message, void *msg_data, void *user_data) {
-	RPrint *print = (RPrint *)user_data;
+	RCore *core = (RCore *) user_data;
+	RPrint *print = core->print;
+	unsigned int ruleidx;
+
 	YR_RULE* rule = msg_data;
 
 	if (message == CALLBACK_MSG_RULE_MATCHING)
 	{
 		YR_STRING* string;
 		r_cons_printf("%s\n", rule->identifier);
-
-		if (print_strings) {
-			yr_rule_strings_foreach(rule, string)
+		ruleidx = 0;
+		yr_rule_strings_foreach(rule, string)
+		{
+			YR_MATCH* match;
+			yr_string_matches_foreach(context, string, match)
 			{
-				YR_MATCH* match;
-
-				yr_string_matches_foreach(context, string, match)
-				{
-					r_cons_printf("0x%08" PRIx64 ": %s : ", match->base + match->offset, string->identifier);
-					r_print_bytes(print, match->data, match->data_length, "%02x ");
+				const char *flag = sdb_fmt ("%s%d_%s_%d", "yara", flagidx, rule->identifier, ruleidx);
+				if (print_strings) {
+					r_cons_printf("0x%08" PRIx64 ": %s : ", match->base + match->offset, flag);
+					r_print_bytes(print, match->data, match->data_length, "%02x");
 				}
+				r_flag_set (core->flags, flag, match->base + match->offset, match->data_length);
+				ruleidx++;
 			}
 		}
+		flagidx++;
+
 	}
 	return CALLBACK_CONTINUE;
 }
@@ -107,6 +122,8 @@ static int r_cmd_yara_scan(const RCore* core, const char* option) {
 	YR_RULES* rules;
 	void* to_scan;
 	int result;
+
+	r_flag_space_push (core->flags, "yara");
 	const unsigned int to_scan_size = r_io_size (core->io);
 
 	if (to_scan_size < 1) {
@@ -140,9 +157,8 @@ static int r_cmd_yara_scan(const RCore* core, const char* option) {
 	}
 
 	r_list_foreach (rules_list, rules_it, rules) {
-		yr_rules_scan_mem (rules, to_scan, to_scan_size, 0, callback, core->print, 0);
+		yr_rules_scan_mem (rules, to_scan, to_scan_size, 0, callback, (void *)core, 0);
 	}
-
 	free (to_scan);
 
 	return true;
@@ -482,6 +498,7 @@ static int r_cmd_yara_init(void *user, const char *cmd) {
 	yr_initialize ();
 	r_cmd_yara_load_default_rules (core);
 	initialized = true;
+	flagidx = 0;
 	return true;
 }
 
