@@ -743,7 +743,7 @@ static int nios_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *data, int len, R
 	return op->size;
 }
 
-static int set_reg_profile(RAnal *a) {
+static bool set_reg_profile(RAnal *a) {
 	const char *nios_reg_profile;
 
 	if (a->bits == 16) {
