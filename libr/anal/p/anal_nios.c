@@ -1,4 +1,4 @@
-/* nios plugin by hewittc at 2018 */
+/* nios plugin by hewittc at 2018-2020 */
 
 #include <string.h>
 
@@ -395,96 +395,80 @@ static int parse_insn(enum mach_attr mach, ut16 insn, struct insn_op **op, struc
 		f->B = f_B(insn);
 		f->A = f_A(insn);
 		break;
-
 	case FMT_Ri5:
 		f->op6 = f_op6(insn);
 		f->IMM5 = f_IMM5(insn);
 		f->A = f_A(insn);
 		break;
-
 	case FMT_Ri4:
 		f->op6 = f_op6(insn);
 		f->IMM4 = f_IMM4(insn);
 		f->A = f_A(insn);
 		break;
-
 	case FMT_RPi5:
 		f->op4 = f_op4(insn);
 		f->P = f_P(insn);
 		f->B = f_B(insn);
 		f->A = f_A(insn);
 		break;
-		
 	case FMT_Ri6:
 		f->op5 = f_op5(insn);
 		f->IMM6 = f_IMM6(insn);
 		f->A = f_A(insn);
 		break;
-		
 	case FMT_Ri8:
 		f->op3 = f_op3(insn);
 		f->IMM8 = f_IMM8(insn);
 		f->A = f_A(insn);
 		break;
-
 	case FMT_i9:
 		f->op6 = f_op6(insn);
 		f->IMM9 = f_IMM9(insn);
 		break;
-
 	case FMT_i10:
 		f->op6 = f_op6(insn);
 		f->IMM10 = f_IMM10(insn);
 		break;
-
 	case FMT_i11:
 		f->op5 = f_op5(insn);
 		f->IMM11 = f_IMM11(insn);
 		break;
-
 	case FMT_Ri1u:
 		f->op6 = f_op6(insn);
 		f->op3u = f_op3u(insn);
 		f->IMM1u = f_IMM1u(insn);
 		f->A = f_A(insn);
 		break;
-
 	case FMT_Ri2u:
 		f->op6 = f_op6(insn);
 		f->op3u = f_op3u(insn);
 		f->IMM2u = f_IMM2u(insn);
 		f->A = f_A(insn);
 		break;
-
 	case FMT_i8v:
 		f->op6 = f_op6(insn);
 		f->op2v = f_op2v(insn);
 		f->IMM8v = f_IMM8v(insn);
 		break;
-
 	case FMT_i6v:
 		f->op6 = f_op6(insn);
 		f->op2v = f_op2v(insn);
 		f->IMM6v = f_IMM6v(insn);
 		break;
-
 	case FMT_Rw:
 		f->op6 = f_op6(insn);
 		f->op5w = f_op5w(insn);
 		f->A = f_A(insn);
 		break;
-
 	case FMT_i4w:
 		f->op6 = f_op6(insn);
 		f->op5w = f_op5w(insn);
 		f->IMM4w = f_IMM4w(insn);
 		break;
-
 	case FMT_w:
 		f->op6 = f_op6(insn);
 		f->op5w = f_op5w(insn);
 		break;
-
 	default:
 		break;
 	}
