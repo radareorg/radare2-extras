@@ -17,7 +17,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
       with:
-        repository: radareorg/radare2
+        repository: zamaudio/radare2
+        ref: r2pm-gitmaster
         path: ./radare2
     - name: Install dependencies
       run: sudo apt-get --assume-yes install wget unzip python3-wheel python3-setuptools build-essential python3-pip && sudo pip3 install meson ninja
