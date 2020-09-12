@@ -68,7 +68,7 @@ typedef struct {
 
 
 int atombios_inst_len(const ut8 *buf);
-int atombios_disassemble(const ut8 *inbuf, char *outbuf);
+int atombios_disassemble(const ut8 *inbuf, int len, char *outbuf);
 const char *get_index (int type, int val);
 
 extern const char *align_source_esil[];

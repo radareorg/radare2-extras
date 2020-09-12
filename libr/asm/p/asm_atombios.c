@@ -9,7 +9,7 @@
 static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	char res[1024];
 	res[0] = 0;
-	op->size = atombios_disassemble (buf, res);
+	op->size = atombios_disassemble (buf, len, res);
 	r_strbuf_set (&op->buf_asm, res);
 	return op->size;
 }

@@ -155,11 +155,15 @@ atombios_ops_t atombios_ops[256] = {
 
 static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int len, RAnalOpMask unused) {
 	if (!op)
-		return 1;
+		return -1;
 	memset (op, 0, sizeof (RAnalOp));
 	op->nopcode = 1;
 	op->size = atombios_inst_len (b);
 	op->type = atombios_ops[*b].optype;
+	if (len < op->size) {
+		op->type = R_ANAL_OP_TYPE_ILL;
+		return -1;
+	}
 
 	if (*b > 0x7a) {
 		op->type = R_ANAL_OP_TYPE_ILL;
