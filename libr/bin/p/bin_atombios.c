@@ -50,8 +50,7 @@ static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *b, ut64 loadaddr,
 		if (!cmdtableoffs[i]) {
 			cmdtablesize[i] = 0;
 		} else {
-			cmdtablesize[i] = r_buf_read_le16_at (b, cmdtableoffs[i]) - 6;
-			cmdtableoffs[i] += 6;
+			cmdtablesize[i] = r_buf_read_le16_at (b, cmdtableoffs[i]);
 		}
 	}
 
@@ -60,8 +59,7 @@ static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *b, ut64 loadaddr,
 		if (!datatableoffs[i]) {
 			datatablesize[i] = 0;
 		} else {
-			datatablesize[i] = r_buf_read_le16_at (b, datatableoffs[i]) - 4;
-			datatableoffs[i] += 4;
+			datatablesize[i] = r_buf_read_le16_at (b, datatableoffs[i]);
 		}
 	}
 	return true;
@@ -106,8 +104,15 @@ static RList* symbols(RBinFile *bf) {
 	/* Data table symbols */
 	for (i = 0; i < N_TABLES_DATA; i++) {
 		if (datatablesize[i])
-			addsym (ret, index_data_table[i], datatableoffs[i], datatablesize[i]);
+			addsym (ret, index_data_table[i], datatableoffs[i] + 4, datatablesize[i] - 4);
 	}
+
+	/* Command table symbols */
+	for (i = 0; i < N_TABLES_CMD; i++) {
+		if (cmdtablesize[i])
+			addsym (ret, index_command_table[i], cmdtableoffs[i] + 6, cmdtablesize[i] - 6);
+	}
+
 	return ret;
 }
 
@@ -180,8 +185,8 @@ static RList* entries(RBinFile *arch) {
 	if (!(ptr = R_NEW0 (RBinAddr)))
 		return ret;
 
-	ptr->paddr = cmdtableoffs[0];
-	ptr->vaddr = cmdtableoffs[0];
+	ptr->paddr = cmdtableoffs[0] + 6;
+	ptr->vaddr = cmdtableoffs[0] + 6;
 	r_list_append(ret, ptr);
 
 	return ret;
