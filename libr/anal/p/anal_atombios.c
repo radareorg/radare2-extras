@@ -411,7 +411,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_AL;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->eob = true;
 			esilprintf (op, "0x%08x,pc,=", op->jump);
 		} break;
@@ -423,7 +423,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_EQ;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
 			esilprintf (op, "$z,?{,0x%08x,pc,=,}", op->jump);
@@ -436,7 +436,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_LT;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
 			esilprintf (op, "$of,$sf,!=,?{,0x%08x,pc,=,}", op->jump);
@@ -449,7 +449,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_GT;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
 			esilprintf (op, "$z,!,$of,$sf,==,&,?{,0x%08x,pc,=,}", op->jump);
@@ -462,7 +462,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_LE;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
 			esilprintf (op, "$z,$of,$sf,!=,|,?{,0x%08x,pc,=,}", op->jump);
@@ -475,7 +475,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_GE;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
 			esilprintf (op, "$of,$sf,==,?{,0x%08x,pc,=,}", op->jump);
@@ -488,7 +488,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_NE;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
 			esilprintf (op, "$z,!,?{,0x%08x,pc,=,}", op->jump);
