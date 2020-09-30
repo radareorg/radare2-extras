@@ -64,11 +64,6 @@ Radare2 Assembler Plugin for the Blackfin Architecture:
 	Limitations:
 	------------
 
-	Instructions may only be assembled one at a time (unless a valid parallel combination of up to
-	3 instructions is provided), and from the Radare2 console only. Assembling multiple sequential
-	instructions (e.g. separated by semi-colons and/or newlines) in one command is not supported, 
-	and assembling outside of Radare2 is not supported.
-
 	The assembler does not support line labels, function names, variables, or symbols of any kind. 
 	
 	This assembler has no macro capabilities or any other such advanced features.
@@ -2278,11 +2273,6 @@ static void display_assembler_limitations(void)
 	fprintf(stderr, 
 	"Limitations:\n"
 	"------------\n\n"
-
-	"Instructions may only be assembled one at a time (unless a valid parallel combination of up to\n"
-	"3 instructions is provided), and from the Radare2 console only. Assembling multiple sequential\n"
-	"instructions (e.g. separated by semi-colons and/or newlines) in one command is not supported, \n"
-	"and assembling outside of Radare2 is not supported.\n\n"
 
 	"The assembler does not support line labels, function names, variables, or symbols of any kind. \n\n"
 	
