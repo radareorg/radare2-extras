@@ -99,11 +99,6 @@ static int assemble(RAsm *a, RAsmOp *op, const char *buf)
 
 static bool init(void *user)
 {
-	if (user!=NULL)
-	{
-		display_assembler_notice();
-	}
-
 	return 0;
 }
 
