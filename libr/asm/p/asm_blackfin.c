@@ -9,32 +9,39 @@
 #include <r_asm.h>
 
 #include "blackfin/bfin-dis.c"
+#include "blackfin/bfin-asm.c"
 
 static unsigned long Offset = 0;
 static RStrBuf *buf_global = NULL;
-static unsigned char bytes[4];
+static unsigned char bytes[8]; // Allow for parallel combination of instructions: 4 bytes + 2 bytes + 2 bytes
 
-static int bfin_buffer_read_memory (bfd_vma memaddr, bfd_byte *myaddr, ut32 length, struct disassemble_info *info) {
-        memcpy (myaddr, bytes, length);
+static int bfin_buffer_read_memory (bfd_vma memaddr, bfd_byte *myaddr, ut32 length, struct disassemble_info *info) 
+{
+        memcpy (myaddr, bytes+memaddr-Offset, length);
         return 0;
 }
 
-static int symbol_at_address(bfd_vma addr, struct disassemble_info * info) {
+static int symbol_at_address(bfd_vma addr, struct disassemble_info * info) 
+{
         return 0;
 }
 
-static void memory_error_func(int status, bfd_vma memaddr, struct disassemble_info *info) {
+static void memory_error_func(int status, bfd_vma memaddr, struct disassemble_info *info) 
+{
         //--
 }
 
-static void print_address(bfd_vma address, struct disassemble_info *info) {
+
+static void print_address(bfd_vma address, struct disassemble_info *info) 
+{
         if (buf_global == NULL)
                 return;
         r_strbuf_appendf (buf_global, "0x%08"PFMT64x"", (ut64)address);
 }
 
 
-static int buf_fprintf(void *stream, const char *format, ...) {
+static int buf_fprintf(void *stream, const char *format, ...) 
+{
         va_list ap;
         if (buf_global == NULL)
                 return 0;
@@ -44,15 +51,17 @@ static int buf_fprintf(void *stream, const char *format, ...) {
         return 0;
 }
 
-static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
+static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) 
+{
         struct disassemble_info disasm_obj;
         r_strbuf_set (&op->buf_asm, "");
 	op->size = 4;
-        if (len<4)
+        if (len<2)
                 return -1;
         buf_global = &op->buf_asm;
         Offset = a->pc;
-        memcpy (bytes, buf, 4); // TODO handle thumb
+        if (len<8) memcpy (bytes, buf, len);
+	else memcpy (bytes, buf, 8);
 
         /* prepare disassembler */
         memset (&disasm_obj, '\0', sizeof (struct disassemble_info));
@@ -74,15 +83,39 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
         return op->size;
 }
 
+static int assemble(RAsm *a, RAsmOp *op, const char *buf) 
+{
+	ut8 hexbuf[8];
+	int oplen;
+
+	r_asm_op_init(op);
+
+	oplen=bfin_assemble(buf, (uint32_t)(a->pc), hexbuf);
+
+	r_asm_op_set_hexbuf(op, hexbuf, oplen);
+
+	return op->buf.len;
+}
+
+static bool init(void *user)
+{
+	if (user!=NULL)
+	{
+		display_assembler_notice();
+	}
+
+	return 0;
+}
+
 RAsmPlugin r_asm_plugin_blackfin = {
 	.name = "blackfin",
 	.arch = "blackfin",
 	.bits = 32,
 	.desc = "Blackfin Analog Devices",
-	.init = NULL,
+	.init = &init,
 	.fini = NULL,
 	.disassemble = &disassemble,
-	.assemble = NULL
+	.assemble = &assemble
 };
 
 #ifndef CORELIB
