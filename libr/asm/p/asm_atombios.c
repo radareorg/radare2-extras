@@ -7,7 +7,10 @@
 #include "../arch/atombios/atombios.h"
 
 static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
-	op->size = atombios_disassemble (buf, r_asm_op_get_asm (op));
+	char res[1024];
+	res[0] = 0;
+	op->size = atombios_disassemble (buf, len, res);
+	r_strbuf_set (&op->buf_asm, res);
 	return op->size;
 }
 

@@ -592,12 +592,16 @@ int atombios_inst_len(const ut8 *buf) {
 	return size;
 }
 
-int atombios_disassemble(const ut8 *inbuf, char *outbuf) {
+int atombios_disassemble(const ut8 *inbuf, int len, char *outbuf) {
 	const ut8 *d = inbuf;
 	ut8 size = 0;
 
 	if (optable[*d].process) {
 		size = optable[*d].process (d, outbuf);
+		if (size > len) {
+			sprintf (outbuf, "<truncated>");
+			size = 1;
+		}
 	} else {
 		sprintf (outbuf, "<unknown opcode> %02x", *d);
 		size = 1;

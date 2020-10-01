@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+  
+  pull_request:
+
+
+jobs:
+
+  build-extras:
+    name: Build radare2 extras and r2pipe
+    runs-on: ubuntu-latest
+    env:
+      TESTS: 'armthumb atombios baleful bcl ba2 blackfin blessr2 keystone-lib keystone lang-duktape mc6809 microblaze msil pcap ppcdisasm psosvm swf unicorn-lib unicorn vc4 x86udis x86bea x86tab x86olly x86zyan z80-nc'
+      R2PIPE_TESTS: 'r2pipe-go r2pipe-js r2pipe-py'
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        repository: zamaudio/radare2
+        ref: r2pm-gitmaster
+        path: ./radare2
+    - name: Install dependencies
+      run: sudo apt-get --assume-yes install wget unzip python3-wheel python3-setuptools build-essential python3-pip && sudo pip3 install meson ninja
+    - name: Install radare2
+      run: |
+        export PATH=$PATH:/usr/local/bin
+        meson --prefix=/usr --buildtype=release build && ninja -C build && sudo ninja -C build install
+      working-directory: radare2
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        path: ./radare2-extras
+    - name: Init r2pm
+      run: r2pm init
+    - name: Compile and install plugins
+      run: |
+        set -e
+        export R2PM_GITDIR=./
+        export R2PM_GITMASTER=`cd radare2-extras; git describe --always --all`
+        for p in $TESTS ; do
+          echo $p
+          r2pm -i $p
+        done
+        set +e
+    - name: Compile and install r2pipe
+      run: |
+        set -e
+        export R2PM_GITDIR=./
+        export R2PM_GITMASTER=`cd radare2-extras; git describe --always --all`
+        for p in $R2PIPE_TESTS ; do
+          echo $p
+          r2pm -i $p
+        done
+        set +e
+

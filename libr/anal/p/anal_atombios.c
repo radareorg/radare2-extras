@@ -8,8 +8,6 @@
 
 #include "../../asm/arch/atombios/atombios.h"
 
-#define R_IPI static
-
 typedef struct {
 	_RAnalOpType optype;
 	const char *reg;
@@ -155,66 +153,17 @@ atombios_ops_t atombios_ops[256] = {
 	[0xff] = { R_ANAL_OP_TYPE_ILL, NULL	}, // not implemented (reserved)
 };
 
-static int atombios_analyze_fns(RAnal *anal, ut64 start, ut64 end, int reftype, int depth) {
-	ut8 i;
-	const RList *sects;
-	char name[256] = {0};
-	char namesym[256] = {0};
-
-	if (!(sects = r_bin_get_sections(anal->binb.bin))) {
-		return 0;
-	}
-	for (i = 0; i < N_TABLES_CMD; i++) {
-		RBinSection *sect = (RBinSection *)r_list_get_n(sects, i);
-
-		if (!sect)
-			continue;
-		else if (!sect->paddr)
-			continue;
-
-		sprintf (name, "fcn.%s", index_command_table[i]);
-		r_anal_fcn_add(anal, sect->paddr, sect->size, name, R_ANAL_FCN_TYPE_FCN, NULL);
-
-		// Add locs for local data blocks:
-		// eg:
-		// 0x0000c236      5b             ret
-		// 0x0000c237      7a2600000000.  bindata  38 bytes
-		// ;end section
-
-		ut32 paddr = 0;
-		ut32 size = 0;
-		ut8 *buf = r_buf_get_at (anal->binb.bin->cur->buf, sect->paddr + sect->size - 1, NULL);
-		ut8 *orig = r_buf_get_at (anal->binb.bin->cur->buf, 0, NULL);
-		if (*buf == 0x5b) {
-			// No data here
-			continue;
-		} else {
-			// We have a data block at the end of the fcn.
-			while (r_read_le16(buf) != 0x7a5b) {
-				--buf;
-				++size;
-			}
-			if (buf - orig < sect->paddr) {
-				// WTF not in function
-				continue;
-			}
-			buf += 2;
-			--size;
-			paddr = buf - orig;
-			sprintf (namesym, "sym.%s", index_command_table[i]);
-			r_anal_fcn_add (anal, paddr, size, namesym, R_ANAL_FCN_TYPE_SYM, NULL);
-		}
-	}
-	return 0;
-}
-
-static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int len) {
+static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int len, RAnalOpMask unused) {
 	if (!op)
-		return 1;
+		return -1;
 	memset (op, 0, sizeof (RAnalOp));
 	op->nopcode = 1;
 	op->size = atombios_inst_len (b);
 	op->type = atombios_ops[*b].optype;
+	if (len < op->size) {
+		op->type = R_ANAL_OP_TYPE_ILL;
+		return -1;
+	}
 
 	if (*b > 0x7a) {
 		op->type = R_ANAL_OP_TYPE_ILL;
@@ -418,9 +367,8 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 
 	// op ds (imm data table)
 	case 0x7a:
-		{
-
-		} break;
+		op->size = 3;// + r_read_at_le16(b, 1);
+		break;
 
 	// op imm8
 	case 0x50:
@@ -463,7 +411,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_AL;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->eob = true;
 			esilprintf (op, "0x%08x,pc,=", op->jump);
 		} break;
@@ -475,7 +423,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_EQ;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
 			esilprintf (op, "$z,?{,0x%08x,pc,=,}", op->jump);
@@ -488,7 +436,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_LT;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
 			esilprintf (op, "$of,$sf,!=,?{,0x%08x,pc,=,}", op->jump);
@@ -501,7 +449,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_GT;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
 			esilprintf (op, "$z,!,$of,$sf,==,&,?{,0x%08x,pc,=,}", op->jump);
@@ -514,7 +462,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_LE;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
 			esilprintf (op, "$z,$of,$sf,!=,|,?{,0x%08x,pc,=,}", op->jump);
@@ -527,7 +475,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_GE;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
 			esilprintf (op, "$of,$sf,==,?{,0x%08x,pc,=,}", op->jump);
@@ -540,7 +488,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 				return op->size;
 			}
 			op->cond = R_ANAL_COND_NE;
-			op->jump = cursect->paddr - 6 + r_read_at_le16(b, 1);
+			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
 			esilprintf (op, "$z,!,?{,0x%08x,pc,=,}", op->jump);
@@ -892,7 +840,7 @@ static int archinfo(RAnal *anal, int query) {
 	}
 }
 
-static int set_reg_profile(RAnal *anal) {
+static bool set_reg_profile(RAnal *anal) {
 	const char *p =
 	"=PC    pc\n"
 	"=SP    sp\n"
@@ -1114,7 +1062,6 @@ RAnalPlugin r_anal_plugin_atombios = {
 	.arch = "atombios",
 	.bits = 32 | 64,
 	.op = &atombios_op,
-	.analyze_fns = atombios_analyze_fns,
 	.archinfo = archinfo,
 };
 
