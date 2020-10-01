@@ -746,7 +746,6 @@ print_insn_nios (bfd_vma pc, disassemble_info *info)
   if (! cd)
     {
       const bfd_arch_info_type *arch_type = bfd_lookup_arch (arch, mach);
-      //const bfd_arch_info_type *arch_type = &bfd_nios_arch;
       const char *mach_name;
 
       if (!arch_type)

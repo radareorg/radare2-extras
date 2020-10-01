@@ -47,6 +47,7 @@ env:
   - TESTS="r2pm -i mc6809"
   - TESTS="r2pm -i microblaze && cd radare2/test && make microblaze && cd ../.."
   - TESTS="r2pm -i msil"
+  - TESTS="r2pm -i nios"
   - TESTS="r2pm -i pcap"
   - TESTS="r2pm -i ppcdisasm"
   - TESTS="r2pm -i psosvm"
