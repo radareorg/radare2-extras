@@ -3,6 +3,9 @@ R2PM_PLUGDIR ?=$(HOME)/.config/radare2/plugins
 atombios:
 	cd p ; $(MAKE) asm_atombios.$(LIBEXT)
 
+spc700:
+	cd p ; $(MAKE) asm_spc700.$(LIBEXT)
+
 ba2:
 	cd p ; $(MAKE) asm_ba2.$(LIBEXT)
 
@@ -50,14 +53,6 @@ zyan-uninstall:
 	$(RM) $(R2PM_PLUGDIR)/asm_x86_zyan.$(LIBEXT)
 	
 clean:
-	rm -f p/asm_x86_bea.$(LIBEXT)
-	rm -f p/asm_ba2.$(LIBEXT)
-	rm -f p/asm_x86_tab.$(LIBEXT)
-	rm -f p/asm_x86_olly.$(LIBEXT)
-	rm -f p/asm_m68k.$(LIBEXT)
-	rm -f p/asm_x86_zyan.$(LIBEXT)
-	rm -f p/asm_atombios.{$(LIBEXT),o}
-	rm -f arch/atombios/atombios.o
-	rm -f p/asm_nios.$(LIBEXT)
+	rm -f p/*.$(LIBEXT) p/*.o
 
 include ../../options.mk

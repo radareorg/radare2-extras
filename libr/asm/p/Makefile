@@ -1,6 +1,7 @@
 ARCHS=
 
 ARCHS+=x86_udis.mk
+ARCHS+=spc700.mk
 ARCHS+=ba2.mk
 ARCHS+=x86_olly.mk
 ARCHS+=x86_tab.mk

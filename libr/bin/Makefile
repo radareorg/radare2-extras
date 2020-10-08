@@ -1,6 +1,9 @@
 bea:
 	cd p ; $(MAKE) bin_dlang.$(LIBEXT)
 
+spc700:
+	cd p ; $(MAKE) bin_spc700.$(LIBEXT)
+
 swf:
 	cd p ; $(MAKE) bin_swf.$(LIBEXT)
 
