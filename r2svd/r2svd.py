@@ -5,11 +5,20 @@
 import json
 import sys
 import math
+import os.path
 import pkg_resources
 from cmsis_svd.parser import SVDParser
 
 argc = len(sys.argv)
-if argc != 3:
+
+args_ok = False
+if argc == 2 and os.path.isfile(sys.argv[1]):
+	args_ok = True
+	
+if argc == 3:
+	args_ok = True
+
+if not args_ok:
 	try:
 		if argc == 1:
 			vendors = pkg_resources.resource_listdir("cmsis_svd", "data")
@@ -24,17 +33,31 @@ if argc != 3:
 		sys.exit(1)
 	sys.exit(0)
 
+def filter_name(n):
+	n = n.replace(' ', '')
+	n = n.replace('/', '')
+	n = n.replace('(', '')
+	n = n.replace(')', '')
+	return n
 
-mcu = sys.argv[1] # Freescale
-svd = sys.argv[2] # MK20D7.svd
+svdfile = sys.argv[1]
+if os.path.isfile(svdfile):
+	parser = SVDParser.for_xml_file(svdfile)
+else:
+	mcu = sys.argv[1] # Freescale
+	svd = sys.argv[2] # MK20D7.svd
+	parser = SVDParser.for_packaged_svd(mcu, svd)
 
-parser = SVDParser.for_packaged_svd(mcu, svd)
 svd_dict = parser.get_device().to_dict()
 for p in svd_dict['peripherals']:
 	addr = p['base_address']
-	size = p['address_block']['size'] / 8
-	print("CC %s @ 0x%x"%(p['description'], addr))
-	print("f %s %d 0x%x"%(p['name'], size, addr))
+	try:
+		size = p['address_block']['size'] / 8
+	except:
+		size = 4
+	name = filter_name(p['name'])
+	print("\"CC %s @ 0x%x\""%(p['description'], addr))
+	print("f %s %d 0x%x"%(name, size, addr))
 	s = ""
 	for r in p['registers']:
 		offs = int(r['address_offset'])
@@ -42,8 +65,8 @@ for p in svd_dict['peripherals']:
 		bt = (offs % 8)
 		s += " " + r['name']
 		if at != addr:
-			print("f %s.%s %d 0x%x"%(p['name'], r['name'], size, at))
+			print("f %s.%s %d 0x%x"%(name, r['name'], size, at))
 		# print("   0x%x %d %s"%(at, bt, r['name']))
-	print("CC (%s) @ 0x%x"%(s, addr))
+	print("\"CC (%s) @ 0x%x\""%(s, addr))
 
 # print(json.dumps(svd_dict, sort_keys=True, indent=4, separators=(',', ': ')))
