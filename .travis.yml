@@ -39,7 +39,7 @@ env:
 #  - TESTS="r2pm -i bpf" [BR] https://travis-ci.org/radareorg/radare2-extras/builds/157522362
 #  - TESTS="r2pm -i dlang" [BR] https://travis-ci.org/radareorg/radare2-extras/builds/157522362
 # ONLY FOR LINUX  - TESTS="r2pm -i dirtycow"
-  - TESTS="r2pm -i lang-duktape"
+  - TESTS="r2pm -i rlang-duktape"
 # - TESTS="git clone git://git.code.sf.net/p/libdwarf/code libdwarf-code && cd libdwarf-code && ./configure && make && cd .. && r2pm -i dwarf-parser && cd radare2-regressions && ./r2r dwarf && cd .. && r2pm -u libdwarf && rm -rf libdwarf-code" #need to remove libdwarf? or travis destroys the vm so no issue in that?
 #  - TESTS="r2pm -i r2frida"
 #  - TESTS="r2pm -i io-ewf" # https://github.com/travis-ci/apt-package-whitelist/issues/3205
