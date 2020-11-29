@@ -40,7 +40,7 @@ RAsmPlugin r_asm_plugin_armthumb = {
 //	.assemble = &assemble 
 };
 
-#ifndef CORELIB
+#ifndef R2_PLUGIN_INCORE
 RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_ASM,
 	.data = &r_asm_plugin_armthumb,
