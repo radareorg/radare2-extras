@@ -683,7 +683,8 @@ static int analop(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len, RAn
 		return -1;
 	}
 	ut32 n = r_read_le32 (buf);
-	FailureCodes fc = aarch64_decompose (n, &insn, addr);
+	// FailureCodes fc = aarch64_decompose (n, &insn, addr);
+	int fc = aarch64_decompose (n, &insn, addr);
 	if (fc != DISASM_SUCCESS) {
 		return -1;
 	}
