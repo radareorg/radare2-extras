@@ -4,9 +4,15 @@
 #include <r_lib.h>
 #include <ht_uu.h>
 #include <r_util/r_assert.h>
+#if 0
 #include "../../asm/arch/arm/v35arm64/disassembler/encodings.h"
 #include "../../asm/arch/arm/v35arm64/disassembler/operations.h"
 #include "../../asm/arch/arm/v35arm64/disassembler/arm64dis.h"
+#else
+#include "encodings.h"
+#include "operations.h"
+#include "arm64dis.h"
+#endif
 
 
 #define esilprintf(op, fmt, ...) r_strbuf_setf (&op->esil, fmt, ##__VA_ARGS__)

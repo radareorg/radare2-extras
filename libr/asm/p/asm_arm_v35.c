@@ -3,9 +3,9 @@
 #include <r_asm.h>
 #include <r_lib.h>
 
-#include "../arch/arm/v35arm64/disassembler/operations.h"
-#include "../arch/arm/v35arm64/disassembler/encodings.h"
-#include "../arch/arm/v35arm64/disassembler/arm64dis.h"
+#include "operations.h"
+#include "encodings.h"
+#include "arm64dis.h"
 
 static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	Instruction inst = {0};
@@ -15,7 +15,8 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 		return -1;
 	}
 	ut32 n = r_read_le32 (buf);
-	FailureCodes fc = aarch64_decompose (n, &inst, a->pc);
+	// FailureCodes 
+	int fc = aarch64_decompose (n, &inst, a->pc);
 	if (fc != DISASM_SUCCESS) {
 		return -1;
 	}
