@@ -1,6 +1,9 @@
 ba2:
 	cd p ; $(MAKE) anal_ba2.$(LIBEXT)
 
+arm64v35:
+	cd p ; $(MAKE) anal_arm_v35.$(LIBEXT)
+
 bea:
 	cd p ; $(MAKE) anal_x86_bea.$(LIBEXT)
 

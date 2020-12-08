@@ -12,7 +12,7 @@ DIRS+=libr/anal/p
 endif
 
 help:
-	@echo "Usage make [target]   .. Targets:"
+	@echo "Usage make [target] .. Targets:"
 	@echo "  all                - build everything"
 	@echo "  baleful            - build baleful r2 plugin"
 	@echo "  asm                - build armthumb, ppc, psosvm, x86bea, m68k plugins"
@@ -24,6 +24,12 @@ help:
 	@echo "  (target)-install   - install given plugin"
 	@echo "  (target)-clean     - clean given plugin"
 
+arm64v35:
+	$(MAKE) -C libr/asm arm64v35
+	$(MAKE) -C libr/anal arm64v35
+
+arm64v35-install:
+	cp -f libr/{asm,anal}/p/asm*v35.$(LIBEXT) $(R2PM_PLUGDIR)
 
 #	@echo "  install-yara{2,3}  - install Yara 2 or 3 from Git"
 

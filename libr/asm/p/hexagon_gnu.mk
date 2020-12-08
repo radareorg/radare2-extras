@@ -5,7 +5,7 @@ OBJ_HEXAGON_GNU+=../arch/hexagon/gnu/safe-ctype.o
 
 STATIC_OBJ+=${OBJ_HEXAGON_GNU}
 
-TARGET_HEXAGON_GNU=asm_hexagon_gnu.${EXT_SO}
+TARGET_HEXAGON_GNU=asm_hexagon_gnu.${LIBEXT}
 ifeq ($(WITHPIC),1)
 ALL_TARGETS+=${TARGET_HEXAGON_GNU}
 
