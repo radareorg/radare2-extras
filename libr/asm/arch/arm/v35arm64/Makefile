@@ -8,11 +8,11 @@ all: disassembler
 	$(MAKE) arm64dis.a
 
 disassembler: arch-arm64
-	cd arch-arm64 && git pull
+	-cd arch-arm64 && git pull
 	cp -rf arch-arm64/disassembler disassembler
 
 arch-arm64:
-	-git clone https://github.com/Vector35/arch-arm64
+	git clone https://github.com/Vector35/arch-arm64
 
 arm64dis.a: $(ALIBS)
 	rm -f arm64dis.a
