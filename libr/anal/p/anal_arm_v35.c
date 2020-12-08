@@ -3,13 +3,10 @@
 #include <r_anal.h>
 #include <r_lib.h>
 #include <ht_uu.h>
-#include <arm.h>
-#include <capstone.h>
-#include <arm.h>
 #include <r_util/r_assert.h>
-#include "./anal_arm_hacks.inc"
-#include "../../asm/arch/arm/v35arm64/arm64dis.h"
-#include "../../asm/arch/arm/v35arm64/arm64dis.c"
+#include "../../asm/arch/arm/v35arm64/disassembler/encodings.h"
+#include "../../asm/arch/arm/v35arm64/disassembler/operations.h"
+#include "../../asm/arch/arm/v35arm64/disassembler/arm64dis.h"
 
 
 #define esilprintf(op, fmt, ...) r_strbuf_setf (&op->esil, fmt, ##__VA_ARGS__)
@@ -35,53 +32,6 @@ static void set_opdir(RAnalOp *op) {
 	default:
 		break;
         }
-}
-
-static void op_fillval(RAnalOp *op , csh handle, cs_insn *insn, int bits) {
-	//create_src_dst (op);
-	switch (op->type & R_ANAL_OP_TYPE_MASK) {
-	case R_ANAL_OP_TYPE_MOV:
-	case R_ANAL_OP_TYPE_CMP:
-	case R_ANAL_OP_TYPE_ADD:
-	case R_ANAL_OP_TYPE_SUB:
-	case R_ANAL_OP_TYPE_MUL:
-	case R_ANAL_OP_TYPE_DIV:
-	case R_ANAL_OP_TYPE_SHR:
-	case R_ANAL_OP_TYPE_SHL:
-	case R_ANAL_OP_TYPE_SAL:
-	case R_ANAL_OP_TYPE_SAR:
-	case R_ANAL_OP_TYPE_OR:
-	case R_ANAL_OP_TYPE_AND:
-	case R_ANAL_OP_TYPE_XOR:
-	case R_ANAL_OP_TYPE_NOR:
-	case R_ANAL_OP_TYPE_NOT:
-	case R_ANAL_OP_TYPE_LOAD:
-	case R_ANAL_OP_TYPE_LEA:
-	case R_ANAL_OP_TYPE_ROR:
-	case R_ANAL_OP_TYPE_ROL:
-	case R_ANAL_OP_TYPE_CAST:
-#if 0
-		set_src_dst (op->src[2], &handle, insn, 3, bits);
-		set_src_dst (op->src[1], &handle, insn, 2, bits);
-		set_src_dst (op->src[0], &handle, insn, 1, bits);
-		set_src_dst (op->dst, &handle, insn, 0, bits);
-		break;
-	case R_ANAL_OP_TYPE_STORE:
-		set_src_dst (op->dst, &handle, insn, 1, bits);
-		set_src_dst (op->src[0], &handle, insn, 0, bits);
-#endif
-		break;
-	default:
-		break;
-	}
-#if 0
-	if ((bits == 64) && HASMEMINDEX64 (1)) {
-		op->ireg = r_str_get (cs_reg_name (handle, INSOP64 (1).mem.index));
-	} else if (HASMEMINDEX (1)) {
-		op->ireg = r_str_get (cs_reg_name (handle, INSOP (1).mem.index));
-		op->scale = INSOP (1).mem.scale;
-	}
-#endif
 }
 
 static int opanal(RAnal *a, RAnalOp *op, Instruction *insn) {
@@ -760,25 +710,6 @@ static int analop(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len, RAn
 	// this can be moved into op.c
 	set_opdir (op);
 	return 4;
-
-	
-
-#if 0
-	int haa = hackyArmAnal (a, op, buf, len);
-	if (haa > 0) {
-		return haa;
-	}
-		if (mask & R_ANAL_OP_MASK_VAL) {
-			op_fillval (op, handle, insn, a->bits);
-		}
-
-	if (mask & R_ANAL_OP_MASK_OPEX) {
-		opex64 (&op->opex, handle, insn);
-	}
-	if (mask & R_ANAL_OP_MASK_ESIL) {
-		analop64_esil (a, op, addr, buf, len, &handle, insn);
-	}
-#endif
 }
 
 static char *get_reg_profile(RAnal *anal) {
@@ -1189,7 +1120,6 @@ static int archinfo(RAnal *anal, int q) {
 	}
 	return 4; // XXX
 }
-
 
 static RList *anal_preludes(RAnal *anal) {
 	RList *l = r_list_newf (r_search_keyword_free);
