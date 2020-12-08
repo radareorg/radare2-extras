@@ -12,7 +12,7 @@ jobs:
     name: Build radare2 extras and r2pipe
     runs-on: ubuntu-latest
     env:
-      TESTS: 'armthumb atombios baleful bcl ba2 blackfin blessr2 keystone-lib keystone rlang-duktape mc6809 microblaze msil pcap ppcdisasm psosvm swf unicorn-lib unicorn vc4 x86udis x86bea x86tab x86olly x86zyan z80-nc'
+      TESTS: 'arm64v35 armthumb atombios baleful bcl ba2 blackfin blessr2 keystone-lib keystone rlang-duktape mc6809 microblaze msil pcap ppcdisasm psosvm swf unicorn-lib unicorn vc4 x86udis x86bea x86tab x86olly x86zyan z80-nc'
       R2PIPE_TESTS: 'r2pipe-go r2pipe-js r2pipe-py'
     steps:
     - uses: actions/checkout@v2
