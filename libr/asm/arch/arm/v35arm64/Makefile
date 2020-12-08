@@ -1,5 +1,3 @@
-include ../../../../config.mk
-
 include deps.mk
 
 CFLAGS+=$(ARM64V35_CFLAGS)
