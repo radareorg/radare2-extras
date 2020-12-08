@@ -1,4 +1,4 @@
-PKGNAME radare2-keystone
+PKGNAME rizin-keystone
 VERSION 0.1
 CONTACT pancake ; pancake@nopcode.org
 
@@ -7,6 +7,6 @@ LANG_CXX!
 
 
 CHKLIB! keystone
-PKGCFG! R2_CFLAGS R2_LDFLAGS r_asm
+PKGCFG! RZ_CFLAGS RZ_LDFLAGS rz_asm
 
 SUBDIRS ./config.mk ;

@@ -1,13 +1,13 @@
-radare2-keystone
+rizin-keystone
 ================
 
 This repository contains the source code for the keystone
-assembler plugins for radare2.
+assembler plugins for rizin.
 
 How to install
 --------------
 
-The plugins will be installed at ~/.config/radare2/plugins
+The plugins will be installed at ~/.config/rizin/plugins
 
 	$ make
 	$ make install
@@ -19,7 +19,7 @@ To uninstall them just:
 How to use it?
 --------------
 
-	$ rasm2 -L | grep .ks
+	$ rz-asm -L | grep .ks
 	a___  16 32 64   arm.ks      BSD     ARM keystone assembler
 	a___  32         hexagon.ks  BSD     Hexagon keystone assembler
 	a___  16 32 64   mips.ks     BSD     MIPS keystone assembler
@@ -28,5 +28,5 @@ How to use it?
 	a___  32         sysz.ks     BSD     SystemZ keystone assembler (S390X)
 	a___  16 32 64   x86.ks      BSD     x86 keystone assembler
 
-	$ rasm2 -a x86.ks -b 32 int3
+	$ rz-asm -a x86.ks -b 32 int3
 	cc

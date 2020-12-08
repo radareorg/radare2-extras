@@ -4,7 +4,7 @@ static void *oldcur = NULL;
 static ks_engine *ks = NULL;
 static int oldbit = 0;
 
-static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch, ks_mode mode) {
+static int keystone_assemble(RzAsm *a, RzAsmOp *ao, const char *str, ks_arch arch, ks_mode mode) {
 	ks_err err = KS_ERR_ARCH;
 	bool must_init = false;
 	size_t count, size;
@@ -43,7 +43,7 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 		}
 		return -1;
 	}
-	if (a->syntax == R_ASM_SYNTAX_ATT) {
+	if (a->syntax == RZ_ASM_SYNTAX_ATT) {
 		ks_option (ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_ATT);
 	} else {
 		ks_option (ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_NASM);

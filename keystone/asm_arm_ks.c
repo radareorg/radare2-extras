@@ -1,7 +1,7 @@
 /* radare2-keystone - GPL - Copyright 2016 - pancake */
 
-#include <r_asm.h>
-#include <r_lib.h>
+#include <rz_asm.h>
+#include <rz_lib.h>
 #include <keystone/keystone.h>
 #include <keystone/arm.h>
 #include "keystone.c"
@@ -25,7 +25,7 @@ static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 	return keystone_assemble (a, ao, str, arch, mode);
 }
 
-RAsmPlugin r_asm_plugin_arm_ks = {
+RzAsmPlugin rz_asm_plugin_arm_ks = {
 	.name = "arm.ks",
 	.desc = "ARM keystone assembler",
 	.license = "GPL",
@@ -35,9 +35,9 @@ RAsmPlugin r_asm_plugin_arm_ks = {
 };
 
 #ifndef CORELIB
-RLibStruct radare_plugin = {
-	.type = R_LIB_TYPE_ASM,
-	.data = &r_asm_plugin_arm_ks,
-	.version = R2_VERSION
+RzLibStruct rizin_plugin = {
+	.type = RZ_LIB_TYPE_ASM,
+	.data = &rz_asm_plugin_arm_ks,
+	.version = RZ_VERSION
 };
 #endif

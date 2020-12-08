@@ -1,7 +1,7 @@
 /* radare2-keystone - GPL - Copyright 2016 - pancake */
 
-#include <r_asm.h>
-#include <r_lib.h>
+#include <rz_asm.h>
+#include <rz_lib.h>
 #include <keystone/keystone.h>
 #include <keystone/mips.h>
 #include "keystone.c"
@@ -25,7 +25,7 @@ static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 	return keystone_assemble (a, ao, str, KS_ARCH_MIPS, mode);
 }
 
-RAsmPlugin r_asm_plugin_mips_ks = {
+RzAsmPlugin rz_asm_plugin_mips_ks = {
 	.name = "mips.ks",
 	.desc = "MIPS keystone assembler",
 	.license = "GPL",
@@ -35,9 +35,9 @@ RAsmPlugin r_asm_plugin_mips_ks = {
 };
 
 #ifndef CORELIB
-struct r_lib_struct_t radare_plugin = {
-	.type = R_LIB_TYPE_ASM,
-	.data = &r_asm_plugin_mips_ks,
-	.version = R2_VERSION
+struct rz_lib_struct_t rizin_plugin = {
+	.type = RZ_LIB_TYPE_ASM,
+	.data = &rz_asm_plugin_mips_ks,
+	.version = RZ_VERSION
 };
 #endif
