@@ -4,9 +4,9 @@
 #include <rz_lib.h>
 #include <keystone/keystone.h>
 #include <keystone/arm.h>
-#include "keystone.c"
+#include "keystone_priv.h"
 
-static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
+static int assemble(RzAsm *a, RzAsmOp *ao, const char *str) {
 	ks_arch arch = KS_ARCH_ARM;
 	ks_mode mode = KS_MODE_ARM;
 	switch (a->bits) {
@@ -25,13 +25,17 @@ static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 	return keystone_assemble (a, ao, str, arch, mode);
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 RzAsmPlugin rz_asm_plugin_arm_ks = {
 	.name = "arm.ks",
+	.arch = "arm",
 	.desc = "ARM keystone assembler",
 	.license = "GPL",
-	.arch = "arm",
 	.bits = 16|32|64,
-	.assemble = &assemble,
+	.assemble = &assemble
 };
 
 #ifndef CORELIB
@@ -40,4 +44,8 @@ RzLibStruct rizin_plugin = {
 	.data = &rz_asm_plugin_arm_ks,
 	.version = RZ_VERSION
 };
+#endif
+
+#ifdef __cplusplus
+}
 #endif
