@@ -3,22 +3,26 @@
 #include <rz_asm.h>
 #include <rz_lib.h>
 #include <keystone/keystone.h>
-#include <keystone/systemz.h>
-#include "keystone.c"
+#include <keystone/hexagon.h>
+#include "keystone_priv.h"
 
-static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
+static int assemble(RzAsm *a, RzAsmOp *ao, const char *str) {
 	ks_mode mode = (ks_mode)0;
 	if (a->big_endian) {
 		mode = (ks_mode)((int)mode | KS_MODE_BIG_ENDIAN);
 	}
-	return keystone_assemble (a, ao, str, KS_ARCH_SYSTEMZ, mode);
+	return keystone_assemble (a, ao, str, KS_ARCH_HEXAGON, mode);
 }
 
-RzAsmPlugin rz_asm_plugin_sysz_ks = {
-	.name = "sysz.ks",
-	.desc = "SystemZ keystone assembler (S390X)",
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+RzAsmPlugin rz_asm_plugin_hexagon_ks = {
+	.name = "hexagon.ks",
+	.arch = "hexagon",
+	.desc = "Hexagon keystone assembler",
 	.license = "GPL",
-	.arch = "sysz",
 	.bits = 32,
 	.assemble = &assemble,
 };
@@ -26,7 +30,11 @@ RzAsmPlugin rz_asm_plugin_sysz_ks = {
 #ifndef CORELIB
 struct rz_lib_struct_t rizin_plugin = {
 	.type = RZ_LIB_TYPE_ASM,
-	.data = &rz_asm_plugin_sysz_ks,
+	.data = &rz_asm_plugin_hexagon_ks,
 	.version = RZ_VERSION
 };
+#endif
+
+#ifdef __cplusplus
+}
 #endif

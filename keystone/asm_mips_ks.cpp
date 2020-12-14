@@ -4,9 +4,9 @@
 #include <rz_lib.h>
 #include <keystone/keystone.h>
 #include <keystone/mips.h>
-#include "keystone.c"
+#include "keystone_priv.h"
 
-static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
+static int assemble(RzAsm *a, RzAsmOp *ao, const char *str) {
 	ks_mode mode;
 	switch (a->bits) {
 	case 16:
@@ -25,11 +25,15 @@ static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 	return keystone_assemble (a, ao, str, KS_ARCH_MIPS, mode);
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 RzAsmPlugin rz_asm_plugin_mips_ks = {
 	.name = "mips.ks",
+	.arch = "mips",
 	.desc = "MIPS keystone assembler",
 	.license = "GPL",
-	.arch = "mips",
 	.bits = 16|32|64,
 	.assemble = &assemble,
 };
@@ -40,4 +44,8 @@ struct rz_lib_struct_t rizin_plugin = {
 	.data = &rz_asm_plugin_mips_ks,
 	.version = RZ_VERSION
 };
+#endif
+
+#ifdef __cplusplus
+}
 #endif

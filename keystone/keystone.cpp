@@ -1,10 +1,14 @@
 /* radare2-keystone - GPL - Copyright 2016 - pancake */
 
+#include <rz_asm.h>
+#include <rz_lib.h>
+#include <keystone/keystone.h>
+
 static void *oldcur = NULL;
 static ks_engine *ks = NULL;
 static int oldbit = 0;
 
-static int keystone_assemble(RzAsm *a, RzAsmOp *ao, const char *str, ks_arch arch, ks_mode mode) {
+RZ_IPI int keystone_assemble(RzAsm *a, RzAsmOp *ao, const char *str, ks_arch arch, ks_mode mode) {
 	ks_err err = KS_ERR_ARCH;
 	bool must_init = false;
 	size_t count, size;
@@ -58,7 +62,7 @@ static int keystone_assemble(RzAsm *a, RzAsmOp *ao, const char *str, ks_arch arc
 		}
 		return -1;
 	}
-	r_asm_op_set_buf (ao, insn, size);
+	rz_asm_op_set_buf (ao, insn, size);
 	ks_free (insn);
 	if (ks) {
 		ks_close (ks);
