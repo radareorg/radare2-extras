@@ -8,6 +8,9 @@ CFLAGS+=-Igpu/wrap
 all: gpu
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -fPIC asm_asahi.c -o asm_asahi.$(R2_LIBEXT)
 
+mrproper clean:
+	rm -f *.$(R2_LIBEXT)
+
 gpu:
 	git clone https://github.com/AsahiLinux/gpu
 
