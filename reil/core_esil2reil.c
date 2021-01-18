@@ -46,6 +46,7 @@ static int mycall(void *user, const char *input) {
 
 RCorePlugin r_core_plugin_esil2reil = {
 	.name = "esil2reil",
+	.author = "sushant",
 	.desc = "convert ESIL expressions into REIL",
 	.license = "BSD",
 	.call = mycall,

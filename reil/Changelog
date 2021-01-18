@@ -1,0 +1,262 @@
+commit 4a1a624318704778f784b9d888580f26036f4a46
+Author: Lazula <26179473+Lazula@users.noreply.github.com>
+Date:   Thu Dec 17 15:24:27 2020 -0600
+
+    Clean up r_num ##util ##refactor (#18049)
+    
+    * Fix function spacing for r_num functions
+    * Remove r_num_ntohs
+    * Rename r_num_to_trits to r_num_to_ternary for
+      consistency with surrounding code
+    * Rename trits to ternary in other files
+    * Fix spacing in test_contrbtree.c
+
+commit aaccc098285b224b4f9ae4a053bda8c62f677b3f
+Author: Anton Kochkov <xvilka@gmail.com>
+Date:   Mon Nov 9 14:02:25 2020 +0800
+
+    Variadic argument fixes
+
+commit 8903071055bea14e08f8c66a36e2f1bbfdff831a
+Author: Anton Kochkov <anton.kochkov@gmail.com>
+Date:   Sun May 17 20:47:37 2020 +0800
+
+    Add ESIL weak eq support to `aetr` command (#16840) ##anal
+
+commit 78f2b12d0b83ddacc87498ee1493abca1fb2f4ef
+Author: Paul I <pelijah@users.noreply.github.com>
+Date:   Tue Sep 17 03:14:32 2019 +0300
+
+    Fix potential memleaks (#15057)
+
+commit 00245f3e977f50f86c090abf8f02edcba9b96955
+Author: condret <condr3t@protonmail.com>
+Date:   Mon Jun 10 05:57:20 2019 +0000
+
+    add type information to esil-ops
+
+commit 9c3be9c57a1e35299fdf6bb44ebdbb250c125522
+Author: condret <condr3t@protonmail.com>
+Date:   Sun Jun 2 20:33:36 2019 +0000
+
+    add meta-information to esil-ops
+
+commit 00c1e3697c14f940acdb75ce2091e4b2ebe6f29e
+Author: condret <condr3t@protonmail.com>
+Date:   Tue Apr 9 11:37:04 2019 +0200
+
+    Add esil_weak_eq and make an operation ##esil
+    
+    * Deprecate esil_write_internal
+    * $z, $b, $c, $p, $o, $s, $ds, $jt, $js, $r, $$ are now ops
+    * Remove R_ANAL_ESIL_PARM_INTERNAL
+
+commit 738bc9cb198afe67dc471c8bffb8e263d89dfe2c
+Author: Riccardo Schirone <ret2libc@users.noreply.github.com>
+Date:   Wed Dec 19 12:07:49 2018 +0100
+
+    Fix warnings by using more r_str_ncpy
+    
+    * Fix wrong logic in visual_search
+    
+    When the string to be searched is wrapped in " ", you want to remove the
+    first and last quotes and look only for the internal string.
+    
+    * Increase size to prevent string truncation (and fix compiler warning)
+    * Fix "destination unchanged after copying no bytes" warning
+    * Move msp430_register_names where it belongs to
+    * Fix Wstringop-truncation warning
+
+commit d05292e485dd3527e9ced2f0cf9b52f03da85a8a
+Author: radare <pancake@nopcode.org>
+Date:   Thu Nov 22 22:11:43 2018 +0100
+
+    Fix 80 warnings coming from gcc8.2 (#12280)
+
+commit 4a722e80d8f7924cfbe2ddf72a55e2f36f1e23ac
+Author: Neven Sajko <nsajko@gmail.com>
+Date:   Thu Sep 13 10:17:26 2018 +0200
+
+    Add braces to if, else, for, while ... (#11504)
+
+commit 5a9f1fd2ac1230b3671aab329a6aa839028df363
+Author: pancake <pancake@nopcode.org>
+Date:   Tue Nov 28 22:43:17 2017 +0100
+
+    Fix regression in r_snprintf
+
+commit d505902165e50201cd61a6c8f6ffa34095c58ed9
+Author: pancake <pancake@nopcode.org>
+Date:   Tue Nov 28 17:54:38 2017 +0100
+
+    Add r_snprintf to null terminate strings and fix oobread in esil2reil
+
+commit fce916ffdf0187d479821d346045377a67f8d2f2
+Author: Anton Kochkov <xvilka@gmail.com>
+Date:   Sat Jul 29 20:40:54 2017 +0800
+
+    More leak fixes
+
+commit d15e2d2a636477347d03da8d24f475ca2d7b14b3
+Author: rene <rlaemmert@gmail.com>
+Date:   Tue May 2 17:37:14 2017 +0200
+
+    fixes segfault in aetr
+
+commit a66cc10d46475c98afd7239e38190c0764ad8e46
+Author: pancake <pancake@nopcode.org>
+Date:   Mon Apr 17 22:02:04 2017 +0200
+
+    Fix a huge list of null derefs from clang-analyzer
+
+commit b070e13f7510be5675e793ffe51b3a3ec7a77cf3
+Author: pancake <pancake@nopcode.org>
+Date:   Mon Nov 14 01:17:58 2016 +0100
+
+    esil.verbose honored to reduce warns in afta
+
+commit 41b7557ec8278089cb77af8d8f4a87e07a4944e7
+Author: Anton Kochkov <a.kochkov@securitycode.ru>
+Date:   Tue May 24 12:39:11 2016 +0300
+
+    Fix CID 1293557
+    Fix CID 1293561
+    Fix CID 1293546
+    Fix CID 1293547
+    Fix CID 1356007
+    Fix CID 1356016
+    Fix CID 1356015
+    Fix CID 1293558
+    Fix CID 1293565
+
+commit 8da8ad740fb63568d6c5019170a472d31239631e
+Author: Sven Steinbauer <sven@unlogic.co.uk>
+Date:   Thu May 19 16:20:35 2016 +0100
+
+    Cleanup fixes
+    
+    * For commit comments and compiler errors
+    * Fixes for PR comments
+    * fix some "infer fixes" commits
+    
+    Signed-off-by: Riccardo Schirone <sirmy15@gmail.com>
+
+commit 9e6d4f2709a824201a44332cf2a12747e659ffbb
+Author: Sven Steinbauer <sven@unlogic.co.uk>
+Date:   Thu May 19 12:56:57 2016 +0100
+
+    Anal infer fixes
+    
+    Signed-off-by: Riccardo Schirone <sirmy15@gmail.com>
+
+commit eef32d02602c090c17211e800444a779b49827a1
+Author: Sven Steinbauer <sven@unlogic.co.uk>
+Date:   Thu May 19 11:32:56 2016 +0100
+
+    First few fixes for infer scans
+    
+    Fixes a few memleaks and several NULL dereferences
+    
+    Signed-off-by: Riccardo Schirone <sirmy15@gmail.com>
+
+commit fabf7020fba8ca3d0573f7f5192fe0d2ec8ea422
+Author: NaveenBoggarapu <naveenboggarapu@outlook.com>
+Date:   Thu Apr 7 13:20:11 2016 +0530
+
+    Fix #4523 - Fix asm.emu + pd leaks
+
+commit d8b269f11f486c1d2c12bb6c5536ecc97b16538f
+Author: Álvaro Felipe Melchor <alvaro.felipe91@gmail.com>
+Date:   Tue Nov 24 18:26:10 2015 +0100
+
+    Fix last covs
+
+commit 8f34d0cf83c2710969c6eb4a5806e95022a859e9
+Author: pancake <pancake@nopcode.org>
+Date:   Mon Nov 23 14:38:47 2015 +0100
+
+    Fixes for anal/w32
+
+commit ccfee9fcca3223602f479258c26fd5cfdaddc080
+Author: pancake <pancake@nopcode.org>
+Date:   Sun Nov 22 11:27:45 2015 +0100
+
+    Fix many important issues reported by clang-analyzer
+
+commit b0ab964303ca43453623885a4e356b332c8b9c7d
+Author: pancake <pancake@nopcode.org>
+Date:   Mon Nov 2 12:44:06 2015 +0100
+
+    More vulnfixes reported by clang-analyzer
+
+commit 150e1411b17e15744dc674d94f68fbc1182181a5
+Author: Anton Kochkov <xvilka@gmail.com>
+Date:   Sat Oct 31 12:22:45 2015 +0300
+
+    Fix 'aetr' command
+    
+    Uppercase 'PC' register to fix the 'aetr' command for a new aliases.
+
+commit 420a5c41e0118cab163039cc3999b9aabf7e9fcc
+Author: jvoisin <julien.voisin@dustri.org>
+Date:   Wed Oct 14 23:50:16 2015 +0200
+
+    Fix some minor compilation warnings
+
+commit 8eb71af9edbc9c10dc898e17e78cf57c9948288a
+Author: pancake <pancake@nopcode.org>
+Date:   Mon Sep 14 11:31:54 2015 +0200
+
+    Internal reg prefix is now $, 85008 for curpc, TRAP for traps
+
+commit 0807686d8666eb78ee715df1ce07ff82b2420932
+Author: shuall <shualloret@gmail.com>
+Date:   Sat Aug 8 14:15:13 2015 -0400
+
+    #3052 all printf member functions changed to cb_printf
+
+commit 859fadb38c775e1e4881832c40561f456520a4d7
+Author: Anton Kochkov <xvilka@gmail.com>
+Date:   Wed Jun 17 14:34:58 2015 +0300
+
+    Fix CID 1293561, 1293557
+
+commit e147a21be9addf8e5598e072208540a114cdebd1
+Author: pancake <pancake@nopcode.org>
+Date:   Wed Jun 17 12:36:08 2015 +0200
+
+    Fix some of the alloc-check bugs reported in #2772
+
+commit 3b60ab858abf9f8fc90daa7bbad0c022548a1682
+Author: Jeffrey Crowell <crowell@bu.edu>
+Date:   Sun Jun 14 00:37:38 2015 -0400
+
+    Revert "fix memleaks"
+    
+    This reverts commit 6bb37f499a127103414258e24b293d137149f80e.
+
+commit 6bb37f499a127103414258e24b293d137149f80e
+Author: Jeffrey Crowell <crowell@bu.edu>
+Date:   Sun Jun 14 00:18:47 2015 -0400
+
+    fix memleaks
+
+commit c5e8ca1580699f470e0ee2feb6d65d86d16b7e3a
+Author: Sushant <sushant.dinesh94@gmail.com>
+Date:   Sat Apr 11 19:33:40 2015 +0530
+
+    Coverity fixes for Esil to Reil
+    
+    Minor fix
+
+commit f8d3e50b570f02bb434dc100f0c3f2b3406066f3
+Author: pancake <pancake@nopcode.org>
+Date:   Sat Apr 11 05:18:00 2015 +0200
+
+    Some aesthethic changes for REIL
+
+commit 1d89f7d7996e67ea9275fc1318aeb9390def27cc
+Author: Sushant <sushant.dinesh94@gmail.com>
+Date:   Mon Mar 30 18:45:25 2015 +0530
+
+    ESIL to REIL Converter
