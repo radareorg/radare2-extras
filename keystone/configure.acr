@@ -4,7 +4,7 @@ CONTACT pancake ; pancake@nopcode.org
 
 LANG_C!
 LANG_CXX!
-
+USE_PKGCONFIG!
 
 CHKLIB! keystone
 PKGCFG! R2_CFLAGS R2_LDFLAGS r_asm
