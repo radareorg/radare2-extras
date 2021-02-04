@@ -4,7 +4,7 @@
 #include <r_lib.h>
 
 #include "operations.h"
-#include "encodings.h"
+#include "encodings_dec.h"
 #include "arm64dis.h"
 
 static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
