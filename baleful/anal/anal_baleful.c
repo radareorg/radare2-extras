@@ -547,28 +547,6 @@ static bool esil_bale_interrupt_wrapper_cb (RAnalEsil *esil, ut32 interrupt, voi
 	return !!esil_baleful_intr(esil, interrupt);
 }
 
-RAnalEsilInterruptHandler bale_intr_handler00 = {
-	.num = 0x00,				//interrupt number
-	.cb = esil_bale_interrupt_wrapper_cb,	//the actual handler
-};
-
-RAnalEsilInterruptHandler bale_intr_handler04 = {
-	.num = 0x04,				//interrupt number
-	.cb = esil_bale_interrupt_wrapper_cb,	//the actual handler
-};
-
-RAnalEsilInterruptHandler bale_intr_handler11 = {
-	.num = 0x11,				//interrupt number
-	.cb = esil_bale_interrupt_wrapper_cb,	//the actual handler
-};
-
-RAnalEsilInterruptHandler *bale_intr_handlers[] = {
-	&bale_intr_handler00,
-	&bale_intr_handler04,
-	&bale_intr_handler11,
-	NULL,
-};
-
 static int set_reg_profile(RAnal *anal) {
 	const char *p = \
 		"=PC    pc\n"
@@ -627,7 +605,10 @@ static int esil_baleful_init (RAnalEsil *esil) {
 	if (!esil) {
 		return false;
 	}
-	return r_anal_esil_load_interrupts (esil, bale_intr_handlers, 0);
+	r_anal_esil_set_interrupt(esil,0,esil_bale_interrupt_wrapper_cb, NULL);
+	r_anal_esil_set_interrupt(esil,4,esil_bale_interrupt_wrapper_cb, NULL);
+	r_anal_esil_set_interrupt(esil,11,esil_bale_interrupt_wrapper_cb, NULL);
+	return true;
 	/*
 	   internalMemory=malloc(4096);
 	   if (!internalMemory) {
