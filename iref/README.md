@@ -14,7 +14,7 @@ $ r2pm -ci iref
 Usage
 -----
 
-See this video demo: [https://youtu.be/N5zLJn3xcZc](https://youtu.be/N5zLJn3xcZc)
+See this video demo: [https://youtu.be/jne9e_kBS8E](https://youtu.be/jne9e_kBS8E)
 
 ```
 $ r2 /bin/ls
