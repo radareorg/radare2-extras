@@ -31,7 +31,7 @@ static const ut64 bitmask_by_width[BITMASK_BY_WIDTH_COUNT] = {
 
 #define esilprintf(op, fmt, ...) r_strbuf_setf (&op->esil, fmt, ##__VA_ARGS__)
 
-#define ISIMM64(x) (insn->operands[x].operandClass == IMM32 || insn->operands[x].operandClass == IMM64)
+#define ISIMM64(x) (insn->operands[x].operandClass == IMM32 || insn->operands[x].operandClass == IMM64  || insn->operands[x].operandClass == FIMM32)
 #define ISREG64(x) (insn->operands[x].operandClass == REG || insn->operands[x].operandClass == MEM_REG)
 #define ISMEM64(x) is_mem(insn->operands[x].operandClass)
 #define ISCOND64(x) (insn->operands[x].operandClass == CONDITION)
@@ -71,14 +71,449 @@ static ut8 get_op_count(Instruction* insn) {
 	return i;
 }
 
-#define VEC64_DST_APPEND(sb, n, i) vector64_dst_append(sb, insn, n, i)
 
-static void vector64_dst_append(RStrBuf *sb, Instruction *insn, int n, int i) {
-	if (ISREG64 (n)) {
-		r_strbuf_appendf (sb, "%s", REG64 (n));
+static const char *vector_data_type_name(ArrangementSpec type) {
+	/*switch (type) {
+	case ARM_VECTORDATA_I8:
+		return "i8";
+	case ARM_VECTORDATA_I16:
+		return "i16";
+	case ARM_VECTORDATA_I32:
+		return "i32";
+	case ARM_VECTORDATA_I64:
+		return "i64";
+	case ARM_VECTORDATA_S8:
+		return "s8";
+	case ARM_VECTORDATA_S16:
+		return "s16";
+	case ARM_VECTORDATA_S32:
+		return "s32";
+	case ARM_VECTORDATA_S64:
+		return "s64";
+	case ARM_VECTORDATA_U8:
+		return "u8";
+	case ARM_VECTORDATA_U16:
+		return "u16";
+	case ARM_VECTORDATA_U32:
+		return "u32";
+	case ARM_VECTORDATA_U64:
+		return "u64";
+	case ARM_VECTORDATA_P8:
+		return "p8";
+	case ARM_VECTORDATA_F32:
+		return "f32";
+	case ARM_VECTORDATA_F64:
+		return "f64";
+	case ARM_VECTORDATA_F16F64:
+		return "f16.f64";
+	case ARM_VECTORDATA_F64F16:
+		return "f64.f16";
+	case ARM_VECTORDATA_F32F16:
+		return "f32.f16";
+	case ARM_VECTORDATA_F16F32:
+		return "f16.f32";
+	case ARM_VECTORDATA_F64F32:
+		return "f64.f32";
+	case ARM_VECTORDATA_F32F64:
+		return "f32.f64";
+	case ARM_VECTORDATA_S32F32:
+		return "s32.f32";
+	case ARM_VECTORDATA_U32F32:
+		return "u32.f32";
+	case ARM_VECTORDATA_F32S32:
+		return "f32.s32";
+	case ARM_VECTORDATA_F32U32:
+		return "f32.u32";
+	case ARM_VECTORDATA_F64S16:
+		return "f64.s16";
+	case ARM_VECTORDATA_F32S16:
+		return "f32.s16";
+	case ARM_VECTORDATA_F64S32:
+		return "f64.s32";
+	case ARM_VECTORDATA_S16F64:
+		return "s16.f64";
+	case ARM_VECTORDATA_S16F32:
+		return "s16.f64";
+	case ARM_VECTORDATA_S32F64:
+		return "s32.f64";
+	case ARM_VECTORDATA_U16F64:
+		return "u16.f64";
+	case ARM_VECTORDATA_U16F32:
+		return "u16.f32";
+	case ARM_VECTORDATA_U32F64:
+		return "u32.f64";
+	case ARM_VECTORDATA_F64U16:
+		return "f64.u16";
+	case ARM_VECTORDATA_F32U16:
+		return "f32.u16";
+	case ARM_VECTORDATA_F64U32:
+		return "f64.u32"
+	default:
+		return "";
+	}*/
+	return "";
+}
+
+
+static int vas_size(ArrangementSpec vas) {
+	switch (vas) {
+	case ARRSPEC_NONE:
+		return 0;
+	case ARRSPEC_FULL: /* 128-bit v-reg unsplit, eg: REG_V0_Q0 */
+		return 128;
+
+	/* 128 bit v-reg considered as... */
+	case ARRSPEC_2DOUBLES: /* (.2d) two 64-bit double-precision: REG_V0_D1, REG_V0_D0 */
+		return 64;
+	case ARRSPEC_4SINGLES: /* (.4s) four 32-bit single-precision: REG_V0_S3, REG_V0_S2, REG_V0_S1, REG_V0_S0 */
+		return 32;
+	case ARRSPEC_8HALVES: /* (.8h) eight 16-bit half-precision: REG_V0_H7, REG_V0_H6, (..., REG_V0_H0 */
+		return 16;
+	case ARRSPEC_16BYTES: /* (.16b) sixteen 8-bit values: REG_V0_B15, REG_V0_B14, (..., REG_V0_B01 */
+		return 8;
+
+	/* low 64-bit of v-reg considered as... */
+	case ARRSPEC_1DOUBLE: /* (.d) one 64-bit double-precision: REG_V0_D0 */
+		return 64;
+	case ARRSPEC_2SINGLES: /* (.2s) two 32-bit single-precision: REG_V0_S1, REG_V0_S0 */
+		return 32;
+	case ARRSPEC_4HALVES: /* (.4h) four 16-bit half-precision: REG_V0_H3, REG_V0_H2, REG_V0_H1, REG_V0_H0 */
+		return 16;
+	case ARRSPEC_8BYTES: /* (.8b) eight 8-bit values: REG_V0_B7, REG_V0_B6, (..., REG_V0_B0 */
+		return 8;
+
+	/* low 32-bit of v-reg considered as... */
+	case ARRSPEC_1SINGLE: /* (.s) one 32-bit single-precision: REG_V0_S0 */
+		return 32;
+	case ARRSPEC_2HALVES: /* (.2h) two 16-bit half-precision: REG_V0_H1, REG_V0_H0 */
+		return 16;
+	case ARRSPEC_4BYTES: /* (.4b) four 8-bit values: REG_V0_B3, REG_V0_B2, REG_V0_B1, REG_V0_B0 */
+		return 8;
+
+	/* low 16-bit of v-reg considered as... */
+	case ARRSPEC_1HALF: /* (.h) one 16-bit half-precision: REG_V0_H0 */
+		return 16;
+
+	/* low 8-bit of v-reg considered as... */
+	case ARRSPEC_1BYTE: /* (.b) one 8-bit byte: REG_V0_B0 */
+		return 8;
+
+	default:
+		return 0;
 	}
 }
 
+static int vas_count(ArrangementSpec vas) {
+	switch (vas) {
+	case ARRSPEC_NONE:
+		return 0;
+	case ARRSPEC_FULL: /* 128-bit v-reg unsplit, eg: REG_V0_Q0 */
+		return 1;
+
+	/* 128 bit v-reg considered as... */
+	case ARRSPEC_2DOUBLES: /* (.2d) two 64-bit double-precision: REG_V0_D1, REG_V0_D0 */
+		return 2;
+	case ARRSPEC_4SINGLES: /* (.4s) four 32-bit single-precision: REG_V0_S3, REG_V0_S2, REG_V0_S1, REG_V0_S0 */
+		return 4;
+	case ARRSPEC_8HALVES: /* (.8h) eight 16-bit half-precision: REG_V0_H7, REG_V0_H6, (..., REG_V0_H0 */
+		return 8;
+	case ARRSPEC_16BYTES: /* (.16b) sixteen 8-bit values: REG_V0_B15, REG_V0_B14, (..., REG_V0_B01 */
+		return 16;
+
+	/* low 64-bit of v-reg considered as... */
+	case ARRSPEC_1DOUBLE: /* (.d) one 64-bit double-precision: REG_V0_D0 */
+		return 1;
+	case ARRSPEC_2SINGLES: /* (.2s) two 32-bit single-precision: REG_V0_S1, REG_V0_S0 */
+		return 2;
+	case ARRSPEC_4HALVES: /* (.4h) four 16-bit half-precision: REG_V0_H3, REG_V0_H2, REG_V0_H1, REG_V0_H0 */
+		return 4;
+	case ARRSPEC_8BYTES: /* (.8b) eight 8-bit values: REG_V0_B7, REG_V0_B6, (..., REG_V0_B0 */
+		return 8;
+
+	/* low 32-bit of v-reg considered as... */
+	case ARRSPEC_1SINGLE: /* (.s) one 32-bit single-precision: REG_V0_S0 */
+		return 1;
+	case ARRSPEC_2HALVES: /* (.2h) two 16-bit half-precision: REG_V0_H1, REG_V0_H0 */
+		return 2;
+	case ARRSPEC_4BYTES: /* (.4b) four 8-bit values: REG_V0_B3, REG_V0_B2, REG_V0_B1, REG_V0_B0 */
+		return 4;
+
+	/* low 16-bit of v-reg considered as... */
+	case ARRSPEC_1HALF: /* (.h) one 16-bit half-precision: REG_V0_H0 */
+	/* low 8-bit of v-reg considered as... */
+	case ARRSPEC_1BYTE: /* (.b) one 8-bit byte: REG_V0_B0 */
+		return 1;
+		
+	default:
+		return 0;
+	}
+}
+
+static const char *vas_name(ArrangementSpec vas) {
+	switch (vas) {
+	case ARRSPEC_NONE:
+		return "";
+	case ARRSPEC_FULL: /* 128-bit v-reg unsplit, eg: REG_V0_Q0 */
+		return "1q";
+
+	/* 128 bit v-reg considered as... */
+	case ARRSPEC_2DOUBLES: /* (.2d) two 64-bit double-precision: REG_V0_D1, REG_V0_D0 */
+		return "2d";
+	case ARRSPEC_4SINGLES: /* (.4s) four 32-bit single-precision: REG_V0_S3, REG_V0_S2, REG_V0_S1, REG_V0_S0 */
+		return "4s";
+	case ARRSPEC_8HALVES: /* (.8h) eight 16-bit half-precision: REG_V0_H7, REG_V0_H6, (..., REG_V0_H0 */
+		return "8h";
+	case ARRSPEC_16BYTES: /* (.16b) sixteen 8-bit values: REG_V0_B15, REG_V0_B14, (..., REG_V0_B01 */
+		return "16b";
+
+	/* low 64-bit of v-reg considered as... */
+	case ARRSPEC_1DOUBLE: /* (.d) one 64-bit double-precision: REG_V0_D0 */
+		return "1d";
+	case ARRSPEC_2SINGLES: /* (.2s) two 32-bit single-precision: REG_V0_S1, REG_V0_S0 */
+		return "2s";
+	case ARRSPEC_4HALVES: /* (.4h) four 16-bit half-precision: REG_V0_H3, REG_V0_H2, REG_V0_H1, REG_V0_H0 */
+		return "4h";
+	case ARRSPEC_8BYTES: /* (.8b) eight 8-bit values: REG_V0_B7, REG_V0_B6, (..., REG_V0_B0 */
+		return "8b";
+
+	/* low 32-bit of v-reg considered as... */
+	case ARRSPEC_1SINGLE: /* (.s) one 32-bit single-precision: REG_V0_S0 */
+		return "1s";
+	case ARRSPEC_2HALVES: /* (.2h) two 16-bit half-precision: REG_V0_H1, REG_V0_H0 */
+		return "2h";
+	case ARRSPEC_4BYTES: /* (.4b) four 8-bit values: REG_V0_B3, REG_V0_B2, REG_V0_B1, REG_V0_B0 */
+		return "4b";
+
+	/* low 16-bit of v-reg considered as... */
+	case ARRSPEC_1HALF: /* (.h) one 16-bit half-precision: REG_V0_H0 */
+		return "1h";
+
+	/* low 8-bit of v-reg considered as... */
+	case ARRSPEC_1BYTE: /* (.b) one 8-bit byte: REG_V0_B0 */
+		return "1b";
+		
+	default:
+		return "";
+	}
+}
+
+static const char *shift_type_name(ShiftType type) {
+	switch (type) {
+	case ShiftType_ASR:
+		return "asr";
+	case ShiftType_LSL:
+		return "lsl";
+	case ShiftType_LSR:
+		return "lsr";
+	case ShiftType_ROR:
+		return "ror";
+	/*case ARM_SFT_RRX:
+		return "rrx";
+	case ARM_SFT_ASR_REG:
+		return "asr_reg";
+	case ARM_SFT_LSL_REG:
+		return "lsl_reg";
+	case ARM_SFT_LSR_REG:
+		return "lsr_reg";
+	case ARM_SFT_ROR_REG:
+		return "ror_reg";
+	case ARM_SFT_RRX_REG:
+		return "rrx_reg";*/
+	default:
+		return "";
+	}
+}
+
+
+static const char *extender_name(ShiftType extender) {
+	switch (extender) {
+	case ShiftType_UXTB:
+		return "uxtb";
+	case ShiftType_UXTH:
+		return "uxth";
+	case ShiftType_UXTW:
+		return "uxtw";
+	case ShiftType_UXTX:
+		return "uxtx";
+	case ShiftType_SXTB:
+		return "sxtb";
+	case ShiftType_SXTH:
+		return "sxth";
+	case ShiftType_SXTW:
+		return "sxtw";
+	case ShiftType_SXTX:
+		return "sxtx";
+	default:
+		return "";
+	}
+}
+
+static int decode_sign_ext64(ShiftType extender) {
+	switch (extender) {
+	case ShiftType_UXTB:
+	case ShiftType_UXTH:
+	case ShiftType_UXTW:
+	case ShiftType_UXTX:
+		return 0;
+	case ShiftType_SXTB:
+		return 8;
+	case ShiftType_SXTH:
+		return 16;
+	case ShiftType_SXTW:
+		return 32;
+	case ShiftType_SXTX:
+		return 64;
+	default:
+		return 0;
+	}
+}
+
+
+static const char *decode_shift_64(ShiftType shift) {
+	static const char *E_OP_SR = ">>";
+	static const char *E_OP_SL = "<<";
+	static const char *E_OP_RR = ">>>";
+	static const char *E_OP_AR = ">>>>";
+	static const char *E_OP_VOID = "";
+
+	switch (shift) {
+	case ShiftType_ASR:
+		return E_OP_AR;
+	case ShiftType_LSR:
+		return E_OP_SR;
+
+	case ShiftType_LSL:
+	case ShiftType_MSL:
+		return E_OP_SL;
+
+	case ShiftType_ROR:
+		return E_OP_RR;
+
+	default:
+		break;
+	}
+	return E_OP_VOID;
+}
+
+static void opex64(RStrBuf *buf, Instruction *insn) {
+	int i;
+	PJ *pj = pj_new ();
+	if (!pj) {
+		return;
+	}
+	pj_o (pj);
+	pj_ka (pj, "operands");
+	Instruction *x = insn;
+	for (i = 0; i < OPCOUNT64 (); i++) {
+		InstructionOperand *op = x->operands + i;
+		pj_o (pj);
+		switch (op->operandClass) {
+		case REG:
+		case MULTI_REG:
+			pj_ks (pj, "type", "reg");
+			pj_ks (pj, "value", get_register_name(op->reg[0]));
+			break;
+		case IMM32:
+		case IMM64:
+			pj_ks (pj, "type", "imm");
+			pj_ki (pj, "value", op->immediate);
+			break;
+		case MEM_REG:
+		case MEM_PRE_IDX:
+		case MEM_POST_IDX:
+		case MEM_OFFSET:
+		case MEM_EXTENDED:
+			pj_ks (pj, "type", "mem");
+			if (op->operandClass == MEM_REG) {
+				pj_ks (pj, "base", get_register_name(op->reg[0]));
+			}
+			/*if (op->mem.index != ARM_REG_INVALID) {
+				pj_ks (pj, "index", cs_reg_name (handle, op->mem.index));
+			}
+			pj_ki (pj, "scale", op->mem.scale);*/
+			pj_ki (pj, "disp", op->immediate);
+			break;
+		case FIMM32:
+			pj_ks (pj, "type", "fp");
+			pj_kd (pj, "value", op->immediate);
+			break;
+		/*case ARM_OP_CIMM:
+			pj_ks (pj, "type", "cimm");
+			pj_ki (pj, "value", op->imm);
+			break;
+		case ARM_OP_PIMM:
+			pj_ks (pj, "type", "pimm");
+			pj_ki (pj, "value", op->imm);
+			break;
+		case ARM_OP_SETEND:
+			pj_ks (pj, "type", "setend");
+			switch (op->setend) {
+			case ARM_SETEND_BE:
+				pj_ks (pj, "value", "be");
+				break;
+			case ARM_SETEND_LE:
+				pj_ks (pj, "value", "le");
+				break;
+			default:
+				pj_ks (pj, "value", "invalid");
+				break;
+			}
+			break;*/
+		case SYS_REG:
+			pj_ks (pj, "type", "sysreg");
+			pj_ks (pj, "value", r_str_get_fail (get_register_name(op->reg[0]), ""));
+			break;
+		default:
+			pj_ks (pj, "type", "invalid");
+			break;
+		}
+		if (op->shiftType != ShiftType_NONE) {
+			pj_ko (pj, "shift");
+			switch (op->shiftType) {
+			case ShiftType_ASR:
+			case ShiftType_LSL:
+			case ShiftType_LSR:
+			case ShiftType_ROR:
+				pj_ks (pj, "type", shift_type_name (op->shiftType));
+				pj_kn (pj, "value", (ut64)op->shiftValue);
+				break;
+			/*case ARM_SFT_ASR_REG:
+			case ARM_SFT_LSL_REG:
+			case ARM_SFT_LSR_REG:
+			case ARM_SFT_ROR_REG:
+			case ARM_SFT_RRX_REG:
+				pj_ks (pj, "type", shift_type_name (op->shift.type));
+				pj_ks (pj, "value", cs_reg_name (handle, op->shift.value));
+				break;*/
+			default:
+				break;
+			}
+			pj_end (pj); /* o shift */
+		}
+		if (op->extend != ShiftType_NONE) {
+			pj_ks (pj, "ext", extender_name(op->extend));
+		}
+		if (op->laneUsed) {
+			pj_ki (pj, "vector_index", op->lane);
+		}
+		/*if (op->subtracted) {
+			pj_kb (pj, "subtracted", true);
+		}*/
+		pj_end (pj); /* o operand */
+	}
+	pj_end (pj); /* a operands */
+	if (x->setflags) {
+		pj_kb (pj, "update_flags", true);
+	}
+	pj_end (pj);
+
+	r_strbuf_init (buf);
+	r_strbuf_append (buf, pj_string (pj));
+	pj_free (pj);
+}
+
+
+#define VEC64_DST_APPEND(sb, n, i) vector64_dst_append(sb, insn, n, i)
 #define SHIFTED_IMM64(n, sz) shifted_imm64(insn, n, sz)
 #define LSHIFT2_64(n) (insn->operands[n].shiftValue)
 #define EXT64(x) decode_sign_ext64 (insn->operands[x].extend)
@@ -192,76 +627,6 @@ static const char *cc_name64(Condition cc) {
 	}
 }
 
-static const char *extender_name(ShiftType extender) {
-	switch (extender) {
-	case ShiftType_UXTB:
-		return "uxtb";
-	case ShiftType_UXTH:
-		return "uxth";
-	case ShiftType_UXTW:
-		return "uxtw";
-	case ShiftType_UXTX:
-		return "uxtx";
-	case ShiftType_SXTB:
-		return "sxtb";
-	case ShiftType_SXTH:
-		return "sxth";
-	case ShiftType_SXTW:
-		return "sxtw";
-	case ShiftType_SXTX:
-		return "sxtx";
-	default:
-		return "";
-	}
-}
-
-static int decode_sign_ext64(ShiftType extender) {
-	switch (extender) {
-	case ShiftType_UXTB:
-	case ShiftType_UXTH:
-	case ShiftType_UXTW:
-	case ShiftType_UXTX:
-		return 0;
-	case ShiftType_SXTB:
-		return 8;
-	case ShiftType_SXTH:
-		return 16;
-	case ShiftType_SXTW:
-		return 32;
-	case ShiftType_SXTX:
-		return 64;
-	default:
-		return 0;
-	}
-}
-
-
-static const char *decode_shift_64(ShiftType shift) {
-	static const char *E_OP_SR = ">>";
-	static const char *E_OP_SL = "<<";
-	static const char *E_OP_RR = ">>>";
-	static const char *E_OP_AR = ">>>>";
-	static const char *E_OP_VOID = "";
-
-	switch (shift) {
-	case ShiftType_ASR:
-		return E_OP_AR;
-	case ShiftType_LSR:
-		return E_OP_SR;
-
-	case ShiftType_LSL:
-	case ShiftType_MSL:
-		return E_OP_SL;
-
-	case ShiftType_ROR:
-		return E_OP_RR;
-
-	default:
-		break;
-	}
-	return E_OP_VOID;
-}
-
 static ut64 shifted_imm64(Instruction *insn, int n, int sz) {
 	InstructionOperand op = INSOP64 (n);
 	int sft = op.shiftValue;
@@ -296,6 +661,75 @@ static ut64 shifted_imm64(Instruction *insn, int n, int sz) {
 #define VECARG64_APPEND(sb, n, i, s) arg64_append(sb, insn, n, i, s)
 #define COMMA(sb) r_strbuf_appendf (sb, ",")
 
+
+// #define VEC64(n) insn->detail->arm64.operands[n].vess
+#define VEC64_APPEND(sb, n, i) vector64_append(sb, insn, n, i)
+#define VEC64_MASK(sh, sz) (bitmask_by_width[63]^(bitmask_by_width[sz-1]<<sh))
+
+static void vector64_append(RStrBuf *sb, Instruction *insn, int n, int i) {
+	InstructionOperand op = INSOP64 (n);
+	
+	if (op.laneUsed) {
+		i = op.lane;
+	}
+
+	if (i != -1) {
+		int size = vas_size (op.arrSpec);
+		int shift = i * size;
+		char *regc = "l";
+		if (shift >= 64) {
+			shift -= 64;
+			regc = "h";
+		}
+
+		size_t s = sizeof (bitmask_by_width) / sizeof (*bitmask_by_width);
+		int width = size > 0? (size - 1) % s: 0;
+		if (shift > 0) {
+			r_strbuf_appendf (sb, "0x%"PFMT64x",%d,%s%s,>>,&", 
+				bitmask_by_width[width], shift, REG64 (n), regc);
+		} else {
+			r_strbuf_appendf (sb, "0x%"PFMT64x",%s%s,&", 
+				bitmask_by_width[width], REG64 (n), regc);
+		}
+	} else {
+		r_strbuf_appendf (sb, "%s", REG64 (n));
+	}
+}
+
+static void vector64_dst_append(RStrBuf *sb, Instruction *insn, int n, int i) {
+	InstructionOperand op = INSOP64 (n);
+	
+	if (op.laneUsed) {
+		i = op.lane;
+	}
+
+	if (vas_count(op.arrSpec) && i != -1) {
+		int size = vas_size (op.arrSpec);
+		int shift = i * size;
+		char *regc = "l";
+		size_t s = sizeof (bitmask_by_width) / sizeof (*bitmask_by_width);
+		size_t index = size > 0? (size - 1) % s: 0;
+		if (index >= BITMASK_BY_WIDTH_COUNT) {
+			index = 0;
+		}
+		ut64 mask = bitmask_by_width[index];
+		if (shift >= 64) {
+			shift -= 64;
+			regc = "h";
+		}
+
+		if (shift > 0 && shift < 64) {
+			r_strbuf_appendf (sb, "%d,SWAP,0x%"PFMT64x",&,<<,%s%s,0x%"PFMT64x",&,|,%s%s", 
+				shift, mask, REG64 (n), regc, VEC64_MASK (shift, size), REG64 (n), regc);
+		} else {
+			r_strbuf_appendf (sb, "0x%"PFMT64x",&,%s%s,0x%"PFMT64x",&,|,%s%s", 
+				mask, REG64 (n), regc, VEC64_MASK (shift, size), REG64 (n), regc);
+		}
+	} else {
+		r_strbuf_appendf (sb, "%s", REG64 (n));
+	}
+}
+
 static void arg64_append(RStrBuf *sb, Instruction *insn, int n, int i, int sign) {
 	InstructionOperand op = INSOP64 (n);
 	int size = 64;
@@ -304,7 +738,7 @@ static void arg64_append(RStrBuf *sb, Instruction *insn, int n, int i, int sign)
 	}
 
 	const char *rn;
-	 if (ISIMM64 (n)) {
+	if (ISIMM64 (n)) {
 		ut64 imm = SHIFTED_IMM64 (n, size);
 		r_strbuf_appendf (sb, "0x%"PFMT64x, imm);
 		return;
@@ -340,17 +774,36 @@ static void arg64_append(RStrBuf *sb, Instruction *insn, int n, int i, int sign)
 #define OPCALL_SIGN(opchar, sign) arm64math(a, op, addr, buf, len, insn, opchar, 0, sign)
 
 static void arm64math(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len, Instruction *insn, const char *opchar, int negate, int sign) {
+	InstructionOperand dst = INSOP64 (0);
 	int i, c = (OPCOUNT64 () > 2) ? 1 : 0;
 
-	VECARG64_APPEND(&op->esil, c+1, -1, sign);
-	if (negate) {
-		r_strbuf_appendf (&op->esil, ",-1,^");
+	int count = vas_count(dst.arrSpec);
+	if (count) {
+		int end = count;
+
+		for (i = 0; i < end; i++) {
+			VECARG64_APPEND (&op->esil, 2, i, sign);
+			if (negate) {
+				r_strbuf_appendf (&op->esil, ",-1,^");
+			}
+			COMMA (&op->esil);
+			VECARG64_APPEND (&op->esil, 1, i, sign);
+			r_strbuf_appendf (&op->esil, ",%s,", opchar);
+			VEC64_DST_APPEND (&op->esil, 0, i);
+			r_strbuf_appendf (&op->esil, ",=");
+			if (i < end-1) COMMA (&op->esil);
+		}
+	} else {
+		VECARG64_APPEND(&op->esil, c+1, -1, sign);
+		if (negate) {
+			r_strbuf_appendf (&op->esil, ",-1,^");
+		}
+		COMMA (&op->esil);
+		VECARG64_APPEND (&op->esil, c, -1, sign);
+		r_strbuf_appendf (&op->esil, ",%s,", opchar);
+		VEC64_DST_APPEND (&op->esil, 0, -1);
+		r_strbuf_appendf (&op->esil, ",=");
 	}
-	COMMA (&op->esil);
-	VECARG64_APPEND (&op->esil, c, -1, sign);
-	r_strbuf_appendf (&op->esil, ",%s,", opchar);
-	VEC64_DST_APPEND (&op->esil, 0, -1);
-	r_strbuf_appendf (&op->esil, ",=");
 }
 
 #define FPOPCALL(opchar) arm64fpmath(a, op, addr, buf, len, insn, opchar, 0)
@@ -358,7 +811,37 @@ static void arm64math(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len,
 
 // floating point math instruction helper
 static void arm64fpmath(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len, Instruction *insn, const char *opchar, int negate) {
+	int i, size = REGSIZE64 (1)*8;
 
+	InstructionOperand dst = INSOP64 (0);
+	int start = -1;
+	int end = 0; 
+	int convert = size == 64 ? 0 : 1;
+	int count = vas_count(dst.arrSpec);
+	if (count) {
+		start = 0;
+		end = count;
+	}
+
+	for (i = start; i < end; i++) {
+		if (convert) r_strbuf_appendf (&op->esil, "%d,DUP,", size);
+		VEC64_APPEND (&op->esil, 2, i);
+		if (convert) r_strbuf_appendf (&op->esil, ",F2D");
+		if (negate) {
+			r_strbuf_appendf (&op->esil, ",-F");
+		}
+		if (convert) r_strbuf_appendf (&op->esil, ",%d", size);
+		COMMA (&op->esil);
+		VEC64_APPEND (&op->esil, 1, i);
+		if (convert) {
+			r_strbuf_appendf (&op->esil, ",F2D,F%s,D2F,", opchar);	
+		} else {
+			r_strbuf_appendf (&op->esil, ",F%s,", opchar);	
+		}
+		VEC64_DST_APPEND (&op->esil, 0, i);
+		r_strbuf_appendf (&op->esil, ",=");
+		if (i < end-1) COMMA (&op->esil);
+	}
 }
 
 #define SET_FLAGS() r_strbuf_appendf (&op->esil, ",$z,zf,:=,%d,$s,nf,:=,%d,$c,cf,:=,%d,$o,vf,:=", REGBITS64 (0) - 1, REGBITS64 (0), REGBITS64 (0) -1);
@@ -1496,12 +1979,14 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 							MEMDISP64 (1), MEMBASE64 (1));
 				}
 
-				r_strbuf_append (&op->esil, ",DUP,tmp,=");
+				if (ISPREINDEX32() || ISPOSTINDEX32()) {
+					r_strbuf_appendf (&op->esil, ",DUP,tmp,=");
+				}
 
 				// I assume the DUPs here previously were to handle preindexing
 				// but it was never finished?
 				if (ISPREINDEX32()) {
-					r_strbuf_appendf (&op->esil, ",tmp,%s,=", REG64 (1));
+					r_strbuf_append (&op->esil, ",tmp,%s,=", REG64 (1));
 				}
 
 				r_strbuf_appendf (&op->esil, ",[%d],%s,=", size, REG64 (0));
@@ -1589,7 +2074,9 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 							size*8, MEMDISP64 (1), MEMBASE64 (1));
 				}
 
-				r_strbuf_append (&op->esil, ",DUP,tmp,=");
+				if (ISPREINDEX32() || ISPOSTINDEX32()) {
+					r_strbuf_append (&op->esil, ",DUP,tmp,=");
+				}
 
 				// I assume the DUPs here previously were to handle preindexing
 				// but it was never finished?
@@ -1717,7 +2204,9 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 							REG64 (0), MEMDISP64 (1), MEMBASE64 (1));
 				}
 
-				r_strbuf_append (&op->esil, ",DUP,tmp,=");
+				if (ISPREINDEX32() || ISPOSTINDEX32()) {
+					r_strbuf_append (&op->esil, ",DUP,tmp,=");
+				}
 
 				// I assume the DUPs here previously were to handle preindexing
 				// but it was never finished?
@@ -2130,8 +2619,7 @@ static char *get_reg_profile(RAnal *anal) {
 		"=OF	vf\n"
 		"=CF	cf\n"
 		"=SN	x16\n" // x8 on linux?
-
-		/* 8bit sub-registers */
+	/* 8bit sub-registers */
 		"gpr	b0	.8	0	0\n"
 		"gpr	b1	.8	8	0\n"
 		"gpr	b2	.8	16	0\n"
@@ -2234,37 +2722,39 @@ static char *get_reg_profile(RAnal *anal) {
 		"gpr	wzr	.32	?	0\n"
 
 		/* 32bit float sub-registers */
-		"gpr	s0	.32	0	0\n"
-		"gpr	s1	.32	8	0\n"
-		"gpr	s2	.32	16	0\n"
-		"gpr	s3	.32	24	0\n"
-		"gpr	s4	.32	32	0\n"
-		"gpr	s5	.32	40	0\n"
-		"gpr	s6	.32	48	0\n"
-		"gpr	s7	.32	56	0\n"
-		"gpr	s8	.32	64	0\n"
-		"gpr	s9	.32	72	0\n"
-		"gpr	s10	.32	80	0\n"
-		"gpr	s11	.32	88	0\n"
-		"gpr	s12	.32	96	0\n"
-		"gpr	s13	.32	104	0\n"
-		"gpr	s14	.32	112	0\n"
-		"gpr	s15	.32	120	0\n"
-		"gpr	s16	.32	128	0\n"
-		"gpr	s17	.32	136	0\n"
-		"gpr	s18	.32	144	0\n"
-		"gpr	s19	.32	152	0\n"
-		"gpr	s20	.32	160	0\n"
-		"gpr	s21	.32	168	0\n"
-		"gpr	s22	.32	176	0\n"
-		"gpr	s23	.32	184	0\n"
-		"gpr	s24	.32	192	0\n"
-		"gpr	s25	.32	200	0\n"
-		"gpr	s26	.32	208	0\n"
-		"gpr	s27	.32	216	0\n"
-		"gpr	s28	.32	224	0\n"
-		"gpr	s29	.32	232	0\n"
-		"gpr	s30	.32	240	0\n"
+		"gpr	s0	.32	288	0\n"
+		"gpr	s1	.32	304	0\n"
+		"gpr	s2	.32	320	0\n"
+		"gpr	s3	.32	336	0\n"
+		"gpr	s4	.32	352	0\n"
+		"gpr	s5	.32	368	0\n"
+		"gpr	s6	.32	384	0\n"
+		"gpr	s7	.32	400	0\n"
+		"gpr	s8	.32	416	0\n"
+		"gpr	s9	.32	432	0\n"
+		"gpr	s10	.32	448	0\n"
+		"gpr	s11	.32	464	0\n"
+		"gpr	s12	.32	480	0\n"
+		"gpr	s13	.32	496	0\n"
+		"gpr	s14	.32	512	0\n"
+		"gpr	s15	.32	528	0\n"
+		"gpr	s16	.32	544	0\n"
+		"gpr	s17	.32	560	0\n"
+		"gpr	s18	.32	576	0\n"
+		"gpr	s19	.32	592	0\n"
+		"gpr	s20	.32	608	0\n"
+		"gpr	s21	.32	624	0\n"
+		"gpr	s22	.32	640	0\n"
+		"gpr	s23	.32	656	0\n"
+		"gpr	s24	.32	672	0\n"
+		"gpr	s25	.32	688	0\n"
+		"gpr	s26	.32	704	0\n"
+		"gpr	s27	.32	720	0\n"
+		"gpr	s28	.32	736	0\n"
+		"gpr	s29	.32	752	0\n"
+		"gpr	s30	.32	768	0\n"
+		"gpr	s31	.32	784	0\n"
+
 		/* 64bit */
 		"gpr	x0	.64	0	0\n" // x0
 		"gpr	x1	.64	8	0\n" // x0
@@ -2297,40 +2787,144 @@ static char *get_reg_profile(RAnal *anal) {
 		"gpr	x28	.64	224	0\n"
 		"gpr	x29	.64	232	0\n"
 		"gpr	x30	.64	240	0\n"
-		"gpr	tmp	.64	288	0\n"
+		"gpr	tmp	.64	800	0\n"
+
 		/* 64bit double */
-		"gpr	d0	.64	0	0\n" // x0
-		"gpr	d1	.64	8	0\n" // x0
-		"gpr	d2	.64	16	0\n" // x0
-		"gpr	d3	.64	24	0\n" // x0
-		"gpr	d4	.64	32	0\n" // x0
-		"gpr	d5	.64	40	0\n" // x0
-		"gpr	d6	.64	48	0\n" // x0
-		"gpr	d7	.64	56	0\n" // x0
-		"gpr	d8	.64	64	0\n" // x0
-		"gpr	d9	.64	72	0\n" // x0
-		"gpr	d10	.64	80	0\n" // x0
-		"gpr	d11	.64	88	0\n" // x0
-		"gpr	d12	.64	96	0\n" // x0
-		"gpr	d13	.64	104	0\n" // x0
-		"gpr	d14	.64	112	0\n" // x0
-		"gpr	d15	.64	120	0\n" // x0
-		"gpr	d16	.64	128	0\n" // x0
-		"gpr	d17	.64	136	0\n" // x0
-		"gpr	d18	.64	144	0\n" // x0
-		"gpr	d19	.64	152	0\n" // x0
-		"gpr	d20	.64	160	0\n" // x0
-		"gpr	d21	.64	168	0\n" // x0
-		"gpr	d22	.64	176	0\n" // x0
-		"gpr	d23	.64	184	0\n" // x0
-		"gpr	d24	.64	192	0\n" // x0
-		"gpr	d25	.64	200	0\n" // x0
-		"gpr	d26	.64	208	0\n" // x0
-		"gpr	d27	.64	216	0\n"
-		"gpr	d28	.64	224	0\n"
-		"gpr	d29	.64	232	0\n"
-		"gpr	d30	.64	240	0\n"
-		"gpr	dsp	.64	248	0\n"
+		"gpr	d0	.64	288	0\n"
+		"gpr	d1	.64	304	0\n"
+		"gpr	d2	.64	320	0\n"
+		"gpr	d3	.64	336	0\n"
+		"gpr	d4	.64	352	0\n"
+		"gpr	d5	.64	368	0\n"
+		"gpr	d6	.64	384	0\n"
+		"gpr	d7	.64	400	0\n"
+		"gpr	d8	.64	416	0\n"
+		"gpr	d9	.64	432	0\n"
+		"gpr	d10	.64	448	0\n"
+		"gpr	d11	.64	464	0\n"
+		"gpr	d12	.64	480	0\n"
+		"gpr	d13	.64	496	0\n"
+		"gpr	d14	.64	512	0\n"
+		"gpr	d15	.64	528	0\n"
+		"gpr	d16	.64	544	0\n"
+		"gpr	d17	.64	560	0\n"
+		"gpr	d18	.64	576	0\n"
+		"gpr	d19	.64	592	0\n"
+		"gpr	d20	.64	608	0\n"
+		"gpr	d21	.64	624	0\n"
+		"gpr	d22	.64	640	0\n"
+		"gpr	d23	.64	656	0\n"
+		"gpr	d24	.64	672	0\n"
+		"gpr	d25	.64	688	0\n"
+		"gpr	d26	.64	704	0\n"
+		"gpr	d27	.64	720	0\n"
+		"gpr	d28	.64	736	0\n"
+		"gpr	d29	.64	752	0\n"
+		"gpr	d30	.64	768	0\n"
+		"gpr	d31	.64	784	0\n"
+
+		/* 128 bit vector */
+		"gpr	v0	.128	288	0\n"
+		"gpr	v1	.128	304	0\n"
+		"gpr	v2	.128	320	0\n"
+		"gpr	v3	.128	336	0\n"
+		"gpr	v4	.128	352	0\n"
+		"gpr	v5	.128	368	0\n"
+		"gpr	v6	.128	384	0\n"
+		"gpr	v7	.128	400	0\n"
+		"gpr	v8	.128	416	0\n"
+		"gpr	v9	.128	432	0\n"
+		"gpr	v10	.128	448	0\n"
+		"gpr	v11	.128	464	0\n"
+		"gpr	v12	.128	480	0\n"
+		"gpr	v13	.128	496	0\n"
+		"gpr	v14	.128	512	0\n"
+		"gpr	v15	.128	528	0\n"
+		"gpr	v16	.128	544	0\n"
+		"gpr	v17	.128	560	0\n"
+		"gpr	v18	.128	576	0\n"
+		"gpr	v19	.128	592	0\n"
+		"gpr	v20	.128	608	0\n"
+		"gpr	v21	.128	624	0\n"
+		"gpr	v22	.128	640	0\n"
+		"gpr	v23	.128	656	0\n"
+		"gpr	v24	.128	672	0\n"
+		"gpr	v25	.128	688	0\n"
+		"gpr	v26	.128	704	0\n"
+		"gpr	v27	.128	720	0\n"
+		"gpr	v28	.128	736	0\n"
+		"gpr	v29	.128	752	0\n"
+		"gpr	v30	.128	768	0\n"
+		"gpr	v31	.128	784	0\n"
+
+		/* 64bit double */
+		"gpr	v0l	.64	288	0\n"
+		"gpr	v1l	.64	304	0\n"
+		"gpr	v2l	.64	320	0\n"
+		"gpr	v3l	.64	336	0\n"
+		"gpr	v4l	.64	352	0\n"
+		"gpr	v5l	.64	368	0\n"
+		"gpr	v6l	.64	384	0\n"
+		"gpr	v7l	.64	400	0\n"
+		"gpr	v8l	.64	416	0\n"
+		"gpr	v9l	.64	432	0\n"
+		"gpr	v10l	.64	448	0\n"
+		"gpr	v11l	.64	464	0\n"
+		"gpr	v12l	.64	480	0\n"
+		"gpr	v13l	.64	496	0\n"
+		"gpr	v14l	.64	512	0\n"
+		"gpr	v15l	.64	528	0\n"
+		"gpr	v16l	.64	544	0\n"
+		"gpr	v17l	.64	560	0\n"
+		"gpr	v18l	.64	576	0\n"
+		"gpr	v19l	.64	592	0\n"
+		"gpr	v20l	.64	608	0\n"
+		"gpr	v21l	.64	624	0\n"
+		"gpr	v22l	.64	640	0\n"
+		"gpr	v23l	.64	656	0\n"
+		"gpr	v24l	.64	672	0\n"
+		"gpr	v25l	.64	688	0\n"
+		"gpr	v26l	.64	704	0\n"
+		"gpr	v27l	.64	720	0\n"
+		"gpr	v28l	.64	736	0\n"
+		"gpr	v29l	.64	752	0\n"
+		"gpr	v30l	.64	768	0\n"
+		"gpr	v31l	.64	784	0\n"
+
+		/* 128 bit vector high 64 */
+		"gpr	v0h	.64	296	0\n"
+		"gpr	v1h	.64	312	0\n"
+		"gpr	v2h	.64	328	0\n"
+		"gpr	v3h	.64	344	0\n"
+		"gpr	v4h	.64	360	0\n"
+		"gpr	v5h	.64	376	0\n"
+		"gpr	v6h	.64	392	0\n"
+		"gpr	v7h	.64	408	0\n"
+		"gpr	v8h	.64	424	0\n"
+		"gpr	v9h	.64	440	0\n"
+		"gpr	v10h	.64	456	0\n"
+		"gpr	v11h	.64	472	0\n"
+		"gpr	v12h	.64	488	0\n"
+		"gpr	v13h	.64	504	0\n"
+		"gpr	v14h	.64	520	0\n"
+		"gpr	v15h	.64	536	0\n"
+		"gpr	v16h	.64	552	0\n"
+		"gpr	v17h	.64	568	0\n"
+		"gpr	v18h	.64	584	0\n"
+		"gpr	v19h	.64	600	0\n"
+		"gpr	v20h	.64	616	0\n"
+		"gpr	v21h	.64	632	0\n"
+		"gpr	v22h	.64	648	0\n"
+		"gpr	v23h	.64	664	0\n"
+		"gpr	v24h	.64	680	0\n"
+		"gpr	v25h	.64	696	0\n"
+		"gpr	v26h	.64	712	0\n"
+		"gpr	v27h	.64	728	0\n"
+		"gpr	v28h	.64	744	0\n"
+		"gpr	v29h	.64	760	0\n"
+		"gpr	v30h	.64	776	0\n"
+		"gpr	v31h	.64	792	0\n"
+		
 		/*  foo */
 		"gpr	fp	.64	232	0\n" // fp = x29
 		"gpr	lr	.64	240	0\n" // lr = x30
