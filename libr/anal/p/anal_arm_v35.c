@@ -661,7 +661,6 @@ static ut64 shifted_imm64(Instruction *insn, int n, int sz) {
 #define VECARG64_APPEND(sb, n, i, s) arg64_append(sb, insn, n, i, s)
 #define COMMA(sb) r_strbuf_appendf (sb, ",")
 
-
 // #define VEC64(n) insn->detail->arm64.operands[n].vess
 #define VEC64_APPEND(sb, n, i) vector64_append(sb, insn, n, i)
 #define VEC64_MASK(sh, sz) (bitmask_by_width[63]^(bitmask_by_width[sz-1]<<sh))
@@ -1505,7 +1504,7 @@ break;
 
 static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len, Instruction *insn) {
 
-	const char *postfix = NULL;
+	const char *postfix = "";
 
 	r_strbuf_init (&op->esil);
 	r_strbuf_set (&op->esil, "");
@@ -1986,7 +1985,7 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 				// I assume the DUPs here previously were to handle preindexing
 				// but it was never finished?
 				if (ISPREINDEX32()) {
-					r_strbuf_append (&op->esil, ",tmp,%s,=", REG64 (1));
+					r_strbuf_appendf (&op->esil, ",tmp,%s,=", REG64 (1));
 				}
 
 				r_strbuf_appendf (&op->esil, ",[%d],%s,=", size, REG64 (0));
