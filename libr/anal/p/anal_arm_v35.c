@@ -534,14 +534,14 @@ const char* arm_prefix_cond(RAnalOp *op, Condition cond_type) {
 		close_type = 1;
 		r_strbuf_appendf (&op->esil, "zf,!,?{,");
 		break;
-	/*case COND_HS:
+	case COND_CS:
 		close_type = 1;
 		r_strbuf_appendf (&op->esil, "cf,?{,");
 		break;
-	case COND_LO:
+	case COND_CC:
 		close_type = 1;
 		r_strbuf_appendf (&op->esil, "cf,!,?{,");
-		break;*/
+		break;
 	case COND_MI:
 		close_type = 1;
 		r_strbuf_appendf (&op->esil, "nf,?{,");
@@ -2314,6 +2314,7 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 	case ARM64_BR:
 		r_strbuf_setf (&op->esil, "%s,pc,=", REG64 (0));
 		break;
+	case ARM64_B_AL:
 	case ARM64_B:
 		/* capstone precompute resulting address, using PC + IMM */
 		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=", GETIMM64 (0));
@@ -2323,6 +2324,63 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 		break;
 	case ARM64_BLR:
 		r_strbuf_setf (&op->esil, "pc,lr,=,%s,pc,=", REG64 (0));
+		break;
+	case ARM64_B_CC:
+		arm_prefix_cond(op, COND_CC);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+		break;
+	case ARM64_B_CS:
+		arm_prefix_cond(op, COND_CS);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+		break;
+	case ARM64_B_EQ:
+		arm_prefix_cond(op, COND_EQ);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+		break;
+	case ARM64_B_GE:
+		arm_prefix_cond(op, COND_GE);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+		break;
+	case ARM64_B_GT:
+		arm_prefix_cond(op, COND_GT);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+		break;
+	case ARM64_B_HI:
+		arm_prefix_cond(op, COND_HI);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+		break;
+	case ARM64_B_LE:
+		arm_prefix_cond(op, COND_LE);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+		break;
+	case ARM64_B_LS:
+		arm_prefix_cond(op, COND_LS);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+		break;
+	case ARM64_B_LT:
+		arm_prefix_cond(op, COND_LT);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+		break;
+	case ARM64_B_MI:
+		arm_prefix_cond(op, COND_MI);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+		break;
+	case ARM64_B_NE:
+		arm_prefix_cond(op, COND_NE);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+		break;
+	// case ARM64_B_NV: return "b.nv"; uhh idk
+	case ARM64_B_PL:
+		arm_prefix_cond(op, COND_PL);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+		break;
+	case ARM64_B_VC:
+		arm_prefix_cond(op, COND_VC);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+		break;
+	case ARM64_B_VS:
+		arm_prefix_cond(op, COND_VS);
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
 		break;
 	case ARM64_CLZ:
 	{
