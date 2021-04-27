@@ -599,10 +599,10 @@ static const char *cc_name64(Condition cc) {
 		return "eq";
 	case COND_NE: // Not equal:                 Not equal, or unordered
 		return "ne";
-	/*case COND_HS: // Unsigned higher or same:   >, ==, or unordered
+	case COND_CS: // Unsigned higher or same:   >, ==, or unordered
 		return "hs";
-	case COND_LO: // Unsigned lower or same:    Less than
-		return "lo";*/
+	case COND_CC: // Unsigned lower or same:    Less than
+		return "lo";
 	case COND_MI: // Minus, negative:           Less than
 		return "mi";
 	case COND_PL: // Plus, positive or zero:    >, ==, or unordered
@@ -673,7 +673,7 @@ static void vector64_append(RStrBuf *sb, Instruction *insn, int n, int i) {
 		i = op.lane;
 	}
 
-	if (i != -1) {
+	if (vas_size (op.arrSpec) && i != -1) {
 		int size = vas_size (op.arrSpec);
 		int shift = i * size;
 		char *regc = "l";
@@ -703,7 +703,7 @@ static void vector64_dst_append(RStrBuf *sb, Instruction *insn, int n, int i) {
 		i = op.lane;
 	}
 
-	if (vas_count(op.arrSpec) && i != -1) {
+	if (vas_size (op.arrSpec) && i != -1) {
 		int size = vas_size (op.arrSpec);
 		int shift = i * size;
 		char *regc = "l";
@@ -713,9 +713,11 @@ static void vector64_dst_append(RStrBuf *sb, Instruction *insn, int n, int i) {
 			index = 0;
 		}
 		ut64 mask = bitmask_by_width[index];
-		if (shift >= 64) {
+		if (shift >= 64 && shift < 128) {
 			shift -= 64;
 			regc = "h";
+		} else if (shift >= 128 || shift < 0) {
+			shift = 0; // shouldnt happen
 		}
 
 		if (shift > 0 && shift < 64) {
@@ -759,7 +761,11 @@ static void arg64_append(RStrBuf *sb, Instruction *insn, int n, int i, int sign)
 		r_strbuf_appendf (sb, "%d,", shift);
 	}
 
-	r_strbuf_appendf (sb, "%s", rn);
+	if (op.laneUsed || vas_count (op.arrSpec)) {
+		VEC64_APPEND (sb, n, i);
+	} else {
+		r_strbuf_appendf (sb, "%s", rn);
+	}
 
 	if (shift) {
 		r_strbuf_appendf (sb, ",%s", DECODE_SHIFT64 (n));
@@ -1962,9 +1968,9 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 	r_strbuf_init (&op->esil);
 	r_strbuf_set (&op->esil, "");
 
-	if ISCOND64(1) {
+	/*if ISCOND64(1) {
 		postfix = arm_prefix_cond (op, insn->operands[1].cond);
-	}
+	} doesn't work this way is v35 */
 
 	switch (insn->operation) {
 	case ARM64_REV:
@@ -2314,11 +2320,6 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 	case ARM64_BR:
 		r_strbuf_setf (&op->esil, "%s,pc,=", REG64 (0));
 		break;
-	case ARM64_B_AL:
-	case ARM64_B:
-		/* capstone precompute resulting address, using PC + IMM */
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=", GETIMM64 (0));
-		break;
 	case ARM64_BL:
 		r_strbuf_setf (&op->esil, "pc,lr,=,%"PFMT64d",pc,=", GETIMM64 (0));
 		break;
@@ -2326,61 +2327,71 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 		r_strbuf_setf (&op->esil, "pc,lr,=,%s,pc,=", REG64 (0));
 		break;
 	case ARM64_B_CC:
-		arm_prefix_cond(op, COND_CC);
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
-		break;
 	case ARM64_B_CS:
-		arm_prefix_cond(op, COND_CS);
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
-		break;
 	case ARM64_B_EQ:
-		arm_prefix_cond(op, COND_EQ);
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
-		break;
 	case ARM64_B_GE:
-		arm_prefix_cond(op, COND_GE);
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
-		break;
 	case ARM64_B_GT:
-		arm_prefix_cond(op, COND_GT);
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
-		break;
 	case ARM64_B_HI:
-		arm_prefix_cond(op, COND_HI);
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
-		break;
 	case ARM64_B_LE:
-		arm_prefix_cond(op, COND_LE);
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
-		break;
 	case ARM64_B_LS:
-		arm_prefix_cond(op, COND_LS);
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
-		break;
 	case ARM64_B_LT:
-		arm_prefix_cond(op, COND_LT);
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
-		break;
 	case ARM64_B_MI:
-		arm_prefix_cond(op, COND_MI);
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
-		break;
 	case ARM64_B_NE:
-		arm_prefix_cond(op, COND_NE);
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
-		break;
 	// case ARM64_B_NV: return "b.nv"; uhh idk
 	case ARM64_B_PL:
-		arm_prefix_cond(op, COND_PL);
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
-		break;
 	case ARM64_B_VC:
-		arm_prefix_cond(op, COND_VC);
+	case ARM64_B_VS:
+		switch (insn->operation) {
+		case ARM64_B_CC:
+			arm_prefix_cond(op, COND_CC);
+			break;
+		case ARM64_B_CS:
+			arm_prefix_cond(op, COND_CS);
+			break;
+		case ARM64_B_EQ:
+			arm_prefix_cond(op, COND_EQ);
+			break;
+		case ARM64_B_GE:
+			arm_prefix_cond(op, COND_GE);
+			break;
+		case ARM64_B_GT:
+			arm_prefix_cond(op, COND_GT);
+			break;
+		case ARM64_B_HI:
+			arm_prefix_cond(op, COND_HI);
+			break;
+		case ARM64_B_LE:
+			arm_prefix_cond(op, COND_LE);
+			break;
+		case ARM64_B_LS:
+			arm_prefix_cond(op, COND_LS);
+			break;
+		case ARM64_B_LT:
+			arm_prefix_cond(op, COND_LT);
+			break;
+		case ARM64_B_MI:
+			arm_prefix_cond(op, COND_MI);
+			break;
+		case ARM64_B_NE:
+			arm_prefix_cond(op, COND_NE);
+			break;
+		case ARM64_B_PL:
+			arm_prefix_cond(op, COND_PL);
+			break;
+		case ARM64_B_VC:
+			arm_prefix_cond(op, COND_VC);
+			break;
+		case ARM64_B_VS:
+			arm_prefix_cond(op, COND_VS);
+			break;
+		}
+
 		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
 		break;
-	case ARM64_B_VS:
-		arm_prefix_cond(op, COND_VS);
-		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=,}", GETIMM64 (0));
+	case ARM64_B_AL:
+	case ARM64_B:
+		/* capstone precompute resulting address, using PC + IMM */
+		r_strbuf_appendf (&op->esil, "%"PFMT64d",pc,=", GETIMM64 (0));
 		break;
 	case ARM64_CLZ:
 	{
@@ -2650,18 +2661,30 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 		break;
 	case ARM64_FCSEL:
 	case ARM64_CSEL: // csel Wd, Wn, Wm --> Wd := (cond) ? Wn : Wm
+		if ISCOND64(3) {
+			arm_prefix_cond (op, insn->operands[3].cond);
+		}
 		r_strbuf_appendf (&op->esil, "%s,}{,%s,},%s,=", REG64 (1), REG64 (2), REG64 (0));
 		postfix = "";
 		break;
 	case ARM64_CSET: // cset Wd --> Wd := (cond) ? 1 : 0
+		if ISCOND64(1) {
+			arm_prefix_cond (op, insn->operands[1].cond);
+		}
 		r_strbuf_appendf (&op->esil, "1,}{,0,},%s,=", REG64 (0));
 		postfix = "";
 		break;
 	case ARM64_CINC: // cinc Wd, Wn --> Wd := (cond) ? (Wn+1) : Wn
+		if ISCOND64(1) {
+			arm_prefix_cond (op, insn->operands[1].cond);
+		}
 		r_strbuf_appendf (&op->esil, "1,%s,+,}{,%s,},%s,=", REG64 (1), REG64 (1), REG64 (0));
 		postfix = "";
 		break;
 	case ARM64_CSINC: // csinc Wd, Wn, Wm --> Wd := (cond) ? Wn : (Wm+1)
+		if ISCOND64(1) {
+			arm_prefix_cond (op, insn->operands[1].cond);
+		}
 		r_strbuf_appendf (&op->esil, "%s,}{,1,%s,+,},%s,=", REG64 (1), REG64 (2), REG64 (0));
 		postfix = "";
 		break;
@@ -3120,6 +3143,7 @@ static char *get_reg_profile(RAnal *anal) {
 		"=PC	pc\n"
 		"=SP	sp\n"
 		"=BP	x29\n"
+		"=R0	x0\n"
 		"=A0	x0\n"
 		"=A1	x1\n"
 		"=A2	x2\n"
