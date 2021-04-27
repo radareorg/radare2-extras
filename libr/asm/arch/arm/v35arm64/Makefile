@@ -8,7 +8,7 @@ all: disassembler
 	$(MAKE) arm64dis.a
 
 disassembler: arch-arm64
-	-cd arch-arm64 && git pull
+	-cd arch-arm64 && git checkout master && git pull
 	cp -rf arch-arm64/disassembler disassembler
 
 arch-arm64:
