@@ -53,8 +53,8 @@ static bool is_mem(OperandClass op) {
 #define GETIMM64(x) (insn->operands[x].immediate)
 
 #define MEMBASE64(x) (get_register_name(insn->operands[x].reg[0]))
-#define MEMINDEX64(x) (insn->operands[x].immediate)
-#define HASMEMINDEX64(x) 0 
+#define MEMINDEX64(x) (get_register_name(insn->operands[x].reg[1]))
+#define HASMEMINDEX64(x) (insn->operands[x].reg[1]) // uhh idk
 #define MEMDISP64(x) (insn->operands[x].immediate)
 
 #define INSOP64(x) insn->operands[x]
@@ -428,10 +428,10 @@ static void opex64(RStrBuf *buf, Instruction *insn) {
 			if (op->operandClass == MEM_REG) {
 				pj_ks (pj, "base", get_register_name(op->reg[0]));
 			}
-			/*if (op->mem.index != ARM_REG_INVALID) {
-				pj_ks (pj, "index", cs_reg_name (handle, op->mem.index));
+			if (op->reg[1]) {
+				pj_ks (pj, "index", get_register_name(op->reg[1]));
 			}
-			pj_ki (pj, "scale", op->mem.scale);*/
+			/*pj_ki (pj, "scale", op->mem.scale);*/
 			pj_ki (pj, "disp", op->immediate);
 			break;
 		case FIMM32:
@@ -462,7 +462,7 @@ static void opex64(RStrBuf *buf, Instruction *insn) {
 			break;*/
 		case SYS_REG:
 			pj_ks (pj, "type", "sysreg");
-			pj_ks (pj, "value", r_str_get_fail (get_register_name(op->reg[0]), ""));
+			pj_ks (pj, "value", r_str_get_fail (get_system_register_name(op->reg[0]), ""));
 			break;
 		default:
 			pj_ks (pj, "type", "invalid");
@@ -744,8 +744,10 @@ static void arg64_append(RStrBuf *sb, Instruction *insn, int n, int i, int sign)
 		ut64 imm = SHIFTED_IMM64 (n, size);
 		r_strbuf_appendf (sb, "0x%"PFMT64x, imm);
 		return;
+	} else if (HASMEMINDEX64 (n)) {
+		rn = MEMINDEX64 (n);
 	} else {
-		rn = REG64(n);
+		rn = REG64 (n);
 	}
 
 	int shift = LSHIFT2_64 (n);
@@ -2480,14 +2482,9 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 
 		if (ISMEM64 (1)) {
 			if (HASMEMINDEX64 (1)) {
-				if (LSHIFT2_64 (1) || EXT64 (1)) {
-					ARG64_APPEND (&op->esil, 1);
-					r_strbuf_appendf (&op->esil, ",%s,+,[%d],%s,=", 
-						MEMBASE64 (1), size, REG64 (0));
-				} else {
-					r_strbuf_appendf (&op->esil, "%s,%s,+,[%d],%s,=",
-							MEMBASE64 (1), MEMINDEX64 (1), size, REG64 (0));
-				}
+				ARG64_APPEND (&op->esil, 1);
+				r_strbuf_appendf (&op->esil, ",%s,+,[%d],%s,=", 
+					MEMBASE64 (1), size, REG64 (0));
 			} else {
 				if (LSHIFT2_64 (1)) {
 					r_strbuf_appendf (&op->esil, "%s,%d,%"PFMT64d",%s,+",
@@ -2499,6 +2496,7 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 					r_strbuf_appendf (&op->esil, "%"PFMT64d",%s,+",
 							MEMDISP64 (1), MEMBASE64 (1));
 				}
+				
 
 				if (ISPREINDEX32() || ISPOSTINDEX32()) {
 					r_strbuf_appendf (&op->esil, ",DUP,tmp,=");
@@ -2575,14 +2573,9 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 
 		if (ISMEM64 (1)) {
 			if (HASMEMINDEX64 (1)) {
-				if (LSHIFT2_64 (1) || EXT64 (1)) {
-					r_strbuf_appendf (&op->esil, "%d,%s,", size*8, MEMBASE64 (1));
-					ARG64_APPEND(&op->esil, 1);
-					r_strbuf_appendf (&op->esil, ",+,[%d],~,%s,=", size, REG64 (0));
-				} else {
-					r_strbuf_appendf (&op->esil, "%d,%s,%s,+,[%d],~,%s,=",
-							size*8, MEMBASE64 (1), MEMINDEX64 (1), size, REG64 (0));
-				}
+				r_strbuf_appendf (&op->esil, "%d,%s,", size*8, MEMBASE64 (1));
+				ARG64_APPEND(&op->esil, 1);
+				r_strbuf_appendf (&op->esil, ",+,[%d],~,%s,=", size, REG64 (0));
 			} else {
 				if (LSHIFT2_64 (1)) {
 					r_strbuf_appendf (&op->esil, "%d,%s,%d,%"PFMT64d",%s",
@@ -2717,14 +2710,9 @@ static int analop_esil(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len
 		}
 		if (ISMEM64 (1)) {
 			if (HASMEMINDEX64 (1)) {
-				if (LSHIFT2_64 (1) || EXT64 (1)) {
-					r_strbuf_appendf (&op->esil, "%s,%s,", REG64 (0), MEMBASE64 (1));
-					ARG64_APPEND(&op->esil, 1);
-					r_strbuf_appendf (&op->esil, ",+,=[%d]", size);
-				} else {
-					r_strbuf_appendf (&op->esil, "%s,%s,%s,+,=[%d]",
-							REG64 (0), MEMBASE64 (1), MEMINDEX64 (1), size);
-				}
+				r_strbuf_appendf (&op->esil, "%s,%s,", REG64 (0), MEMBASE64 (1));
+				ARG64_APPEND(&op->esil, 1);
+				r_strbuf_appendf (&op->esil, ",+,=[%d]", size);
 			} else {
 				if (LSHIFT2_64 (1)) {
 					r_strbuf_appendf (&op->esil, "%s,%s,%d,%"PFMT64d",%s,+",
@@ -3122,6 +3110,9 @@ static int analop(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len, RAn
 			op->mnemonic = strdup ("invalid");
 		}
 		anop64 (a, op, &insn);
+		if (mask & R_ANAL_OP_MASK_OPEX) {
+			opex64 (&op->opex, &insn);
+		}
 		if (mask & R_ANAL_OP_MASK_ESIL) {
 			analop_esil (a, op, addr, buf, len, &insn);
 		}
