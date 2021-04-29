@@ -39,9 +39,16 @@
 #undef HAVE_MAIN
 #endif
 
+#include <gnu/libc-version.h>
+/* Only is supported GLIBC 2.32 and under
+ *  REF: https://forums.developer.nvidia.com/t/nvidia-installer-no-longer-builds-sys-sysctl-h-removed-from-glibc/166601/2 */
+#if __GLIBC__ == 2 && __GLIBC_MINOR__ <= 30
+	#include <sys/sysctl.h>
+#else
+	#include <linux/sysctl.h>
+#endif
 #if __linux__
 #include <sys/sysinfo.h>
-#include <sys/sysctl.h>
 #endif
 #include <sys/types.h>
 
@@ -1898,14 +1905,14 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size) {
 			"\n");
 
 	if (processors == -1) {
-#if __linux__
+#if __GLIBC__ == 2 && __GLIBC_MINOR__ <= 30
 		processors = sysconf(_SC_NPROCESSORS_ONLN);
 		if(sysctl(mib, 2, &processors, &len, NULL, 0) == -1) {
 			ERROR("Failed to get number of available processors.  "
 				"Defaulting to 1\n");
 			processors = 1;
 		}
-#else
+#else /* sys/sysctl.h not supported in glibc_2.32 or later */
 		processors = 1;
 #endif
 	}

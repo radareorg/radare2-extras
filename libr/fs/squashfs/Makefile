@@ -1,6 +1,6 @@
 LIB=fs_squashfs.$(EXT_SO)
 R2PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
-RHOMEBIN=$(shell r2 -H RHOMEDIR)/prefix/bin
+RHOMEBIN=$(R2PLUGDIR)/../prefix/bin
 
 #CFLAGS+=-D LZMA_SUPPORT=1
 CFLAGS+=-D GZIP_SUPPORT=1
