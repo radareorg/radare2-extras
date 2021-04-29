@@ -39,15 +39,10 @@
 #undef HAVE_MAIN
 #endif
 
-#include <gnu/libc-version.h>
-/* Only is supported GLIBC 2.32 and under
+/* GLIBC 2.32 rendered `sys/sysctl.h` deprecated: switch to linux/sysctl.h
  *  REF: https://forums.developer.nvidia.com/t/nvidia-installer-no-longer-builds-sys-sysctl-h-removed-from-glibc/166601/2 */
-#if __GLIBC__ == 2 && __GLIBC_MINOR__ <= 30
-	#include <sys/sysctl.h>
-#else
-	#include <linux/sysctl.h>
-#endif
 #if __linux__
+#include <linux/sysctl.h>
 #include <sys/sysinfo.h>
 #endif
 #include <sys/types.h>
@@ -1904,18 +1899,8 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size) {
 		EXIT_UNSQUASH("Failed to set signal mask in intialise_threads"
 			"\n");
 
-	if (processors == -1) {
-#if __GLIBC__ == 2 && __GLIBC_MINOR__ <= 30
-		processors = sysconf(_SC_NPROCESSORS_ONLN);
-		if(sysctl(mib, 2, &processors, &len, NULL, 0) == -1) {
-			ERROR("Failed to get number of available processors.  "
-				"Defaulting to 1\n");
-			processors = 1;
-		}
-#else /* sys/sysctl.h not supported in glibc_2.32 or later */
+	if (processors == -1)
 		processors = 1;
-#endif
-	}
 	thread = malloc((3 + processors) * sizeof(pthread_t));
 	if(thread == NULL)
 		EXIT_UNSQUASH("Out of memory allocating thread descriptors\n");
