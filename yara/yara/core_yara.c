@@ -15,6 +15,7 @@ static int initialized = false;
 
 static bool print_strings = 0;
 static unsigned int flagidx = 0;
+static bool io_va = true;
 
 #if YR_MAJOR_VERSION < 4
 static int callback(int message, void* rule, void* data);
@@ -44,6 +45,8 @@ static int callback (int message, void *msg_data, void *user_data) {
 	RCore *core = (RCore *) user_data;
 	RPrint *print = core->print;
 	unsigned int ruleidx;
+	st64 offset = 0;
+	ut64 n = 0;
 
 	YR_RULE* rule = msg_data;
 
@@ -58,12 +61,21 @@ static int callback (int message, void *msg_data, void *user_data) {
 
 			yr_string_matches_foreach(string, match)
 			{
+				n = match->base + match->offset;
+				// Find virtual address if needed
+				if (io_va) {
+					RIOMap *map = r_io_map_get_paddr (core->io, n);
+					if (map) {
+						offset = r_io_map_begin (map) - map->delta;
+					}
+				}
+
 				const char *flag = sdb_fmt ("%s%d_%s_%d", "yara", flagidx, rule->identifier, ruleidx);
 				if (print_strings) {
-					r_cons_printf("0x%08" PRIx64 ": %s : ", match->base + match->offset, flag);
+					r_cons_printf("0x%08" PFMT64x ": %s : ", n + offset, flag);
 					r_print_bytes(print, match->data, match->data_length, "%02x");
 				}
-				r_flag_set (core->flags, flag, match->base + match->offset, match->data_length);
+				r_flag_set (core->flags, flag, n + offset, match->data_length);
 				ruleidx++;
 			}
 		}
@@ -82,6 +94,8 @@ static int callback (YR_SCAN_CONTEXT* context, int message, void *msg_data, void
 	RCore *core = (RCore *) user_data;
 	RPrint *print = core->print;
 	unsigned int ruleidx;
+	st64 offset = 0;
+	ut64 n = 0;
 
 	YR_RULE* rule = msg_data;
 
@@ -95,12 +109,21 @@ static int callback (YR_SCAN_CONTEXT* context, int message, void *msg_data, void
 			YR_MATCH* match;
 			yr_string_matches_foreach(context, string, match)
 			{
+				n = match->base + match->offset;
+				// Find virtual address if needed
+				if (io_va) {
+					RIOMap *map = r_io_map_get_paddr (core->io, n);
+					if (map) {
+						offset = r_io_map_begin (map) - map->delta;
+					}
+				}
+
 				const char *flag = sdb_fmt ("%s%d_%s_%d", "yara", flagidx, rule->identifier, ruleidx);
 				if (print_strings) {
-					r_cons_printf("0x%08" PRIx64 ": %s : ", match->base + match->offset, flag);
+					r_cons_printf("0x%08" PFMT64x ": %s : ", n + offset, flag);
 					r_print_bytes(print, match->data, match->data_length, "%02x");
 				}
-				r_flag_set (core->flags, flag, match->base + match->offset, match->data_length);
+				r_flag_set (core->flags, flag, n + offset, match->data_length);
 				ruleidx++;
 			}
 		}
@@ -125,6 +148,7 @@ static int r_cmd_yara_scan(const RCore* core, const char* option) {
 
 	r_flag_space_push (core->flags, "yara");
 	const unsigned int to_scan_size = r_io_size (core->io);
+	io_va = r_config_get_b (core->config, "io.va");
 
 	if (to_scan_size < 1) {
 		eprintf ("Invalid file size\n");
