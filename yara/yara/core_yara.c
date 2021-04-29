@@ -63,7 +63,7 @@ static int callback (int message, void *msg_data, void *user_data) {
 				// Find virtual address if needed
 				if (io_va) {
 					RBinSection *s = r_bin_get_section_at (core->bin->cur->o, match->base + match->offset, false);
-					if (s != NULL) {
+					if (s) {
 						offset =  s->vaddr - s->paddr;
 					}
 				}
@@ -109,7 +109,7 @@ static int callback (YR_SCAN_CONTEXT* context, int message, void *msg_data, void
 				// Find virtual address if needed
 				if (io_va) {
 					RBinSection *s = r_bin_get_section_at (core->bin->cur->o, match->base + match->offset, false);
-					if (s != NULL) {
+					if (s) {
 						offset =  s->vaddr - s->paddr;
 					}
 				}
