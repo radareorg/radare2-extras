@@ -47,6 +47,7 @@ static int callback (int message, void *msg_data, void *user_data) {
 	unsigned int ruleidx;
 	st64 offset = 0;
 	ut64 n = 0;
+
 	YR_RULE* rule = msg_data;
 
 	if (message == CALLBACK_MSG_RULE_MATCHING)
@@ -94,6 +95,7 @@ static int callback (YR_SCAN_CONTEXT* context, int message, void *msg_data, void
 	RPrint *print = core->print;
 	unsigned int ruleidx;
 	st64 offset = 0;
+	ut64 n = 0;
 
 	YR_RULE* rule = msg_data;
 
