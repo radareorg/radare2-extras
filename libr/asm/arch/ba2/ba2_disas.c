@@ -433,7 +433,7 @@ static int ba2_decode_opcode(ut64 pc, const ut8 *bytes, int len, struct op_cmd *
 		strcpy (cmd->instr, "b.exthz");
 		snprintf (cmd->operands, sizeof (cmd->operands), "r%d, r%d", d, a);
 		if (esil) {
-			r_strbuf_appendf (esil, "0xffff,r{A},&,r{D},=,", a, d);
+			r_strbuf_appendf (esil, "0xffff,r%d,&,r%d,=,", a, d);
 		}
 		return 3;
 
@@ -623,7 +623,7 @@ static int ba2_decode_opcode(ut64 pc, const ut8 *bytes, int len, struct op_cmd *
 		}
 		snprintf (cmd->operands, sizeof (cmd->operands), "%x", (unsigned int)(pc + s));
 		if (esil) {
-			r_strbuf_appendf (esil, "fl,1,==,?{,3,{S},-,pc,+=,}", s);
+			r_strbuf_appendf (esil, "fl,1,==,?{,3,%d,-,pc,+=,}", s);
 		}
 		return 3;
 
@@ -1315,7 +1315,7 @@ static int ba2_decode_opcode(ut64 pc, const ut8 *bytes, int len, struct op_cmd *
 		strcpy (cmd->instr, "b.sh");
 		snprintf (cmd->operands, sizeof (cmd->operands), "0x%x(r%d), r%d", x, a, b);
 		if (esil) {
-			r_strbuf_appendf (esil, "r%d,0x&x,r%d,+,=[2]", b, x, a);
+			r_strbuf_appendf (esil, "r%d,0x%x,r%d,+,=[2]", b, x, a);
 		}
 		return 4;
 
