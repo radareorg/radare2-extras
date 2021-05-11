@@ -11,6 +11,7 @@
 
 #include "dis-asm.h"
 
+extern int print_insn_vc4 (bfd_vma pc, disassemble_info *info);
 
 static unsigned long Offset = 0;
 static RStrBuf *buf_global = NULL;
