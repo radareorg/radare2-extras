@@ -54,7 +54,7 @@ pthread_mutex_t        fragment_mutex;
 
 // TODO: make all this stuff static
 /* user options that control parallelisation */
-int processors = -1;
+const int processors = 1;
 
 struct super_block sBlk;
 squashfs_operations s_ops;
@@ -1899,8 +1899,6 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size) {
 		EXIT_UNSQUASH("Failed to set signal mask in intialise_threads"
 			"\n");
 
-	if (processors == -1)
-		processors = 1;
 	thread = malloc((3 + processors) * sizeof(pthread_t));
 	if(thread == NULL)
 		EXIT_UNSQUASH("Out of memory allocating thread descriptors\n");
@@ -1993,9 +1991,7 @@ int main(int argc, char *argv[])
 			dest = argv[i];
 		} else if(strcmp(argv[i], "-processors") == 0 ||
 				strcmp(argv[i], "-p") == 0) {
-			if((++i == argc) || 
-					(processors = strtol(argv[i], &b, 10),
-					*b != '\0')) {
+			if((++i == argc)) { /* || (processors = strtol(argv[i], &b, 10), *b != '\0')) { */
 				ERROR("%s: -processors missing or invalid "
 					"processor number\n", argv[0]);
 				exit(1);
