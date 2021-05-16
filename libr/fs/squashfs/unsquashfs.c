@@ -39,9 +39,11 @@
 #undef HAVE_MAIN
 #endif
 
+/* GLIBC 2.32 rendered `sys/sysctl.h` deprecated: switch to linux/sysctl.h
+ *  REF: https://forums.developer.nvidia.com/t/nvidia-installer-no-longer-builds-sys-sysctl-h-removed-from-glibc/166601/2 */
 #if __linux__
+#include <linux/sysctl.h>
 #include <sys/sysinfo.h>
-#include <sys/sysctl.h>
 #endif
 #include <sys/types.h>
 
@@ -52,7 +54,7 @@ pthread_mutex_t        fragment_mutex;
 
 // TODO: make all this stuff static
 /* user options that control parallelisation */
-int processors = -1;
+const int processors = 1;
 
 struct super_block sBlk;
 squashfs_operations s_ops;
@@ -1897,18 +1899,6 @@ void initialise_threads(int fragment_buffer_size, int data_buffer_size) {
 		EXIT_UNSQUASH("Failed to set signal mask in intialise_threads"
 			"\n");
 
-	if (processors == -1) {
-#if __linux__
-		processors = sysconf(_SC_NPROCESSORS_ONLN);
-		if(sysctl(mib, 2, &processors, &len, NULL, 0) == -1) {
-			ERROR("Failed to get number of available processors.  "
-				"Defaulting to 1\n");
-			processors = 1;
-		}
-#else
-		processors = 1;
-#endif
-	}
 	thread = malloc((3 + processors) * sizeof(pthread_t));
 	if(thread == NULL)
 		EXIT_UNSQUASH("Out of memory allocating thread descriptors\n");
@@ -2001,9 +1991,7 @@ int main(int argc, char *argv[])
 			dest = argv[i];
 		} else if(strcmp(argv[i], "-processors") == 0 ||
 				strcmp(argv[i], "-p") == 0) {
-			if((++i == argc) || 
-					(processors = strtol(argv[i], &b, 10),
-					*b != '\0')) {
+			if((++i == argc)) { /* || (processors = strtol(argv[i], &b, 10), *b != '\0')) { */
 				ERROR("%s: -processors missing or invalid "
 					"processor number\n", argv[0]);
 				exit(1);
