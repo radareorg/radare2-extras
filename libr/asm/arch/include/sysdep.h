@@ -27,16 +27,19 @@
    trying to replace often did that.  If it can be dropped from this
    file (check in a non-ANSI environment!), it should be.  */
 
+#ifndef SYSDEP_H
+#define SYSDEP_H
+
 #include "ansidecl.h"
 
-#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
-#endif
 
-#ifdef HAVE_STRING_H
 #include <string.h>
-#else
 #ifdef HAVE_STRINGS_H
 #include <strings.h>
+#endif
+#ifndef opcodes_error_handler
+#define opcodes_error_handler(...) \
+  fprintf (stderr, __VA_ARGS__); fputc ('\n', stderr)
 #endif
 #endif

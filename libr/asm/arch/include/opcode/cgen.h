@@ -1,7 +1,6 @@
 /* Header file for targets using CGEN: Cpu tools GENerator.
 
-   Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1996-2021 Free Software Foundation, Inc.
 
    This file is part of GDB, the GNU debugger, and the GNU Binutils.
 
@@ -26,8 +25,11 @@
 #include "cgen/bitset.h"
 
 /* ??? IWBN to replace bfd in the name.  */
-#include <inttypes.h>
-//#include "bfd_stdint.h"
+#include "bfd_stdint.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* ??? This file requires bfd.h but only to get bfd_vma.
    Seems like an awful lot to require just to get such a fundamental type.
@@ -932,8 +934,6 @@ typedef struct
 #ifdef CGEN_MAX_EXTRA_OPCODE_OPERANDS
   /* Extra opcode values beyond base_value.  */
   unsigned long ifield_values[CGEN_MAX_EXTRA_OPCODE_OPERANDS];
-  /* Extra opcode mask words beyond base_value, corresponding to above.  */
-  unsigned long ifield_masks[CGEN_MAX_EXTRA_OPCODE_OPERANDS];
 #endif
 } CGEN_IVALUE;
 
@@ -966,10 +966,6 @@ typedef struct
   CGEN_IVALUE value;
 #define CGEN_OPCODE_VALUE(opc) (& (opc)->value)
 #define CGEN_OPCODE_BASE_VALUE(opc) (CGEN_OPCODE_VALUE (opc)->base_value)
-#define CGEN_OPCODE_IFIELD_VALUE(opc,num) \
-  (CGEN_OPCODE_VALUE (opc)->ifield_values[(num)])
-#define CGEN_OPCODE_IFIELD_MASK(opc,num) \
-  (CGEN_OPCODE_VALUE (opc)->ifield_masks[(num)])
 #define CGEN_OPCODE_BASE_MASK(opc) CGEN_IFMT_MASK (CGEN_OPCODE_FORMAT (opc))
 } CGEN_OPCODE;
 
@@ -1118,12 +1114,6 @@ extern int cgen_macro_insn_count (CGEN_CPU_DESC);
 /* Return value of base part of INSN.  */
 #define CGEN_INSN_BASE_VALUE(insn) \
   CGEN_OPCODE_BASE_VALUE (CGEN_INSN_OPCODE (insn))
-
-#define CGEN_INSN_IFIELD_VALUE(insn, num) \
-  CGEN_OPCODE_IFIELD_VALUE (CGEN_INSN_OPCODE (insn), (num))
-
-#define CGEN_INSN_IFIELD_MASK(insn, num) \
-  CGEN_OPCODE_IFIELD_MASK (CGEN_INSN_OPCODE (insn), (num))
 
 /* Standard way to test whether INSN is supported by MACH.
    MACH is one of enum mach_attr.
@@ -1402,7 +1392,9 @@ enum cgen_cpu_open_arg {
      Multiple machines can be specified by repeated use.  */
   CGEN_CPU_OPEN_BFDMACH,
   /* Select endian, arg is CGEN_ENDIAN_*.  */
-  CGEN_CPU_OPEN_ENDIAN
+  CGEN_CPU_OPEN_ENDIAN,
+  /* Select instruction endian, arg is CGEN_ENDIAN_*.  */
+  CGEN_CPU_OPEN_INSN_ENDIAN,
 };
 
 /* Open a cpu descriptor table for use.
@@ -1471,8 +1463,13 @@ extern const CGEN_INSN * cgen_lookup_get_insn_operands
 /* Cover fns to bfd_get/set.  */
 
 extern CGEN_INSN_INT cgen_get_insn_value
-  (CGEN_CPU_DESC, unsigned char *, int);
+  (CGEN_CPU_DESC, unsigned char *, int, int);
 extern void cgen_put_insn_value
+  (CGEN_CPU_DESC, unsigned char *, int, CGEN_INSN_INT, int);
+
+extern CGEN_INSN_INT cgen_get_base_insn_value
+  (CGEN_CPU_DESC, unsigned char *, int);
+extern void cgen_put_base_insn_value
   (CGEN_CPU_DESC, unsigned char *, int, CGEN_INSN_INT);
 
 /* Read in a cpu description file.
@@ -1489,5 +1486,9 @@ extern void cgen_clear_signed_overflow_ok (CGEN_CPU_DESC);
 
 /* Will an error message be generated if a signed field in an instruction overflows ? */
 extern unsigned int cgen_signed_overflow_ok_p (CGEN_CPU_DESC);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* OPCODE_CGEN_H */

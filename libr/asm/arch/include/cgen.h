@@ -980,12 +980,16 @@ typedef CGEN_ATTR_TYPE (CGEN_INSN_NBOOL_ATTRS) CGEN_INSN_ATTR_TYPE;
 
 /* Enum of architecture independent attributes.  */
 
+#if 0
 #ifndef CGEN_ARCH
 /* ??? Numbers here are recorded in two places.  */
 typedef enum cgen_insn_attr {
   CGEN_INSN_ALIAS = 0
 } CGEN_INSN_ATTR;
+#ifndef CGEN_ATTR_CGEN_INSN_ALIAS_VALUE
 #define CGEN_ATTR_CGEN_INSN_ALIAS_VALUE(attrs) ((attrs)->bool_ & (1 << CGEN_INSN_ALIAS))
+#endif
+#endif
 #endif
 
 /* This struct defines each entry in the instruction table.  */
@@ -1490,5 +1494,6 @@ extern unsigned int cgen_signed_overflow_ok_p (CGEN_CPU_DESC);
 #ifdef __cplusplus
 }
 #endif
+char * m32c_cgen_build_insn_regex (CGEN_INSN *insn);
 
 #endif /* OPCODE_CGEN_H */

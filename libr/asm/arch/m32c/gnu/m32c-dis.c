@@ -1298,7 +1298,7 @@ print_insn_m32c (bfd_vma pc, disassemble_info *info)
 	abort ();
 
       /* Save this away for future reference.  */
-      cl = xmalloc (sizeof (struct cpu_desc_list));
+      cl = malloc (sizeof (struct cpu_desc_list));
       cl->cd = cd;
       cl->isa = prev_isa;
       cl->mach = mach;

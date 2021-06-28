@@ -30,10 +30,12 @@ This file is part of the GNU Binutils and/or GDB, the GNU debugger.
 extern "C" {
 #endif
 
-#define CGEN_ARCH m32c
-
 /* Given symbol S, return m32c_cgen_<S>.  */
+#undef CGEN_SYM
 #define CGEN_SYM(s) m32c##_cgen_##s
+
+#define CGEN_OPERAND_MAX 0
+#define CGEN_OPERAND_NIL CGEN_OPERAND_MAX
 
 
 /* Selected cpu families.  */
