@@ -4,8 +4,9 @@ CFLAGS+=-I../include
 EXT_SO=$(shell r2 -H R2_LIBEXT)
 
 all:
-	#make -C gnu |head -n 10
+	make -C gnu
 	$(CC) -shared -fPIC -o asm_m32c_gnu.$(EXT_SO) $(CFLAGS) asm_m32c_gnu.c gnu/*.o
+	$(MAKE) install
 
 install:
 	cp *.$(EXT_SO) $(R2HOME)

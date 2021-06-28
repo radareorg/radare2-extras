@@ -24,7 +24,7 @@ static int m32c_buffer_read_memory(bfd_vma memaddr, bfd_byte *myaddr, unsigned i
 	if (delta < 0) {
 		return -1;      // disable backward reads
 	}
-	if ((delta + length) > 4) {
+	if ((delta + length) > sizeof (bytes)) {
 		return -1;
 	}
 	memcpy (myaddr, bytes + delta, length);
@@ -43,21 +43,17 @@ DECLARE_GENERIC_PRINT_ADDRESS_FUNC()
 DECLARE_GENERIC_FPRINTF_FUNC()
 
 static int disassemble(struct r_asm_t *a, struct r_asm_op_t *op, const ut8 *buf, int len) {
-	static struct disassemble_info disasm_obj;
-	if (len < 4) {
+	struct disassemble_info disasm_obj = {0};
+	if (len < sizeof (bytes)) {
 		return -1;
 	}
 	buf_global = &op->buf_asm;
 	Offset = a->pc;
 	memcpy (bytes, buf, R_MIN (len, sizeof (bytes))); // TODO handle thumb
 
-	if ((a->cpu != pre_cpu) && (a->features != pre_features)) {
-		free (disasm_obj.disassembler_options);
-		memset (&disasm_obj, '\0', sizeof (struct disassemble_info));
-	}	
-
 	/* prepare disassembler */
-	disasm_obj.mach = bfd_mach_m32c;
+	//disasm_obj.mach = bfd_mach_m32c;
+	disasm_obj.disassembler_options = "";
 	disasm_obj.buffer = bytes;
 	disasm_obj.read_memory_func = &m32c_buffer_read_memory;
 	disasm_obj.symbol_at_address_func = &symbol_at_address;
@@ -94,6 +90,7 @@ static int assemble(RAsm *a, RAsmOp *op, const char *str) {
 RAsmPlugin r_asm_plugin_m32c_gnu = {
 	.name = "m32c.gnu",
 	.arch = "m32c",
+	.author = "pancake",
 	.license = "GPL3",
 	.bits = 16 | 32,
 	.endian = R_SYS_ENDIAN_LITTLE,
