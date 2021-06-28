@@ -4,6 +4,7 @@
 #ifndef _XREGEX_H
 #define _XREGEX_H 1
 
+#if 0
 #  define regfree xregfree 
 #  define regexec xregexec
 #  define regcomp xregcomp
@@ -23,6 +24,7 @@
 #  define _REGEX_RE_COMP
 #  define re_comp xre_comp
 #  define re_exec xre_exec
+#endif
 
 #include "xregex2.h"
 

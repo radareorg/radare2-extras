@@ -1,5 +1,5 @@
 /* Basic CGEN modes.
-   Copyright 2005, 2007, 2009 Free Software Foundation, Inc.
+   Copyright (C) 2005-2021 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of the GNU opcodes library.
@@ -29,8 +29,7 @@
    (*1): To the extent that bfd_stdint.h does for now.  */
 
 /* IWBN to avoid unnecessary dependencies on bfd-anything.  */
-//#include "bfd_stdint.h"
-#include "inttypes.h"
+#include "bfd_stdint.h"
 
 typedef int8_t QI;
 typedef uint8_t UQI;
