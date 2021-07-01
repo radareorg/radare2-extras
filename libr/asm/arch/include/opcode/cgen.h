@@ -22,6 +22,7 @@
 #define OPCODE_CGEN_H
 
 #include "symcat.h"
+#include <stdint.h>
 #include "cgen/bitset.h"
 
 /* ??? IWBN to replace bfd in the name.  */
