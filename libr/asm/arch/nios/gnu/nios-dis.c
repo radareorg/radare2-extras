@@ -1,12 +1,9 @@
-/* Altera Nios disassemble routines
-   Copyright (C) 2012-2018 Free Software Foundation, Inc.
+/* Altera Nios II disassemble routines
+   Copyright (C) 2012-2021 Free Software Foundation, Inc.
+   Contributed by Nigel Gray (ngray@altera.com).
+   Contributed by Mentor Graphics, Inc.
 
-   THIS FILE IS MACHINE GENERATED WITH CGEN.
-   - the resultant file is machine generated, cgen-dis.in isn't
-
-   Copyright (C) 1996-2018 Free Software Foundation, Inc.
-
-   This file is part of libopcodes.
+   This file is part of the GNU opcodes library.
 
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -19,772 +16,1029 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software Foundation, Inc.,
-   51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
-
-/* ??? Eventually more and more of this stuff can go to cpu-independent files.
-   Keep that in mind.  */
+   along with this file; see the file COPYING.  If not, write to the
+   Free Software Foundation, 51 Franklin Street - Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 #include "sysdep.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include "ansidecl.h"
 #include "dis-asm.h"
-//#include "bfd.h"
-#include "mybfd.h"
-#include "symcat.h"
-#include "libiberty.h"
-#include "nios-desc.h"
-#include "nios-opc.h"
 #include "opintl.h"
+#include "opcode/nios2.h"
+#include "libiberty.h"
+#include <string.h>
+#include <assert.h>
 
-extern const bfd_arch_info_type bfd_nios_arch;
+/* No symbol table is available when this code runs out in an embedded
+   system as when it is used for disassembler support in a monitor.  */
+#if !defined(EMBEDDED_ENV)
+#define SYMTAB_AVAILABLE 1
+#include "elf-bfd.h"
+#include "elf/nios2.h"
+#endif
 
-const bfd_arch_info_type *
-bfd_lookup_arch (enum bfd_architecture arch, unsigned long machine)
+/* Default length of Nios II instruction in bytes.  */
+#define INSNLEN 4
+
+/* Data structures used by the opcode hash table.  */
+typedef struct _nios2_opcode_hash
 {
-  if (arch != bfd_arch_nios) {
-    return NULL;
-  }
+  const struct nios2_opcode *opcode;
+  struct _nios2_opcode_hash *next;
+} nios2_opcode_hash;
 
-  if (machine == MACH_NIOS16) {
-    return &bfd_nios_arch;
-  } else if (machine == MACH_NIOS32) {
-    return bfd_nios_arch.next;
-  } else {
-    return NULL;
-  }
+/* Hash table size.  */
+#define OPCODE_HASH_SIZE (IW_R1_OP_UNSHIFTED_MASK + 1)
+
+/* Extract the opcode from an instruction word.  */
+static unsigned int
+nios2_r1_extract_opcode (unsigned int x)
+{
+  return GET_IW_R1_OP (x);
 }
 
-/* Default text to print if an instruction isn't recognized.  */
-#define UNKNOWN_INSN_MSG _("*unknown*")
-
-static void print_normal
-  (CGEN_CPU_DESC, void *, long, unsigned int, bfd_vma, int);
-static void print_address
-  (CGEN_CPU_DESC, void *, bfd_vma, unsigned int, bfd_vma, int) ATTRIBUTE_UNUSED;
-static void print_keyword
-  (CGEN_CPU_DESC, void *, CGEN_KEYWORD *, long, unsigned int) ATTRIBUTE_UNUSED;
-static void print_insn_normal
-  (CGEN_CPU_DESC, void *, const CGEN_INSN *, CGEN_FIELDS *, bfd_vma, int);
-static int print_insn
-  (CGEN_CPU_DESC, bfd_vma,  disassemble_info *, bfd_byte *, unsigned);
-static int default_print_insn
-  (CGEN_CPU_DESC, bfd_vma, disassemble_info *) ATTRIBUTE_UNUSED;
-static int read_insn
-  (CGEN_CPU_DESC, bfd_vma, disassemble_info *, bfd_byte *, int, CGEN_EXTRACT_INFO *,
-   unsigned long *);
-
-/* -- disassembler routines inserted here.  */
-
-/* -- dis.c */
-
-/* Include "%hi(foo) in output.  */
-      
-ATTRIBUTE_UNUSED static void
-print_Rbi5 (CGEN_CPU_DESC cd, void *dis_info, long value, unsigned int attrs, bfd_vma pc, int length)
+static unsigned int
+nios2_r2_extract_opcode (unsigned int x)
 {
-  int status;
-  bfd_byte buf[2];
-  unsigned long insn_value;
-  const CGEN_INSN_LIST *insn_list;
-
-  disassemble_info *info = (disassemble_info *) dis_info;
-
-  /* look at previous instruction, if possible, to see if it is PFX */
-  if (pc > 0)
-    {
-      status = (*info->read_memory_func) (pc - 2, buf, 2, info);  
-      if (status != 0)
-	{
-	  print_keyword (cd, info, & nios_cgen_opval_gr_names, value, 0);
-	  return;
-	}
-      insn_value = info->endian == BFD_ENDIAN_BIG ? bfd_getb16 (buf) : bfd_getl16 (buf);
-      insn_list = CGEN_DIS_LOOKUP_INSN (cd, (char *) buf, insn_value);
-      while (insn_list != NULL)
-	{
-	  const CGEN_INSN *insn = insn_list->insn;
-
-	  /* Basic bit mask must be correct.  */
-	  /* ??? May wish to allow target to defer this check until the extract
-	     handler.  */
-	  if ((insn_value & CGEN_INSN_BASE_MASK (insn))
-	      == CGEN_INSN_BASE_VALUE (insn))
-	    {
-	      if (CGEN_INSN_ATTR_VALUE (insn, CGEN_INSN_PREFIX))
-		(*info->fprintf_func) (info->stream, "0x%lx", value);
-	      else
-		print_keyword (cd, info, & nios_cgen_opval_gr_names, value, 0);
-	      return;
-	    }
-	  insn_list = CGEN_DIS_NEXT_INSN (insn_list);
-	}
-    }
-  print_keyword (cd, info, & nios_cgen_opval_gr_names, value, 0);
+  return GET_IW_R2_OP (x);
 }
 
-ATTRIBUTE_UNUSED static void
-print_i11 (CGEN_CPU_DESC cd, void *dis_info, long value, unsigned int attrs, bfd_vma pc, int length)
+/* We maintain separate hash tables for R1 and R2 opcodes, and pseudo-ops
+   are stored in a different table than regular instructions.  */
+
+typedef struct _nios2_disassembler_state
 {
-  disassemble_info *info = (disassemble_info *) dis_info;
-  (*info->fprintf_func) (info->stream, "hi(0x%lx)", value << 5);
-}
+  const struct nios2_opcode *opcodes;
+  const int *num_opcodes;
+  unsigned int (*extract_opcode) (unsigned int);
+  nios2_opcode_hash *hash[OPCODE_HASH_SIZE];
+  nios2_opcode_hash *ps_hash[OPCODE_HASH_SIZE];
+  const struct nios2_opcode *nop;
+  bfd_boolean init;
+} nios2_disassembler_state;
 
-ATTRIBUTE_UNUSED static void
-print_r0 (CGEN_CPU_DESC cd, void *dis_info, long value, unsigned int attrs, bfd_vma pc, int length)
-{
-  disassemble_info *info = (disassemble_info *) dis_info;
-  (*info->fprintf_func) (info->stream, "g0");
-}
-
-ATTRIBUTE_UNUSED static void
-print_i16 (CGEN_CPU_DESC cd, void *dis_info, long value, unsigned int attrs, bfd_vma pc, int length)
-{
-  disassemble_info *info = (disassemble_info *) dis_info;
-  (*info->fprintf_func) (info->stream, "#0x%hx)", (short)value);
-}
-
-ATTRIBUTE_UNUSED static void
-print_i32 (CGEN_CPU_DESC cd ATTRIBUTE_UNUSED,
-		    void *dis_info,
-		    long value,
-		    unsigned int attrs,
-		    bfd_vma pc,
-		    int length)
-{
-  disassemble_info *info = (disassemble_info *) dis_info;
-  (*info->fprintf_func) (info->stream, "#0x%lx)", value);
-}
-
-ATTRIBUTE_UNUSED static void
-print_i4w (CGEN_CPU_DESC cd, void *dis_info, long value, unsigned int attrs, bfd_vma pc, int length)
-{
-  char *str;
-  disassemble_info *info = (disassemble_info *) dis_info;
-  switch (value)
-    {
-    case CC_Z:
-      str = "cc_eq";
-      break;
-    case CC_NZ:
-      str = "cc_ne";
-      break;
-    case CC_C:
-      str = "cc_c";
-      break;
-    case CC_NC:
-      str = "cc_nc";
-      break;
-    case CC_V:
-      str = "cc_v";
-      break;
-    case CC_NV:
-      str = "cc_nv";
-      break;
-    case CC_GT:
-      str = "cc_gt";
-      break;
-    case CC_GE:
-      str = "cc_ge";
-      break;
-    case CC_LT:
-      str = "cc_lt";
-      break;
-    case CC_LE:
-      str = "cc_le";
-      break;
-    case CC_LS:
-      str = "cc_ls";
-      break;
-    case CC_HI:
-      str = "cc_hi";
-      break;
-    case CC_PL:
-      str = "cc_pl";
-      break;
-    case CC_MI:
-      str = "cc_mi";
-      break;
-    }
-
-  if (str != NULL)
-    (*info->fprintf_func) (info->stream, "%s", str);
-  else
-    (*info->fprintf_func) (info->stream, "0x%lx", value);
-}
-
-
-/* -- */
-
-void nios_cgen_print_operand
-  (CGEN_CPU_DESC, int, PTR, CGEN_FIELDS *, void const *, bfd_vma, int);
-
-/* Main entry point for printing operands.
-   XINFO is a `void *' and not a `disassemble_info *' to not put a requirement
-   of dis-asm.h on cgen.h.
-
-   This function is basically just a big switch statement.  Earlier versions
-   used tables to look up the function to use, but
-   - if the table contains both assembler and disassembler functions then
-     the disassembler contains much of the assembler and vice-versa,
-   - there's a lot of inlining possibilities as things grow,
-   - using a switch statement avoids the function call overhead.
-
-   This function could be moved into `print_insn_normal', but keeping it
-   separate makes clear the interface between `print_insn_normal' and each of
-   the handlers.  */
-
-void
-nios_cgen_print_operand (CGEN_CPU_DESC cd,
-			   int opindex,
-			   void * xinfo,
-			   CGEN_FIELDS *fields,
-			   void const *attrs ATTRIBUTE_UNUSED,
-			   bfd_vma pc,
-			   int length)
-{
- disassemble_info *info = (disassemble_info *) xinfo;
-
-  switch (opindex)
-    {
-    case NIOS_OPERAND_CTLC :
-      print_normal (cd, info, fields->f_CTLc, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_RBI5 :
-      print_Rbi5 (cd, info, fields->f_Rbi5, 0, pc, length);
-      break;
-    case NIOS_OPERAND_BSRR_REL6 :
-      print_address (cd, info, fields->f_bsrr_i6_rel, 0|(1<<CGEN_OPERAND_RELAX)|(1<<CGEN_OPERAND_PCREL_ADDR), pc, length);
-      break;
-    case NIOS_OPERAND_I1 :
-      print_normal (cd, info, fields->f_i1, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_I10 :
-      print_normal (cd, info, fields->f_i10, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_I11 :
-      print_i11 (cd, info, fields->f_i11, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_I2 :
-      print_normal (cd, info, fields->f_i2, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_I4W :
-      print_i4w (cd, info, fields->f_i4w, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_I4WN :
-      print_i4w (cd, info, fields->f_i4w, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_I5 :
-      print_normal (cd, info, fields->f_i5, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_I6V :
-      print_normal (cd, info, fields->f_i6v, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_I8 :
-      print_normal (cd, info, fields->f_i8, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_I8V :
-      print_normal (cd, info, fields->f_i8v, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_I9 :
-      print_normal (cd, info, fields->f_i9, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_M16_R0 :
-      print_keyword (cd, info, & nios_cgen_opval_h_m16_gr0, 0, 0);
-      break;
-    case NIOS_OPERAND_M16_RA :
-      print_keyword (cd, info, & nios_cgen_opval_gr_names, fields->f_Ra, 0);
-      break;
-    case NIOS_OPERAND_M16_RB :
-      print_keyword (cd, info, & nios_cgen_opval_gr_names, fields->f_Rb, 0);
-      break;
-    case NIOS_OPERAND_M16_RP :
-      print_keyword (cd, info, & nios_cgen_opval_bp_names, fields->f_Rp, 0);
-      break;
-    case NIOS_OPERAND_M16_RZ :
-      print_keyword (cd, info, & nios_cgen_opval_gr_names, fields->f_Rz, 0);
-      break;
-    case NIOS_OPERAND_M16_I6 :
-      print_address (cd, info, fields->f_i6_rel_h, 0|(1<<CGEN_OPERAND_PCREL_ADDR), pc, length);
-      break;
-    case NIOS_OPERAND_M16_I8V :
-      print_address (cd, info, fields->f_i8v_rel_h, 0|(1<<CGEN_OPERAND_PCREL_ADDR), pc, length);
-      break;
-    case NIOS_OPERAND_M16_SP :
-      print_keyword (cd, info, & nios_cgen_opval_h_m16_sp, 0, 0);
-      break;
-    case NIOS_OPERAND_M32_R0 :
-      print_keyword (cd, info, & nios_cgen_opval_gr0_name, 0, 0);
-      break;
-    case NIOS_OPERAND_M32_RA :
-      print_keyword (cd, info, & nios_cgen_opval_gr_names, fields->f_Ra, 0);
-      break;
-    case NIOS_OPERAND_M32_RB :
-      print_keyword (cd, info, & nios_cgen_opval_gr_names, fields->f_Rb, 0);
-      break;
-    case NIOS_OPERAND_M32_RP :
-      print_keyword (cd, info, & nios_cgen_opval_bp_names, fields->f_Rp, 0);
-      break;
-    case NIOS_OPERAND_M32_RZ :
-      print_keyword (cd, info, & nios_cgen_opval_gr_names, fields->f_Rz, 0);
-      break;
-    case NIOS_OPERAND_M32_I6 :
-      print_address (cd, info, fields->f_i6_rel_w, 0|(1<<CGEN_OPERAND_PCREL_ADDR), pc, length);
-      break;
-    case NIOS_OPERAND_M32_I8V :
-      print_address (cd, info, fields->f_i8v_rel_w, 0|(1<<CGEN_OPERAND_PCREL_ADDR), pc, length);
-      break;
-    case NIOS_OPERAND_M32_SP :
-      print_keyword (cd, info, & nios_cgen_opval_h_m32_sp, 0, 0);
-      break;
-    case NIOS_OPERAND_O1 :
-      print_normal (cd, info, fields->f_o1, 0, pc, length);
-      break;
-    case NIOS_OPERAND_O2 :
-      print_normal (cd, info, fields->f_o2, 0, pc, length);
-      break;
-    case NIOS_OPERAND_REL11 :
-      print_address (cd, info, fields->f_i11_rel, 0|(1<<CGEN_OPERAND_PCREL_ADDR), pc, length);
-      break;
-    case NIOS_OPERAND_SAVE_I8V :
-      print_normal (cd, info, fields->f_i8v, 0|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_SI11 :
-      print_normal (cd, info, fields->f_i11, 0|(1<<CGEN_OPERAND_SIGNED)|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_SI5 :
-      print_normal (cd, info, fields->f_i5, 0|(1<<CGEN_OPERAND_SIGNED)|(1<<CGEN_OPERAND_HASH_PREFIX), pc, length);
-      break;
-    case NIOS_OPERAND_X1 :
-      print_normal (cd, info, fields->f_x1, 0, pc, length);
-      break;
-    case NIOS_OPERAND_XRA :
-      print_normal (cd, info, fields->f_Ra, 0, pc, length);
-      break;
-
-    default :
-      /* xgettext:c-format */
-      opcodes_error_handler
-	(_("internal error: unrecognized field %d while printing insn"),
-	 opindex);
-      abort ();
-  }
-}
-
-cgen_print_fn * const nios_cgen_print_handlers[] = 
-{
-  print_insn_normal,
+static nios2_disassembler_state
+nios2_r1_disassembler_state = {
+  nios2_r1_opcodes,
+  &nios2_num_r1_opcodes,
+  nios2_r1_extract_opcode,
+  {},
+  {},
+  NULL,
+  0
 };
 
+static nios2_disassembler_state
+nios2_r2_disassembler_state = {
+  nios2_r2_opcodes,
+  &nios2_num_r2_opcodes,
+  nios2_r2_extract_opcode,
+  {},
+  {},
+  NULL,
+  0
+};
 
-void
-nios_cgen_init_dis (CGEN_CPU_DESC cd)
-{
-  nios_cgen_init_opcode_table (cd);
-  nios_cgen_init_ibld_table (cd);
-  cd->print_handlers = & nios_cgen_print_handlers[0];
-  cd->print_operand = nios_cgen_print_operand;
-}
-
-
-/* Default print handler.  */
-
+/* Function to initialize the opcode hash table.  */
 static void
-print_normal (CGEN_CPU_DESC cd ATTRIBUTE_UNUSED,
-	      void *dis_info,
-	      long value,
-	      unsigned int attrs,
-	      bfd_vma pc ATTRIBUTE_UNUSED,
-	      int length ATTRIBUTE_UNUSED)
+nios2_init_opcode_hash (nios2_disassembler_state *state)
 {
-  disassemble_info *info = (disassemble_info *) dis_info;
+  unsigned int i;
+  register const struct nios2_opcode *op;
 
-  /* Print the operand as directed by the attributes.  */
-  if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_SEM_ONLY))
-    ; /* nothing to do */
-  else if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_SIGNED))
-    (*info->fprintf_func) (info->stream, "%ld", value);
-  else
-    (*info->fprintf_func) (info->stream, "0x%lx", value);
-}
+  for (i = 0; i < OPCODE_HASH_SIZE; i++)
+    for (op = state->opcodes; op < &state->opcodes[*(state->num_opcodes)]; op++)
+      {
+	nios2_opcode_hash *new_hash;
+	nios2_opcode_hash **bucket = NULL;
 
-/* Default address handler.  */
+	if ((op->pinfo & NIOS2_INSN_MACRO) == NIOS2_INSN_MACRO)
+	  {
+	    if (i == state->extract_opcode (op->match)
+		&& (op->pinfo & (NIOS2_INSN_MACRO_MOV | NIOS2_INSN_MACRO_MOVI)
+		    & 0x7fffffff))
+	      {
+		bucket = &(state->ps_hash[i]);
+		if (strcmp (op->name, "nop") == 0)
+		  state->nop = op;
+	      }
+	  }
+	else if (i == state->extract_opcode (op->match))
+	  bucket = &(state->hash[i]);
 
-static void
-print_address (CGEN_CPU_DESC cd ATTRIBUTE_UNUSED,
-	       void *dis_info,
-	       bfd_vma value,
-	       unsigned int attrs,
-	       bfd_vma pc ATTRIBUTE_UNUSED,
-	       int length ATTRIBUTE_UNUSED)
-{
-  disassemble_info *info = (disassemble_info *) dis_info;
+	if (bucket)
+	  {
+	    new_hash =
+	      (nios2_opcode_hash *) malloc (sizeof (nios2_opcode_hash));
+	    if (new_hash == NULL)
+	      {
+		/* xgettext:c-format */
+		opcodes_error_handler (_("out of memory"));
+		exit (1);
+	      }
+	    new_hash->opcode = op;
+	    new_hash->next = NULL;
+	    while (*bucket)
+	      bucket = &((*bucket)->next);
+	    *bucket = new_hash;
+	  }
+      }
+  state->init = 1;
 
-  /* Print the operand as directed by the attributes.  */
-  if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_SEM_ONLY))
-    ; /* Nothing to do.  */
-  else if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_PCREL_ADDR))
-    (*info->print_address_func) (value, info);
-  else if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_ABS_ADDR))
-    (*info->print_address_func) (value, info);
-  else if (CGEN_BOOL_ATTR (attrs, CGEN_OPERAND_SIGNED))
-    (*info->fprintf_func) (info->stream, "%ld", (long) value);
-  else
-    (*info->fprintf_func) (info->stream, "0x%lx", (long) value);
-}
-
-/* Keyword print handler.  */
-
-static void
-print_keyword (CGEN_CPU_DESC cd ATTRIBUTE_UNUSED,
-	       void *dis_info,
-	       CGEN_KEYWORD *keyword_table,
-	       long value,
-	       unsigned int attrs ATTRIBUTE_UNUSED)
-{
-  disassemble_info *info = (disassemble_info *) dis_info;
-  const CGEN_KEYWORD_ENTRY *ke;
-
-  ke = cgen_keyword_lookup_value (keyword_table, value);
-  if (ke != NULL)
-    (*info->fprintf_func) (info->stream, "%s", ke->name);
-  else
-    (*info->fprintf_func) (info->stream, "???");
-}
-
-/* Default insn printer.
-
-   DIS_INFO is defined as `void *' so the disassembler needn't know anything
-   about disassemble_info.  */
-
-static void
-print_insn_normal (CGEN_CPU_DESC cd,
-		   void *dis_info,
-		   const CGEN_INSN *insn,
-		   CGEN_FIELDS *fields,
-		   bfd_vma pc,
-		   int length)
-{
-  const CGEN_SYNTAX *syntax = CGEN_INSN_SYNTAX (insn);
-  disassemble_info *info = (disassemble_info *) dis_info;
-  const CGEN_SYNTAX_CHAR_TYPE *syn;
-
-  CGEN_INIT_PRINT (cd);
-
-  for (syn = CGEN_SYNTAX_STRING (syntax); *syn; ++syn)
+#ifdef DEBUG_HASHTABLE
+  for (i = 0; i < OPCODE_HASH_SIZE; ++i)
     {
-      if (CGEN_SYNTAX_MNEMONIC_P (*syn))
+      nios2_opcode_hash *tmp_hash = state->hash[i];
+      printf ("index: 0x%02X	ops: ", i);
+      while (tmp_hash != NULL)
 	{
-	  (*info->fprintf_func) (info->stream, "%s", CGEN_INSN_MNEMONIC (insn));
-	  continue;
+	  printf ("%s ", tmp_hash->opcode->name);
+	  tmp_hash = tmp_hash->next;
 	}
-      if (CGEN_SYNTAX_CHAR_P (*syn))
-	{
-	  (*info->fprintf_func) (info->stream, "%c", CGEN_SYNTAX_CHAR (*syn));
-	  continue;
-	}
-
-      /* We have an operand.  */
-      nios_cgen_print_operand (cd, CGEN_SYNTAX_FIELD (*syn), info,
-				 fields, CGEN_INSN_ATTRS (insn), pc, length);
-    }
-}
-
-/* Subroutine of print_insn. Reads an insn into the given buffers and updates
-   the extract info.
-   Returns 0 if all is well, non-zero otherwise.  */
-
-static int
-read_insn (CGEN_CPU_DESC cd ATTRIBUTE_UNUSED,
-	   bfd_vma pc,
-	   disassemble_info *info,
-	   bfd_byte *buf,
-	   int buflen,
-	   CGEN_EXTRACT_INFO *ex_info,
-	   unsigned long *insn_value)
-{
-  int status = (*info->read_memory_func) (pc, buf, buflen, info);
-
-  if (status != 0)
-    {
-      (*info->memory_error_func) (status, pc, info);
-      return -1;
+      printf ("\n");
     }
 
-  ex_info->dis_info = info;
-  ex_info->valid = (1 << buflen) - 1;
-  ex_info->insn_bytes = buf;
-
-  *insn_value = bfd_get_bits (buf, buflen * 8, info->endian == BFD_ENDIAN_BIG);
-  return 0;
+  for (i = 0; i < OPCODE_HASH_SIZE; ++i)
+    {
+      nios2_opcode_hash *tmp_hash = state->ps_hash[i];
+      printf ("index: 0x%02X	ops: ", i);
+      while (tmp_hash != NULL)
+	{
+	  printf ("%s ", tmp_hash->opcode->name);
+	  tmp_hash = tmp_hash->next;
+	}
+      printf ("\n");
+    }
+#endif /* DEBUG_HASHTABLE */
 }
 
-/* Utility to print an insn.
-   BUF is the base part of the insn, target byte order, BUFLEN bytes long.
-   The result is the size of the insn in bytes or zero for an unknown insn
-   or -1 if an error occurs fetching data (memory_error_func will have
-   been called).  */
-
-static int
-print_insn (CGEN_CPU_DESC cd,
-	    bfd_vma pc,
-	    disassemble_info *info,
-	    bfd_byte *buf,
-	    unsigned int buflen)
+/* Return a pointer to an nios2_opcode struct for a given instruction
+   word OPCODE for bfd machine MACH, or NULL if there is an error.  */
+const struct nios2_opcode *
+nios2_find_opcode_hash (unsigned long opcode, unsigned long mach)
 {
-  CGEN_INSN_INT insn_value;
-  const CGEN_INSN_LIST *insn_list;
-  CGEN_EXTRACT_INFO ex_info;
-  int basesize;
+  nios2_opcode_hash *entry;
+  nios2_disassembler_state *state;
 
-  /* Extract base part of instruction, just in case CGEN_DIS_* uses it. */
-  basesize = cd->base_insn_bitsize < buflen * 8 ?
-                                     cd->base_insn_bitsize : buflen * 8;
-  insn_value = cgen_get_insn_value (cd, buf, basesize);
+  /* Select the right instruction set, hash tables, and opcode accessor
+     for the mach variant.  */
+  if (mach == bfd_mach_nios2r2)
+    state = &nios2_r2_disassembler_state;
+  else
+    state = &nios2_r1_disassembler_state;
 
+  /* Build a hash table to shorten the search time.  */
+  if (!state->init)
+    nios2_init_opcode_hash (state);
 
-  /* Fill in ex_info fields like read_insn would.  Don't actually call
-     read_insn, since the incoming buffer is already read (and possibly
-     modified a la m32r).  */
-  ex_info.valid = (1 << buflen) - 1;
-  ex_info.dis_info = info;
-  ex_info.insn_bytes = buf;
+  /* Check for NOP first.  Both NOP and MOV are macros that expand into
+     an ADD instruction, and we always want to give priority to NOP.  */
+  if (state->nop->match == (opcode & state->nop->mask))
+    return state->nop;
 
-  /* The instructions are stored in hash lists.
-     Pick the first one and keep trying until we find the right one.  */
+  /* First look in the pseudo-op hashtable.  */
+  for (entry = state->ps_hash[state->extract_opcode (opcode)];
+       entry; entry = entry->next)
+    if (entry->opcode->match == (opcode & entry->opcode->mask))
+      return entry->opcode;
 
-  insn_list = CGEN_DIS_LOOKUP_INSN (cd, (char *) buf, insn_value);
-  while (insn_list != NULL)
+  /* Otherwise look in the main hashtable.  */
+  for (entry = state->hash[state->extract_opcode (opcode)];
+       entry; entry = entry->next)
+    if (entry->opcode->match == (opcode & entry->opcode->mask))
+      return entry->opcode;
+
+  return NULL;
+}
+
+/* There are 32 regular registers, 32 coprocessor registers,
+   and 32 control registers.  */
+#define NUMREGNAMES 32
+
+/* Return a pointer to the base of the coprocessor register name array.  */
+static struct nios2_reg *
+nios2_coprocessor_regs (void)
+{
+  static struct nios2_reg *cached = NULL;
+
+  if (!cached)
     {
-      const CGEN_INSN *insn = insn_list->insn;
-      CGEN_FIELDS fields;
-      int length;
-      unsigned long insn_value_cropped;
+      int i;
+      for (i = NUMREGNAMES; i < nios2_num_regs; i++)
+	if (!strcmp (nios2_regs[i].name, "c0"))
+	  {
+	    cached = nios2_regs + i;
+	    break;
+	  }
+      assert (cached);
+    }
+  return cached;
+}
 
-#ifdef CGEN_VALIDATE_INSN_SUPPORTED
-      /* Not needed as insn shouldn't be in hash lists if not supported.  */
-      /* Supported by this cpu?  */
-      if (! nios_cgen_insn_supported (cd, insn))
-        {
-          insn_list = CGEN_DIS_NEXT_INSN (insn_list);
-	  continue;
-        }
-#endif
+/* Return a pointer to the base of the control register name array.  */
+static struct nios2_reg *
+nios2_control_regs (void)
+{
+  static struct nios2_reg *cached = NULL;
 
-      /* Basic bit mask must be correct.  */
-      /* ??? May wish to allow target to defer this check until the extract
-	 handler.  */
+  if (!cached)
+    {
+      int i;
+      for (i = NUMREGNAMES; i < nios2_num_regs; i++)
+	if (!strcmp (nios2_regs[i].name, "status"))
+	  {
+	    cached = nios2_regs + i;
+	    break;
+	  }
+      assert (cached);
+    }
+  return cached;
+}
 
-      /* Base size may exceed this instruction's size.  Extract the
-         relevant part from the buffer. */
-      if ((unsigned) (CGEN_INSN_BITSIZE (insn) / 8) < buflen &&
-	  (unsigned) (CGEN_INSN_BITSIZE (insn) / 8) <= sizeof (unsigned long))
-	insn_value_cropped = bfd_get_bits (buf, CGEN_INSN_BITSIZE (insn),
-					   info->endian == BFD_ENDIAN_BIG);
+/* Helper routine to report internal errors.  */
+static void
+bad_opcode (const struct nios2_opcode *op)
+{
+  opcodes_error_handler
+    /* xgettext:c-format */
+    (_("internal error: broken opcode descriptor for `%s %s'"),
+     op->name, op->args);
+  abort ();
+}
+
+/* The function nios2_print_insn_arg uses the character pointed
+   to by ARGPTR to determine how it print the next token or separator
+   character in the arguments to an instruction.  */
+static int
+nios2_print_insn_arg (const char *argptr,
+		      unsigned long opcode, bfd_vma address,
+		      disassemble_info *info,
+		      const struct nios2_opcode *op)
+{
+  unsigned long i = 0;
+  long s = 0;
+  int32_t o = 0;
+  struct nios2_reg *reg_base;
+
+  switch (*argptr)
+    {
+    case ',':
+    case '(':
+    case ')':
+      (*info->fprintf_func) (info->stream, "%c", *argptr);
+      break;
+
+    case 'c':
+      /* Control register index.  */
+      switch (op->format)
+	{
+	case iw_r_type:
+	  i = GET_IW_R_IMM5 (opcode);
+	  break;
+	case iw_F3X6L5_type:
+	  i = GET_IW_F3X6L5_IMM5 (opcode);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      reg_base = nios2_control_regs ();
+      (*info->fprintf_func) (info->stream, "%s", reg_base[i].name);
+      break;
+
+    case 'd':
+      reg_base = nios2_regs;
+      switch (op->format)
+	{
+	case iw_r_type:
+	  i = GET_IW_R_C (opcode);
+	  break;
+	case iw_custom_type:
+	  i = GET_IW_CUSTOM_C (opcode);
+	  if (GET_IW_CUSTOM_READC (opcode) == 0)
+	    reg_base = nios2_coprocessor_regs ();
+	  break;
+	case iw_F3X6L5_type:
+	case iw_F3X6_type:
+	  i = GET_IW_F3X6L5_C (opcode);
+	  break;
+	case iw_F3X8_type:
+	  i = GET_IW_F3X8_C (opcode);
+	  if (GET_IW_F3X8_READC (opcode) == 0)
+	    reg_base = nios2_coprocessor_regs ();
+	  break;
+	case iw_F2_type:
+	  i = GET_IW_F2_B (opcode);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      if (i < NUMREGNAMES)
+	(*info->fprintf_func) (info->stream, "%s", reg_base[i].name);
       else
-	insn_value_cropped = insn_value;
+	(*info->fprintf_func) (info->stream, "unknown");
+      break;
 
-      if ((insn_value_cropped & CGEN_INSN_BASE_MASK (insn))
-	  == CGEN_INSN_BASE_VALUE (insn))
+    case 's':
+      reg_base = nios2_regs;
+      switch (op->format)
 	{
-	  /* Printing is handled in two passes.  The first pass parses the
-	     machine insn and extracts the fields.  The second pass prints
-	     them.  */
-
-	  /* Make sure the entire insn is loaded into insn_value, if it
-	     can fit.  */
-	  if (((unsigned) CGEN_INSN_BITSIZE (insn) > cd->base_insn_bitsize) &&
-	      (unsigned) (CGEN_INSN_BITSIZE (insn) / 8) <= sizeof (unsigned long))
-	    {
-	      unsigned long full_insn_value;
-	      int rc = read_insn (cd, pc, info, buf,
-				  CGEN_INSN_BITSIZE (insn) / 8,
-				  & ex_info, & full_insn_value);
-	      if (rc != 0)
-		return rc;
-	      length = CGEN_EXTRACT_FN (cd, insn)
-		(cd, insn, &ex_info, full_insn_value, &fields, pc);
-	    }
-	  else
-	    length = CGEN_EXTRACT_FN (cd, insn)
-	      (cd, insn, &ex_info, insn_value_cropped, &fields, pc);
-
-	  /* Length < 0 -> error.  */
-	  if (length < 0)
-	    return length;
-	  if (length > 0)
-	    {
-	      CGEN_PRINT_FN (cd, insn) (cd, info, insn, &fields, pc, length);
-	      /* Length is in bits, result is in bytes.  */
-	      return length / 8;
-	    }
+	case iw_r_type:
+	  i = GET_IW_R_A (opcode);
+	  break;
+	case iw_i_type:
+	  i = GET_IW_I_A (opcode);
+	  break;
+	case iw_custom_type:
+	  i = GET_IW_CUSTOM_A (opcode);
+	  if (GET_IW_CUSTOM_READA (opcode) == 0)
+	    reg_base = nios2_coprocessor_regs ();
+	  break;
+	case iw_F2I16_type:
+	  i = GET_IW_F2I16_A (opcode);
+	  break;
+	case iw_F2X4I12_type:
+	  i = GET_IW_F2X4I12_A (opcode);
+	  break;
+	case iw_F1X4I12_type:
+	  i = GET_IW_F1X4I12_A (opcode);
+	  break;
+	case iw_F1X4L17_type:
+	  i = GET_IW_F1X4L17_A (opcode);
+	  break;
+	case iw_F3X6L5_type:
+	case iw_F3X6_type:
+	  i = GET_IW_F3X6L5_A (opcode);
+	  break;
+	case iw_F2X6L10_type:
+	  i = GET_IW_F2X6L10_A (opcode);
+	  break;
+	case iw_F3X8_type:
+	  i = GET_IW_F3X8_A (opcode);
+	  if (GET_IW_F3X8_READA (opcode) == 0)
+	    reg_base = nios2_coprocessor_regs ();
+	  break;
+	case iw_F1X1_type:
+	  i = GET_IW_F1X1_A (opcode);
+	  break;
+	case iw_F1I5_type:
+	  i = 27;   /* Implicit stack pointer reference.  */
+	  break;
+	case iw_F2_type:
+	  i = GET_IW_F2_A (opcode);
+	  break;
+	default:
+	  bad_opcode (op);
 	}
+      if (i < NUMREGNAMES)
+	(*info->fprintf_func) (info->stream, "%s", reg_base[i].name);
+      else
+	(*info->fprintf_func) (info->stream, "unknown");
+      break;
 
-      insn_list = CGEN_DIS_NEXT_INSN (insn_list);
+    case 't':
+      reg_base = nios2_regs;
+      switch (op->format)
+	{
+	case iw_r_type:
+	  i = GET_IW_R_B (opcode);
+	  break;
+	case iw_i_type:
+	  i = GET_IW_I_B (opcode);
+	  break;
+	case iw_custom_type:
+	  i = GET_IW_CUSTOM_B (opcode);
+	  if (GET_IW_CUSTOM_READB (opcode) == 0)
+	    reg_base = nios2_coprocessor_regs ();
+	  break;
+	case iw_F2I16_type:
+	  i = GET_IW_F2I16_B (opcode);
+	  break;
+	case iw_F2X4I12_type:
+	  i = GET_IW_F2X4I12_B (opcode);
+	  break;
+	case iw_F3X6L5_type:
+	case iw_F3X6_type:
+	  i = GET_IW_F3X6L5_B (opcode);
+	  break;
+	case iw_F2X6L10_type:
+	  i = GET_IW_F2X6L10_B (opcode);
+	  break;
+	case iw_F3X8_type:
+	  i = GET_IW_F3X8_B (opcode);
+	  if (GET_IW_F3X8_READB (opcode) == 0)
+	    reg_base = nios2_coprocessor_regs ();
+	  break;
+	case iw_F1I5_type:
+	  i = GET_IW_F1I5_B (opcode);
+	  break;
+	case iw_F2_type:
+	  i = GET_IW_F2_B (opcode);
+	  break;
+	case iw_T1X1I6_type:
+	  i = 0;
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      if (i < NUMREGNAMES)
+	(*info->fprintf_func) (info->stream, "%s", reg_base[i].name);
+      else
+	(*info->fprintf_func) (info->stream, "unknown");
+      break;
+
+    case 'D':
+      switch (op->format)
+	{
+	case iw_T1I7_type:
+	  i = GET_IW_T1I7_A3 (opcode);
+	  break;
+	case iw_T2X1L3_type:
+	  i = GET_IW_T2X1L3_B3 (opcode);
+	  break;
+	case iw_T2X1I3_type:
+	  i = GET_IW_T2X1I3_B3 (opcode);
+	  break;
+	case iw_T3X1_type:
+	  i = GET_IW_T3X1_C3 (opcode);
+	  break;
+	case iw_T2X3_type:
+	  if (op->num_args == 3)
+	    i = GET_IW_T2X3_A3 (opcode);
+	  else
+	    i = GET_IW_T2X3_B3 (opcode);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      i = nios2_r2_reg3_mappings[i];
+      (*info->fprintf_func) (info->stream, "%s", nios2_regs[i].name);
+      break;
+
+    case 'M':
+      /* 6-bit unsigned immediate with no shift.  */
+      switch (op->format)
+	{
+	case iw_T1X1I6_type:
+	  i = GET_IW_T1X1I6_IMM6 (opcode);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%ld", i);
+      break;
+
+    case 'N':
+      /* 6-bit unsigned immediate with 2-bit shift.  */
+      switch (op->format)
+	{
+	case iw_T1X1I6_type:
+	  i = GET_IW_T1X1I6_IMM6 (opcode) << 2;
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%ld", i);
+      break;
+
+    case 'S':
+      switch (op->format)
+	{
+	case iw_T1I7_type:
+	  i = GET_IW_T1I7_A3 (opcode);
+	  break;
+	case iw_T2I4_type:
+	  i = GET_IW_T2I4_A3 (opcode);
+	  break;
+	case iw_T2X1L3_type:
+	  i = GET_IW_T2X1L3_A3 (opcode);
+	  break;
+	case iw_T2X1I3_type:
+	  i = GET_IW_T2X1I3_A3 (opcode);
+	  break;
+	case iw_T3X1_type:
+	  i = GET_IW_T3X1_A3 (opcode);
+	  break;
+	case iw_T2X3_type:
+	  i = GET_IW_T2X3_A3 (opcode);
+	  break;
+	case iw_T1X1I6_type:
+	  i = GET_IW_T1X1I6_A3 (opcode);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      i = nios2_r2_reg3_mappings[i];
+      (*info->fprintf_func) (info->stream, "%s", nios2_regs[i].name);
+      break;
+
+    case 'T':
+      switch (op->format)
+	{
+	case iw_T2I4_type:
+	  i = GET_IW_T2I4_B3 (opcode);
+	  break;
+	case iw_T3X1_type:
+	  i = GET_IW_T3X1_B3 (opcode);
+	  break;
+	case iw_T2X3_type:
+	  i = GET_IW_T2X3_B3 (opcode);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      i = nios2_r2_reg3_mappings[i];
+      (*info->fprintf_func) (info->stream, "%s", nios2_regs[i].name);
+      break;
+
+    case 'i':
+      /* 16-bit signed immediate.  */
+      switch (op->format)
+	{
+	case iw_i_type:
+	  s = ((int32_t) ((GET_IW_I_IMM16 (opcode) & 0xffff) ^ 0x8000)
+	       - 0x8000);
+	  break;
+	case iw_F2I16_type:
+	  s = ((int32_t) ((GET_IW_F2I16_IMM16 (opcode) & 0xffff) ^ 0x8000)
+	       - 0x8000);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%ld", s);
+      break;
+
+    case 'I':
+      /* 12-bit signed immediate.  */
+      switch (op->format)
+	{
+	case iw_F2X4I12_type:
+	  s = ((int32_t) ((GET_IW_F2X4I12_IMM12 (opcode) & 0xfff) ^ 0x800)
+	       - 0x800);
+	  break;
+	case iw_F1X4I12_type:
+	  s = ((int32_t) ((GET_IW_F1X4I12_IMM12 (opcode) & 0xfff) ^ 0x800)
+	       - 0x800);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%ld", s);
+      break;
+
+    case 'u':
+      /* 16-bit unsigned immediate.  */
+      switch (op->format)
+	{
+	case iw_i_type:
+	  i = GET_IW_I_IMM16 (opcode);
+	  break;
+	case iw_F2I16_type:
+	  i = GET_IW_F2I16_IMM16 (opcode);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%ld", i);
+      break;
+
+    case 'U':
+      /* 7-bit unsigned immediate with 2-bit shift.  */
+      switch (op->format)
+	{
+	case iw_T1I7_type:
+	  i = GET_IW_T1I7_IMM7 (opcode) << 2;
+	  break;
+	case iw_X1I7_type:
+	  i = GET_IW_X1I7_IMM7 (opcode) << 2;
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%ld", i);
+      break;
+
+    case 'V':
+      /* 5-bit unsigned immediate with 2-bit shift.  */
+      switch (op->format)
+	{
+	case iw_F1I5_type:
+	  i = GET_IW_F1I5_IMM5 (opcode) << 2;
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%ld", i);
+      break;
+
+    case 'W':
+      /* 4-bit unsigned immediate with 2-bit shift.  */
+      switch (op->format)
+	{
+	case iw_T2I4_type:
+	  i = GET_IW_T2I4_IMM4 (opcode) << 2;
+	  break;
+	case iw_L5I4X1_type:
+	  i = GET_IW_L5I4X1_IMM4 (opcode) << 2;
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%ld", i);
+      break;
+
+    case 'X':
+      /* 4-bit unsigned immediate with 1-bit shift.  */
+      switch (op->format)
+	{
+	case iw_T2I4_type:
+	  i = GET_IW_T2I4_IMM4 (opcode) << 1;
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%ld", i);
+      break;
+
+    case 'Y':
+      /* 4-bit unsigned immediate without shift.  */
+      switch (op->format)
+	{
+	case iw_T2I4_type:
+	  i = GET_IW_T2I4_IMM4 (opcode);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%ld", i);
+      break;
+
+    case 'o':
+      /* 16-bit signed immediate address offset.  */
+      switch (op->format)
+	{
+	case iw_i_type:
+	  o = ((GET_IW_I_IMM16 (opcode) & 0xffff) ^ 0x8000) - 0x8000;
+	  break;
+	case iw_F2I16_type:
+	  o = ((GET_IW_F2I16_IMM16 (opcode) & 0xffff) ^ 0x8000) - 0x8000;
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      address = address + 4 + o;
+      (*info->print_address_func) (address, info);
+      break;
+
+    case 'O':
+      /* 10-bit signed address offset with 1-bit shift.  */
+      switch (op->format)
+	{
+	case iw_I10_type:
+	  o = (((GET_IW_I10_IMM10 (opcode) & 0x3ff) ^ 0x400) - 0x400) * 2;
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      address = address + 2 + o;
+      (*info->print_address_func) (address, info);
+      break;
+
+    case 'P':
+      /* 7-bit signed address offset with 1-bit shift.  */
+      switch (op->format)
+	{
+	case iw_T1I7_type:
+	  o = (((GET_IW_T1I7_IMM7 (opcode) & 0x7f) ^ 0x40) - 0x40) * 2;
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      address = address + 2 + o;
+      (*info->print_address_func) (address, info);
+      break;
+
+    case 'j':
+      /* 5-bit unsigned immediate.  */
+      switch (op->format)
+	{
+	case iw_r_type:
+	  i = GET_IW_R_IMM5 (opcode);
+	  break;
+	case iw_F3X6L5_type:
+	  i = GET_IW_F3X6L5_IMM5 (opcode);
+	  break;
+	case iw_F2X6L10_type:
+	  i = GET_IW_F2X6L10_MSB (opcode);
+	  break;
+	case iw_X2L5_type:
+	  i = GET_IW_X2L5_IMM5 (opcode);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%ld", i);
+      break;
+
+    case 'k':
+      /* Second 5-bit unsigned immediate field.  */
+      switch (op->format)
+	{
+	case iw_F2X6L10_type:
+	  i = GET_IW_F2X6L10_LSB (opcode);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%ld", i);
+      break;
+
+    case 'l':
+      /* 8-bit unsigned immediate.  */
+      switch (op->format)
+	{
+	case iw_custom_type:
+	  i = GET_IW_CUSTOM_N (opcode);
+	  break;
+	case iw_F3X8_type:
+	  i = GET_IW_F3X8_N (opcode);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%lu", i);
+      break;
+
+    case 'm':
+      /* 26-bit unsigned immediate.  */
+      switch (op->format)
+	{
+	case iw_j_type:
+	  i = GET_IW_J_IMM26 (opcode);
+	  break;
+	case iw_L26_type:
+	  i = GET_IW_L26_IMM26 (opcode);
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      /* This translates to an address because it's only used in call
+	 instructions.  */
+      address = (address & 0xf0000000) | (i << 2);
+      (*info->print_address_func) (address, info);
+      break;
+
+    case 'e':
+      /* Encoded enumeration for addi.n/subi.n.  */
+      switch (op->format)
+	{
+	case iw_T2X1I3_type:
+	  i = nios2_r2_asi_n_mappings[GET_IW_T2X1I3_IMM3 (opcode)];
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%lu", i);
+      break;
+
+    case 'f':
+      /* Encoded enumeration for slli.n/srli.n.  */
+      switch (op->format)
+	{
+	case iw_T2X1L3_type:
+	  i = nios2_r2_shi_n_mappings[GET_IW_T2X1I3_IMM3 (opcode)];
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%lu", i);
+      break;
+
+    case 'g':
+      /* Encoded enumeration for andi.n.  */
+      switch (op->format)
+	{
+	case iw_T2I4_type:
+	  i = nios2_r2_andi_n_mappings[GET_IW_T2I4_IMM4 (opcode)];
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%lu", i);
+      break;
+
+    case 'h':
+      /* Encoded enumeration for movi.n.  */
+      switch (op->format)
+	{
+	case iw_T1I7_type:
+	  i = GET_IW_T1I7_IMM7 (opcode);
+	  if (i == 125)
+	    i = 0xff;
+	  else if (i == 126)
+	    i = -2;
+	  else if (i == 127)
+	    i = -1;
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      (*info->fprintf_func) (info->stream, "%ld", i);
+      break;
+
+    case 'R':
+      {
+	unsigned long reglist = 0;
+	int dir = 1;
+	int k, t;
+
+	switch (op->format)
+	  {
+	  case iw_F1X4L17_type:
+	    /* Encoding for ldwm/stwm.  */
+	    i = GET_IW_F1X4L17_REGMASK (opcode);
+	    if (GET_IW_F1X4L17_RS (opcode))
+	      {
+		reglist = ((i << 14) & 0x00ffc000);
+		if (i & (1 << 10))
+		  reglist |= (1 << 28);
+		if (i & (1 << 11))
+		  reglist |= (1u << 31);
+	      }
+	    else
+	      reglist = i << 2;
+	    dir = GET_IW_F1X4L17_REGMASK (opcode) ? 1 : -1;
+	    break;
+
+	  case iw_L5I4X1_type:
+	    /* Encoding for push.n/pop.n.  */
+	    reglist |= (1u << 31);
+	    if (GET_IW_L5I4X1_FP (opcode))
+	      reglist |= (1 << 28);
+	    if (GET_IW_L5I4X1_CS (opcode))
+	      {
+		int val = GET_IW_L5I4X1_REGRANGE (opcode);
+		reglist |= nios2_r2_reg_range_mappings[val];
+	      }
+	    dir = (op->match == MATCH_R2_POP_N ? 1 : -1);
+	    break;
+
+	  default:
+	    bad_opcode (op);
+	  }
+
+	t = 0;
+	(*info->fprintf_func) (info->stream, "{");
+	for (k = (dir == 1 ? 0 : 31);
+	     (dir == 1 && k < 32) || (dir == -1 && k >= 0);
+	     k += dir)
+	  if (reglist & (1u << k))
+	    {
+	      if (t)
+		(*info->fprintf_func) (info->stream, ",");
+	      else
+		t++;
+	      (*info->fprintf_func) (info->stream, "%s", nios2_regs[k].name);
+	    }
+	(*info->fprintf_func) (info->stream, "}");
+	break;
+      }
+
+    case 'B':
+      /* Base register and options for ldwm/stwm.  */
+      switch (op->format)
+	{
+	case iw_F1X4L17_type:
+	  if (GET_IW_F1X4L17_ID (opcode) == 0)
+	    (*info->fprintf_func) (info->stream, "--");
+
+	  i = GET_IW_F1X4I12_A (opcode);
+	  (*info->fprintf_func) (info->stream, "(%s)",
+				 nios2_builtin_regs[i].name);
+
+	  if (GET_IW_F1X4L17_ID (opcode))
+	    (*info->fprintf_func) (info->stream, "++");
+	  if (GET_IW_F1X4L17_WB (opcode))
+	    (*info->fprintf_func) (info->stream, ",writeback");
+	  if (GET_IW_F1X4L17_PC (opcode))
+	    (*info->fprintf_func) (info->stream, ",ret");
+	  break;
+	default:
+	  bad_opcode (op);
+	}
+      break;
+
+    default:
+      (*info->fprintf_func) (info->stream, "unknown");
+      break;
     }
-
   return 0;
 }
 
-/* Default value for CGEN_PRINT_INSN.
-   The result is the size of the insn in bytes or zero for an unknown insn
-   or -1 if an error occured fetching bytes.  */
+/* nios2_disassemble does all the work of disassembling a Nios II
+   instruction opcode.  */
+static int
+nios2_disassemble (bfd_vma address, unsigned long opcode,
+		   disassemble_info *info)
+{
+  const struct nios2_opcode *op;
 
-#ifndef CGEN_PRINT_INSN
-#define CGEN_PRINT_INSN default_print_insn
-#endif
+  info->bytes_per_line = INSNLEN;
+  info->bytes_per_chunk = INSNLEN;
+  info->display_endian = info->endian;
+  info->insn_info_valid = 1;
+  info->branch_delay_insns = 0;
+  info->data_size = 0;
+  info->insn_type = dis_nonbranch;
+  info->target = 0;
+  info->target2 = 0;
+
+  /* Find the major opcode and use this to disassemble
+     the instruction and its arguments.  */
+  op = nios2_find_opcode_hash (opcode, info->mach);
+
+  if (op != NULL)
+    {
+      const char *argstr = op->args;
+      (*info->fprintf_func) (info->stream, "%s", op->name);
+      if (argstr != NULL && *argstr != '\0')
+	{
+	  (*info->fprintf_func) (info->stream, "\t");
+	  while (*argstr != '\0')
+	    {
+	      nios2_print_insn_arg (argstr, opcode, address, info, op);
+	      ++argstr;
+	    }
+	}
+      /* Tell the caller how far to advance the program counter.  */
+      info->bytes_per_chunk = op->size;
+      return op->size;
+    }
+  else
+    {
+      /* Handle undefined instructions.  */
+      info->insn_type = dis_noninsn;
+      (*info->fprintf_func) (info->stream, "0x%lx", opcode);
+      return INSNLEN;
+    }
+}
+
+
+/* print_insn_nios2 is the main disassemble function for Nios II.
+   The function diassembler(abfd) (source in disassemble.c) returns a
+   pointer to this either print_insn_big_nios2 or
+   print_insn_little_nios2, which in turn call this function when the
+   bfd machine type is Nios II. print_insn_nios2 reads the
+   instruction word at the address given, and prints the disassembled
+   instruction on the stream info->stream using info->fprintf_func. */
 
 static int
-default_print_insn (CGEN_CPU_DESC cd, bfd_vma pc, disassemble_info *info)
+print_insn_nios2 (bfd_vma address, disassemble_info *info,
+		  enum bfd_endian endianness)
 {
-  bfd_byte buf[CGEN_MAX_INSN_SIZE];
-  int buflen;
+  bfd_byte buffer[INSNLEN];
   int status;
 
-  /* Attempt to read the base part of the insn.  */
-  buflen = cd->base_insn_bitsize / 8;
-  status = (*info->read_memory_func) (pc, buf, buflen, info);
-
-  /* Try again with the minimum part, if min < base.  */
-  if (status != 0 && (cd->min_insn_bitsize < cd->base_insn_bitsize))
+  status = (*info->read_memory_func) (address, buffer, INSNLEN, info);
+  if (status == 0)
     {
-      buflen = cd->min_insn_bitsize / 8;
-      status = (*info->read_memory_func) (pc, buf, buflen, info);
+      unsigned long insn;
+      if (endianness == BFD_ENDIAN_BIG)
+	insn = (unsigned long) bfd_getb32 (buffer);
+      else
+	insn = (unsigned long) bfd_getl32 (buffer);
+      return nios2_disassemble (address, insn, info);
     }
 
-  if (status != 0)
+  /* We might have a 16-bit R2 instruction at the end of memory.  Try that.  */
+  if (info->mach == bfd_mach_nios2r2)
     {
-      (*info->memory_error_func) (status, pc, info);
-      return -1;
-    }
-
-  return print_insn (cd, pc, info, buf, buflen);
-}
-
-/* Main entry point.
-   Print one instruction from PC on INFO->STREAM.
-   Return the size of the instruction (in bytes).  */
-
-typedef struct cpu_desc_list
-{
-  struct cpu_desc_list *next;
-  CGEN_BITSET *isa;
-  int mach;
-  int endian;
-  CGEN_CPU_DESC cd;
-} cpu_desc_list;
-
-int
-print_insn_nios (bfd_vma pc, disassemble_info *info)
-{
-  static cpu_desc_list *cd_list = 0;
-  cpu_desc_list *cl = 0;
-  static CGEN_CPU_DESC cd = 0;
-  static CGEN_BITSET *prev_isa;
-  static int prev_mach;
-  static int prev_endian;
-  int length;
-  CGEN_BITSET *isa;
-  int mach;
-  int endian = (info->endian == BFD_ENDIAN_BIG
-		? CGEN_ENDIAN_BIG
-		: CGEN_ENDIAN_LITTLE);
-  enum bfd_architecture arch;
-
-  /* ??? gdb will set mach but leave the architecture as "unknown" */
-#ifndef CGEN_BFD_ARCH
-#define CGEN_BFD_ARCH bfd_arch_nios
-#endif
-  arch = info->arch;
-  if (arch == bfd_arch_unknown)
-    arch = CGEN_BFD_ARCH;
-
-  /* There's no standard way to compute the machine or isa number
-     so we leave it to the target.  */
-#ifdef CGEN_COMPUTE_MACH
-  mach = CGEN_COMPUTE_MACH (info);
-#else
-  mach = info->mach;
-#endif
-
-#ifdef CGEN_COMPUTE_ISA
-  {
-    static CGEN_BITSET *permanent_isa;
-
-    if (!permanent_isa)
-      permanent_isa = cgen_bitset_create (MAX_ISAS);
-    isa = permanent_isa;
-    cgen_bitset_clear (isa);
-    cgen_bitset_add (isa, CGEN_COMPUTE_ISA (info));
-  }
-#else
-  isa = info->insn_sets;
-#endif
-
-  /* If we've switched cpu's, try to find a handle we've used before */
-  if (cd
-      && (cgen_bitset_compare (isa, prev_isa) != 0
-	  || mach != prev_mach
-	  || endian != prev_endian))
-    {
-      cd = 0;
-      for (cl = cd_list; cl; cl = cl->next)
+      status = (*info->read_memory_func) (address, buffer, 2, info);
+      if (status == 0)
 	{
-	  if (cgen_bitset_compare (cl->isa, isa) == 0 &&
-	      cl->mach == mach &&
-	      cl->endian == endian)
-	    {
-	      cd = cl->cd;
- 	      prev_isa = cd->isas;
-	      break;
-	    }
+	  unsigned long insn;
+	  if (endianness == BFD_ENDIAN_BIG)
+	    insn = (unsigned long) bfd_getb16 (buffer);
+	  else
+	    insn = (unsigned long) bfd_getl16 (buffer);
+	  return nios2_disassemble (address, insn, info);
 	}
     }
 
-  /* If we haven't initialized yet, initialize the opcode table.  */
-  if (! cd)
-    {
-      const bfd_arch_info_type *arch_type = bfd_lookup_arch (arch, mach);
-      const char *mach_name;
+  /* If we got here, we couldn't read anything.  */
+  (*info->memory_error_func) (status, address, info);
+  return -1;
+}
 
-      if (!arch_type)
-	abort ();
-      mach_name = arch_type->printable_name;
+/* These two functions are the main entry points, accessed from
+   disassemble.c.  */
+int
+print_insn_big_nios2 (bfd_vma address, disassemble_info *info)
+{
+  return print_insn_nios2 (address, info, BFD_ENDIAN_BIG);
+}
 
-      prev_isa = cgen_bitset_copy (isa);
-      prev_mach = mach;
-      prev_endian = endian;
-      cd = nios_cgen_cpu_open (CGEN_CPU_OPEN_ISAS, prev_isa,
-				 CGEN_CPU_OPEN_BFDMACH, mach_name,
-				 CGEN_CPU_OPEN_ENDIAN, prev_endian,
-				 CGEN_CPU_OPEN_END);
-      if (!cd)
-	abort ();
-
-      /* Save this away for future reference.  */
-      cl = xmalloc (sizeof (struct cpu_desc_list));
-      cl->cd = cd;
-      cl->isa = prev_isa;
-      cl->mach = mach;
-      cl->endian = endian;
-      cl->next = cd_list;
-      cd_list = cl;
-
-      nios_cgen_init_dis (cd);
-    }
-
-  /* We try to have as much common code as possible.
-     But at this point some targets need to take over.  */
-  /* ??? Some targets may need a hook elsewhere.  Try to avoid this,
-     but if not possible try to move this hook elsewhere rather than
-     have two hooks.  */
-  length = CGEN_PRINT_INSN (cd, pc, info);
-  if (length > 0)
-    return length;
-  if (length < 0)
-    return -1;
-
-  (*info->fprintf_func) (info->stream, UNKNOWN_INSN_MSG);
-  return cd->default_insn_bitsize / 8;
+int
+print_insn_little_nios2 (bfd_vma address, disassemble_info *info)
+{
+  return print_insn_nios2 (address, info, BFD_ENDIAN_LITTLE);
 }

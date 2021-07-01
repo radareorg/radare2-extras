@@ -1,6 +1,6 @@
 /* CGEN generic opcode support.
 
-   Copyright (C) 1996-2018 Free Software Foundation, Inc.
+   Copyright (C) 1996-2021 Free Software Foundation, Inc.
 
    This file is part of libopcodes.
 
@@ -19,16 +19,11 @@
    51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include "sysdep.h"
-//#include "alloca-conf.h"
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "ansidecl.h"
 #include "libiberty.h"
 #include "safe-ctype.h"
-#include "ctype.h"
-//#include "bfd.h"
-#include "mybfd.h"
+#include "bfd.h"
 #include "symcat.h"
 #include "opcode/cgen.h"
 
@@ -361,9 +356,10 @@ cgen_macro_insn_count (CGEN_CPU_DESC cd)
 /* Cover function to read and properly byteswap an insn value.  */
 
 CGEN_INSN_INT
-cgen_get_insn_value (CGEN_CPU_DESC cd, unsigned char *buf, int length)
+cgen_get_insn_value (CGEN_CPU_DESC cd, unsigned char *buf, int length,
+                     int endian)
 {
-  int big_p = (cd->insn_endian == CGEN_ENDIAN_BIG);
+  int big_p = (endian == CGEN_ENDIAN_BIG);
   int insn_chunk_bitsize = cd->insn_chunk_bitsize;
   CGEN_INSN_INT value = 0;
 
@@ -389,7 +385,7 @@ cgen_get_insn_value (CGEN_CPU_DESC cd, unsigned char *buf, int length)
     }
   else
     {
-      value = bfd_get_bits (buf, length, cd->insn_endian == CGEN_ENDIAN_BIG);
+      value = bfd_get_bits (buf, length, endian == CGEN_ENDIAN_BIG);
     }
 
   return value;
@@ -401,9 +397,10 @@ void
 cgen_put_insn_value (CGEN_CPU_DESC cd,
 		     unsigned char *buf,
 		     int length,
-		     CGEN_INSN_INT value)
+		     CGEN_INSN_INT value,
+                     int endian)
 {
-  int big_p = (cd->insn_endian == CGEN_ENDIAN_BIG);
+  int big_p = (endian == CGEN_ENDIAN_BIG);
   int insn_chunk_bitsize = cd->insn_chunk_bitsize;
 
   if (insn_chunk_bitsize != 0 && insn_chunk_bitsize < length)
@@ -463,7 +460,8 @@ cgen_lookup_insn (CGEN_CPU_DESC cd,
     {
       info = NULL;
       insn_bytes_value = (unsigned char *) xmalloc (cd->max_insn_bitsize / 8);
-      cgen_put_insn_value (cd, insn_bytes_value, length, insn_int_value);
+      cgen_put_insn_value (cd, insn_bytes_value, length, insn_int_value,
+                           cd->insn_endian);
     }
   else
     {
@@ -471,7 +469,8 @@ cgen_lookup_insn (CGEN_CPU_DESC cd,
       ex_info.dis_info = NULL;
       ex_info.insn_bytes = insn_bytes_value;
       ex_info.valid = -1;
-      insn_int_value = cgen_get_insn_value (cd, insn_bytes_value, length);
+      insn_int_value = cgen_get_insn_value (cd, insn_bytes_value, length,
+                                            cd->insn_endian);
     }
 
   if (!insn)

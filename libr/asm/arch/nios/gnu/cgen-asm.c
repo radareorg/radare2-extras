@@ -1,5 +1,5 @@
 /* CGEN generic assembler support code.
-   Copyright (C) 1996-2018 Free Software Foundation, Inc.
+   Copyright (C) 1996-2021 Free Software Foundation, Inc.
 
    This file is part of libopcodes.
 
@@ -20,13 +20,10 @@
 
 #include "sysdep.h"
 #include <stdio.h>
-#include <string.h>
 #include "ansidecl.h"
 #include "libiberty.h"
 #include "safe-ctype.h"
-#include "ctype.h"
-//#include "bfd.h"
-#include "mybfd.h"
+#include "bfd.h"
 #include "symcat.h"
 #include "opcode/cgen.h"
 #include "opintl.h"
@@ -63,7 +60,7 @@ cgen_init_parse_operand (CGEN_CPU_DESC cd)
    The result is a pointer to the next entry to use.
 
    The table is scanned backwards as additions are made to the front of the
-   list and we want earlier ones to be prefered.  */
+   list and we want earlier ones to be preferred.  */
 
 static CGEN_INSN_LIST *
 hash_insn_array (CGEN_CPU_DESC cd,
@@ -159,7 +156,7 @@ build_asm_hash_table (CGEN_CPU_DESC cd)
 				    asm_hash_table, hash_entry_buf);
 
   /* Add runtime added insns.
-     Later added insns will be prefered over earlier ones.  */
+     Later added insns will be preferred over earlier ones.  */
 
   hash_entry_buf = hash_insn_list (cd, insn_table->new_entries,
 				   asm_hash_table, hash_entry_buf);
