@@ -1068,6 +1068,7 @@ print_insn (CGEN_CPU_DESC cd,
                                      cd->base_insn_bitsize : buflen * 8;
   insn_value = cgen_get_insn_value (cd, buf, basesize, cd->insn_endian);
 
+printf ("pi %d\n", basesize);
 
   /* Fill in ex_info fields like read_insn would.  Don't actually call
      read_insn, since the incoming buffer is already read (and possibly
@@ -1170,6 +1171,7 @@ default_print_insn (CGEN_CPU_DESC cd, bfd_vma pc, disassemble_info *info)
   /* Attempt to read the base part of the insn.  */
   buflen = cd->base_insn_bitsize / 8;
   status = (*info->read_memory_func) (pc, buf, buflen, info);
+printf ("buflen %d\n", buflen);
 
   /* Try again with the minimum part, if min < base.  */
   if (status != 0 && (cd->min_insn_bitsize < cd->base_insn_bitsize))
@@ -1203,6 +1205,7 @@ typedef struct cpu_desc_list
 int
 print_insn_m32c (bfd_vma pc, disassemble_info *info)
 {
+printf ("a\n");
   static cpu_desc_list *cd_list = 0;
   cpu_desc_list *cl = 0;
   static CGEN_CPU_DESC cd = 0;
@@ -1220,6 +1223,8 @@ print_insn_m32c (bfd_vma pc, disassemble_info *info)
                      ? CGEN_ENDIAN_BIG
                      : CGEN_ENDIAN_LITTLE);
   enum bfd_architecture arch;
+printf ("de %d\n", info->endian);
+printf ("ie %d\n", info->endian_code);
 
   /* ??? gdb will set mach but leave the architecture as "unknown" */
 #ifndef CGEN_BFD_ARCH
@@ -1315,6 +1320,7 @@ print_insn_m32c (bfd_vma pc, disassemble_info *info)
      but if not possible try to move this hook elsewhere rather than
      have two hooks.  */
   length = CGEN_PRINT_INSN (cd, pc, info);
+printf ("ins len %d\n", length);
   if (length > 0)
     return length;
   if (length < 0)

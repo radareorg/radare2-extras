@@ -42,14 +42,14 @@ static void memory_error_func(int status, bfd_vma memaddr, struct disassemble_in
 DECLARE_GENERIC_PRINT_ADDRESS_FUNC()
 DECLARE_GENERIC_FPRINTF_FUNC()
 
-static int disassemble(struct r_asm_t *a, struct r_asm_op_t *op, const ut8 *buf, int len) {
+static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	struct disassemble_info disasm_obj = {0};
 	if (len < sizeof (bytes)) {
 		return -1;
 	}
 	buf_global = &op->buf_asm;
 	Offset = a->pc;
-	memcpy (bytes, buf, R_MIN (len, sizeof (bytes))); // TODO handle thumb
+	memcpy (bytes, buf, R_MIN (len, sizeof (bytes)));
 
 	/* prepare disassembler */
 	//disasm_obj.mach = bfd_mach_m32c;
