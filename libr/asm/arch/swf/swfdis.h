@@ -11,6 +11,6 @@ typedef struct {
 	const char* name;
 } swf_tag_t;
 
-// swf_op_t r_asm_swf_getop(ut8 opCode);
-// swf_tag_t r_asm_swf_gettag(ut16 tagCode);
+swf_op_t r_asm_swf_getop(ut8 opCode);
+swf_tag_t r_asm_swf_gettag(ut16 tagCode);
 int r_asm_swf_disass(RBinObject *obj, RStrBuf *basm, const ut8* buf, int len, ut64 pc);

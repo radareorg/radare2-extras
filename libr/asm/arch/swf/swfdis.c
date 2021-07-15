@@ -3,7 +3,7 @@
 #include "swfdis.h"
 #include "swf_op.h"
 
-static swf_op_t r_asm_swf_getop(ut8 opCode) {
+swf_op_t r_asm_swf_getop(ut8 opCode) {
 	size_t i;
 	for (i = 0; swf_op[i].name; i++) {
 		if (opCode == swf_op[i].op) {
@@ -13,7 +13,7 @@ static swf_op_t r_asm_swf_getop(ut8 opCode) {
 	return SWF_OP_UNKNOWN;
 }
 
-static swf_tag_t r_asm_swf_gettag(ut16 tagCode) {
+swf_tag_t r_asm_swf_gettag(ut16 tagCode) {
 	size_t i;
 	for (i = 0; swf_tag[i].name; i++) {
 		if (tagCode == swf_tag[i].tag) {
