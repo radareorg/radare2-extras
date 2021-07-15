@@ -1,4 +1,4 @@
-/* radare - LGPL3 - Copyright 2016 - xarkes */
+/* radare - LGPL3 - Copyright 2016-2021 - xarkes, pancake */
 
 #include <r_types.h>
 #include <r_lib.h>
@@ -8,15 +8,9 @@
 #include "../arch/swf/swfdis.h"
 
 static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
-	RBinObject *obj = NULL;
 	RBin *bin = a->binb.bin;
-
-	obj = bin->cur->o;
-
-	char res[1024];
-	res[0] = 0;
-	int dlen = r_asm_swf_disass (obj, res, buf, len, a->pc);
-	r_strbuf_set (&op->buf_asm, res);
+	RBinObject *obj = bin->cur->o;
+	int dlen = r_asm_swf_disass (obj, &op->buf_asm, buf, len, a->pc);
 	op->size = dlen;
 	return dlen;
 }

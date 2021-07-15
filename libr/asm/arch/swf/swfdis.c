@@ -1,11 +1,11 @@
-/* radare - LGPL3 - Copyright 2016-2017 - xarkes */
+/* radare - LGPL3 - Copyright 2016-2021 - xarkes, pancake */
 
 #include "swfdis.h"
 #include "swf_op.h"
 
-swf_op_t r_asm_swf_getop(ut8 opCode) {
-	int i;
-	for (i = 0; swf_op[i].name != NULL; i++) {
+static swf_op_t r_asm_swf_getop(ut8 opCode) {
+	size_t i;
+	for (i = 0; swf_op[i].name; i++) {
 		if (opCode == swf_op[i].op) {
 			return swf_op[i];
 		}
@@ -13,9 +13,9 @@ swf_op_t r_asm_swf_getop(ut8 opCode) {
 	return SWF_OP_UNKNOWN;
 }
 
-swf_tag_t r_asm_swf_gettag(ut16 tagCode) {
-	int i;
-	for (i = 0; swf_tag[i].name != NULL; i++) {
+static swf_tag_t r_asm_swf_gettag(ut16 tagCode) {
+	size_t i;
+	for (i = 0; swf_tag[i].name; i++) {
 		if (tagCode == swf_tag[i].tag) {
 			return swf_tag[i];
 		}
@@ -23,7 +23,7 @@ swf_tag_t r_asm_swf_gettag(ut16 tagCode) {
 	return SWF_TAG_UNKNOWN;
 }
 
-int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut64 pc) {
+int r_asm_swf_disass(RBinObject *obj, RStrBuf *basm, const ut8* buf, int len, ut64 pc) {
 	ut8 isTag = false;
 	int dlen = 0;
 	RListIter *it;
@@ -56,16 +56,14 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 			ut8 red = buf[2];
 			ut8 green = buf[3];
 			ut8 blue = buf[4];
-			sprintf (buf_asm, "Color(%u,%u,%u)", red, green, blue);
+			r_strbuf_setf (basm, "Color(%u,%u,%u)", red, green, blue);
 			dlen = 5;
 			break;
 		}
 		default:
-			strcpy (buf_asm, tag.name);
+			r_strbuf_set (basm, tag.name);
 			break;
-
 		}
-
 	} else {
 		swf_op_t op = r_asm_swf_getop (buf[0]);
 		switch (op.op) {
@@ -151,25 +149,25 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 				l += strlen(name);
 			}
 			dlen = 2 + len + 1;
-			sprintf (buf_asm, "%s %s", op.name, type);
+			r_strbuf_setf (basm, "%s %s", op.name, type);
 			break;
 		}
 		case SWFACTION_GOTOFRAME: {
 			ut16 frame = r_mem_get_num (buf+1, 2);
-			sprintf (buf_asm, "%s %u", op.name, frame);
+			r_strbuf_setf (basm, "%s %u", op.name, frame);
 			dlen = 3;
 			break;
 		}
 		case SWFACTION_GETURL: {
 			char* url = (char*) buf+1;
-			snprintf (buf_asm, 1024,"%s %s", op.name, url);
+			r_strbuf_setf (basm, "%s %s", op.name, url);
 			dlen = strlen (url) + 2;
 			break;
 		}
 		case SWFACTION_JUMP:
 		case SWFACTION_BRANCHIFTRUE: {
 			short offset = r_mem_get_num (buf+1, 2);
-			sprintf (buf_asm, "%s %d", op.name, offset);
+			r_strbuf_setf (basm, "%s %d", op.name, offset);
 			break;
 		}
 		case SWFACTION_GETURL2: {
@@ -186,7 +184,7 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 				strcpy (m, "None");
 				break;
 			}
-			sprintf (buf_asm, "%s %s", op.name, m);
+			r_strbuf_setf (basm, "%s %s", op.name, m);
 			dlen = 2;
 			break;
 		}
@@ -198,48 +196,48 @@ int r_asm_swf_disass(RBinObject *obj, char* buf_asm, const ut8* buf, int len, ut
 				//ut16 bias = r_mem_get_num (buf+9, 2);
 				dlen += 2;
 			}
-			sprintf (buf_asm, "%s %u %u", op.name, biasFlag, playFlag);
+			r_strbuf_setf (basm, "%s %u %u", op.name, biasFlag, playFlag);
 			break;
 		}
 		case SWFACTION_SETTARGET: {
 			char* target = (char*) buf+1;
-			sprintf (buf_asm, 1024,"%s %s", op.name, target);
+			r_strbuf_setf (basm, "%s %s", op.name, target);
 			dlen = 1;
 			break;
 		}
 		case SWFACTION_CONSTANTPOOL: {
 			ut16 size = r_mem_get_num (buf+1, 2);
-			ut16 count = r_mem_get_num (buf+3, 2);
-			sprintf (buf_asm, "%s (nb: %u, size: %u)", op.name, count, size);
+			ut16 count = r_mem_get_num (buf + 3, 2);
+			r_strbuf_setf (basm, "%s (nb: %u, size: %u)", op.name, count, size);
 			dlen = 5;
 			break;
 		}
 		case SWFACTION_WITH: {
-			ut16 size = r_mem_get_num (buf+1, 2);
-			sprintf (buf_asm, "%s %u", op.name, size);
+			ut16 size = r_mem_get_num (buf + 1, 2);
+			r_strbuf_setf (basm, "%s %u", op.name, size);
 			dlen = 3;
 			break;
 		}
 		case SWFACTION_DEFINEFUNCTION: {
 			//char* name = (char*) buf+1;
-			ut16 nbParams = r_mem_get_num (buf+2, 2);
+			ut16 nbParams = r_mem_get_num (buf + 2, 2);
 			ut32 size = 0;
 			ut16 i;
 			for (i = 0; i < nbParams; i++) {
-				char* param = (char*) buf+3+i;
-				size += strlen(param);
+				char* param = (char*) buf + 3+i;
+				size += strlen (param);
 			}
-			//ut16 codeSize = r_mem_get_num (buf+4+i, 2);
+			// ut16 codeSize = r_mem_get_num (buf+4+i, 2);
 			break;
 		}
 		case SWFACTION_STOREREGISTER: {
 			ut8 reg = buf[1];
-			sprintf (buf_asm, "%s %u", op.name, reg);
+			r_strbuf_setf (basm, "%s %u", op.name, reg);
 			dlen = 2;
 			break;
 		}
 		default:
-			strcpy (buf_asm, op.name);
+			r_strbuf_set (basm, op.name);
 			dlen = 1;
 			break;
 		}
