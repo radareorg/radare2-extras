@@ -10,7 +10,7 @@ all:
 	$(MAKE) install
 
 test:
-	r2 -a m32c.gnu -b32 -c 'wos 1 0xff 1' -c 'pd 4' -
+	r2 -a m32c.gnu -b32 -c 'woe 1 0xff 1' -c 'pd 10' -
 
 install:
 	cp *.$(EXT_SO) $(R2HOME)

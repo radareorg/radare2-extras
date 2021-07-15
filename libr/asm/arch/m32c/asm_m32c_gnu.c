@@ -62,6 +62,7 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	disasm_obj.buffer_vma = Offset;
 	disasm_obj.buffer_length = R_MIN (len, sizeof (bytes));
 	disasm_obj.endian = !a->big_endian;
+	disasm_obj.endian_code = !a->big_endian;
 	disasm_obj.fprintf_func = &generic_fprintf_func;
 	disasm_obj.stream = stdout;
 	op->size = print_insn_m32c ((bfd_vma)Offset, &disasm_obj);
