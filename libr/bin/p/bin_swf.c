@@ -1,4 +1,4 @@
-/* radare - LGPL3 - 2016-2020 - xarkes */
+/* radare - LGPL3 - 2016-2021 - pancake, xarkes */
 
 #include <r_types.h>
 #include <r_util.h>
@@ -7,13 +7,13 @@
 #include "../format/swf/swf_specs.h"
 #include "../format/swf/swf.h"
 
-static bool check_buffer(RBuffer *b);
+static bool check_buffer(RBinFile *bf, RBuffer *b);
 
 static char compression;
 static char flashVersion;
 
 static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *b, ut64 loadaddr, Sdb *sdb){
-	if (check_buffer (b)) {
+	if (check_buffer (bf, b)) {
 		ut8 buf[4];
 		r_buf_read_at (b, 0, buf, 4);
 		compression = buf[0];
@@ -23,7 +23,7 @@ static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *b, ut64 loadaddr,
 	return false;
 }
 
-static bool check_buffer(RBuffer *b) {
+static bool check_buffer(RBinFile *bf, RBuffer *b) {
 	ut8 buf[4];
 	if (r_buf_size (b) < 4) {
 		return false;
