@@ -5,7 +5,6 @@ ARCHS+=spc700.mk
 ARCHS+=ba2.mk
 ARCHS+=x86_olly.mk
 ARCHS+=x86_tab.mk
-ARCHS+=arm_v35.mk
 ARCHS+=armthumb.mk 
 ARCHS+=ppc_disasm.mk
 ARCHS+=psosvm.mk
