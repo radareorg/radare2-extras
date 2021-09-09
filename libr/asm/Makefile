@@ -3,9 +3,6 @@ R2PM_PLUGDIR ?=$(HOME)/.config/radare2/plugins
 atombios:
 	cd p ; $(MAKE) asm_atombios.$(LIBEXT)
 
-arm64v35 p/asm_arm_v35.$(LIBEXT):
-	$(MAKE) -C p asm_arm_v35.$(LIBEXT)
-
 spc700:
 	cd p ; $(MAKE) asm_spc700.$(LIBEXT)
 
