@@ -164,7 +164,7 @@ RIOPlugin r_io_plugin_ewf = {
 	.read = ewf__read,
         .plugin_open = ewf__plugin_open,
         //.plugin_fd = ewf__plugin_fd,
-	.lseek = ewf__lseek,
+	.seek = ewf__lseek,
 	.system = NULL, // ewf__system,
 	.write = ewf__write,
 };

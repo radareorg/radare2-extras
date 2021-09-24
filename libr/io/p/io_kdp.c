@@ -137,7 +137,7 @@ struct r_io_plugin_t r_io_plugin_kdp = {
 	.close = __close,
 	.read = __read,
 	.plugin_open = __plugin_open,
-	.lseek = __lseek,
+	.seek = __lseek,
 	.write = __write,
 	.resize = __resize,
 };
