@@ -40,7 +40,6 @@ evm:
 	$(MAKE) -C debug evm
 
 nios:
-	$(MAKE) -C asm nios
 	$(MAKE) -C anal nios
 
 clean:
