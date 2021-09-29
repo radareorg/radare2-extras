@@ -12,7 +12,6 @@ ARCHS+=m68k_net.mk
 ARCHS+=blackfin.mk
 ARCHS+=x86_bea.mk
 ARCHS+=msil.mk
-ARCHS+=nios.mk
 ARCHS+=swf.mk
 ARCHS+=vc4.mk
 ARCHS+=mc6809.mk
