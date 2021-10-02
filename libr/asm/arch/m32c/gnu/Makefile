@@ -1,6 +1,6 @@
 CFLAGS=-I../../include -I../include -I.
 CFLAGS+=-DCGEN_ARCH=1
-CFLAGS+=-g
+CFLAGS+=-fPIC
 CFLAGS+=-DCGEN_BFD_ARCH=bfd_arch_m32c
 
 all:

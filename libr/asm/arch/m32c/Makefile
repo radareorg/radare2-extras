@@ -1,6 +1,6 @@
 R2HOME=$(shell r2 -H R2_USER_PLUGINS)
 CFLAGS+=$(shell pkg-config --cflags --libs r_asm r_util)
-CFLAGS+=-I../include
+CFLAGS+=-I../include -fPIC
 EXT_SO=$(shell r2 -H R2_LIBEXT)
 
 all:
