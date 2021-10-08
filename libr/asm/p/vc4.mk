@@ -14,7 +14,12 @@ OBJ_VC4+=../arch/vc4/libvc4/vc4_decode.o
 OBJ_VC4+=../arch/vc4/libvc4/vc4_arch.o
 OBJ_VC4+=../arch/vc4/libvc4/vc4_util.o
 
-CFLAGS+=-Iarch/vc4/libvc4/ -Iarch/include/
+CFLAGS=$(R2_CFLAGS)
+CFLAGS+=-g -I$(TOP)/shlr -I../../include -I../arch/
+CFLAGS+=-Wall -shared -fPIC ${LDFLAGS_LIB}
+CFLAGS+=-DLIL_ENDIAN=1
+CFLAGS+=-Iarch/vc4/libvc4/ -I../arch/vc4/include/ -I../arch/vc4/include/opcode
+
 STATIC_OBJ+=${OBJ_VC4}
 TARGET_VC4=asm_vc4.${LIBEXT}
 
