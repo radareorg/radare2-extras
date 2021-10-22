@@ -10,5 +10,8 @@ CFLAGS+=-I../arch/x86/bea/src
 CFLAGS+=-I../arch/x86/bea/include
 CFLAGS+=-DUint64=uint64_t
 
+$(OBJ_X86_BEA): %.o : %.c
+	$(CC) -c $(CFLAGS) $< -o $@
+
 ${TARGET_X86_BEA}: ${OBJ_X86_BEA}
 	${CC} ${CFLAGS} -o ${TARGET_X86_BEA} ${OBJ_X86_BEA} ${LDFLAGS}

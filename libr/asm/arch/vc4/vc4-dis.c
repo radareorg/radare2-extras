@@ -738,7 +738,6 @@ print_insn_vc4 (bfd_vma pc, disassemble_info *info)
       cd = vc4_cgen_cpu_open (CGEN_CPU_OPEN_ISAS, prev_isa,
 				 CGEN_CPU_OPEN_BFDMACH, mach_name,
 				 CGEN_CPU_OPEN_ENDIAN, prev_endian,
-				 CGEN_CPU_OPEN_INSN_ENDIAN, prev_insn_endian,
 				 CGEN_CPU_OPEN_END);
       if (!cd)
 	abort ();
