@@ -4,7 +4,7 @@ DESTDIR?=
 
 all: snowman
 	cd snowman ; git reset --hard
-	cd snowman/src ; cmake . -D NC_QT5=YES ; make -j4
+	cd snowman/src ; cmake . ; make -j4
 	cp -f snowman/src/nocode/nocode nocode
 
 install:
