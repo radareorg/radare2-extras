@@ -208,7 +208,7 @@ static RList *r_debug_unicorn_map_get(RDebug *dbg) {
 	int i = 0;
 	list = r_list_new ();
 	//list->free = r_debug_map_free;
-	r_vector_foreach (&dbg->iob.io->maps.v, map) {
+	r_vector_foreach (&dbg->iob.io->maps->v, map) {
 		m = r_debug_map_new (map->name,
 			map->itv.addr,
 			map->itv.addr + map->itv.size,
@@ -533,7 +533,7 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		return false;
 	}
 	ut64 lastvaddr = 0LL;
-	size_t n_sect = dbg->iob.io->maps.v.len;
+	size_t n_sect = dbg->iob.io->maps->v.len;
 	if (n_sect == 0) {
 		message (logo);
 		message ("[UNICORN] dpa            # reatach to initialize the unicorn\n");
@@ -541,7 +541,7 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 	}
 	code_is_mapped = 0;
 
-	r_vector_foreach (&dbg->iob.io->maps.v, map) {
+	r_vector_foreach (&dbg->iob.io->maps->v, map) {
 		int perms = 0;
 		if (map->perm & R_PERM_R) perms |= UC_PROT_READ;
 		if (map->perm & R_PERM_W) perms |= UC_PROT_WRITE;
