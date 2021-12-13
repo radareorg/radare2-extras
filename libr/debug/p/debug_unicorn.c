@@ -63,8 +63,10 @@ static int message(const char *fmt, ...) {
 	p = str;
 	va_start (ap, fmt);
 	vsnprintf (str, sizeof (str), fmt, ap);
-fprintf (stderr, Color_BMAGENTA"%s"Color_RESET, p);
-	if (++color>=COLORS) color = 0;
+	eprintf (Color_BMAGENTA"%s"Color_RESET, p);
+	if (++color >= COLORS) {
+		color = 0;
+	}
 	msgcolor = rainbow[color];
 #if 0
 	while (*p) {
@@ -81,11 +83,7 @@ fprintf (stderr, Color_BMAGENTA"%s"Color_RESET, p);
 
 static uc_engine *uh = NULL;
 
-static int r_debug_unicorn_init(RDebug *dbg);
-
-static int r_debug_handle_signals(RDebug *dbg) {
-	return -1;
-}
+static bool r_debug_unicorn_init(RDebug *dbg);
 
 static const char *r_debug_unicorn_reg_profile(RDebug *dbg) {
 	if (dbg->bits & R_SYS_BITS_64) {
@@ -202,24 +200,26 @@ static RList *r_debug_unicorn_pids(RDebug *dbg, int pid) {
 }
 
 static RList *r_debug_unicorn_map_get(RDebug *dbg) {
-	RDebugMap *m;
-	RList *list;
-	RIOMap *map;
 	int i = 0;
-	list = r_list_new ();
-	//list->free = r_debug_map_free;
-	r_vector_foreach (&dbg->iob.io->maps->v, map) {
-		m = r_debug_map_new (map->name,
+	RList *list = r_list_new ();
+	ut32 mapid;
+	if (!r_id_storage_get_lowest (dbg->iob.io->maps, &mapid)) {
+		return false;
+	}
+	do {
+		RIOMap *map = r_io_map_get (dbg->iob.io, mapid);
+		RDebugMap *m = r_debug_map_new (map->name,
 			map->itv.addr,
 			map->itv.addr + map->itv.size,
 			map->perm, 0);
 		if (m) {
 			r_list_append (list, m);
 		}
-		if (JUST_FIRST_BLOCK)
+		if (JUST_FIRST_BLOCK) {
 			break;
+		}
 		i++;
-	}
+	} while (r_id_storage_get_next (dbg->iob.io->maps, &mapid));
 	return list;
 }
 
@@ -254,21 +254,17 @@ static RDebugMap * r_debug_unicorn_map_alloc(RDebug *dbg, ut64 addr, int size, b
 	return map;
 }
 
-static int r_debug_desc_native_open(const char *path) {
-	return 0;
-}
-
 static int r_debug_unicorn_map_dealloc(RDebug *dbg, ut64 addr, int size) {
 	return 0;
 }
 
-static int r_debug_unicorn_detach(RDebug *dbg, int pid) {
+static bool r_debug_unicorn_detach(RDebug *dbg, int pid) {
 	if (uh) {
 		/* unicorn lib doesnt checks for null. it just crashes -_-U */
 		uc_close (uh);
 		uh = NULL;
 	}
-	return 0;
+	return true;
 }
 
 static bool r_debug_unicorn_kill(RDebug *dbg, int pid, int tid, int sig) {
@@ -371,11 +367,12 @@ void _interrupt(uc_engine *handle, uint32_t intno, void *user_data) {
 		uc_emu_stop (handle);
 	}
 }
-
+#if 0
 static void _code(uc_engine *handle, uint64_t address, uint32_t size, void *user_data) {
 	message ("[UNICORN] Begin Code\n");
 	uc_emu_stop (handle);
 }
+#endif
 
 static void _block(uc_engine *handle, uint64_t address, uint32_t size, void *user_data) {
 	message ("[UNICORN] Begin Block\n");
@@ -427,8 +424,7 @@ static bool _mem_invalid(uc_engine *handle, uc_mem_type type,
 	return false;
 }
 
-static int r_debug_unicorn_step(RDebug *dbg) {
-	uc_err err;
+static bool r_debug_unicorn_step(RDebug *dbg) {
 	ut64 addr = 0;
 	ut64 addr_end = 4;
 	static uc_hook uh_interrupt = 0;
@@ -462,7 +458,10 @@ static int r_debug_unicorn_step(RDebug *dbg) {
 	}
 	uc_hook_add (uh, &uh_invalid, UC_HOOK_MEM_INVALID, _mem_invalid, NULL, 1, 0);
 	uc_hook_add (uh, &uh_insn, UC_HOOK_INSN, _insn_out, NULL, 1, 0, UC_X86_INS_OUT);
-	err = uc_emu_start (uh, addr, addr_end, 0, 1);
+	uc_err err = uc_emu_start (uh, addr, addr_end, 0, 1);
+	if (err) {
+		eprintf ("uc_err = %d\n", err);
+	}
 	message ("[UNICORN] Step Instruction At 0x%08"PFMT64x"\n", addr);
 	{
 		uint64_t rip;
@@ -473,7 +472,7 @@ static int r_debug_unicorn_step(RDebug *dbg) {
 	return true;
 }
 
-static int r_debug_unicorn_attach(RDebug *dbg, int pid) {
+static bool r_debug_unicorn_attach(RDebug *dbg, int pid) {
 #if 0
 	int ret = -1;
 	if (pid == dbg->pid)
@@ -490,28 +489,27 @@ static int r_debug_unicorn_attach(RDebug *dbg, int pid) {
 		r_debug_unicorn_detach (dbg, pid);
 		r_debug_unicorn_init (dbg);
 	//}
-	return 'U' + 'N' + 'I' + 'C' + 'O' + 'R' + 'N';
+	return true;
 }
 
-static int r_debug_unicorn_continue_syscall(RDebug *dbg, int pid, int num) {
+static bool r_debug_unicorn_continue_syscall(RDebug *dbg, int pid, int num) {
 	// uc_hook_intr() syscall/sysenter
 	// XXX: num is ignored
 	message ("TODO: continue syscall not implemented yet\n");
-	return -1;
+	return false;
 }
 
-static int r_debug_unicorn_continue(RDebug *dbg, int pid, int tid, int sig) {
-	return tid;
+static bool r_debug_unicorn_continue(RDebug *dbg, int pid, int tid, int sig) {
+	return true;
 }
 
 static int r_debug_unicorn_wait(RDebug *dbg, int pid) {
 	// no need to wait
-	return true;
+	return pid;
 }
 
-static int r_debug_unicorn_init(RDebug *dbg) {
+static bool r_debug_unicorn_init(RDebug *dbg) {
 	int code_is_mapped;
-	RIOMap *map;
 	int bits = (dbg->bits & R_SYS_BITS_64) ? 64: 32;
 	uc_err err;
 	if (uh) {
@@ -533,15 +531,16 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		return false;
 	}
 	ut64 lastvaddr = 0LL;
-	size_t n_sect = dbg->iob.io->maps->v.len;
-	if (n_sect == 0) {
-		message (logo);
-		message ("[UNICORN] dpa            # reatach to initialize the unicorn\n");
-		message ("[UNICORN] dr rip=entry0  # set program counter to the entrypoint\n");
-	}
+
+	size_t n_sect = 0;
 	code_is_mapped = 0;
 
-	r_vector_foreach (&dbg->iob.io->maps->v, map) {
+	ut32 mapid;
+	if (!r_id_storage_get_lowest (dbg->iob.io->maps, &mapid)) {
+		return false;
+	}
+	do {
+		RIOMap *map = r_io_map_get (dbg->iob.io, mapid);
 		int perms = 0;
 		if (map->perm & R_PERM_R) perms |= UC_PROT_READ;
 		if (map->perm & R_PERM_W) perms |= UC_PROT_WRITE;
@@ -591,6 +590,12 @@ static int r_debug_unicorn_init(RDebug *dbg) {
 		uc_mem_write (uh, 0x100001058, buf, vsz);
 		free (buf);
 #endif
+		n_sect++;
+	} while (r_id_storage_get_next (dbg->iob.io->maps, &mapid));
+	if (n_sect == 0) {
+		message (logo);
+		message ("[UNICORN] dpa            # reatach to initialize the unicorn\n");
+		message ("[UNICORN] dr rip=entry0  # set program counter to the entrypoint\n");
 	}
 	if (!code_is_mapped) {
 		message("[UNICORN] No code mapped into the Unicorn. Use `dpa` to attach and transfer\n");
