@@ -1,3 +1,4 @@
+/* 2017 - montekki */
 
 #include <r_asm.h>
 #include <r_debug.h>
@@ -46,19 +47,19 @@ typedef struct {
 	RIOEvmOp *ops;
 	size_t ops_size;
 
-    size_t curr_op;
+	size_t curr_op;
 } RIOEvm;
 
 static RIOEvm *rio = NULL;
 static RIOEvmState *rios = NULL;
 
-static int r_debug_evm_step(RDebug *dbg) {
-    if (!rio->ops_size || rios->curr_instruction >= rio->ops_size) {
-        return false;
-    }
+static bool r_debug_evm_step(RDebug *dbg) {
+	if (!rio->ops_size || rios->curr_instruction >= rio->ops_size) {
+		return false;
+	}
 
 	rios->curr_instruction++;
-    rio->curr_op = rios->curr_instruction;
+	rio->curr_op = rios->curr_instruction;
 
 	return true;
 }
@@ -77,20 +78,20 @@ static int r_debug_evm_reg_read(RDebug *dbg, int type, ut8 *buf, int size) {
 }
 
 static RList *r_debug_evm_map_get(RDebug *dbg) {
-    RList *list;
-    RDebugMap *map;
+	RList *list;
+	RDebugMap *map;
 
-    if (rio && !rio->ops_size) {
-        return NULL;
-    }
+	if (rio && !rio->ops_size) {
+		return NULL;
+	}
 
-    list = r_list_new();
+	list = r_list_new();
 
-    map = r_debug_map_new ("code", 0x0000, 0x7FFF, r_str_rwx("rwx"), 0);
-    r_list_append (list, map);
+	map = r_debug_map_new ("code", 0x0000, 0x7FFF, r_str_rwx("rwx"), 0);
+	r_list_append (list, map);
 
-    map = r_debug_map_new ("stack", 0x8FFF, 0xFFFF, r_str_rwx("rwx"), 0);
-    r_list_append (list, map);
+	map = r_debug_map_new ("stack", 0x8FFF, 0xFFFF, r_str_rwx("rwx"), 0);
+	r_list_append (list, map);
 
 	map = r_debug_map_new ("memory", 0x10000, 0x1FFFF, r_str_rwx("rwx"), 0);
 	r_list_append (list, map);
@@ -99,21 +100,21 @@ static RList *r_debug_evm_map_get(RDebug *dbg) {
 }
 
 static int r_debug_evm_reg_write(RDebug *dbg, int type, const ut8 *buf, int size) {
-    return false;
+	return false;
 }
 
 static ssize_t find_breakpoint(ut64 addr, ut64 *addrs, size_t addrs_len);
 
-static int r_debug_evm_continue(RDebug *dbg, int pid, int tid, int sig) {
+static bool r_debug_evm_continue(RDebug *dbg, int pid, int tid, int sig) {
 	size_t i;
 	ssize_t bpt_addr;
 
-    if (!rio->ops_size) {
-        return false;
-    }
+	if (!rio->ops_size) {
+		return false;
+	}
 
 	bpt_addr = find_breakpoint(rio->ops[rios->curr_instruction].pc,
-				rios->breakpoints, rios->breakpoints_length);
+			rios->breakpoints, rios->breakpoints_length);
 
 	if (bpt_addr >= 0 && rio->ops[rios->curr_instruction].pc == rios->breakpoints[bpt_addr]) {
 		rios->curr_instruction++;
@@ -139,7 +140,7 @@ static RDebugReasonType r_debug_evm_wait(RDebug *dbg, int pid) {
 
 #define DEFAULT_BPT_AR_CAPACITY		64
 
-static int r_debug_evm_attach(RDebug *dbg, int pid) {
+static bool r_debug_evm_attach(RDebug *dbg, int pid) {
 	RIODesc *d = dbg->iob.io->desc;
 
 	if (!rios) {
@@ -159,17 +160,17 @@ static int r_debug_evm_attach(RDebug *dbg, int pid) {
 	return true;
 }
 
-static int r_debug_evm_detach(RDebug *dbg, int pid) {
+static bool r_debug_evm_detach(RDebug *dbg, int pid) {
 	return true;
 }
 
 static const char *r_debug_evm_reg_profile(RDebug *dbg, int pid) {
 	return strdup (
-				"=PC	pc\n"
-                "=SP    sp\n"
-				"gpr	pc .16 0 0\n"
-                "gpr    sp .16 2 0\n"
-		);
+			"=PC	pc\n"
+			"=SP    sp\n"
+			"gpr	pc .16 0 0\n"
+			"gpr    sp .16 2 0\n"
+		      );
 }
 
 static ssize_t find_breakpoint(ut64 addr, ut64 *addrs, size_t addrs_len) {
@@ -239,17 +240,13 @@ static bool r_debug_evm_kill(RDebug *dbg, int pid, int tid, int sig) {
 	return true;
 }
 
-static int r_debug_evm_select(int pid, int tid) {
+static bool r_debug_evm_select(RDebug *dbg, int pid, int tid) {
 	return true;
 }
 
 static RDebugInfo* r_debug_evm_info(RDebug *dbg, const char *arg) {
-	RDebugInfo *rdi;
-
-	if (!(rdi = R_NEW0 (RDebugInfo))) {
-		return NULL;
-	}
-
+	RDebugInfo *rdi = R_NEW0 (RDebugInfo);
+	// meh
 	return rdi;
 }
 
