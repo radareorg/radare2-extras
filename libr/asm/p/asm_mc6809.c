@@ -1042,7 +1042,7 @@ static int mc6809_disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	const ut8 *opcode_args = &buf[1];
 
 	op->size = 0;
-
+	r_strf_buffer (64);
 	switch (mc6809_opcode->mode) {
 	case PAGE2:
 		/* step past the page 2 prefix */
@@ -1069,30 +1069,30 @@ static int mc6809_disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 		break;
 	case INHERENT:
 		op->size++;
-		buf_asm = sdb_fmt ("%s", mc6809_opcode->name);
+		buf_asm = r_strf ("%s", mc6809_opcode->name);
 		break;
 	case IMMEDIATE:
 		op->size += 2;
-		buf_asm = sdb_fmt ("%s #$%02x", mc6809_opcode->name, *opcode_args);
+		buf_asm = r_strf ("%s #$%02x", mc6809_opcode->name, *opcode_args);
 		break;
 	case IMMEDIATELONG:
 		op->size += 3;
-		buf_asm = sdb_fmt ("%s #$%04x", mc6809_opcode->name,
+		buf_asm = r_strf ("%s #$%04x", mc6809_opcode->name,
 			opcode_args[0] * 256 + opcode_args[1]);
 		break;
 	case DIRECT:
 		op->size += 2;
-		buf_asm = sdb_fmt ("%s <$%02x", mc6809_opcode->name, *opcode_args);
+		buf_asm = r_strf ("%s <$%02x", mc6809_opcode->name, *opcode_args);
 		break;
 	case RELATIVE:
 		op->size += 2;
-		buf_asm = sdb_fmt ("%s $%04x",
+		buf_asm = r_strf ("%s $%04x",
 			mc6809_opcode->name,
 			(ut16) (a->pc + (st8) *opcode_args + op->size) & 0xFFFF);
 		break;
 	case RELATIVELONG:
 		op->size += 3;
-		buf_asm = sdb_fmt ("%s $%04x", mc6809_opcode->name,
+		buf_asm = r_strf ("%s $%04x", mc6809_opcode->name,
 			(ut16) (a->pc + (st16)(opcode_args[0]*256+opcode_args[1])+op->size) & 0xFFFF);
 		break;
 	case TFREXG:
@@ -1110,7 +1110,7 @@ static int mc6809_disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 				op->size += 1;
 			} else {
 				op->size += 2;
-				buf_asm = sdb_fmt (
+				buf_asm = r_strf (
 					 "%s %s,%s",
 					 mc6809_opcode->name,
 					 tfrexg_source_reg,
@@ -1121,19 +1121,19 @@ static int mc6809_disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 		break;
 	case INDEXED:
 		/* Load Effective Address opcode - variable length */
-		buf_asm = sdb_fmt ("%s", mc6809_opcode->name);
+		buf_asm = r_strf ("%s", mc6809_opcode->name);
 		op->size += mc6809_append_indexed_args (&op->buf_asm,
 							opcode_args) + 1;
 		break;
 	case PUSHPULLSYSTEM:
 	case PUSHPULLUSER:
-		buf_asm = sdb_fmt ("%s", mc6809_opcode->name);
+		buf_asm = r_strf ("%s", mc6809_opcode->name);
 		op->size += mc6809_append_pushpull_args(mc6809_opcode->mode,
 							&op->buf_asm,
 							opcode_args);
 		break;
 	case EXTENDED:
-		buf_asm = sdb_fmt (
+		buf_asm = r_strf (
 			 "%s $%04x",
 			 mc6809_opcode->name,
 			 opcode_args[0] * 256 + opcode_args[1]);
