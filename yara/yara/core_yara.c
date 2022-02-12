@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <r_core.h>
 #include <r_lib.h>
+#include <r_util.h>
 #include <yara.h>
 
 #undef R_API
@@ -70,7 +71,7 @@ static int callback (int message, void *msg_data, void *user_data) {
 					}
 				}
 
-				const char *flag = sdb_fmt ("%s%d_%s_%d", "yara", flagidx, rule->identifier, ruleidx);
+				r_strf_var (flag, 256, "%s%d_%s_%d", "yara", flagidx, rule->identifier, ruleidx);
 				if (print_strings) {
 					r_cons_printf("0x%08" PFMT64x ": %s : ", n + offset, flag);
 					r_print_bytes(print, match->data, match->data_length, "%02x");
@@ -118,7 +119,7 @@ static int callback (YR_SCAN_CONTEXT* context, int message, void *msg_data, void
 					}
 				}
 
-				const char *flag = sdb_fmt ("%s%d_%s_%d", "yara", flagidx, rule->identifier, ruleidx);
+				r_strf_var (flag, 256, "%s%d_%s_%d", "yara", flagidx, rule->identifier, ruleidx);
 				if (print_strings) {
 					r_cons_printf("0x%08" PFMT64x ": %s : ", n + offset, flag);
 					r_print_bytes(print, match->data, match->data_length, "%02x");

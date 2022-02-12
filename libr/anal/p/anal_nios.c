@@ -376,7 +376,7 @@ static int parse_insn(enum mach_attr mach, ut16 insn, struct insn_op **op, struc
 	int opcode;
 
 	for (int type = TYPE_OP6; type < TYPE_OPS; type++) {
-		const char *key = sdb_fmt("%d %d %d", mach, type, insns[type]);
+		r_strf_var (key, 128, "%d %d %d", mach, type, insns[type]);
 		*op = ht_pp_find(nios->ops, key, &found);
 
 		if (found) {
@@ -756,7 +756,7 @@ static int nios_init(void *user) {
 
 	for (int i = 0; i < INSN_OPS_MAX; i++) {
 		const struct insn_op *op = &insn_ops[i];
-		const char *key = sdb_fmt("%d %d %d", op->mach, op->type, op->opcode);
+		r_strf_var (key, 64, "%d %d %d", op->mach, op->type, op->opcode);
 		ht_pp_insert(nios->ops, key, (void *) op);
 	}
 
