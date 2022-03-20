@@ -1,3 +1,7 @@
+rl78:
+	$(MAKE) -C p anal_rl78.$(LIBEXT)
+	cp -f p/anal_rl78.$(LIBEXT) $(shell r2 -H R2_USER_PLUGINS)
+
 ba2:
 	cd p ; $(MAKE) anal_ba2.$(LIBEXT)
 
