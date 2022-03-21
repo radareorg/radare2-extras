@@ -10,5 +10,6 @@ ARCHS+=evm.mk
 ARCHS+=atombios.mk
 ARCHS+=rl78.mk
 ARCHS+=nios.mk
+ARCHS+=hexagon.mk
 
 include ../../plugs.mk
