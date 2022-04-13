@@ -1,0 +1,7 @@
+aui 44100 16 1
+aub 256K
+auea
+auE 0 4000 2000 4000 6000 0 1000 2000 1000 4000 3000
+# arpeggio from 14K to 20K
+auws 14000
+2au.
