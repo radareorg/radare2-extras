@@ -5,10 +5,39 @@
 #  git clone https://github.com/radare/acr
 #
 # -- pancake
+#!/bin/sh
+#
+# Look for the 'acr' tool here: https://github.com/radare/acr
+# Clone last version of ACR from here:
+#  git clone https://github.com/radare/acr
+#
+# -- pancake
+
+r2pm -h >/dev/null 2>&1
+if [ $? = 0 ]; then
+	echo "Installing the last version of 'acr'..."
+	r2pm -i acr > /dev/null
+	r2pm -r acr -h > /dev/null 2>&1
+	if [ $? = 0 ]; then
+		echo "Running 'acr -p'..."
+		r2pm -r acr -p
+	else
+		echo "Cannot find 'acr' in PATH"
+	fi
+else
+	echo "Running acr..."
+	acr -p
+fi
+V=`./configure -qV | cut -d - -f -1`
+if [ -n "$1" ]; then
+	echo "./configure $*"
+	./configure $*
+fi
+
 files=`find . -name configure.acr`
 for a in ${files}; do
 	echo "[+] $a"
-	( cd `dirname $a` ; acr -p )
+	( cd `dirname $a` ; r2pm -r acr -p )
 done
 if [ -n "$1" ]; then
 	echo "./configure $@"
