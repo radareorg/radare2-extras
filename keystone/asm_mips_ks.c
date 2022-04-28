@@ -8,7 +8,7 @@
 
 static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 	ks_mode mode;
-	switch (a->bits) {
+	switch (a->config->bits) {
 	case 16:
 		mode = KS_MODE_MICRO; // micromips mode
 		break;
@@ -19,7 +19,7 @@ static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 		mode = KS_MODE_MIPS64;
 		break;
 	}
-	if (a->big_endian) {
+	if (a->config->big_endian) {
 		mode = (ks_mode)((int)mode | KS_MODE_BIG_ENDIAN);
 	}
 	return keystone_assemble (a, ao, str, KS_ARCH_MIPS, mode);

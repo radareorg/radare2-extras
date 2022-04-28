@@ -9,17 +9,17 @@
 static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 	ks_arch arch = KS_ARCH_ARM;
 	ks_mode mode = KS_MODE_ARM;
-	switch (a->bits) {
+	switch (a->config->bits) {
 	case 16:
 		mode = KS_MODE_THUMB;
 		break;
 	case 64:
 		arch = KS_ARCH_ARM64;
 		mode = KS_MODE_LITTLE_ENDIAN;
-		a->big_endian = false;
+		a->config->big_endian = false;
 		break;
 	}
-	if (a->big_endian) {
+	if (a->config->big_endian) {
 		mode = (ks_mode)((int)mode | KS_MODE_BIG_ENDIAN);
 	}
 	return keystone_assemble (a, ao, str, arch, mode);

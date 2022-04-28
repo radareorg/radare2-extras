@@ -8,7 +8,7 @@
 
 static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 	ks_mode mode = (ks_mode)0;
-	if (a->big_endian) {
+	if (a->config->big_endian) {
 		mode = (ks_mode)((int)mode | KS_MODE_BIG_ENDIAN);
 	}
 	return keystone_assemble (a, ao, str, KS_ARCH_HEXAGON, mode);

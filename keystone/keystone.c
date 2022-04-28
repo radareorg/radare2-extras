@@ -16,7 +16,7 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 
 	must_init = true; //!oldcur || (a->cur != oldcur || oldbit != a->bits);
 	oldcur = a->cur;
-	oldbit = a->bits;
+	oldbit = a->config->bits;
 
 	if (must_init) {
 		if (ks) {
@@ -43,7 +43,7 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 		}
 		return -1;
 	}
-	if (a->syntax == R_ASM_SYNTAX_ATT) {
+	if (a->config->syntax == R_ASM_SYNTAX_ATT) {
 		ks_option (ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_ATT);
 	} else {
 		ks_option (ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_NASM);

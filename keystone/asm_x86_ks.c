@@ -8,7 +8,7 @@
 #include "keystone.c"
 static int assemble(RAsm *a, RAsmOp *ao, const char *str) {
 	ks_mode mode = (ks_mode)0;
-	switch (a->bits) {
+	switch (a->config->bits) {
 	case 16:
 		mode = KS_MODE_16;
 		break;
