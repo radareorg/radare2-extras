@@ -19,7 +19,7 @@ static int aop(RAnal *anal, RAnalOp *aop, ut64 addr, const ut8 *data, int len) {
 	memset(&disasm_obj, '\0', sizeof(DISASM));
 	disasm_obj.EIP = (long long)(data);
 	disasm_obj.VirtualAddr = addr;
-	disasm_obj.Archi = ((anal->bits == 64) ? 64 : 0);
+	disasm_obj.Archi = ((anal->config->bits == 64) ? 64 : 0);
 	disasm_obj.SecurityBlock = 128;
 
 	memset(aop, 0, sizeof(RAnalOp));

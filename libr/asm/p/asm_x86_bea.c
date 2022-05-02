@@ -17,9 +17,9 @@ static int disassemble(RAsm *a, RAsmOp *aop, const ut8 *buf, int len) {
 	memset (&disasm_obj, '\0', sizeof (DISASM));
 	disasm_obj.EIP = (long long)buf;
 	disasm_obj.VirtualAddr = a->pc;
-	disasm_obj.Archi = ((a->bits == 64) ? 64 : 0);
+	disasm_obj.Archi = ((a->config->bits == 64) ? 64 : 0);
 	disasm_obj.SecurityBlock = len;
-	if (a->syntax == R_ASM_SYNTAX_ATT)
+	if (a->config->syntax == R_ASM_SYNTAX_ATT)
 		disasm_obj.Options = 0x400;
 	else disasm_obj.Options = 0;
 

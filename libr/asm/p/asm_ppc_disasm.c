@@ -23,7 +23,7 @@ static int disassemble(RAsm *a, RAsmOp *aop, const ut8 *buf, int len) {
 	dp.operands = operands;
 	dp.iaddr = &iaddr;
 	dp.instr = bof;
-	PPC_Disassemble (&dp, a->big_endian);
+	PPC_Disassemble (&dp, a->config->big_endian);
 	char res[64] = {0};
 	snprintf (res, sizeof (res), "%s %s", opcode, operands);
 	r_strbuf_set (&aop->buf_asm, res);
