@@ -47,21 +47,21 @@ static int disassemble(RAsm *a, RAsmOp *op, const ut8 *buf, int len) {
 	static int osyntax = 0;
 	if (!d.dis_mode)
 		ud_init (&d);
-	if (osyntax != a->syntax) {
-		ud_set_syntax (&d, (a->syntax==R_ASM_SYNTAX_ATT)?
+	if (osyntax != a->config->syntax) {
+		ud_set_syntax (&d, (a->config->syntax==R_ASM_SYNTAX_ATT)?
 				UD_SYN_ATT: UD_SYN_INTEL);
-		osyntax = a->syntax;
+		osyntax = a->config->syntax;
 	}
 	ud_set_input_buffer (&d, (uint8_t*) buf, len);
 	ud_set_pc (&d, a->pc);
-	ud_set_mode (&d, a->bits);
+	ud_set_mode (&d, a->config->bits);
 	opsize = ud_disassemble (&d);
 	r_strbuf_set (&op->buf_asm, ud_insn_asm (&d));
 	char *buf_asm = r_strbuf_get (&op->buf_asm);
 	if (opsize<1 || strstr (buf_asm, "invalid"))
 		opsize = 0;
 	op->size = opsize;
-	if (a->syntax == R_ASM_SYNTAX_JZ) {
+	if (a->config->syntax == R_ASM_SYNTAX_JZ) {
 		if (!strncmp (buf_asm, "je ", 3)) {
 			memcpy (buf_asm, "jz", 2);
 		} else if (!strncmp (buf_asm, "jne ", 4)) {
