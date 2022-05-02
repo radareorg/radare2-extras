@@ -161,13 +161,13 @@ static st64 getval(ud_operand_t *op) {
 }
 
 int x86_udis86_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *data, int len) {
-	const char *pc = anal->bits==64? "rip": anal->bits==32? "eip": "ip";
-	const char *sp = anal->bits==64? "rsp": anal->bits==32? "esp": "sp";
-        const char *bp = anal->bits==64? "rbp": anal->bits==32? "ebp": "bp";
+	const char *pc = anal->config->bits==64? "rip": anal->config->bits==32? "eip": "ip";
+	const char *sp = anal->config->bits==64? "rsp": anal->config->bits==32? "esp": "sp";
+        const char *bp = anal->config->bits==64? "rbp": anal->config->bits==32? "ebp": "bp";
 	int delta, oplen, regsz = 4;
 	char str[64], src[32], dst[32];
 	struct ud u;
-	switch (anal->bits) {
+	switch (anal->config->bits) {
 	case 64: regsz = 8; break;
 	case 16: regsz = 2; break;
 	default:
@@ -175,7 +175,7 @@ int x86_udis86_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *data, int len)
 	}
 
 	UDis86Esil *handler;
-	UDis86OPInfo info = {0, anal->bits, (1LL << anal->bits) - 1, regsz, 0, pc, sp, bp};
+	UDis86OPInfo info = {0, anal->config->bits, (1LL << anal->config->bits) - 1, regsz, 0, pc, sp, bp};
 	memset (op, '\0', sizeof (RAnalOp));
 	op->addr = addr;
 	op->jump = op->fail = -1;
@@ -183,7 +183,7 @@ int x86_udis86_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *data, int len)
 
 	ud_init (&u);
 	ud_set_pc (&u, addr);
-	ud_set_mode (&u, anal->bits);
+	ud_set_mode (&u, anal->config->bits);
 	ud_set_syntax (&u, NULL);
 	ud_set_input_buffer (&u, data, len);
 	ud_disassemble (&u);
@@ -479,7 +479,7 @@ int x86_udis86_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *data, int len)
 			if (u.operand[0].type==UD_OP_PTR) {
 				op->jump = getval (&u.operand[0]);
 			} else {
-				if (anal->bits==16) {
+				if (anal->config->bits==16) {
 					// honor segment
 					op->jump = (addr&0xf0000) + oplen + \
 						((((addr&0xffff)+getval (&u.operand[0]))&0xffff));
@@ -557,7 +557,7 @@ int x86_udis86_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *data, int len)
 
 static int set_reg_profile(RAnal *anal) {
 	const char *p = NULL;
-	switch (anal->bits) {
+	switch (anal->config->bits) {
 	case 16: p =
 		"=PC	ip\n"
 		"=SP	sp\n"
