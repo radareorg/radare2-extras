@@ -5,8 +5,7 @@ STATIC_OBJ+=${OBJ_SWF}
 TARGET_SWF=asm_swf.$(LIBEXT)
 
 ALL_TARGETS+=${TARGET_SWF}
-CFLAGS+=-I../arch/swf
+CFLAGS_SWF=-I../arch/swf
 
 ${TARGET_SWF}: ${OBJ_SWF}
-	${CC} ${CFLAGS} $(LDFLAGS) -o ${TARGET_SWF} ${OBJ_SWF} -lr_util
-
+	${CC} ${CFLAGS} ${CFLAGS_SWF} $(LDFLAGS) -o ${TARGET_SWF} ${OBJ_SWF} -lr_util

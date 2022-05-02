@@ -8,5 +8,6 @@ ALL_TARGETS+=${TARGET_EVM}
 CFLAGS+=-I../arch/evm
 
 ${TARGET_EVM}: ${OBJ_EVM}
+	ls ${R2PM_PLUGDIR}
 	${CC} ${CFLAGS} ${LDFLAGS} -o ${TARGET_EVM} ${OBJ_EVM} -lr_util
 
