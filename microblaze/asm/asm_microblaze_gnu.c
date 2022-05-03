@@ -66,7 +66,7 @@ static int disassemble(struct r_asm_t *a, struct r_asm_op_t *op, const ut8 *buf,
 	disasm_obj.buffer_length = 4;
 	//disasm_obj.endian = a->big_endian ? BFD_ENDIAN_BIG : BFD_ENDIAN_LITTLE;
 	// only support little endian for now
-	disasm_obj.endian = !a->big_endian;
+	disasm_obj.endian = !a->config->big_endian;
 	disasm_obj.fprintf_func = &buf_fprintf;
 	disasm_obj.stream = stdout;
 

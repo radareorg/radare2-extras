@@ -15,7 +15,7 @@ static int disassemble(RAsm *a, RAsmOp *aop, const ut8 *buf, int len) {
 	static ZydisInstructionInfo info;
 	static ZydisInstructionFormatter fmtr;
 
-	ZydisDecoderInitInstructionDecoder (&decr, a->bits);
+	ZydisDecoderInitInstructionDecoder (&decr, a->config->bits);
 	memset (&info, 0, sizeof (info));
 	ZydisStatus st = ZydisDecoderDecodeInstruction (&decr, buf, len, a->pc, &info);
 	if (ZYDIS_SUCCESS (st)) {

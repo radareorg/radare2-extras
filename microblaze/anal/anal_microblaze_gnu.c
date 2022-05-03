@@ -1114,7 +1114,7 @@ static int microblaze_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int l
 	/* update bytes */
 	memcpy (bytes, buf, oplen);
 	info.read_memory_func = microblaze_read_memory;
-	if (a->big_endian) {
+	if (a->config->big_endian) {
 		info.endian = BFD_ENDIAN_BIG;
 	} else {
 		info.endian = BFD_ENDIAN_LITTLE;
