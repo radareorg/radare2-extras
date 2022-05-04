@@ -80,7 +80,6 @@
 #define WORD short
 #define UWORD unsigned short
 #define ut8 unsigned char
-#define ut8 unsigned char
 #define STR char*
 #define BYTE char
 #define ULONG unsigned int

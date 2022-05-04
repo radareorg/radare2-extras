@@ -5,9 +5,9 @@ STATIC_OBJ+=${OBJ_EVM}
 TARGET_EVM=asm_evm.${LIBEXT}
 
 ALL_TARGETS+=${TARGET_EVM}
-CFLAGS+=-I../arch/evm
+
+$(OBJ_EVM): %.o : %.c
+	$(CC) -c $(CFLAGS) -I../arch/evm $< -o $@
 
 ${TARGET_EVM}: ${OBJ_EVM}
-	ls ${R2PM_PLUGDIR}
 	${CC} ${CFLAGS} ${LDFLAGS} -o ${TARGET_EVM} ${OBJ_EVM} -lr_util
-
