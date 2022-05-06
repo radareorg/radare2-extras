@@ -237,20 +237,21 @@ static RDebugInfo* r_debug_unicorn_info(RDebug *dbg, const char *arg) {
 }
 
 static RDebugMap * r_debug_unicorn_map_alloc(RDebug *dbg, ut64 addr, int size, bool thp) {
-	RDebugMap *map;
 	uc_err err = uc_mem_map (uh, addr, size, UC_PROT_WRITE | UC_PROT_READ);
 	if (err) {
 		message ("[UNICORN] Cannot allocated map\n");
 		return NULL;
 	}
-	map = R_NEW0 (RDebugMap);
-	map->name = r_str_newf ("unimap%d", r_list_length (dbg->maps));
-	map->addr = addr;
-	map->addr_end = addr +size;
-	map->size = size;
-	map->file = NULL;
-	map->perm = 6; // rw
-	map->user = 1;
+	RDebugMap *map = R_NEW0 (RDebugMap);
+	if (map) {
+		map->name = r_str_newf ("unimap%d", r_list_length (dbg->maps));
+		map->addr = addr;
+		map->addr_end = addr +size;
+		map->size = size;
+		map->file = NULL;
+		map->perm = 6; // rw
+		map->user = 1;
+	}
 	return map;
 }
 
@@ -287,18 +288,18 @@ static int r_debug_unicorn_bp(RBreakpointItem *bp, int set, void *user) {
 
 static int r_debug_unicorn_reg_read(RDebug *dbg, int type, ut8 *buf, int size) {
 	// NOTE: This must be in sync with the profile.
-	ut64 *rip = (ut64*)(buf+0x00);
-	ut64 *rax = (ut64*)(buf+0x08);
-	ut64 *rcx = (ut64*)(buf+0x10);
-	ut64 *rdx = (ut64*)(buf+0x18);
-	ut64 *rbx = (ut64*)(buf+0x20);
-	ut64 *rsp = (ut64*)(buf+0x28);
-	ut64 *rbp = (ut64*)(buf+0x30);
-	ut64 *rsi = (ut64*)(buf+0x38);
-	ut64 *rdi = (ut64*)(buf+0x40);
-	ut64 *r8  = (ut64*)(buf+0x48);
-	ut64 *r9  = (ut64*)(buf+0x50);
-	ut64 *r10 = (ut64*)(buf+0x58);
+	ut64 *rip = (ut64*)(buf + 0x00);
+	ut64 *rax = (ut64*)(buf + 0x08);
+	ut64 *rcx = (ut64*)(buf + 0x10);
+	ut64 *rdx = (ut64*)(buf + 0x18);
+	ut64 *rbx = (ut64*)(buf + 0x20);
+	ut64 *rsp = (ut64*)(buf + 0x28);
+	ut64 *rbp = (ut64*)(buf + 0x30);
+	ut64 *rsi = (ut64*)(buf + 0x38);
+	ut64 *rdi = (ut64*)(buf + 0x40);
+	ut64 *r8  = (ut64*)(buf + 0x48);
+	ut64 *r9  = (ut64*)(buf + 0x50);
+	ut64 *r10 = (ut64*)(buf + 0x58);
 	memset (buf, 0, size);
 	if (type == R_REG_TYPE_GPR) {
 		uc_reg_read (uh, UC_X86_REG_RIP, rip);
@@ -321,18 +322,18 @@ static int r_debug_unicorn_reg_read(RDebug *dbg, int type, ut8 *buf, int size) {
 
 static int r_debug_unicorn_reg_write(RDebug *dbg, int type, const ut8* buf, int size) {
 	// NOTE: This must be in sync with the profile.
-	ut64 *rip = (ut64*)(buf+0x00);
-	ut64 *rax = (ut64*)(buf+0x08);
-	ut64 *rcx = (ut64*)(buf+0x10);
-	ut64 *rdx = (ut64*)(buf+0x18);
-	ut64 *rbx = (ut64*)(buf+0x20);
-	ut64 *rsp = (ut64*)(buf+0x28);
-	ut64 *rbp = (ut64*)(buf+0x30);
-	ut64 *rsi = (ut64*)(buf+0x38);
-	ut64 *rdi = (ut64*)(buf+0x40);
-	ut64 *r8  = (ut64*)(buf+0x48);
-	ut64 *r9  = (ut64*)(buf+0x50);
-	ut64 *r10 = (ut64*)(buf+0x58);
+	ut64 *rip = (ut64*)(buf + 0x00);
+	ut64 *rax = (ut64*)(buf + 0x08);
+	ut64 *rcx = (ut64*)(buf + 0x10);
+	ut64 *rdx = (ut64*)(buf + 0x18);
+	ut64 *rbx = (ut64*)(buf + 0x20);
+	ut64 *rsp = (ut64*)(buf + 0x28);
+	ut64 *rbp = (ut64*)(buf + 0x30);
+	ut64 *rsi = (ut64*)(buf + 0x38);
+	ut64 *rdi = (ut64*)(buf + 0x40);
+	ut64 *r8  = (ut64*)(buf + 0x48);
+	ut64 *r9  = (ut64*)(buf + 0x50);
+	ut64 *r10 = (ut64*)(buf + 0x58);
 	uc_err err;
 	if (type == R_REG_TYPE_GPR) {
 		uint64_t u = *rip;
@@ -519,6 +520,8 @@ static bool r_debug_unicorn_init(RDebug *dbg) {
 	// TODO: add support for ARM, MIPS, ...
 	if (!strcmp (dbg->arch, "x86")) {
 		err = uc_open (UC_ARCH_X86, bits==64? UC_MODE_64: UC_MODE_32, &uh);
+	} else if (!strcmp (dbg->arch, "mips")) {
+		err = uc_open (UC_ARCH_MIPS, bits==64? UC_MODE_64: UC_MODE_32, &uh);
 	} else if (!strcmp (dbg->arch, "arm")) {
 		err = uc_open (UC_ARCH_ARM, bits==64? UC_MODE_64: UC_MODE_32, &uh);
 	} else {
@@ -545,18 +548,23 @@ static bool r_debug_unicorn_init(RDebug *dbg) {
 		if (map->perm & R_PERM_R) perms |= UC_PROT_READ;
 		if (map->perm & R_PERM_W) perms |= UC_PROT_WRITE;
 		if (map->perm & R_PERM_X) perms |= UC_PROT_EXEC;
-		ut64 mapbase = map->itv.addr >> 12 << 12;
+		ut64 mapbase = (map->itv.addr >> 12) << 12;
 		int bufdelta = map->itv.addr - mapbase;
 		ut32 vsz = 64 * 1024;
 		ut8 *buf;
-		if (map->itv.addr < lastvaddr)
+		if (map->itv.addr < lastvaddr) {
 			continue;
-		if (!(map->perm & 1))
+		}
+		if (!(map->perm & 1)) {
 			continue;
-		if (!strstr (map->name, "text"))
+		}
+		if (!strstr (map->name, "text")) {
 			continue;
-		buf = calloc (vsz+bufdelta+1024, 1);
-		if (!buf) continue;
+		}
+		buf = calloc (vsz + bufdelta + 1024, 1);
+		if (!buf) {
+			continue;
+		}
 		message ("[UNICORN] BASE 0x%08"PFMT64x"\n", mapbase);
 		//message ("DELTA = %d SIZE = %d\n", bufdelta,
 			//R_MIN (map->itv.size, (vsz - bufdelta)));
@@ -637,6 +645,7 @@ static bool r_debug_unicorn_init(RDebug *dbg) {
 RDebugPlugin r_debug_plugin_unicorn = {
 	.name = "unicorn",
 	.license = "GPL",
+	.author = "pancake",
 	.bits = R_SYS_BITS_32 | R_SYS_BITS_64,
 	.arch = "x86",
 	.canstep = 1,
