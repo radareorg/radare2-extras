@@ -15,3 +15,6 @@ ${TARGET_UNICORN}: ${OBJ_UNICORN}
 	${CC} ${OBJ_UNICORN} $(call libname,debug_unicorn) ${CFLAGS} \
 		${UC_CFLAGS} ${UC_LDFLAGS} \
 		${R2_CFLAGS} ${R2_LDFLAGS}
+ifneq (,$(wildcard /usr/bin/codesign))
+	-codesign -f -s - debug_unicorn.$(LIBEXT)
+endif
