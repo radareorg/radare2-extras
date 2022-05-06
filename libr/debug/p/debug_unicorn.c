@@ -517,14 +517,24 @@ static bool r_debug_unicorn_init(RDebug *dbg) {
 		// run detach to allow reinit
 		return true;
 	}
-eprintf ("init\n");
 	// TODO: add support for ARM, MIPS, ...
 	if (!strcmp (dbg->arch, "x86")) {
 		err = uc_open (UC_ARCH_X86, bits==64? UC_MODE_64: UC_MODE_32, &uh);
 	} else if (!strcmp (dbg->arch, "mips")) {
 		err = uc_open (UC_ARCH_MIPS, bits==64? UC_MODE_64: UC_MODE_32, &uh);
 	} else if (!strcmp (dbg->arch, "arm")) {
-		err = uc_open (UC_ARCH_ARM, bits==64? UC_MODE_64: UC_MODE_32, &uh);
+		switch (bits) {
+		case 64:
+			err = uc_open (UC_ARCH_ARM64, UC_MODE_ARM, &uh);
+			break;
+		case 32:
+			// UC_MODE_BIG_ENDIAN
+			err = uc_open (UC_ARCH_ARM, UC_MODE_ARM, &uh);
+			break;
+		case 16:
+			err = uc_open (UC_ARCH_ARM, UC_MODE_ARM, &uh);
+			break;
+		}
 	} else {
 		err = 1;
 		message ("[UNICORN] Unsupported architecture\n");
