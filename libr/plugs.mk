@@ -26,7 +26,7 @@ THEDIR=$(DESTDIR)$(LIBDIR)/radare2-extras/$(VERSION)
 
 install:
 	mkdir -p $(THEDIR)
-	cp -f *.$(LIBEXT) $(THEDIR)
+	for a in *.$(LIBEXT) ; do rm -f $(THEDIR)/$$a ; cp -f $$a $(THEDIR) ; codesign -f -s - $(THEDIR)/$$a || true; done
 
 symstall:
 	mkdir -p $(THEDIR)
@@ -42,4 +42,3 @@ mrproper: clean
 	-rm -f *.d ../arch/*/*/*.d
 
 .PHONY: all install symstall uninstall clean foo mrproper
-

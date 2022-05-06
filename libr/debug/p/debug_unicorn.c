@@ -517,6 +517,7 @@ static bool r_debug_unicorn_init(RDebug *dbg) {
 		// run detach to allow reinit
 		return true;
 	}
+eprintf ("init\n");
 	// TODO: add support for ARM, MIPS, ...
 	if (!strcmp (dbg->arch, "x86")) {
 		err = uc_open (UC_ARCH_X86, bits==64? UC_MODE_64: UC_MODE_32, &uh);
