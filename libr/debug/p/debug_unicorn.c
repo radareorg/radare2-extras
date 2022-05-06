@@ -569,7 +569,7 @@ static bool r_debug_unicorn_init(RDebug *dbg) {
 		if (!(map->perm & 1)) {
 			continue;
 		}
-		if (!strstr (map->name, "text")) {
+		if (map->name && !strstr (map->name, "text")) {
 			continue;
 		}
 		buf = calloc (vsz + bufdelta + 1024, 1);
