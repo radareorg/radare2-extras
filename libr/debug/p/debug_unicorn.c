@@ -92,9 +92,48 @@ static const char *r_debug_unicorn_reg_profile(RDebug *dbg) {
 			"=SP sp\n"
 			"=A0 r0\n"
 			"=R0 r0\n"
-			"gpr	rip	8	0x000	0\n"
 			"gpr	r0	8	0x008	0\n"
 			"gpr	r1	8	0x010	0\n"
+			"gpr	x2	.64	16	0\n"
+			"gpr	x3	.64	24	0\n"
+			"gpr	x4	.64	32	0\n"
+			"gpr	x5	.64	40	0\n"
+			"gpr	x6	.64	48	0\n"
+			"gpr	x7	.64	56	0\n"
+			"gpr	x8	.64	64	0\n"
+			"gpr	x9	.64	72	0\n"
+			"gpr	x10	.64	80	0\n"
+			"gpr	x11	.64	88	0\n"
+			"gpr	x12	.64	96	0\n"
+			"gpr	x13	.64	104	0\n"
+			"gpr	x14	.64	112	0\n"
+			"gpr	x15	.64	120	0\n"
+			"gpr	x16	.64	128	0\n"
+			"gpr	x17	.64	136	0\n"
+			"gpr	x18	.64	144	0\n"
+			"gpr	x19	.64	152	0\n"
+			"gpr	x20	.64	160	0\n"
+			"gpr	x21	.64	168	0\n"
+			"gpr	x22	.64	176	0\n"
+			"gpr	x23	.64	184	0\n"
+			"gpr	x24	.64	192	0\n"
+			"gpr	x25	.64	200	0\n"
+			"gpr	x26	.64	208	0\n"
+			"gpr	x27	.64	216	0\n"
+			"gpr	x28	.64	224	0\n"
+			"gpr	x29	.64	232	0\n"
+			"gpr	x30	.64	240	0\n"
+			"gpr	fp	.64	232	0\n"
+			"gpr	lr	.64	240	0\n"
+			"gpr	sp	.64	248	0\n"
+			"gpr	pc	.64	256	0\n"
+			"gpr	zr	.64	?	0\n"
+			"gpr	xzr	.64	?	0\n"
+			"flg	pstate	.64	280	0   _____tfiae_____________j__qvczn\n"
+			"flg	vf	.1	280.28	0	overflow\n"
+			"flg	cf	.1	280.29	0	carry\n"
+			"flg	zf	.1	280.30	0	zero\n"
+			"flg	nf	.1	280.31	0	sign\n"
 			     );
 	}
 	if (dbg->bits & R_SYS_BITS_64) {
@@ -227,22 +266,21 @@ static void mmio_write(uc_engine *uc, ut64 addr, unsigned int size, ut64 value, 
 }
 
 static int r_debug_unicorn_cmd(RDebug *dbg, const char *cmd) {
-	eprintf ("DEBUG (%s)\n", cmd);
 	if (*cmd == '?') {
-		r_cons_printf ("%s\n", logo);
+		eprintf (
+"Usage: d:[command] [arguments]\n"
+"d:?         - show this help\n"
+"d:io        - show current unicorn I/O strategy\n"
+"d:io mmio   - use the MMIO direct r2 memory access\n"
+"d:io copy   - copy the data back and forth from/to r2 on attach\n"
+"d:logo      - show the ascii art unicorn logo\n"
+		);
 	} else if (r_str_startswith (cmd, "logo")) {
 		r_cons_printf ("%s\n", logo);
 	} else if (!strncmp (cmd, "io", 2)) {
 		char *arg = strchr (cmd, ' ');
 		if (arg) {
 			use_mmio = !strcmp (arg + 1, "mmio");
-			if (use_mmio) {
-				uc_mmio_map (uh, 0, UT64_MAX,
-					mmio_read, dbg,
-					mmio_write, dbg);
-			} else {
-				uc_mem_unmap (uh, 0, UT64_MAX);
-			}
 		} else {
 			r_cons_printf ("%s\n", use_mmio? "mmio": "copy");
 		}
@@ -486,7 +524,11 @@ static bool r_debug_unicorn_step(RDebug *dbg) {
 	static uc_hook uh_code = 0;
 	static uc_hook uh_insn = 0;
 
-	uc_reg_read (uh, UC_X86_REG_RIP, &addr);
+	int pcreg = UC_X86_REG_RIP;
+	if (!strcmp (dbg->arch, "arm")) {
+		pcreg = UC_ARM64_REG_PC;
+	}
+	uc_reg_read (uh, pcreg, &addr);
 	addr_end = addr + 32;
 
 	message ("EMU From 0x%"PFMT64x" To 0x%"PFMT64x"\n", addr, addr_end);
@@ -519,7 +561,7 @@ static bool r_debug_unicorn_step(RDebug *dbg) {
 	message ("[UNICORN] Step Instruction At 0x%08"PFMT64x"\n", addr);
 	{
 		uint64_t rip;
-		uc_reg_read (uh, UC_X86_REG_RIP, &rip);
+		uc_reg_read (uh, pcreg, &rip);
 		message ("NEW PC 0x%08"PFMT64x"\n", rip);
 	}
 	//err = uc_emu_stop (uh);
@@ -562,45 +604,21 @@ static int r_debug_unicorn_wait(RDebug *dbg, int pid) {
 	return pid;
 }
 
-static bool r_debug_unicorn_init(RDebug *dbg) {
-	int code_is_mapped;
-	int bits = (dbg->bits & R_SYS_BITS_64) ? 64: 32;
+static bool init_memory(RDebug *dbg, int pcreg, int spreg) {
+	eprintf ("Initializing unicorn memory layout, using the %s I/O strategy.\n", use_mmio?"mmio": "copy");
 	uc_err err;
-	if (uh) {
-		// run detach to allow reinit
-		return true;
-	}
-	// TODO: add support for ARM, MIPS, ...
-	if (!strcmp (dbg->arch, "x86")) {
-		err = uc_open (UC_ARCH_X86, bits==64? UC_MODE_64: UC_MODE_32, &uh);
-	} else if (!strcmp (dbg->arch, "mips")) {
-		err = uc_open (UC_ARCH_MIPS, bits==64? UC_MODE_64: UC_MODE_32, &uh);
-	} else if (!strcmp (dbg->arch, "arm")) {
-		switch (bits) {
-		case 64:
-			err = uc_open (UC_ARCH_ARM64, UC_MODE_ARM, &uh);
-			break;
-		case 32:
-			// UC_MODE_BIG_ENDIAN
-			err = uc_open (UC_ARCH_ARM, UC_MODE_ARM, &uh);
-			break;
-		case 16:
-			err = uc_open (UC_ARCH_ARM, UC_MODE_ARM, &uh);
-			break;
-		}
+	if (use_mmio) {
+		uc_mmio_map (uh, 0, UT64_MAX,
+			mmio_read, dbg,
+			mmio_write, dbg);
 	} else {
-		err = 1;
-		message ("[UNICORN] Unsupported architecture\n");
+		uc_mem_unmap (uh, 0, UT64_MAX);
 	}
-	message ("[UNICORN] Using arch %s bits %d\n", dbg->arch, bits);
-	if (err) {
-		message ("[UNICORN] Cannot initialize Unicorn engine\n");
-		return false;
-	}
+
 	ut64 lastvaddr = 0LL;
 
 	size_t n_sect = 0;
-	code_is_mapped = 0;
+	int code_is_mapped = 0;
 
 	ut32 mapid;
 	if (!r_id_storage_get_lowest (dbg->iob.io->maps, &mapid)) {
@@ -608,6 +626,9 @@ static bool r_debug_unicorn_init(RDebug *dbg) {
 	}
 	do {
 		RIOMap *map = r_io_map_get (dbg->iob.io, mapid);
+		if (!map) {
+			break;
+		}
 		int perms = 0;
 		if (map->perm & R_PERM_R) perms |= UC_PROT_READ;
 		if (map->perm & R_PERM_W) perms |= UC_PROT_WRITE;
@@ -675,11 +696,7 @@ static bool r_debug_unicorn_init(RDebug *dbg) {
 
 	message ("[UNICORN] Set Program Counter 0x%08"PFMT64x"\n",
 		dbg->iob.io->off);
-	if (bits == 64) {
-		err = uc_reg_write (uh, UC_X86_REG_RIP, &dbg->iob.io->off);
-	} else {
-		err = uc_reg_write (uh, UC_X86_REG_EIP, &dbg->iob.io->off);
-	}
+	err = uc_reg_write (uh, pcreg, &dbg->iob.io->off);
 	if (err) {
 		message ("[UNICORN] Cannot Set PC\n");
 		return false;
@@ -695,15 +712,65 @@ static bool r_debug_unicorn_init(RDebug *dbg) {
 		if (err) {
 			eprintf ("Cannot allocate stack %d\n", err);
 		}
-		if (bits == 64) {
-			ut64 rsp = stackaddr + (stacksize / 2);
-			err = uc_reg_write (uh, UC_X86_REG_RSP, &rsp);
-		} else {
-			ut32 esp = stackaddr + (stacksize / 2);
-			err = uc_reg_write (uh, UC_X86_REG_ESP, &esp);
-		}
+		ut64 rsp = stackaddr + (stacksize / 2);
+		err = uc_reg_write (uh, spreg, &rsp);
 	}
 	return true;
+}
+
+static bool r_debug_unicorn_init(RDebug *dbg) {
+	int bits = (dbg->bits & R_SYS_BITS_64) ? 64: 32;
+	uc_err err;
+	if (uh) {
+		// run detach to allow reinit
+		return true;
+	}
+	int pcreg = UC_X86_REG_EIP;
+	int spreg = UC_X86_REG_ESP;
+	if (!strcmp (dbg->arch, "x86")) {
+		if (bits == 64) {
+			pcreg = UC_X86_REG_RIP;
+			spreg = UC_X86_REG_RSP;
+		} else {
+			pcreg = UC_X86_REG_EIP;
+			spreg = UC_X86_REG_ESP;
+		}
+		err = uc_open (UC_ARCH_X86, bits==64? UC_MODE_64: UC_MODE_32, &uh);
+	} else if (!strcmp (dbg->arch, "riscv")) {
+		err = uc_open (UC_ARCH_RISCV, UC_MODE_RISCV32, &uh);
+		pcreg = UC_MIPS_REG_PC;
+	} else if (!strcmp (dbg->arch, "mips")) {
+		err = uc_open (UC_ARCH_MIPS, bits==64? UC_MODE_64: UC_MODE_32, &uh);
+		pcreg = UC_MIPS_REG_PC;
+	} else if (!strcmp (dbg->arch, "arm")) {
+		switch (bits) {
+		case 64:
+			err = uc_open (UC_ARCH_ARM64, UC_MODE_ARM, &uh);
+			pcreg = UC_ARM64_REG_PC;
+			spreg = UC_ARM64_REG_SP;
+			break;
+		case 32:
+			// UC_MODE_BIG_ENDIAN
+			err = uc_open (UC_ARCH_ARM, UC_MODE_ARM, &uh);
+			pcreg = UC_ARM_REG_PC;
+			spreg = UC_ARM_REG_SP;
+			break;
+		case 16:
+			err = uc_open (UC_ARCH_ARM, UC_MODE_ARM, &uh);
+			pcreg = UC_ARM_REG_PC;
+			spreg = UC_ARM_REG_SP;
+			break;
+		}
+	} else {
+		err = 1;
+		message ("[UNICORN] Unsupported architecture\n");
+	}
+	message ("[UNICORN] Using arch %s bits %d\n", dbg->arch, bits);
+	if (err) {
+		message ("[UNICORN] Cannot initialize Unicorn engine\n");
+		return false;
+	}
+	return init_memory (dbg, pcreg, spreg);
 }
 
 RDebugPlugin r_debug_plugin_unicorn = {
@@ -711,7 +778,7 @@ RDebugPlugin r_debug_plugin_unicorn = {
 	.license = "GPL",
 	.author = "pancake",
 	.bits = R_SYS_BITS_32 | R_SYS_BITS_64,
-	.arch = "x86,arm",
+	.arch = "x86,arm,riscv,mips",
 	.canstep = 1,
 	.keepio = 1,
 
