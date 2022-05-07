@@ -9,7 +9,6 @@
 
 #include <r_userconf.h>
 #include <r_debug.h>
-#include <r_asm.h>
 #include <r_cons.h>
 #include <r_reg.h>
 #include <r_lib.h>
@@ -18,6 +17,9 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <unicorn/unicorn.h>
+
+static R_TH_LOCAL bool use_mmio = false;
+static R_TH_LOCAL uc_engine *uh = NULL;
 
 static const char *logo = \
 "                 /\\'.         _,.\n" \
@@ -81,11 +83,20 @@ static int message(const char *fmt, ...) {
 	return 0;
 }
 
-static uc_engine *uh = NULL;
-
 static bool r_debug_unicorn_init(RDebug *dbg);
 
 static const char *r_debug_unicorn_reg_profile(RDebug *dbg) {
+	if (dbg->arch && !strcmp (dbg->arch, "arm")) {
+		return strdup (
+			"=PC pc\n"
+			"=SP sp\n"
+			"=A0 r0\n"
+			"=R0 r0\n"
+			"gpr	rip	8	0x000	0\n"
+			"gpr	r0	8	0x008	0\n"
+			"gpr	r1	8	0x010	0\n"
+			     );
+	}
 	if (dbg->bits & R_SYS_BITS_64) {
 		return strdup (
 			"=PC	rip\n"
@@ -138,7 +149,7 @@ static const char *r_debug_unicorn_reg_profile(RDebug *dbg) {
 #endif
 			);
 	} else {
-		return strdup(
+		return strdup (
 			"=PC	eip\n"
 			"=SP	esp\n"
 			"=BP	ebp\n"
@@ -199,9 +210,46 @@ static RList *r_debug_unicorn_pids(RDebug *dbg, int pid) {
 	return list;
 }
 
-static int r_debug_unicorn_cmd(RDebug *dbg, const char *cmd) {
-	eprintf ("TODO: Unicorn command interface\n");
+#if R2_VERSION_NUMBER >= 50609
+static ut64 mmio_read(uc_engine *uc, ut64 addr, unsigned int size, void *user_data) {
+	RDebug *dbg = (RDebug*)user_data;
+	eprintf ("READ at %llx\n", addr);
+	if (dbg) {
+		ut64 word = 0;
+		dbg->iob.read_at (dbg->iob.io, addr, (ut8*)&word, sizeof (word));
+		return word;
+	}
+	return 0;
 }
+
+static void mmio_write(uc_engine *uc, ut64 addr, unsigned int size, ut64 value, void *user_data) {
+	eprintf ("WRITE %llx at %llx\n", value, addr);
+}
+
+static int r_debug_unicorn_cmd(RDebug *dbg, const char *cmd) {
+	eprintf ("DEBUG (%s)\n", cmd);
+	if (*cmd == '?') {
+		r_cons_printf ("%s\n", logo);
+	} else if (r_str_startswith (cmd, "logo")) {
+		r_cons_printf ("%s\n", logo);
+	} else if (!strncmp (cmd, "io", 2)) {
+		char *arg = strchr (cmd, ' ');
+		if (arg) {
+			use_mmio = !strcmp (arg + 1, "mmio");
+			if (use_mmio) {
+				uc_mmio_map (uh, 0, UT64_MAX,
+					mmio_read, dbg,
+					mmio_write, dbg);
+			} else {
+				uc_mem_unmap (uh, 0, UT64_MAX);
+			}
+		} else {
+			r_cons_printf ("%s\n", use_mmio? "mmio": "copy");
+		}
+	}
+	return 0;
+}
+#endif
 
 static RList *r_debug_unicorn_map_get(RDebug *dbg) {
 	int i = 0;
@@ -641,17 +689,17 @@ static bool r_debug_unicorn_init(RDebug *dbg) {
 	{
 		uc_err err;
 		ut32 stacksize = 8 * 4096;
-		ut64 stackaddr = 0x7000000;
+		ut64 stackaddr = 0x7000000; // use esil.stack.addr
 		message ("[UNICORN] Define 64 KB stack at 0x%08"PFMT64x"\n", stackaddr);
 		err = uc_mem_map (uh, stackaddr, stacksize, UC_PROT_WRITE | UC_PROT_READ);
 		if (err) {
 			eprintf ("Cannot allocate stack %d\n", err);
 		}
 		if (bits == 64) {
-			ut64 rsp = stackaddr + (stacksize/2);
+			ut64 rsp = stackaddr + (stacksize / 2);
 			err = uc_reg_write (uh, UC_X86_REG_RSP, &rsp);
 		} else {
-			ut32 esp = stackaddr + (stacksize/2);
+			ut32 esp = stackaddr + (stacksize / 2);
 			err = uc_reg_write (uh, UC_X86_REG_ESP, &esp);
 		}
 	}
@@ -663,7 +711,7 @@ RDebugPlugin r_debug_plugin_unicorn = {
 	.license = "GPL",
 	.author = "pancake",
 	.bits = R_SYS_BITS_32 | R_SYS_BITS_64,
-	.arch = "x86",
+	.arch = "x86,arm",
 	.canstep = 1,
 	.keepio = 1,
 

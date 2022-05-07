@@ -1,7 +1,7 @@
 evm:
 	$(MAKE) -C p debug_evm.$(LIBEXT)
 
-unicorn:
+u unicorn:
 	$(MAKE) -C p debug_unicorn.$(LIBEXT)
 
 all:
