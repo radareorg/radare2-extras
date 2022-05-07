@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2015-2017 - pancake */
+/* radare - LGPL - Copyright 2015-2022 - pancake */
 
 // r2 -e dbg.backend=unicorn -e cfg.debug=1 /bin/ls
 // r2 -D unicorn /bin/ls
@@ -199,6 +199,10 @@ static RList *r_debug_unicorn_pids(RDebug *dbg, int pid) {
 	return list;
 }
 
+static int r_debug_unicorn_cmd(RDebug *dbg, const char *cmd) {
+	eprintf ("TODO: Unicorn command interface\n");
+}
+
 static RList *r_debug_unicorn_map_get(RDebug *dbg) {
 	int i = 0;
 	RList *list = r_list_new ();
@@ -224,14 +228,16 @@ static RList *r_debug_unicorn_map_get(RDebug *dbg) {
 }
 
 static RDebugInfo* r_debug_unicorn_info(RDebug *dbg, const char *arg) {
-	RDebugInfo *rdi = R_NEW0(RDebugInfo);
-	rdi->status = R_DBG_PROC_SLEEP; // TODO: Fix this
-	rdi->pid = dbg->pid;
-	rdi->tid = dbg->tid;
-	rdi->uid = -1;// TODO
-	rdi->gid = -1;// TODO
-	rdi->cwd = NULL;// TODO : use readlink
-	rdi->exe = NULL;// TODO : use readlink!
+	RDebugInfo *rdi = R_NEW0 (RDebugInfo);
+	if (rdi) {
+		rdi->status = R_DBG_PROC_SLEEP; // TODO: Fix this
+		rdi->pid = dbg->pid;
+		rdi->tid = dbg->tid;
+		rdi->uid = -1;// TODO
+		rdi->gid = -1;// TODO
+		rdi->cwd = NULL;// TODO : use readlink
+		rdi->exe = NULL;// TODO : use readlink!
+	}
 	//rdi->cmdline = strdup ("unicorn-emu... ");
 	return rdi;
 }
@@ -384,8 +390,7 @@ static void _insn_out(uc_engine *handle, uint32_t port, int size, uint32_t value
 	uc_emu_stop (handle);
 }
 
-static bool _mem_invalid(uc_engine *handle, uc_mem_type type,
-		uint64_t address, int size, int64_t value, void *user_data) {
+static bool _mem_invalid(uc_engine *handle, uc_mem_type type, uint64_t address, int size, int64_t value, void *user_data) {
 	const char *typestr = "";
 	switch (type) {
 	case UC_MEM_READ_AFTER:
@@ -436,7 +441,7 @@ static bool r_debug_unicorn_step(RDebug *dbg) {
 	uc_reg_read (uh, UC_X86_REG_RIP, &addr);
 	addr_end = addr + 32;
 
-	message ("EMU From 0x%llx To 0x%llx\n", addr, addr_end);
+	message ("EMU From 0x%"PFMT64x" To 0x%"PFMT64x"\n", addr, addr_end);
 	if (uh_interrupt) {
 		uc_hook_del (uh, uh_interrupt);
 	}
@@ -687,6 +692,9 @@ RDebugPlugin r_debug_plugin_unicorn = {
 	.map_alloc = r_debug_unicorn_map_alloc,
 	.map_dealloc = r_debug_unicorn_map_dealloc,
 	.map_protect = r_debug_unicorn_map_protect,
+#if R2_VERSION_NUMBER >= 50609
+	.cmd = r_debug_unicorn_cmd,
+#endif
 };
 
 RLibStruct radare_plugin = {
