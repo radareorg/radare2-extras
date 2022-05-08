@@ -1,5 +1,5 @@
 OBJ_X86_UDIS86=anal_x86_udis.o
-OBJ_ESIL_UDIS86=esil_x86_udis.o
+OBJ_X86_UDIS86+=esil_x86_udis.o
 SHARED_X86_UDIS86=../../asm/arch/x86/udis86/decode.o
 SHARED_X86_UDIS86+=../../asm/arch/x86/udis86/itab.o
 SHARED_X86_UDIS86+=../../asm/arch/x86/udis86/syn-att.o
@@ -16,8 +16,12 @@ SHARED_OBJ+=${SHARED_X86_UDIS86}
 TARGET_X86_UDIS86=anal_x86_udis.${EXT_SO}
 
 ALL_TARGETS+=${TARGET_X86_UDIS86}
+CFLAGS_UDIS86=$(CFLAGS)
 CFLAGS_UDIS86+=-I../../asm/arch/x86 -I../../asm/arch/x86/udis86 -DHAVE_STRING_H=1
 
+$(OBJ_X86_UDIS86): %.o : %.c
+	$(CC) -c $(CFLAGS_UDIS86) $< -o $@
+
 ${TARGET_X86_UDIS86}: ${OBJ_X86_UDIS86} ${OBJ_ESIL_UDIS86}
-	${CC} ${CFLAGS} ${CFLAGS_UDIS86} ${LDFLAGS} $(call libname,anal_x86) -lr_reg -lr_anal -lr_util \
-		$(SRC_X86_UDIS86) -o anal_x86_udis.${EXT_SO} ${OBJ_X86_UDIS86} ${OBJ_ESIL_UDIS86}
+	${CC} ${CFLAGS_UDIS86} ${LDFLAGS} $(call libname,anal_x86) -lr_reg -lr_anal -lr_util \
+		$(SRC_X86_UDIS86) -o anal_x86_udis.${EXT_SO} ${OBJ_X86_UDIS86}

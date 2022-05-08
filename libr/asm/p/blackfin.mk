@@ -6,5 +6,8 @@ TARGET_BLACKFIN=asm_blackfin.${LIBEXT}
 
 ALL_TARGETS+=${TARGET_BLACKFIN}
 
+$(OBJ_BLACKFIN): %.o : %.c
+	$(CC) -c $(CFLAGS) $< -o $@
+
 ${TARGET_BLACKFIN}: ${OBJ_BLACKFIN}
 	${CC} ${CFLAGS} -o asm_blackfin.${LIBEXT} ${OBJ_BLACKFIN} ${LDFLAGS}

@@ -1,6 +1,4 @@
-CFLAGS_ZYAN=$(R2_CFLAGS)
-CFLAGS_ZYAN+=-g -I$(TOP)/shlr -I../arch/ -I../arch/include
-CFLAGS_ZYAN+=-Wall -shared -fPIC ${LDFLAGS_LIB}
+CFLAGS_ZYAN=$(CFLAGS)
 CFLAGS_ZYAN+=-I../arch/x86/zyan/include
 
 OBJ_X86_ZYAN=asm_x86_zyan.o
