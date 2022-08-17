@@ -14,7 +14,7 @@ jobs:
     env:
       BUILDS: 'armthumb atombios ba2 baleful bcl blackfin blessr2 evm keystone-lib keystone mc6809 microblaze msil pcap ppcdisasm psosvm r2svd rlang-duktape swf unicorn-lib vc4 x86udis x86bea x86tab x86olly x86zyan yara yara-r2 z80-nc'
       TESTS: 'keystone mc6809 microblaze olly-extras udis86'
-      R2PIPE_TESTS: 'r2pipe-go r2pipe-js r2pipe-py'
+      R2PIPE_TESTS: 'r2pipe-js r2pipe-py'
     steps:
     - uses: actions/checkout@v2
       with:
