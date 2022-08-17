@@ -13,8 +13,8 @@ CFLAGS_BEA+=-I../../asm/arch/x86/bea/include
 CFLAGS_BEA+=-DUint64=uint64_t
 
 $(OBJ_X86_BEA): %.o : %.c
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS_BEA) $< -o $@
 
 ${TARGET_X86_BEA}: ${OBJ_X86_BEA}
-	${CC} ${CFLAGS} -o anal_x86_bea.${LIBEXT} ${OBJ_X86_BEA}
+	${CC} ${CFLAGS_BEA} -o anal_x86_bea.${LIBEXT} ${OBJ_X86_BEA}
 	@#strip -s anal_x86_bea.${LIBEXT}
