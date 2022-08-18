@@ -34,6 +34,4 @@ Building
 ========
 
 The recommended way to build and install those plugins for users
-is to use r2pm. See the radare2-pm repository for details:
-
-	https://github.com/radareorg/radare2-pm
+is to use r2pm. See the [radare2 plugins](https://github.com/radareorg/radare2#plugins) documentation for details.
