@@ -5,7 +5,7 @@
 #include <r_lib.h>
 #include <r_bin.h>
 
-static bool __check_buffer(RBuffer *b) {
+static bool __check_buffer(RBinFile *bf, RBuffer *b) {
 	ut8 buf[8];
 	int length = r_buf_size (b);
 	int r = r_buf_read_at (b, 0, buf, sizeof (buf));
@@ -20,7 +20,7 @@ static bool __check_buffer(RBuffer *b) {
 }
 
 static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *buf, ut64 loadaddr, Sdb *sdb) {
-	return __check_buffer (buf);
+	return __check_buffer (bf, buf);
 }
 
 static ut64 baddr(RBinFile *bf) {

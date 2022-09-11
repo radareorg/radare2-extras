@@ -399,7 +399,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->cond = R_ANAL_COND_AL;
 			op->jump = sect->paddr;
 			op->eob = true;
-			esilprintf (op, "0x%08x,pc,4,sp,-=,sp,=[],pc,=", op->jump);
+			esilprintf (op, "0x%" PFMT64d ",pc,4,sp,-=,sp,=[],pc,=", op->jump);
 		} break;
 
 	// jmp imm16
@@ -413,7 +413,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->cond = R_ANAL_COND_AL;
 			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->eob = true;
-			esilprintf (op, "0x%08x,pc,=", op->jump);
+			esilprintf (op, "0x%" PFMT64d ",pc,=", op->jump);
 		} break;
 	case 0x44:
 		{
@@ -426,7 +426,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
-			esilprintf (op, "$z,?{,0x%08x,pc,=,}", op->jump);
+			esilprintf (op, "$z,?{,0x%" PFMT64d ",pc,=,}", op->jump);
 		} break;
 	case 0x45:
 		{
@@ -439,7 +439,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
-			esilprintf (op, "$of,$sf,!=,?{,0x%08x,pc,=,}", op->jump);
+			esilprintf (op, "$of,$sf,!=,?{,0x%" PFMT64d ",pc,=,}", op->jump);
 		} break;
 	case 0x46:
 		{
@@ -452,7 +452,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
-			esilprintf (op, "$z,!,$of,$sf,==,&,?{,0x%08x,pc,=,}", op->jump);
+			esilprintf (op, "$z,!,$of,$sf,==,&,?{,0x%" PFMT64d ",pc,=,}", op->jump);
 		} break;
 	case 0x47:
 		{
@@ -465,7 +465,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
-			esilprintf (op, "$z,$of,$sf,!=,|,?{,0x%08x,pc,=,}", op->jump);
+			esilprintf (op, "$z,$of,$sf,!=,|,?{,0x%" PFMT64d ",pc,=,}", op->jump);
 		} break;
 	case 0x48:
 		{
@@ -478,7 +478,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
-			esilprintf (op, "$of,$sf,==,?{,0x%08x,pc,=,}", op->jump);
+			esilprintf (op, "$of,$sf,==,?{,0x%" PFMT64d ",pc,=,}", op->jump);
 		} break;
 	case 0x49:
 		{
@@ -491,7 +491,7 @@ static int atombios_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int le
 			op->jump = cursect->paddr + r_read_at_le16(b, 1);
 			op->fail = addr + op->size;
 			op->eob = true;
-			esilprintf (op, "$z,!,?{,0x%08x,pc,=,}", op->jump);
+			esilprintf (op, "$z,!,?{,0x%" PFMT64d ",pc,=,}", op->jump);
 		} break;
 
 	// SET DATA BLOCK imm8 dataptr = &data[datatable[imm8]]
