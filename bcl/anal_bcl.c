@@ -76,7 +76,7 @@ static int bcl_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *buf, int len, 
 	return op->size;
 }
 
-static int set_reg_profile(RAnal *anal) {
+static bool set_reg_profile(RAnal *anal) {
 	const char *p = \
 		"=PC	pc\n"
 		"=SP	sp\n"
@@ -93,7 +93,7 @@ static int set_reg_profile(RAnal *anal) {
 	return r_reg_set_profile_string (anal->reg, p);
 }
 
-struct r_anal_plugin_t r_anal_plugin_bcl = {
+RAnalPlugin r_anal_plugin_bcl = {
 	.name = "bcl",
 	.desc = "Base Call DNA Illumina records",
 	.license = "BSD",
@@ -101,7 +101,7 @@ struct r_anal_plugin_t r_anal_plugin_bcl = {
 	.bits = 8,
 	.esil = true,
 	.op = &bcl_op,
-	.set_reg_profile = set_reg_profile,
+	.set_reg_profile = &set_reg_profile
 };
 
 #ifndef CORELIB

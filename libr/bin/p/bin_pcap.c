@@ -20,7 +20,7 @@ static RBinInfo *info(RBinFile *bf) {
 	return ret;
 }
 
-static bool check_buffer(RBuffer *b) {
+static bool check_buffer(RBinFile *bf, RBuffer *b) {
 	r_return_val_if_fail (b, false);
 
 	switch (r_buf_read_be32_at (b, 0)) {

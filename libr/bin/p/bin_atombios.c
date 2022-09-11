@@ -16,8 +16,8 @@ static ut32 cmdtablesize[N_TABLES_CMD];
 static ut32 datatableoffs[N_TABLES_DATA];
 static ut32 datatablesize[N_TABLES_DATA];
 
-static bool check_buffer(RBuffer *b) {
-	if (!b || r_buf_size (b) < 0x70)
+static bool check_buffer(RBinFile *bf, RBuffer *b) {
+	if (r_buf_size (b) < 0x70)
 		return false;
 
 	ut8 magic[4] = {0};
@@ -30,7 +30,7 @@ static bool check_buffer(RBuffer *b) {
 }
 
 static bool load_buffer(RBinFile *bf, void **bin_obj, RBuffer *b, ut64 loadaddr, Sdb *sdb){
-	if (!check_buffer(b))
+	if (!check_buffer(bf, b))
 		return false;
 
 	ut8 i;
