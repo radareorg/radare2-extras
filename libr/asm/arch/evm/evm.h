@@ -158,7 +158,8 @@ typedef struct EvmOp {
 	EvmOpcodes op;
 	int len;
 	const char *txt;
-	char txt_buf[32];
+	// Largest opcode is "push32 0x" followed by hex value of 32 bytes.
+	char txt_buf[9+64+1];
 } EvmOp;
 
 typedef struct {
