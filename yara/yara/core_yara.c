@@ -1,4 +1,4 @@
-/* radare - LGPLv3 - Copyright 2014-2015 - pancake, jvoisin, jfrankowski */
+/* radare - LGPLv3 - Copyright 2014-2022 - pancake, jvoisin, jfrankowski */
 
 #include <dirent.h>
 #include <r_core.h>
@@ -463,7 +463,11 @@ static int r_cmd_yara_load_default_rules (const RCore* core) {
 	YR_RULES* yr_rules;
 	char* filename, *complete_path;
 	char* rules = NULL;
-	char* y3_rule_dir = r_str_newf ("%s%s%s", r_str_home(R2_HOME_PLUGINS), R_SYS_DIR, "rules-yara3");
+#if R2_VERSION_NUMBER < 50709
+	char* y3_rule_dir = r_str_newf ("%s%s%s", r_str_home (R2_HOME_PLUGINS), R_SYS_DIR, "rules-yara3");
+#else
+	char* y3_rule_dir = r_xdg_datadir ("plugins/rules-yara3");
+#endif
 	RList* list = r_sys_dir (y3_rule_dir);
 
 	if (yr_compiler_create (&compiler) != ERROR_SUCCESS) {
