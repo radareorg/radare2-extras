@@ -1,12 +1,13 @@
 PKGNAME radare2-keystone
-VERSION 0.1
+VERSION 0.2
 CONTACT pancake ; pancake@nopcode.org
 
 LANG_C!
 LANG_CXX!
 USE_PKGCONFIG!
 
-CHKLIB! keystone
+(( CHKLIB! keystone ))
 PKGCFG! R2_CFLAGS R2_LDFLAGS r_asm
+PKGCFG! KS_CFLAGS KS_LDFLAGS keystone
 
 SUBDIRS ./config.mk ;

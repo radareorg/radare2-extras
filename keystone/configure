@@ -109,12 +109,12 @@ done
 : ${INSTALL_PROGRAM_STRIP:=${INSTALL} -m 755 -s}
 : ${INSTALL_MAN:=${INSTALL} -m 444}
 : ${INSTALL_LIB:=${INSTALL} -m 755 -c}
- PKGNAME='radare2-keystone' ; VERSION='0.1' ; VERSION_MAJOR=0; VERSION_MINOR=1; VERSION_PATCH=0; VERSION_NUMBER=00100; CONTACT_MAIL="pancake@nopcode.org" ; CONTACT_NAME="pancake" ; CONTACT="pancake <pancake@nopcode.org>" ;
+ PKGNAME='radare2-keystone' ; VERSION='0.2' ; VERSION_MAJOR=0; VERSION_MINOR=2; VERSION_PATCH=0; VERSION_NUMBER=00200; CONTACT_MAIL="pancake@nopcode.org" ; CONTACT_NAME="pancake" ; CONTACT="pancake <pancake@nopcode.org>" ;
 }
 
 show_usage() {
 cat <<EOF2
-'configure' configures radare2-keystone-0.1 to adapt to many kinds of systems.
+'configure' configures radare2-keystone-0.2 to adapt to many kinds of systems.
 
 Usage: ./configure [OPTION]... [VAR=VALUE]...
 
@@ -195,10 +195,10 @@ ocho() {
 
 show_version() {
 if [ "$QUIET" = 1 ]; then
-	echo "0.1"
+	echo "0.2"
 	exit 0
 fi
-echo "radare2-keystone-0.1 configuration script done with acr v2.0.0.
+echo "radare2-keystone-0.2 configuration script done with acr v2.0.0.
 The 'Free Software Foundation' message is only for autodetection.
 Originally written by pancake <nopcode.org>."
 exit 0
@@ -227,10 +227,9 @@ case $flag in
 	show_version ; ;;
 -r|--r|--report)
 echo "PKGNAME:   radare2-keystone"
-echo "VERSION:   0.1"
+echo "VERSION:   0.2"
 echo "LANGS:     c c++"
-echo "REQUIRED:  libkeystone"
-echo "PKG-CONFIG:  r_asm"
+echo "PKG-CONFIG:  r_asm keystone"
 	exit 0
 	;;
 --cache-file)
@@ -297,7 +296,7 @@ parse_options "$1"
 shift
 done
 
-ENVWORDS="MANDIR INFODIR LIBDIR INCLUDEDIR LOCALSTATEDIR ETCDIR SYSCONFDIR DATADIR DOCDIR LIBEXECDIR SBINDIR BINDIR EPREFIX PREFIX SPREFIX TARGET HOST BUILD INSTALL INSTALL_LIB INSTALL_MAN INSTALL_PROGRAM INSTALL_PROGRAM_STRIP INSTALL_DIR INSTALL_SCRIPT INSTALL_DATA HOST_OS HOST_CPU BUILD_OS BUILD_CPU TARGET_OS TARGET_CPU VERSION VERSION_MAJOR VERSION_MINOR VERSION_PATCH VERSION_NUMBER PKGNAME VPATH CONTACT CONTACT_NAME CONTACT_MAIL CC CFLAGS CPPFLAGS LDFLAGS HAVE_LANG_C CXX CXXFLAGS HAVE_LANG_CXX PKGCONFIG HAVE_LIB_KEYSTONE R2_CFLAGS R2_LDFLAGS HAVE_PKGCFG_R_ASM"
+ENVWORDS="MANDIR INFODIR LIBDIR INCLUDEDIR LOCALSTATEDIR ETCDIR SYSCONFDIR DATADIR DOCDIR LIBEXECDIR SBINDIR BINDIR EPREFIX PREFIX SPREFIX TARGET HOST BUILD INSTALL INSTALL_LIB INSTALL_MAN INSTALL_PROGRAM INSTALL_PROGRAM_STRIP INSTALL_DIR INSTALL_SCRIPT INSTALL_DATA HOST_OS HOST_CPU BUILD_OS BUILD_CPU TARGET_OS TARGET_CPU VERSION VERSION_MAJOR VERSION_MINOR VERSION_PATCH VERSION_NUMBER PKGNAME VPATH CONTACT CONTACT_NAME CONTACT_MAIL CC CFLAGS CPPFLAGS LDFLAGS HAVE_LANG_C CXX CXXFLAGS HAVE_LANG_CXX PKGCONFIG R2_CFLAGS R2_LDFLAGS HAVE_PKGCFG_R_ASM KS_CFLAGS KS_LDFLAGS HAVE_PKGCFG_KEYSTONE"
 
 create_environ
 
@@ -311,7 +310,6 @@ ocho "checking target system type... ${TARGET}"
 ocho "checking for working directories... ${WODIS}"
 ocho "using prefix '${PREFIX}'"
 ACR_RMFILES=" test.c a.out a.exe test.c test.cxx a.out a.exe"
-
 
 
 
@@ -375,30 +373,6 @@ else
 	echo "Cannot find pkg-config or pkgconf in PATH" >&2
 	exit 1
 ocho no; fi
-check_library() {
-VAR=$1
-S="$"
-_REQUIRED=$3
-_CHKLIB_NAME=$2
-_CHKLIB_LIBS=$(echo "-l${_CHKLIB_NAME}" | sed 's,+, -l,g')
-ochof "checking for lib${_CHKLIB_NAME} ... "
-echo "int main(int ac, char **av){return 0;}" > test.c
-eval ${S}${COMPILER} ${CFLAGS} ${CPPFLAGS} ${CXXFLAGS} ${LDFLAGS} ${_CHKLIB_LIBS} test.c >/dev/null 2>&1
-if [ $? = 0 ]; then
-	eval ${VAR}=1
-	echo yes
-else
-	eval ${VAR}=0
-	echo no
-	if [ "${_REQUIRED}" = 1 ]; then
-	  echo "this library is required."
-	  do_remove
-	  exit 1
-	fi
-fi
-}
-
-check_library HAVE_LIB_KEYSTONE keystone 1
 if [ -z "${PKGCONFIG}" ]; then pkg-config --version >/dev/null 2>&1 ; if [ 0 = 0 ]; then PKGCONFIG=pkg-config ; else PKGCONFIG=pkgconf ; fi; fi
 type ${PKGCONFIG} > /dev/null 2>&1 || echo "ERROR: Cannot find valid PKGCONFIG, pkg-config or pkgconf in PATH"
 echo 'Using PKGCONFIG: '${PKGCONFIG}
@@ -414,6 +388,19 @@ tmp=`${PKGCONFIG} --libs r_asm 2>/dev/null`
 if [ $? = 0 ]; then
 echo yes; HAVE_PKGCFG_R_ASM=1;
 R2_LDFLAGS=$tmp; fi; fi
+if [ -z "${PKGCONFIG}" ]; then pkg-config --version >/dev/null 2>&1 ; if [ 0 = 0 ]; then PKGCONFIG=pkg-config ; else PKGCONFIG=pkgconf ; fi; fi
+printf 'checking pkg-config flags for keystone... '
+tmp=`${PKGCONFIG} --cflags keystone 2>/dev/null`
+if [ $? != 0 ]; then echo no ; HAVE_PKGCFG_KEYSTONE=0;
+KS_CFLAGS='';KS_LDFLAGS='';
+echo 'This package is required'
+exit 1
+else
+KS_CFLAGS=$tmp;
+tmp=`${PKGCONFIG} --libs keystone 2>/dev/null`
+if [ $? = 0 ]; then
+echo yes; HAVE_PKGCFG_KEYSTONE=1;
+KS_LDFLAGS=$tmp; fi; fi
 SEDFLAGS=" -e '"
 COUNT=0
 for A in ${ENVWORDS} ; do
