@@ -1,8 +1,16 @@
 /* radare2-keystone - GPL - Copyright 2016 - pancake */
 
-static void *oldcur = NULL;
-static ks_engine *ks = NULL;
-static int oldbit = 0;
+#if R2_VERSION_NUMBER >= 50709
+#define ATTSYNTAX R_ARCH_SYNTAX_ATT
+#else
+#define ATTSYNTAX R_ASM_SYNTAX_ATT
+#endif
+
+#include <r_th.h>
+
+static R_TH_LOCAL void *oldcur = NULL;
+static R_TH_LOCAL ks_engine *ks = NULL;
+static R_TH_LOCAL int oldbit = 0;
 
 static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch, ks_mode mode) {
 	ks_err err = KS_ERR_ARCH;
@@ -43,7 +51,7 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 		}
 		return -1;
 	}
-	if (a->config->syntax == R_ASM_SYNTAX_ATT) {
+	if (a->config->syntax == ATTSYNTAX) {
 		ks_option (ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_ATT);
 	} else {
 		ks_option (ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_NASM);
