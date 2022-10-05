@@ -71,7 +71,7 @@ static int pwm(void *user, const char *input) {
 			map = r_str_insert (map, mi->pos, ns);
 			free (ns);
 		}
-		printf ("%s\n", map);
+		r_cons_printf ("%s\n", map);
 		r_list_free (args);
 		r_list_free (foo);
 		free (map);
