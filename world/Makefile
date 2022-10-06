@@ -9,3 +9,6 @@ user-uninstall:
 
 user-install:
 	cp -f pwm.$(SOEXT) $(R2_USER_PLUGINS)
+
+geoip:
+	wget -c https://raw.githubusercontent.com/datasets/geoip2-ipv4/master/data/geoip2-ipv4.csv

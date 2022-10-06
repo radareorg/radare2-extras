@@ -53,7 +53,7 @@ static int pwm(void *user, const char *input) {
 			char s[32] = {0};
 			sscanf (arg, "%d:%d:%s", &x, &y, s);
 			// sscanf (arg, "%d:%d", &x, &y);
-			if (x == 0 && y == 0) {
+			if (x < 1 && y < 1) {
 				continue;
 			}
 			int pos = x + (cols * y);
