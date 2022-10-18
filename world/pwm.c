@@ -37,7 +37,6 @@ static int cmpmap(RPrintMap *a, RPrintMap *b) {
 	return b->pos - a->pos;
 }
 
-
 static int pwm(void *user, const char *input) {
 	RList *foo = r_list_newf (free);
 	if (r_str_startswith (input, "pwm")) {
@@ -77,8 +76,10 @@ static int pwm(void *user, const char *input) {
 		free (map);
 		free (inp);
 		return 1;
+	} else {
+		r_list_free (foo);
+		return 0;
 	}
-	return 0;
 }
 
 RCorePlugin r_core_plugin_test = {
