@@ -45,4 +45,21 @@ functionality of radare2 to listen to the description while reading the assembly
  ╰──'
 ```
 
+## Future
+
+There are many more applications that we can take advantage in radare2
+
+* Make questions about how to do something with r2pipe
+* Ask what's an r2 command doing
+* Pass the assembly code directly
+* Support more languages (openai knows the language of the question and answers in the same language)
+* Find checksums
+* Identify crypto algorithms
+
+## Looking for contributions
+
+This is opensource, which means that anyone can contribute and play with it.
+
+So feel free to have fun and submit a PR if you think so!
+
 --pancake
