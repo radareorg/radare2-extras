@@ -457,7 +457,7 @@ static int r_cmd_yara_call(void *user, const char *input) {
 	return true;
 }
 
-static int r_cmd_yara_load_default_rules (const RCore* core) {
+static int r_cmd_yara_load_default_rules(const RCore* core) {
 	RListIter* iter = NULL;
 	YR_COMPILER* compiler = NULL;
 	YR_RULES* yr_rules;

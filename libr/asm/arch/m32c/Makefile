@@ -11,7 +11,7 @@ all:
 	$(MAKE) test
 
 test:
-	r2 -qcq -a m32c.gnu -b32 -c 'woe 1 0xff 1' -c 'pd 10' -
+	r2 -qcq -a m32c -b32 -c 'woe 1 0xff 1' -c 'pd 10' -
 
 install:
 	mkdir -p $(R2HOME)

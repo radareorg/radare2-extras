@@ -1,3 +1,5 @@
+// asm plugins died in r2-5.8
+#if 0
 /* radare - LGPL - Copyright 2021 - pancake */
 
 #include <stdio.h>
@@ -106,4 +108,5 @@ R_API RLibStruct radare_plugin = {
 	.data = &r_asm_plugin_m32c_gnu,
 	.version = R2_VERSION
 };
+#endif
 #endif
