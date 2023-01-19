@@ -1,0 +1,46 @@
+/* uuid.pk - Universally Unique IDentifier (UUID) as defined by RFC4122.  */
+
+/* Copyright (C) 2021, 2022, 2023 The poke authors.  */
+
+/* This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/* A Universally Unique IDentifier also known as GUIDs (Globally Unique
+ * IDentifier).
+ * A UUID is 128 bits long, and requires no central registration process.
+ *
+ * Ref: https://www.rfc-editor.org/rfc/rfc4122
+ */
+
+type UUID =
+  struct
+  {
+    big uint<32> time_low;
+    big uint<16> time_mid;
+    uint<4>      version; //  : version <= 5;
+    big uint<12> time_hi;
+    uint<2>      reserved; //  == 0b10; // variant
+    big uint<14> clock_seq;
+    big uint<48> node;
+
+    computed int<60> time;
+
+    method get_time = int<60>:
+      { return time_hi ::: time_mid ::: time_low; }
+    method set_time = (int<60> t) void:
+      { time_hi ::: time_mid ::: time_low = t; }
+  };
+
+assert (UUID {}'size == 128#b);
+

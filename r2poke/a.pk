@@ -1,0 +1,3 @@
+print(load_path);
+print("\n");
+// print("adsf %i32d\n", (int<32>@0#b));
