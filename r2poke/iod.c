@@ -5,7 +5,7 @@
 static const char *
 iod_get_if_name (void)
 {
-  return "GDB";
+  return "R2";
 }
 
 /* Foreign IO device hook that recognizes whether a given IO space

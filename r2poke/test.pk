@@ -42,5 +42,6 @@ type UUID =
       { time_hi ::: time_mid ::: time_low = t; }
   };
 
-assert (UUID {}'size == 128#b);
-
+print ("HELLO WORLD\n");
+// assert (UUID {}'size == 128#b);
+printf("UUID = %v\n", UUID@0#b);

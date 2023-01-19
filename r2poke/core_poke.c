@@ -13,6 +13,7 @@ static R_TH_LOCAL pk_compiler pc = NULL;
 
 static int r_cmd_poke_call(void *user, const char *input) {
 	if (r_str_startswith (input, "poke")) {
+		eprintf ("HANDLING AS TRU\n");
 		pk_val exception, exit_exception;
 		if (!input[4] || r_str_startswith (input + 4, " -h ")) {
 			eprintf ("Usage: \"\"poke [-h]|[-f file] [expr]\n");
@@ -27,7 +28,9 @@ static int r_cmd_poke_call(void *user, const char *input) {
 		if (pk_compile_buffer (pc, expr, NULL, &exit_exception) != PK_OK) {
 			R_LOG_ERROR ("Buffer compile fails");
 		}
-
+		if (exit_exception == 0) {
+			R_LOG_ERROR ("Syntax error");
+		}
 #if 0
 		// LOAD
 		R_LOG_INFO ("Loading UUID pickle");
@@ -63,7 +66,7 @@ static int r_cmd_poke_call(void *user, const char *input) {
 }
 
 static struct pk_alien_token * alientoken(const char *id, char **errmsg) {
-	eprintf ("REsolve (%s)\n", id);
+	eprintf ("Resolve alien with id (%s)\n", id);
 	return NULL;
 }
 
@@ -71,7 +74,6 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 	pk_val exit_exception;
 	const char exception;
 	pc = pk_compiler_new_with_flags (&poke_term_if, PK_F_NOSTDTYPES);
-	// pc = pk_compiler_new (NULL);
 	if (pc == NULL) {
 		R_LOG_ERROR ("Cannot initialize the poke compiler");
 		return true;

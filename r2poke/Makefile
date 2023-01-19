@@ -1,8 +1,8 @@
 EXT_SO:=$(shell r2 -H R2_LIBEXT)
-LIBPOKE=poke/libpoke/.libs/libpoke.a
+LIBPOKE:=poke/libpoke/.libs/libpoke.a
 CFLAGS+=-Ipoke/libpoke
 LDFLAGS+=$(LIBPOKE)
-CFLAGS+=$(shell pkg-config --cflags bdw-gc)
+CFLAGS+=$(shell pkg-confg --cflags bdw-gc)
 LDFLAGS+=$(shell pkg-config --libs bdw-gc)
 LDFLAGS+=$(shell pkg-config --cflags --libs r_core)
 R2PM_PLUGDIR?=$(shell r2 -H R2_USER_PLUGINS)
@@ -15,9 +15,10 @@ all: $(LIBPOKE)
 	r2 -qc '""poke print("Hello World");' -
 
 $(LIBPOKE): poke
-	cd poke && ./bootstrap
-	cd poke && ./configure --disable-option-checking '--prefix=NONE'  'CFLAGS=-I/opt/homebrew/Cellar/readline/8.2.1/include' 'LDFLAGS=-L/opt/homebrew/Cellar/readline/8.2.1/lib' 'PKG_CONFIG_PATH=/opt/homebrew/opt/openssl@1.1/lib/pkgconfig' --cache-file=/dev/null --srcdir=.
-	cd poke && $(MAKE) -j4
+	ls -l $(LIBPOKE)
+#cd poke && ./bootstrap
+#	cd poke && ./configure --disable-option-checking '--prefix=NONE'  'CFLAGS=-I/opt/homebrew/Cellar/readline/8.2.1/include' 'LDFLAGS=-L/opt/homebrew/Cellar/readline/8.2.1/lib' 'PKG_CONFIG_PATH=/opt/homebrew/opt/openssl@1.1/lib/pkgconfig' --cache-file=/dev/null --srcdir=.
+#	cd poke && $(MAKE) -j4
 
 clean:
 	rm -f core_poke.$(EXT_SO)
@@ -34,3 +35,5 @@ user-install install:
 
 user-uninstall uninstall:
 	rm -f $(R2PM_PLUGDIR)/core_poke.$(EXT_SO)
+
+.PHONY: clean all mrproper user-install install uninstall user-uninstall
