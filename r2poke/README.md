@@ -36,4 +36,12 @@ pop
 [0x100003a3c]>
 ```
 
+## Defining types and printing values
+
+To run a pk script do this, but ideally we should make r2 support poke scripts natively with an rlang plugin that calls this:
+
+```
+""poke -f test.pk
+```
+
 --pancake

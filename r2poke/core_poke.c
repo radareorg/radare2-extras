@@ -14,7 +14,7 @@ static R_TH_LOCAL pk_compiler pc = NULL;
 static int r_cmd_poke_call(void *user, const char *input) {
 	if (r_str_startswith (input, "poke")) {
 		pk_val exception, exit_exception;
-		if (r_str_startswith (input + 4, " -h ")) {
+		if (!input[4] || r_str_startswith (input + 4, " -h ")) {
 			eprintf ("Usage: \"\"poke [-h]|[-f file] [expr]\n");
 			return true;
 		}
