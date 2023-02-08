@@ -1,0 +1,347 @@
+#!/usr/bin/env r2 -qi
+#############################################################
+# radare2 @ fosdem
+
+I like my slides like my coffee, can we switch off the lights?
+
+`!!r2pm -r tiv --size 25 r2white.png`
+
+`?en cols: 140/;?vi $c`
+
+# POLL
+
+* How many of you know about radare2?
+
+# POLL
+
+* How many of you know about radare2?
+
+* How many of you use radare2?
+
+# POLL
+
+* How many of you know about radare2?
+
+* How many of you use radare2?
+
+This talk aims to solve that!
+
+# radare2
+--color=red
+💥 [ Radare2 Project Overview ] 💥
+--color=
+
+pancake @ FOSDEM
+
+.   .##.__####    .#     .#   .
+.   ###/  ###   .###   .###   .
+.    "'   ### .##### .#####   .
+.         ###   "###   "###   .
+.        #####    '#     '#   .
+
+
+
+Summary
+
+--color=rgb:361
+* Who Am I?
+--color=rgb:382
+* Project Status
+--color=rgb:3a1
+* Current Development
+--color=rgb:6c4
+* Future plans
+--color=rgb:5e5
+* Contributions
+--color=rgb:7f7
+* Questions
+--color=
+
+# from fosdem
+`?E to r2land!`
+`woR;px 128@e:hex.offset=0`
+
+--color=yellow
+This presentation is made with 'r2slides'
+
+.. made by pancake
+.. powered by r2
+
+--color=
+
+
+#############################################################
+# WHO AM I
+--color=rgb:ee0
+pancake 👈
+--color=
+
+* Also known as Sergi Alvarez i Capilla
+* 39yo hacker from Barcelona
+* Works at NowSecure 
+* Senior Mobile Security Analyst
+
+* Commandline Junkie
+* Author of radare2, r2frida, ..
+* Maintainer of the radareorg ecosystem
+* Author of many other Free Software tools
+
+# '
+
+// self portrait of an ascii sushi cat
+
+.          ____######_  _        _
+.      ___|..######...\| \______/ |
+.    _|...#######......|          |
+.   |.....#######......|  º    º  |
+.   |.....#######......|     _    |
+.   |_....#######......|_    ^   _|
+.   ..|___#######__......|______|
+.    .....#######..|___________|
+.      ...."#######=...........
+
+#############################################################
+# Introduction
+
+--color=green
+radare2 is a framework for reverse engineering.
+--color=
+
+* 17yo project started by me
+>>> Simple 64bit hex editor + search + dump
+>>> Full rewrite in 2009 for plugins
+* Started as a forensic tool
+>>> Licensed under the LGPLv3
+* Improve it to cover my needs at work and CTFs
+>>> Tool for hackers and practical uses
+>>> Maintain and integrate several utilities
+>>> Extensible with plugins and scripting
+* Focus on portability
+>>> Unify concepts across binary files and architectures
+>>> 100% written in C, unix-like interaction
+>>> Runs in webassembly in the browser, termux, ..
+>>> No asserts, no aborts, no setjmp, single threads by default
+* Developed in a monorepo, but code in modules
+>>> Everything is tested and fuzzed in the CI
+
+--color=yellow
+Provides:
+--color=
+
+* Commandline tools 
+>>> CLI, Visual and WebUI
+* r2pipe scripting
+>>> Most commands support JSON
+* C APIs + bindings
+>>> ABI stable on minor releases (abidiff)
+* QJS (embedded ES6) - no bytecode acces
+
+# '
+
+--color=yellow
+Supports:
+--color=
+
+* Abstract IO access
+>>> Access local, packed or remote resources transparently
+>>> Circular memory layouts, maps, banks and bitsized
+
+* Parsing binary headers
+>>> ELF/PE/MACHO/COFF/.. file formats
+>>> Debug info from PDB/DWARF3-5/Dalvik/Java
+>>> Dump class info for ObjC, C++ and Swift
+
+* (Dis)Assembly, Analysis and Emulation
+>>> ARM/RV/X64/Z80/V850/..
+>>> ESIL is the forth-like IL for emulation
+
+* Native and remote debuggging
+>>> Linux/BSD/Mac/iOS/Android/Windows/..
+>>> Talk to GDB/WinDBG servers
+
+* Search for strings or binary patterns
+>>> Function Signature matching
+
+* Diffing code, data, strings, bin-info
+>>> Convert numeric bases, hexdumps, bitmaps..
+
+* Mount filesystems, scan memory, disk
+>>> Most code ripped from GRUB
+>>> Carve for known magic headers
+
+#############################################################
+# Package Manager
+
+The rewriting of radare into radare2 (10 years ago)
+was made to remove the original monolitic design
+into something more extensible and flexible.
+
+
+`!!r2pm -r tiv --size 20 r2pm.png`
+
+# '
+
+R2 is organized in the following way:
+
+* Programs that link to r_* libs
+* Libraries that use plugins
+* Plugins that can provide scripting
+* Scripts that use everything ^^^
+
+--color=yellow
+The most used plugins are:
+--color=
+
+* r2dec / r2ghidra / r2retdec
+* Diaphora / IDAsig / Zignatures
+* r2frida
+* gas / unicorn assemblers
+* radius / esilsolve / r2angr
+* r2poke / kaitai
+
+# r2frida
+`!!r2pm -r tiv --size 20 r2frida.png`
+
+# '
+
+Key tool for reversing iOS/Android apps mainly
+
+* r2 style commands for the Frida api
+>>> Scriptable via r2pipe
+
+* IO plugin that uses the Frida SDK
+>>> Spawn/Attach any local or remote process
+>>> Supports USB/CAN/TCP/Socket
+>>> Mount remote filesystems
+
+* Agent and extensible with plugins
+>>> Plugins can be loaded, unloaded or eternalized
+
+* Tracing made easy with backtrace and json
+>>> Interactively redirect to files
+
+* Symbolicating the disassembly with flags
+>>> Supports Java, ObjC and C (Swift is WIP)
+
+#############################################################
+# Scripting & bindings
+
+Since r2-5.8.0 the QuickJS runtime is shipped by default.
+
+This means that you can run javascript code without any
+external dependency. Which is great for embedded systems
+
+'''js
+const r2 = r2pipe.open('/bin/ls');
+const disasm = r2.cmd('pd 10');
+console.log(disasm.replace('rax', 'rbx'));
+const config = r2.cmdj("ej");
+console.log(config['asm.arch']);
+'''
+
+--color=yellow
+R2PAPI
+--color=
+
+TypeScript API inspired in Frida's, handy for autocompletion.
+>>> Autogenerates interfaces out of the json objects from r2.cmdj()
+
+'''ts
+const rp = new R2Papi(r2);
+const p = new NativePointer('main');
+const fcn = p.analyzeFunction()
+const bbs = fcn.functionBasicBlocks()
+for (let bb of bbs) {
+....console.log(bb.addr);	
+....for (let op of bb.instructions()) {
+........console.log("  " + op.mnemonic);
+....}
+}
+'''
+
+# '
+
+`!!r2pm -r tiv --size 20 r2pipe.png`
+
+* Python, Rust, NodeJS, Ruby, Guile, NewLisp
+* Ocaml, Prolog, Awk, Raxx, Swift, V, Vala, Zig
+* Nim, PHP, Perl, Haskell, D, C#, Erlang, C++
+
+* Fork+Pipe
+* TCP Socket
+* HTTP
+* WebSocket
+
+
+#############################################################
+# CODE + DATA visualization
+
+Every feature in r2 can be used from the API or commands,
+So it's easy to write useful tools in few lines
+
+`ag-`
+`agn 0x0000 "jz bar";agn 0x0010 "ret";agn 0x0020 "int3"`
+`age 0x0000 0x0010;age 0x0000 0x0020`
+`agg`
+
+`p==`
+
+# '
+
+`!!r2pm -r tiv --size 20 iaito.png`
+
+`wx fd430191ff0319d1f30301aaf40300aab5c301d1bf0a00f9bfc319b8bf0200f9;pD 32@e:asm.arch=arm@e:asm.bits=64`
+
+#############################################################
+# Future Plans
+
+The community was sadly splitted because of the fork, but
+at least I didn't losed my project.
+
+--color=yellow
+Short Term
+--color=
+
+* Keep pushing solid and ABI stable releases
+* Reduce tech debt and human dependencies
+* Increase testing coverage with 24/7 fuzzing
+* New R2Papi apis in every release
+
+--color=yellow
+Long Term
+--color=
+
+* Improve Undo/Redo
+* Remote DAP protocol debugging
+* ESIL based decompiler in TypeScript (pdq)
+* Kernel and UEFI port
+* Keep maintaining Iaito (Qt GUI)
+* Publish new GUI (in development)
+* Fully thread safe and speedup runtime
+
+# '
+
+`!!r2pm -r tiv --size 20 diver.png`
+
+#############################################################
+# Questions?
+
+Stay hungry
+
+... Stay fool
+
+
+
+
+`?E+ Wanna donut?`
+
+- https://t.me/radareorg
+- https://www.radare.org
+- @radareorg@infosec.exchange.org
+
+# '
+
+--color=green
+`?ed`
+--color=
+
