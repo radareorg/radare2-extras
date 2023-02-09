@@ -1,20 +1,24 @@
 EXT_SO:=$(shell r2 -H R2_LIBEXT)
-LIBPOKE:=poke/libpoke/.libs/libpoke.a
-CFLAGS+=-Ipoke/libpoke
-LDFLAGS+=$(LIBPOKE)
-CFLAGS+=$(shell pkg-confg --cflags bdw-gc)
-LDFLAGS+=$(shell pkg-config --libs bdw-gc)
-LDFLAGS+=$(shell pkg-config --cflags --libs r_core)
+# LIBPOKE:=poke/libpoke/.libs/libpoke.a
+# CFLAGS+=-Ipoke/libpoke
+# LDFLAGS+=$(LIBPOKE)
+LDFLAGS+=-fPIC -shared
+CFLAGS+=$(shell pkg-config --cflags r_core)
+CFLAGS+=$(shell pkg-config --cflags poke)
+LDFLAGS+=$(shell pkg-config --libs r_core)
+LDFLAGS+=$(shell pkg-config --libs poke)
 R2PM_PLUGDIR?=$(shell r2 -H R2_USER_PLUGINS)
 
-CFLAGS=-ggdb
+CFLAGS+=-ggdb
 
 all: $(LIBPOKE)
-	$(CC) -shared -o core_poke.$(EXT_SO) $(CFLAGS) $(LDFLAGS) core_poke.c
+	$(CC) -o core_poke.$(EXT_SO) core_poke.c $(CFLAGS) $(LDFLAGS)
 	$(MAKE) user-install
 	r2 -qc '""poke print("Hello World");' -
 
-$(LIBPOKE): poke
+$(LIBPOKE):
+
+old-$(LIBPOKE): poke
 	ls -l $(LIBPOKE)
 #cd poke && ./bootstrap
 #	cd poke && ./configure --disable-option-checking '--prefix=NONE'  'CFLAGS=-I/opt/homebrew/Cellar/readline/8.2.1/include' 'LDFLAGS=-L/opt/homebrew/Cellar/readline/8.2.1/lib' 'PKG_CONFIG_PATH=/opt/homebrew/opt/openssl@1.1/lib/pkgconfig' --cache-file=/dev/null --srcdir=.
