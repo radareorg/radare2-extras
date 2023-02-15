@@ -14,13 +14,20 @@ static R_TH_LOCAL pk_compiler pc = NULL;
 static int r_cmd_poke_call(void *user, const char *input) {
 	if (r_str_startswith (input, "poke")) {
 		pk_val exception, exit_exception;
-		if (!input[4] || r_str_startswith (input + 4, " -h ")) {
-			eprintf ("Usage: \"\"poke [-h]|[-f file] [expr]\n");
+		if (!input[4] || r_str_startswith (input + 4, " -h")) {
+			eprintf ("Usage: poke [-h]|[-f file] [expr]\n");
+			return true;
+		}
+		if (r_str_startswith (input + 4, " -q")) {
 			return true;
 		}
 		if (r_str_startswith (input + 4, " -f ")) {
 			const char *filename = r_str_trim_head_ro (input + 8);
 			pk_compile_file (pc, filename, &exit_exception);
+			return true;
+		}
+		if (r_str_startswith (input + 4, " -")) {
+			R_LOG_ERROR ("Unknown flag");
 			return true;
 		}
 		const char *expr = r_str_trim_head_ro (input + 4);
@@ -90,14 +97,16 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 		R_LOG_ERROR ("Buffer compile fails");
 	}
 #endif
-	/* Install our foreign IO device interface to access the target's memory, and open it.  */
-	// pk_compiler_free (pc);
+	/* load std types */
+	if (pk_compile_buffer (pc, "load \"std-types.pk\";", NULL, &exit_exception) != PK_OK) {
+		R_LOG_ERROR ("Buffer compile fails");
+	}
+
 	return true;
 }
 
 static int r_cmd_poke_fini(void *user, const char *cmd) {
 	RCore *core = (RCore *)user;
-	Gcore = core;
 	if (!pc) {
 		return 0;
 	}
@@ -106,8 +115,11 @@ static int r_cmd_poke_fini(void *user, const char *cmd) {
 				"try close (get_ios); catch if E_no_ios {}",
 				NULL, &val, &exit_exception) != PK_OK
 			|| exit_exception != PK_NULL) {
-		R_LOG_ERROR ("while closing an IOS on exit.\n");
+		R_LOG_ERROR ("while closing an IOS on exit");
 	}
+	pk_compiler_free (pc);
+	Gcore = NULL;
+	pc = NULL;
 
 	return 0;
 }

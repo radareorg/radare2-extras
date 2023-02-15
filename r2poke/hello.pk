@@ -1,0 +1,11 @@
+// poke
+printf "Hello %s\n", "world";
+
+type Test = struct {
+	byte head;
+
+	method get_name = string:
+	{
+		return "hello world";
+	}
+};

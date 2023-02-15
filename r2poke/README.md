@@ -8,15 +8,29 @@ Poke is a programming language that allows to describe data structures and navig
 
 You need to clone and build `poke` so check if the dependencies are available in your system and build the thing, just typing `make` will be enough to build, install and test the plugin.
 
+This plugin is also available as a package for `r2pm`. So you can just run `r2pm -ci r2poke`.
+
 ## Missing features:
 
-* [ ] JSON output
-* [ ] .pk files can be handled from an RLang plugin
+* [x] .pk files can be handled from an RLang plugin
 * [ ] poke repl
-* [ ] pk to C
+* [ ] json formatter
 * [ ] bind pk dumps to given offset
 
-## Usage examples
+## Running .pk scripts from radare2
+
+When this plugin is installed you can interpret .pk scripts as any other script using the `r2 -i <file>` flag or using the dot command `. <file>`
+
+```sh
+$ cat hello.pk
+var who = "World";
+printf ("Hello %s\n", who);
+
+$ r2 -qi hello.pk --
+Hello World
+```
+
+## Usage
 
 Note that the argument of the r2 `poke` command provided by this plugin must be a complete valid expression, so you will need to use semicolons and other special characters.
 
