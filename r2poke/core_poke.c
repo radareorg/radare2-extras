@@ -10,34 +10,33 @@ static R_TH_LOCAL pk_compiler pc = NULL;
 #include "term.c"
 #include "iod.c"
 
+// TODO: use eprint()
 static const char *exception_handler="\
 fun r2_exception_handler = (Exception exception) void:\
 {\
   if (exception.code != EC_exit && exception.code != EC_signal)\
   {\
-    print (\"unhandled \"\
+    eprint (\"unhandled \"\
            + (exception.name == \"\" ? \"unknown\" : exception.name)\
            + \" exception\n\");\
 \
     if (exception.location != \"\" || exception.msg != \"\")\
     {\
       if (exception.location != \"\")\
-        print (exception.location + \" \");\
-      print (exception.msg + \"\n\");\
+        eprint (exception.location + \" \");\
+      eprint (exception.msg + \"\n\");\
     }\
   }\
 }";
 
-static void
-poke_handle_exception (pk_val exception)
-{
-  pk_val handler = pk_decl_val (pc, "r2_exception_handler");
-
-  if (handler == PK_NULL)
-    R_LOG_ERROR ("Couldn't get a handler for poke gdb_exception_handler");
-  if (pk_call (pc, handler, NULL, NULL, 1, exception)
-      == PK_ERROR)
-    R_LOG_ERROR ("Couldn't call gdb_exception_handler in poke");
+static void poke_handle_exception (pk_val exception) {
+	pk_val handler = pk_decl_val (pc, "r2_exception_handler");
+	if (handler == PK_NULL) {
+		R_LOG_ERROR ("Couldn't get a handler for poke gdb_exception_handler");
+	}
+	if (pk_call (pc, handler, NULL, NULL, 1, exception) == PK_ERROR) {
+		R_LOG_ERROR ("Couldn't call gdb_exception_handler in poke");
+	}
 }
 
 
@@ -122,8 +121,15 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 #endif
 	pk_set_obase (pc, 16);
 	pk_set_omode (pc, PK_PRINT_TREE);
+	// [0x100003a3c]> 'poke printf ("%<stderr:jejejeje%>")
+	if (pk_compile_buffer (pc, "fun eprintf = (string msg) void : {printf(\"%<stderr:%s%>\", msg);};", NULL, &exit_exception) != PK_OK) {
+		R_LOG_ERROR ("Cannot register eprintf");
+	}
+	if (pk_compile_buffer (pc, "immutable fun eprint = (string msg) void : {printf(\"%<stderr:%s%>\\n\", msg);};", NULL, &exit_exception) != PK_OK) {
+		R_LOG_ERROR ("Cannot register eprint");
+	}
 	if (pk_compile_buffer (pc, exception_handler, NULL, &exit_exception) != PK_OK) {
-		R_LOG_ERROR ("Buffer compile fails");
+		R_LOG_ERROR ("Cannot register the exception handler");
 	}
 	pk_set_alien_token_fn (pc, alientoken);
 	if (pk_register_iod (pc, &iod_if) != PK_OK) {
@@ -134,11 +140,6 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 		R_LOG_ERROR ("Buffer compile fails");
 	}
 #endif
-
-	// [0x100003a3c]> 'poke printf ("%<stderr:jejejeje%>")
-	if (pk_compile_buffer (pc, "fun eprintf = (string msg) void : {printf(\"%<stderr:%s%>\", msg);};", NULL, &exit_exception) != PK_OK) {
-		R_LOG_ERROR ("Buffer compile fails");
-	}
 	/* load std types */
 	if (pk_compile_buffer (pc, "load \"std-types.pk\";", NULL, &exit_exception) != PK_OK) {
 		R_LOG_ERROR ("Buffer compile fails");
