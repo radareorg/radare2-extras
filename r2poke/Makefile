@@ -8,6 +8,7 @@ CFLAGS+=$(shell pkg-config --cflags poke)
 LDFLAGS+=$(shell pkg-config --libs r_core)
 LDFLAGS+=$(shell pkg-config --libs poke)
 R2PM_PLUGDIR?=$(shell r2 -H R2_USER_PLUGINS)
+LDFLAGS+=-Wl,-rpath,$(shell r2pm -H R2PM_PREFIX)/lib
 
 CFLAGS+=-ggdb
 

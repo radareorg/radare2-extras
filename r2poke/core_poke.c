@@ -1,5 +1,8 @@
 /* radare - LGPLv3 - Copyright 2023 - pancake */
 
+// needed for vasprintf
+#define _GNU_SOURCE
+
 #include <r_core.h>
 #include <libpoke.h>
 
