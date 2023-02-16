@@ -11,6 +11,37 @@ static R_TH_LOCAL RCore *Gcore = NULL;
 // XXX move into instance
 static R_TH_LOCAL pk_compiler pc = NULL;
 
+static const char *exception_handler="\
+fun r2_exception_handler = (Exception exception) void:\
+{\
+  if (exception.code != EC_exit && exception.code != EC_signal)\
+  {\
+    print (\"unhandled \"\
+           + (exception.name == \"\" ? \"unknown\" : exception.name)\
+           + \" exception\n\");\
+\
+    if (exception.location != \"\" || exception.msg != \"\")\
+    {\
+      if (exception.location != \"\")\
+        print (exception.location + \" \");\
+      print (exception.msg + \"\n\");\
+    }\
+  }\
+}";
+
+static void
+poke_handle_exception (pk_val exception)
+{
+  pk_val handler = pk_decl_val (pc, "r2_exception_handler");
+
+  if (handler == PK_NULL)
+    R_LOG_ERROR ("Couldn't get a handler for poke gdb_exception_handler");
+  if (pk_call (pc, handler, NULL, NULL, 1, exception)
+      == PK_ERROR)
+    R_LOG_ERROR ("Couldn't call gdb_exception_handler in poke");
+}
+
+
 static int r_cmd_poke_call(void *user, const char *input) {
 	if (r_str_startswith (input, "poke")) {
 		pk_val exception, exit_exception;
@@ -34,7 +65,8 @@ static int r_cmd_poke_call(void *user, const char *input) {
 		if (pk_compile_buffer (pc, expr, NULL, &exit_exception) != PK_OK) {
 			R_LOG_ERROR ("Buffer compile fails");
 		}
-		if (exit_exception == 0) {
+		if (exit_exception != PK_NULL) {
+			poke_handle_exception (exit_exception);
 			R_LOG_ERROR ("Syntax error");
 		}
 #if 0
@@ -78,7 +110,6 @@ static struct pk_alien_token * alientoken(const char *id, char **errmsg) {
 
 static int r_cmd_poke_init(void *user, const char *cmd) {
 	pk_val exit_exception;
-	const char exception;
 	pc = pk_compiler_new_with_flags (&poke_term_if, PK_F_NOSTDTYPES);
 	if (pc == NULL) {
 		R_LOG_ERROR ("Cannot initialize the poke compiler");
@@ -87,12 +118,14 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 
 	pk_set_obase (pc, 16);
 	pk_set_omode (pc, PK_PRINT_TREE);
-#if 1
+	if (pk_compile_buffer (pc, exception_handler, NULL, &exit_exception) != PK_OK) {
+		R_LOG_ERROR ("Buffer compile fails");
+	}
 	pk_set_alien_token_fn (pc, alientoken);
 	if (pk_register_iod (pc, &iod_if) != PK_OK) {
 		R_LOG_ERROR ("Could not register the foreign IO device interface in poke");
 	}
-
+#if 0
 	if (pk_compile_buffer (pc, &exception, NULL, &exit_exception) != PK_OK) {
 		R_LOG_ERROR ("Buffer compile fails");
 	}

@@ -1,13 +1,14 @@
 
 /* Terminal hook that flushes the terminal.  */
 
-static void poke_term_flush (void) {
+static void poke_term_flush(void) {
 	/* Do nothing here.  */
+	// r_cons_flush ();
 }
 
 /* Terminal hook that prints a fixed string.  */
 
-static void poke_puts (const char *str) {
+static void poke_puts(const char *str) {
 	r_cons_printf ("%s", str);
 }
 
