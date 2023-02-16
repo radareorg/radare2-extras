@@ -39,6 +39,31 @@ static void poke_handle_exception (pk_val exception) {
 	}
 }
 
+static R_TH_LOCAL struct pk_alien_token alien_token;
+static R_TH_LOCAL char *res = NULL;
+
+static struct pk_alien_token *alientoken(const char *id, char **errmsg) {
+	R_LOG_DEBUG ("Resolve alien with id (%s)", id);
+	if (r_str_startswith (id, "r2cmd::")) {
+		alien_token.kind = PK_ALIEN_TOKEN_STRING;
+		free (res);
+		res = r_core_cmd_str (Gcore, id + 7);
+		alien_token.value.string.str = res;
+		// leaks res
+		return &alien_token;
+	}
+	RFlagItem *fi = r_flag_get (Gcore->flags, id);
+	if (fi) {
+		alien_token.kind = PK_ALIEN_TOKEN_OFFSET;
+		alien_token.value.offset.magnitude = fi->offset;
+		alien_token.value.offset.width = 8 * 8; // uint64
+		alien_token.value.offset.signed_p = 0;
+		alien_token.value.offset.unit = 8;
+		return &alien_token;
+	}
+	R_LOG_ERROR ("Unknown alien");
+	return NULL;
+}
 
 static int r_cmd_poke_call(void *user, const char *input) {
 	Gcore = (RCore*)user;
@@ -103,11 +128,6 @@ static int r_cmd_poke_call(void *user, const char *input) {
 	return false;
 }
 
-static struct pk_alien_token * alientoken(const char *id, char **errmsg) {
-	eprintf ("Resolve alien with id (%s)\n", id);
-	return NULL;
-}
-
 // init's user is RLibPlugin not RCore!
 static int r_cmd_poke_init(void *user, const char *cmd) {
 	pk_val exit_exception;
@@ -121,6 +141,8 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 #endif
 	pk_set_obase (pc, 16);
 	pk_set_omode (pc, PK_PRINT_TREE);
+	pk_set_lexical_cuckolding_p (pc, 1);
+	pk_set_alien_token_fn (pc, alientoken);
 	// [0x100003a3c]> 'poke printf ("%<stderr:jejejeje%>")
 	if (pk_compile_buffer (pc, "fun eprintf = (string msg) void : {printf(\"%<stderr:%s%>\", msg);};", NULL, &exit_exception) != PK_OK) {
 		R_LOG_ERROR ("Cannot register eprintf");
@@ -131,7 +153,6 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 	if (pk_compile_buffer (pc, exception_handler, NULL, &exit_exception) != PK_OK) {
 		R_LOG_ERROR ("Cannot register the exception handler");
 	}
-	pk_set_alien_token_fn (pc, alientoken);
 	if (pk_register_iod (pc, &iod_if) != PK_OK) {
 		R_LOG_ERROR ("Could not register the foreign IO device interface in poke");
 	}
@@ -142,7 +163,7 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 #endif
 	/* load std types */
 	if (pk_compile_buffer (pc, "load \"std-types.pk\";", NULL, &exit_exception) != PK_OK) {
-		R_LOG_ERROR ("Buffer compile fails");
+		R_LOG_ERROR ("Cannot load standard poke types");
 	}
 	if (pk_compile_buffer (pc, "open(\"<r2>\");", NULL, &exit_exception) != PK_OK) {
 		R_LOG_ERROR ("Cannot open the R2 IO device");
@@ -165,6 +186,7 @@ static int r_cmd_poke_fini(void *user, const char *cmd) {
 	pk_compiler_free (pc);
 	Gcore = NULL;
 	pc = NULL;
+	R_FREE (res);
 
 	return 0;
 }
