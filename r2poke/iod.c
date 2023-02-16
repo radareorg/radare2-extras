@@ -23,19 +23,21 @@ static char * iod_handler_normalize (const char *handler, uint64_t flags, int *e
 
 /* Foreign IO device hook that opens a new device.  */
 
-static int iod_opened_p = 0;
+static bool iod_opened_p = false;
 
 static void * iod_open (const char *handler, uint64_t flags, int *error, void *data) {
-	iod_opened_p = 1;
+	iod_opened_p = true;
 	return &iod_opened_p;
 }
 
 /* Foreign IO device hook that reads data from a device.  */
 
-static int iod_pread (void *dev, void *buf, size_t count, pk_iod_off offset)
-{
+static int iod_pread (void *dev, void *buf, size_t count, pk_iod_off offset) {
+	if (Gcore == NULL) {
+		R_LOG_ERROR ("Cannot find the r2 core");
+		return -1;
+	}
 	int ret = r_io_read_at (Gcore->io, offset, buf, count);
-	// int ret = target_read_memory (offset, (ut8*) buf, count);
 	return ret == -1 ? PK_IOD_ERROR : PK_IOD_OK;
 }
 

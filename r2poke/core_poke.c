@@ -3,13 +3,12 @@
 #include <r_core.h>
 #include <libpoke.h>
 
+// XXX dont polute the global space
 static R_TH_LOCAL RCore *Gcore = NULL;
+static R_TH_LOCAL pk_compiler pc = NULL;
 
 #include "term.c"
 #include "iod.c"
-
-// XXX move into instance
-static R_TH_LOCAL pk_compiler pc = NULL;
 
 static const char *exception_handler="\
 fun r2_exception_handler = (Exception exception) void:\
@@ -43,6 +42,7 @@ poke_handle_exception (pk_val exception)
 
 
 static int r_cmd_poke_call(void *user, const char *input) {
+	Gcore = (RCore*)user;
 	if (r_str_startswith (input, "poke")) {
 		pk_val exception, exit_exception;
 		if (!input[4] || r_str_startswith (input + 4, " -h")) {
@@ -108,6 +108,7 @@ static struct pk_alien_token * alientoken(const char *id, char **errmsg) {
 	return NULL;
 }
 
+// init's user is RLibPlugin not RCore!
 static int r_cmd_poke_init(void *user, const char *cmd) {
 	pk_val exit_exception;
 	pc = pk_compiler_new_with_flags (&poke_term_if, PK_F_NOSTDTYPES);
@@ -115,7 +116,9 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 		R_LOG_ERROR ("Cannot initialize the poke compiler");
 		return true;
 	}
-
+#if 0
+	Gcore = (RCore*)user;
+#endif
 	pk_set_obase (pc, 16);
 	pk_set_omode (pc, PK_PRINT_TREE);
 	if (pk_compile_buffer (pc, exception_handler, NULL, &exit_exception) != PK_OK) {
@@ -134,6 +137,10 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 	if (pk_compile_buffer (pc, "load \"std-types.pk\";", NULL, &exit_exception) != PK_OK) {
 		R_LOG_ERROR ("Buffer compile fails");
 	}
+	if (pk_compile_buffer (pc, "open(\"<r2>\");", NULL, &exit_exception) != PK_OK) {
+		R_LOG_ERROR ("Cannot open the R2 IO device");
+	}
+
 
 	return true;
 }
