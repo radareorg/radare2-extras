@@ -61,14 +61,15 @@ static int r_cmd_poke_call(void *user, const char *input) {
 			R_LOG_ERROR ("Unknown flag");
 			return true;
 		}
-		const char *expr = r_str_trim_head_ro (input + 4);
+		const char *line = r_str_trim_head_ro (input + 4);
+		char *expr = r_str_endswith (line, ";")? strdup (line): r_str_newf ("%s;", line);
 		if (pk_compile_buffer (pc, expr, NULL, &exit_exception) != PK_OK) {
 			R_LOG_ERROR ("Buffer compile fails");
-		}
-		if (exit_exception != PK_NULL) {
+		} else if (exit_exception != PK_NULL) {
 			poke_handle_exception (exit_exception);
 			R_LOG_ERROR ("Syntax error");
 		}
+		free (expr);
 #if 0
 		// LOAD
 		R_LOG_INFO ("Loading UUID pickle");
@@ -133,6 +134,11 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 		R_LOG_ERROR ("Buffer compile fails");
 	}
 #endif
+
+	// [0x100003a3c]> 'poke printf ("%<stderr:jejejeje%>")
+	if (pk_compile_buffer (pc, "fun eprintf = (string msg) void : {printf(\"%<stderr:%s%>\", msg);};", NULL, &exit_exception) != PK_OK) {
+		R_LOG_ERROR ("Buffer compile fails");
+	}
 	/* load std types */
 	if (pk_compile_buffer (pc, "load \"std-types.pk\";", NULL, &exit_exception) != PK_OK) {
 		R_LOG_ERROR ("Buffer compile fails");
@@ -140,8 +146,6 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 	if (pk_compile_buffer (pc, "open(\"<r2>\");", NULL, &exit_exception) != PK_OK) {
 		R_LOG_ERROR ("Cannot open the R2 IO device");
 	}
-
-
 	return true;
 }
 

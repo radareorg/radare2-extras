@@ -2,10 +2,15 @@
 printf "Hello %s\n", "world";
 
 type Test = struct {
+	string addr;
 	byte head;
 
-	method get_name = string:
-	{
+	method get_name = string : {
+		var msg = r2("?e hello world");
+		// how to run an r2 command from poke?
 		return "hello world";
 	}
 };
+
+// 'poke type Foo = struct { byte a; byte b; };
+// 'poke fun foo =  string : {printf ("Hello %v\n", Foo@0x100003a3c#B); return "test";}

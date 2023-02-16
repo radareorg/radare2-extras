@@ -8,8 +8,14 @@ static void poke_term_flush(void) {
 
 /* Terminal hook that prints a fixed string.  */
 
+static bool stderr_mode = false;
+
 static void poke_puts(const char *str) {
-	r_cons_printf ("%s", str);
+	if (stderr_mode) {
+		eprintf ("%s", str);
+	} else {
+		r_cons_printf ("%s", str);
+	}
 }
 
 /* Terminal hook that prints a formatted string.  */
@@ -26,8 +32,7 @@ static void poke_printf (const char *format, ...) {
 		R_LOG_ERROR ("out of memory in vasprintf"); /* XXX fatal */
 		return;
 	}
-
-	r_cons_printf ("%s", str);
+	poke_puts (str);
 	free (str);
 }
 
@@ -40,13 +45,21 @@ static void poke_term_indent (unsigned int lvl, unsigned int step) {
 /* Terminal hook that starts a styling class.  */
 
 static void poke_term_class (const char *class_name) {
+	if (!strcmp (class_name, "stderr")) {
+		stderr_mode = true;
+	}
+	// eprintf ("STYLE.BEG (%s)\n", class_name);
+	// TODO: add styling class to print message to stderr instead
 	/* Do nothing here.  */
 }
 
 /* Terminal hook that finishes a styling class.  */
 
 static int poke_term_end_class (const char *class_name) {
-	/* Just report success.  */
+	if (!strcmp (class_name, "stderr")) {
+		stderr_mode = false;
+	}
+	// eprintf ("STYLE.END (%s)\n", class_name);
 	return 1;
 }
 
