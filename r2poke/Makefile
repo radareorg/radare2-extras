@@ -2,6 +2,7 @@ EXT_SO:=$(shell r2 -H R2_LIBEXT)
 # LIBPOKE:=poke/libpoke/.libs/libpoke.a
 # CFLAGS+=-Ipoke/libpoke
 # LDFLAGS+=$(LIBPOKE)
+CFLAGS+=-fPIC -shared
 LDFLAGS+=-fPIC -shared
 CFLAGS+=$(shell pkg-config --cflags r_core)
 CFLAGS+=$(shell pkg-config --cflags poke)

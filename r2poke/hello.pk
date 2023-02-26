@@ -6,7 +6,7 @@ type Test = struct {
 	byte head;
 
 	method get_name = string : {
-		var msg = r2("?e hello world");
+		// var msg = r2("?e hello world");
 		// how to run an r2 command from poke?
 		return "hello world";
 	}
