@@ -9,6 +9,7 @@
 
 #include "blackfin/bfin-dis.c"
 #include "blackfin/bfin-asm.c"
+
 static int blackfin_buffer_read_memory(bfd_vma memaddr, bfd_byte *myaddr, ut32 length, struct disassemble_info *info) {
 	int delta = (memaddr - info->buffer_vma);
 	if (delta < 0) {
@@ -43,9 +44,8 @@ static bool encode(RArchSession *a, RAnalOp *op, RArchEncodeMask mask) {
 	ut8 hexbuf[8];
 	int oplen = bfin_assemble (op->mnemonic, (uint32_t)(op->addr), hexbuf);
 	r_anal_op_set_bytes (op, op->addr, hexbuf, oplen);
-	return oplen > 2;
+	return oplen > 1;
 }
-
 
 static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 	ut8 bytes[BUFSZ] = {0};
@@ -74,24 +74,59 @@ static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 	op->size = print_insn_bfin((bfd_vma)op->addr, &disasm_obj);
 
         if (op->size < 1) {
-
+		op->type = R_ANAL_OP_TYPE_ILL;
 		return false;
 	}
 
 	char *instr = sb? r_strbuf_drain (sb): NULL;
-#if 0
-	if (instr && *instr == '.') {
-		R_FREE (instr);
-		eprintf ("INVALID\n");
-		op->type = R_ANAL_OP_TYPE_ILL;
-		op->size = 4;
-		if (mask & R_ARCH_OP_MASK_DISASM) {
-			op->mnemonic = strdup ("invalid");
+	if (instr) {
+		const char *arg = strstr (instr, "0x");
+		ut64 n = 0;
+		if (arg) {
+			n = r_num_get (NULL, arg);
 		}
-		free (instr);
-		return false;
+		if (r_str_startswith (instr, "invalid")) {
+			R_FREE (instr);
+			op->type = R_ANAL_OP_TYPE_ILL;
+			op->size = 4;
+			if (mask & R_ARCH_OP_MASK_DISASM) {
+				op->mnemonic = strdup ("invalid");
+			}
+			free (instr);
+			return false;
+		}
+		if (!strcmp (instr, "nop") || !strcmp (instr, "mnop")) {
+			op->type = R_ANAL_OP_TYPE_NOP;
+		} else if (r_str_startswith (instr, "if ")) {
+			op->type = R_ANAL_OP_TYPE_CJMP;
+			op->jump = n;
+			op->fail = op->addr + 2;
+		} else if (r_str_startswith (instr, "rts")) {
+			op->type = R_ANAL_OP_TYPE_RET;
+		} else if (r_str_startswith (instr, "call ")) {
+			op->type = R_ANAL_OP_TYPE_CALL;
+			op->jump = n;
+			op->fail = op->addr + 2;
+		} else if (r_str_startswith (instr, "j")) {
+			op->type = R_ANAL_OP_TYPE_JMP;
+			op->jump = n;
+		} else if (strstr (instr, ">>>")) {
+			op->type = R_ANAL_OP_TYPE_ROR;
+			op->val = n;
+		} else if (strstr (instr, ">>=")) {
+			op->type = R_ANAL_OP_TYPE_SHR;
+			op->val = n;
+		} else if (strstr (instr, "<<<")) {
+			op->type = R_ANAL_OP_TYPE_ROL;
+			op->val = n;
+		} else if (strstr (instr, "<<=")) {
+			op->type = R_ANAL_OP_TYPE_SHL;
+			op->val = n;
+		} else if (strstr (instr, "=")) {
+			op->type = R_ANAL_OP_TYPE_MOV;
+			op->val = n;
+		}
 	}
-#endif
 	if (mask & R_ARCH_OP_MASK_DISASM) {
 		if (op->size > 0) {
 			op->mnemonic = instr? instr: strdup ("");
@@ -163,7 +198,14 @@ static char *getregs(RArchSession *as) {
 }
 
 static int info(RArchSession *s, ut32 q) {
-	return 1;
+	switch (q) {
+	case R_ARCH_INFO_MIN_OP_SIZE:
+		return 2;
+	case R_ARCH_INFO_MAX_OP_SIZE:
+		return 4;
+	}
+	// i think data align is 4
+	return 2;
 }
 
 RArchPlugin r_arch_plugin_blackfin = {
