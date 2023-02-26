@@ -56,7 +56,8 @@ static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 	RStrBuf *sb = r_strbuf_new (NULL);
 	memcpy (bytes, op->bytes, R_MIN (op->size, BUFSZ));
 	/* prepare disassembler */
-        disasm_obj.disassembler_options=(a->config->bits == 64)? "64": "";
+	disasm_obj.disassembler_options = NULL;
+	 // bfin_cpu_t bfin_cpu_type = BFIN_CPU_BF707; // UNKNOWN;
         disasm_obj.buffer = bytes;
         disasm_obj.buffer_vma = op->addr;
         disasm_obj.read_memory_func = &blackfin_buffer_read_memory;
@@ -68,7 +69,6 @@ static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
         disasm_obj.stream = sb;
 
 	op->size = print_insn_bfin ((bfd_vma)op->addr, &disasm_obj);
-
         if (op->size < 1) {
 		op->type = R_ANAL_OP_TYPE_ILL;
 		return false;
@@ -111,6 +111,10 @@ static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 		} else if (r_str_startswith (instr, "j")) {
 			op->type = R_ANAL_OP_TYPE_JMP;
 			op->jump = n;
+		} else if (strstr (instr, " = [")) {
+			op->type = R_ANAL_OP_TYPE_LOAD;
+		} else if (strstr (instr, "] = ")) {
+			op->type = R_ANAL_OP_TYPE_STORE;
 		} else if (strstr (instr, ">>>")) {
 			op->type = R_ANAL_OP_TYPE_ROR;
 			op->val = n;
@@ -142,59 +146,62 @@ static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 	return true;
 }
 
+#if 0
+  REG_R0, REG_R1, REG_R2, REG_R3, REG_R4, REG_R5, REG_R6, REG_R7,
+  REG_P0, REG_P1, REG_P2, REG_P3, REG_P4, REG_P5, REG_SP, REG_FP,
+  REG_I0, REG_I1, REG_I2, REG_I3, REG_M0, REG_M1, REG_M2, REG_M3,
+  REG_B0, REG_B1, REG_B2, REG_B3, REG_L0, REG_L1, REG_L2, REG_L3,
+  REG_A0x, REG_A0w, REG_A1x, REG_A1w, REG_LASTREG, REG_LASTREG, REG_ASTAT, REG_RETS,
+  REG_LASTREG, REG_LASTREG, REG_LASTREG, REG_LASTREG, REG_LASTREG, REG_LASTREG, REG_LASTREG, REG_LASTREG,
+  REG_LC0, REG_LT0, REG_LB0, REG_LC1, REG_LT1, REG_LB1, REG_CYCLES, REG_CYCLES2,
+  REG_USP, REG_SEQSTAT, REG_SYSCFG, REG_RETI, REG_RETX, REG_RETN, REG_RETE, REG_EMUDAT,
+  REG_LASTREG,
+#endif
 static char *getregs(RArchSession *as) {
 	const char *const p =
 		"=PC    pc\n"
-		"=SP    r30\n"
-		"=BP    r28\n"
-#if R2_590
-		"=RA    r28\n"
-		"=GP    r29\n"
-#endif
-		"=A0    r15\n"
-		"=A1    r16\n"
-		"=A2    r17\n"
-		"=A3    r18\n"
-		"=SN    r15\n"
+		"=SP    sp\n"
+		"=BP    fp\n"
+		"=A0    r0\n"
+		"=A1    r1\n"
+		"=A2    r2\n"
+		"=A3    r3\n"
+		"=SN    r0\n"
 		"=R0    r0\n"
 		"=R1    r1\n"
-		"gpr	r0	.64	0	0\n"
-		"gpr	r1	.64	8	0\n"
-		"gpr	r2	.64	16	0\n"
-		"gpr	r3	.64	24	0\n"
-		"gpr	r4	.64	32	0\n"
-		"gpr	r5	.64	40	0\n"
-		"gpr	r6	.64	48	0\n"
-		"gpr	r7	.64	56	0\n"
-		"gpr	r8	.64	64	0\n"
-		"gpr	r9	.64	72	0\n"
-		"gpr	r10 	.64	80	0\n"
-		"gpr	r11 	.64	88	0\n"
-		"gpr	r12 	.64	96	0\n"
-		"gpr	r13 	.64	104	0\n"
-		"gpr	r14 	.64	112	0\n"
-		"gpr	r15 	.64	120	0\n"
-		"gpr	r16	.64	128	0\n"
-		"gpr	r17	.64	136	0\n"
-		"gpr	r18	.64	144	0\n"
-		"gpr	r19	.64	152	0\n"
-		"gpr	r20 	.64	160	0\n"
-		"gpr	r21 	.64	168	0\n"
-		"gpr	r22 	.64	176	0\n"
-		"gpr	r23	.64	184	0\n"
-		"gpr	r24	.64	192	0\n"
-		"gpr	r25 	.64	200	0\n"
-		"gpr	r26	.64	208	0\n"
-		"gpr	r27	.64	216	0\n"
-		"gpr	r28	.64	224	0\n" // at
-		"gpr	r29	.64	232	0\n" // gp
-		"gpr	r30	.64	240	0\n" // sp
-		"gpr	r31	.64	?0	0\n" // zero
-		"gpr	pc	.64	256	0\n"
-		"gpr	lr0	.64	264	0\n"
-		"gpr	lr1	.64	272	0\n"
-		"gpr	fpcr	.64	280	0\n"; // fpu control register
-		// TODO: missing F0-F31 floating point registers!
+		"gpr	r0	.32	0	0\n"
+		"gpr	r1	.32	8	0\n"
+		"gpr	r2	.32	16	0\n"
+		"gpr	r3	.32	24	0\n"
+		"gpr	r4	.32	32	0\n"
+		"gpr	r5	.32	40	0\n"
+		"gpr	r6	.32	48	0\n"
+		"gpr	r7	.32	56	0\n"
+		"gpr	p0	.32	64	0\n"
+		"gpr	p1	.32	72	0\n"
+		"gpr	p2 	.32	80	0\n"
+		"gpr	p3 	.32	88	0\n"
+		"gpr	p4 	.32	96	0\n"
+		"gpr	p5 	.32	104	0\n"
+		"gpr	sp 	.32	112	0\n"
+		"gpr	fp 	.32	120	0\n"
+		"gpr	i0	.32	128	0\n"
+		"gpr	i1	.32	136	0\n"
+		"gpr	i2	.32	144	0\n"
+		"gpr	i3	.32	152	0\n"
+		"gpr	m0 	.32	160	0\n"
+		"gpr	m1 	.32	168	0\n"
+		"gpr	m2 	.32	176	0\n"
+		"gpr	m3	.32	184	0\n"
+		"gpr	b0	.32	192	0\n"
+		"gpr	b1 	.32	200	0\n"
+		"gpr	b2	.32	208	0\n"
+		"gpr	b3	.32	216	0\n"
+		"gpr	l0	.32	224	0\n"
+		"gpr	l1	.32	232	0\n"
+		"gpr	l2	.32	240	0\n"
+		"gpr	l3	.32	248	0\n"
+		"gpr	pc	.32	256	0\n";
 	return strdup (p);
 }
 
