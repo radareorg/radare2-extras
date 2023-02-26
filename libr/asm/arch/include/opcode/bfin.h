@@ -1,5 +1,5 @@
 /* bfin.h -- Header file for ADI Blackfin opcode table
-   Copyright 2005, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 2005-2017 Free Software Foundation, Inc.
 
    This file is part of GDB, GAS, and the GNU binutils.
 
@@ -40,6 +40,23 @@
 #define M_ISS2  9
 #define M_IH    11
 #define M_IU    12
+
+#define M32_NS 1
+#define M32_T 1
+#define M32_IS  2
+#define M32_IS_NS 3
+#define M32_FU 4
+#define M32_TFU 5
+#define M32_IU 6
+#define M32_IU_NS 7
+#define M32_M 8
+#define M32_M_T 9
+#define M32_M_IS 10
+#define M32_M_IS_NS 11
+
+#define CMODE_DEFAULT 13
+#define CMODE_T 14
+#define CMODE_IS 15
 
 static inline int is_macmod_pmove (int x)
 {
@@ -1257,6 +1274,54 @@ typedef struct
   LoopSetup_c_bits,		LoopSetup_c_mask,		\
   LoopSetup_rop_bits,		LoopSetup_rop_mask,		\
   LoopSetup_code_bits,		LoopSetup_code_mask		\
+};
+
+/*  LDIMM
++---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+
+| 1 | 1 | 0 | 1 | 1 | 0 | 1 | 0 | 0 | 0 |.grp.......|.reg.......|
+|.imm[31:16]....................................................|
++---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+
+|.imm[15:0].....................................................|
++---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+
+|.dummy[15:0]...................................................|
++---+---+---+---|---+---+---+---|---+---+---+---|---+---+---+---+
+*/
+
+typedef struct
+{
+  unsigned long long opcode;
+  int bits_dummy;
+  int mask_dummy;
+  int bits_imm;
+  int mask_imm;
+  int bits_reg;
+  int mask_reg;
+  int bits_grp;
+  int mask_grp;
+  int bits_code;
+  int mask_code;
+} LDIMM;
+
+#define LDIMM_opcode  ((unsigned long long)0xda00000000000000)
+#define LDIMM_dummy_bits 0
+#define LDIMM_dummy_mask 0xffff
+#define LDIMM_imm_bits  16
+#define LDIMM_imm_mask  0xffffffff
+#define LDIMM_reg_bits 48
+#define LDIMM_reg_mask 0x7
+#define LDIMM_grp_bits 51
+#define LDIMM_grp_mask 0x7
+#define LDIMM_code_bits 54
+#define LDIMM_code_mask 0x3ff
+
+#define init_LDIMM       \
+{           \
+  LDIMM_opcode, \
+  LDIMM_dummy_bits, LDIMM_dummy_mask, \
+  LDIMM_imm_bits, LDIMM_imm_mask, \
+  LDIMM_reg_bits, LDIMM_reg_mask, \
+  LDIMM_grp_bits, LDIMM_grp_mask, \
+  LDIMM_code_bits, LDIMM_code_mask \
 };
 
 /*  LDIMMhalf

@@ -16,7 +16,6 @@ static int blackfin_buffer_read_memory(bfd_vma memaddr, bfd_byte *myaddr, ut32 l
 		return -1; // disable backward reads
 	}
 	if (delta >= BUFSZ) {
-		eprintf ("FUCK %d %d\n", delta, BUFSZ);
 		return -1;
 	}
 	ut8 *bytes = info->buffer;
@@ -49,18 +48,15 @@ static bool encode(RArchSession *a, RAnalOp *op, RArchEncodeMask mask) {
 
 static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 	ut8 bytes[BUFSZ] = {0};
-	RStrBuf *sb = NULL;
 	struct disassemble_info disasm_obj = {0};
-	if (op->size < 4) {
+	if (op->size < 2) {
 		op->mnemonic = strdup ("truncated");
 		return false;
 	}
-	if (mask & R_ARCH_OP_MASK_DISASM) {
-		sb = r_strbuf_new (NULL);
-	}
+	RStrBuf *sb = r_strbuf_new (NULL);
 	memcpy (bytes, op->bytes, R_MIN (op->size, BUFSZ));
 	/* prepare disassembler */
-        disasm_obj.disassembler_options=(a->config->bits==64)?"64":"";
+        disasm_obj.disassembler_options=(a->config->bits == 64)? "64": "";
         disasm_obj.buffer = bytes;
         disasm_obj.buffer_vma = op->addr;
         disasm_obj.read_memory_func = &blackfin_buffer_read_memory;
@@ -71,7 +67,7 @@ static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 	disasm_obj.fprintf_func = &generic_fprintf_func;
         disasm_obj.stream = sb;
 
-	op->size = print_insn_bfin((bfd_vma)op->addr, &disasm_obj);
+	op->size = print_insn_bfin ((bfd_vma)op->addr, &disasm_obj);
 
         if (op->size < 1) {
 		op->type = R_ANAL_OP_TYPE_ILL;
@@ -80,12 +76,17 @@ static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 
 	char *instr = sb? r_strbuf_drain (sb): NULL;
 	if (instr) {
+		r_str_case (instr, false);
+		char *colon = strstr (instr, ";");
+		if (colon) {
+			*colon = 0;
+		}
 		const char *arg = strstr (instr, "0x");
 		ut64 n = 0;
 		if (arg) {
 			n = r_num_get (NULL, arg);
 		}
-		if (r_str_startswith (instr, "invalid")) {
+		if (r_str_startswith (instr, "invalid") || !strcmp (instr, "illegal")) {
 			R_FREE (instr);
 			op->type = R_ANAL_OP_TYPE_ILL;
 			op->size = 4;
@@ -208,6 +209,13 @@ static int info(RArchSession *s, ut32 q) {
 	return 2;
 }
 
+static RList *preludes(RArchSession *as) {
+	RList *l = r_list_newf (free);
+	// must be aligned to 4 i think
+	r_list_append (l, r_str_newf ("00 e8"));
+	return l;
+}
+
 RArchPlugin r_arch_plugin_blackfin = {
 	.name = "blackfin",
 	.arch = "blackfin",
@@ -217,6 +225,7 @@ RArchPlugin r_arch_plugin_blackfin = {
 	.info = &info,
 	.desc = "BlackFIN architecture plugin",
 	.regs = getregs,
+	.preludes = preludes,
 	.encode = &encode,
 	.decode = &decode
 };
