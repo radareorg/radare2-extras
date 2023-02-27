@@ -1,0 +1,429 @@
+
+/* TODO Make declarations immutable.
+ * TODO De-duplication.
+ * Author: mnabipoor from the poke dev team
+ */
+
+type _Pkl_JSON_Print_Format_Ctx =
+  struct
+  {
+    (string)void emit;
+  };
+
+fun _pkl_json_print_format_any = (any val, _Pkl_JSON_Print_Format_Ctx ctx,
+                                  int<32> toplevel_p = 1,
+                                  int<32> with_typeinfo_p = 1,
+                                  int<32> with_tag_p = 1) void:
+{
+  fun is_integral_p = (any val) int<32>:
+  {
+    var typ = asm any: ("typof; nip" : val);
+
+    return asm int<32>: ("tyisi;  nip" : typ) ? 1
+         : asm int<32>: ("tyisiu; nip" : typ) ? 1
+         : asm int<32>: ("tyisl;  nip" : typ) ? 1
+         : asm int<32>: ("tyislu; nip" : typ) ? 1
+         : 0;
+  }
+  fun is_signed_p = (any val) int<32>:
+  {
+    var typ = asm any: ("typof; nip" : val);
+
+    return asm int<32>: ("tyisi; nip" : typ) ? 1
+         : asm int<32>: ("tyisl; nip" : typ) ? 1
+         : 0;
+  }
+  fun is_long_p = (any val) int<32>:
+  {
+    var typ = asm any: ("typof; nip" : val);
+
+    return asm int<32>: ("tyisl;  nip" : typ) ? 1
+         : asm int<32>: ("tyislu; nip" : typ) ? 1
+         : 0;
+  }
+  fun jval_int = (any val) void:
+  {
+    var neg_p = 0,
+        long_p = is_long_p (val),
+        uval = 0UL;
+
+    if (is_signed_p (val))
+      {
+        var ival = (long_p ? asm int<64>: ("ltol 64; nip" : val)
+                           : asm int<64>: ("itol 64; nip" : val));
+
+        if (ival < 0)
+          {
+            neg_p = 1;
+            uval = -ival as uint<64>;
+          }
+        else
+          uval = ival as uint<64>;
+      }
+    else
+      uval = (long_p ? asm uint<64>: ("lutolu 64; nip" : val)
+                     : asm uint<64>: ("iutolu 64; nip" : val));
+
+    ctx.emit (format ("%s%u64d", neg_p ? "-" : "", uval));
+  }
+  fun j_type = (any val, int<32> toplevel_p, int<32> with_tag_p) void:
+  {
+    if (toplevel_p)
+      ctx.emit ("{");
+    if (with_tag_p)
+      ctx.emit ("\"type\": ");
+
+    var is_int_p = asm int<32>: ("tyisi; nip" : val),
+        is_uint_p = asm int<32>: ("tyisiu; nip" : val),
+        is_long_p = asm int<32>: ("tyisl; nip" : val),
+        is_ulong_p = asm int<32>: ("tyislu; nip" : val);
+
+    if (is_int_p || is_uint_p || is_long_p || is_ulong_p)
+      {
+        var sign_p = asm int<32>: ("tyigetsg; nip" : val);
+        var width = asm uint<64>: ("tyigetsz; nip" : val);
+        var str = format ("\
+{\"code\": \"Integral\", \"info\": {\"size\": %u64d, \
+\"signed_p\": %s}}", width, sign_p ? "true" : "false");
+
+        ctx.emit (str);
+      }
+    else if (asm int<32>: ("tyiso; nip" : val))
+      {
+        var base_type = asm any: ("tyogetm; nip" : val),
+            unit_in_bits = asm uint<64>: ("tyogetu; nip" : val);
+
+        ctx.emit ("\
+{\"code\": \"Offset\", \"info\": {\"magnitude\": ");
+        j_type :val base_type
+               :toplevel_p 0
+               :with_tag_p 0;
+        ctx.emit (format (", \"unit\": %u64d}}", unit_in_bits));
+      }
+    else if (asm int<32>: ("tyiss; nip" : val))
+      ctx.emit ("{\"code\": \"String\"}");
+    else if (asm int<32>: ("tyisv; nip" : val))
+      ctx.emit ("{\"code\": \"Void\"}");
+    else if (asm int<32>: ("tyisa; nip" : val))
+      {
+        var bound = asm any: ("tyagetb; nip; call" : val);
+
+        ctx.emit ("{\"code\": \"Array\", \"info\": {\"bound\": ");
+
+        if (asm int<32>: ("nnn; nip" : val))
+          ctx.emit ("null");
+        else
+          _pkl_json_print_format_any
+            :val bound
+            :ctx ctx
+            :toplevel_p 1;
+
+        ctx.emit (", \"etype\": ");
+        j_type :val (asm any: ("tyagett; nip" : val))
+               :toplevel_p 0
+               :with_tag_p 0;
+        ctx.emit ("}}");
+      }
+    else if (asm int<32>: ("tyissct; nip" : val))
+      {
+        var maybe_name = asm any: ("tysctgetn; nip" : val);
+        var name
+          = asm int<32>: ("nnn; nip" : maybe_name) ? ""
+                                                   : (maybe_name as string);
+        var nfields = asm uint<64>: ("tysctgetnf; nip" : val);
+
+        ctx.emit (format (
+          "{\"code\": \"Struct\", \"info\": {\"name\": \"%s\", ", name));
+
+        ctx.emit ("\"fields\": [");
+        for (var i = 0UL; i < nfields; ++i)
+          {
+            var maybe_fname = asm any: ("tysctgetfn; nip2" : val, i),
+                fname = asm int<32>: ("nnn; nip" : maybe_fname)
+                          ? "" : (maybe_fname as string),
+                ftype = asm any: ("tysctgetft; nip2" : val, i);
+
+            if (i != 0UL)
+              ctx.emit (", ");
+            ctx.emit (format ("{\"name\": \"%s\", ", fname));
+            j_type :val ftype
+                   :toplevel_p 0
+                   :with_tag_p 1;
+            ctx.emit ("}");
+          }
+        ctx.emit ("]}}");
+      }
+    else if (asm int<32>: ("tyisc; nip" : val))
+      {
+        assert (
+          0,
+          "Unreachable reached! (There's no PVM type for closures (for now)!)");
+      }
+
+    if (toplevel_p)
+      ctx.emit ("}");
+  }
+  fun j_int = (any val, int<32> toplevel_p, int<32> with_typeinfo_p,
+               int<32> with_tag_p) void:
+  {
+    // assert (is_integral_p (val));
+
+    if (toplevel_p)
+      ctx.emit ("{");
+    if (with_tag_p)
+      ctx.emit ("\"value\": ");
+    jval_int (val);
+    if (with_typeinfo_p)
+      {
+        ctx.emit (", ");
+        j_type :val (asm any: ("typof; nip" : val))
+               :toplevel_p 0
+               :with_tag_p 1;
+      }
+    if (toplevel_p)
+      ctx.emit ("}");
+  }
+  fun j_offset = (any val, int<32> toplevel_p, int<32> with_typeinfo_p,
+                  int<32> with_tag_p) void:
+  {
+    var offset_mag = asm any: ("ogetm; nip" : val);
+
+    if (toplevel_p)
+      ctx.emit ("{");
+    if (with_tag_p)
+      ctx.emit ("\"value\": ");
+    j_int :val offset_mag
+          :toplevel_p 0
+          :with_typeinfo_p 0
+          :with_tag_p 0;
+    if (with_typeinfo_p)
+      {
+        ctx.emit (", ");
+        j_type :val (asm any: ("typof; nip" : val))
+               :toplevel_p 0
+               :with_tag_p 1;
+      }
+    if (toplevel_p)
+      ctx.emit ("}");
+  }
+  fun j_string = (any val, int<32> toplevel_p, int<32> with_typeinfo_p,
+                  int<32> with_tag_p) void:
+  {
+    if (toplevel_p)
+      ctx.emit ("{");
+    if (with_tag_p)
+      ctx.emit ("\"value\": ");
+    ctx.emit ("\"" + _pkl_escape_string (val as string) + "\"");
+    if (with_typeinfo_p)
+      {
+        ctx.emit (", ");
+        j_type :val (asm any: ("typof; nip" : val))
+               :toplevel_p 0
+               :with_tag_p 1;
+      }
+    if (toplevel_p)
+      ctx.emit ("}");
+  }
+  fun j_array = (any val, int<32> toplevel_p, int<32> with_typeinfo_p,
+                 int<32> with_tag_p) void:
+  {
+    var nelem = val'length;
+
+    if (toplevel_p)
+      ctx.emit ("{");
+    if (with_tag_p)
+      ctx.emit ("\"value\": ");
+
+    ctx.emit ("{\"elements\": [");
+    for (var n = 0UL; n < nelem; ++n)
+      {
+        if (n)
+          ctx.emit (", ");
+        _pkl_json_print_format_any
+          :val val'elem (n)
+          :ctx ctx
+          :toplevel_p 0
+          :with_typeinfo_p 0
+          :with_tag_p 0;
+      }
+    ctx.emit ("], \"boffsets\": [");
+    for (var n = 0UL; n < nelem; ++n)
+      {
+        if (n)
+          ctx.emit (", ");
+        _pkl_json_print_format_any
+          :val (val'eoffset (n)/#b)
+          :ctx ctx
+          :toplevel_p 0
+          :with_typeinfo_p 0
+          :with_tag_p 0;
+      }
+    ctx.emit (format (
+      "], \"mapping\": {\"mapped\": %i32d, \"strict\": %i32d, \"IOS\": ",
+      val'mapped, val'strict));
+    if (val'ios ?! E_map)
+      ctx.emit ("null");
+    else
+      ctx.emit (format ("%i32d", val'ios));
+    ctx.emit (", \"offset\": ");
+    if (val'offset ?! E_map)
+      ctx.emit ("null");
+    else
+      j_offset :val val'offset
+               :toplevel_p 1
+               :with_typeinfo_p 1
+               :with_tag_p 0;
+    ctx.emit ("}}");
+
+    if (with_typeinfo_p)
+      {
+        ctx.emit (", ");
+        j_type :val (asm any: ("typof; nip" : val))
+               :toplevel_p 0
+               :with_tag_p 1;
+      }
+    if (toplevel_p)
+      ctx.emit ("}");
+  }
+  fun j_struct = (any val, int<32> toplevel_p, int<32> with_typeinfo_p,
+                  int<32> with_tag_p) void:
+  {
+    var num_fields = 0UL,
+        field = asm any: ("push 7"), // asm trick to get a null value
+        field_offset = 0#b;
+
+    if (toplevel_p)
+      ctx.emit ("{");
+    if (with_tag_p)
+      ctx.emit ("\"value\": ");
+
+    ctx.emit ("{\"fields\": [");
+    num_fields = val'length;
+    for (var n = 0UL; n < num_fields; ++n)
+      {
+        try field = val'elem (n);
+        catch if E_elem  /* Absent field.  */
+          {
+            ++num_fields;
+            continue;
+          }
+        if (n)
+          ctx.emit (", ");
+        _pkl_json_print_format_any
+          :val field
+          :ctx ctx
+          :toplevel_p 0
+          :with_typeinfo_p 0
+          :with_tag_p 0;
+      }
+    ctx.emit ("], \"boffsets\": [");
+    num_fields = val'length;
+    for (var n = 0UL; n < num_fields; ++n)
+      {
+        try field_offset = val'eoffset (n);
+        catch if E_elem  /* Absent field.  */
+          {
+            ++num_fields;
+            continue;
+          }
+        if (n)
+          ctx.emit (", ");
+        _pkl_json_print_format_any
+          :val (field_offset/#b)
+          :ctx ctx
+          :toplevel_p 0
+          :with_typeinfo_p 0
+          :with_tag_p 0;
+      }
+    ctx.emit (format (
+      "], \"mapping\": {\"mapped\": %i32d, \"strict\": %i32d, \"IOS\": ",
+      val'mapped, val'strict));
+    if (val'ios ?! E_map)
+      ctx.emit ("null");
+    else
+      ctx.emit (format ("%i32d", val'ios));
+    ctx.emit (", \"offset\": ");
+    if (val'offset ?! E_map)
+      ctx.emit ("null");
+    else
+      j_offset :val val'offset
+               :toplevel_p 1
+               :with_typeinfo_p 1
+               :with_tag_p 0;
+    ctx.emit ("}}");
+
+    if (with_typeinfo_p)
+      {
+        ctx.emit (", ");
+        j_type :val (asm any: ("typof; nip" : val))
+               :toplevel_p 0
+               :with_tag_p 1;
+      }
+    if (toplevel_p)
+      ctx.emit ("}");
+  }
+
+  if (asm int<32>: ("nnn; nip" : val))
+    {
+      // ?!
+      // toplevel_p?
+      ctx.emit ("null");
+    }
+  else if (asm int<32>: ("isty; nip" : val))
+    j_type :val val
+           :toplevel_p toplevel_p
+           :with_tag_p with_tag_p;
+  else if (is_integral_p (val))
+    j_int :val val
+          :toplevel_p toplevel_p
+          :with_typeinfo_p with_typeinfo_p
+          :with_tag_p with_tag_p;
+  else if (asm int<32>: ("typof; nip; tyiso; nip" : val))
+    j_offset :val val
+          :toplevel_p toplevel_p
+          :with_typeinfo_p with_typeinfo_p
+          :with_tag_p with_tag_p;
+  else if (asm int<32>: ("typof; nip; tyiss; nip" : val))
+    j_string :val val
+             :toplevel_p toplevel_p
+             :with_typeinfo_p with_typeinfo_p
+             :with_tag_p with_tag_p;
+  else if (asm int<32>: ("typof; nip; tyisa; nip" : val))
+    j_array :val val
+            :toplevel_p toplevel_p
+            :with_typeinfo_p with_typeinfo_p
+            :with_tag_p with_tag_p;
+  else if (asm int<32>: ("typof; nip; tyissct; nip" : val))
+    j_struct :val val
+             :toplevel_p toplevel_p
+             :with_typeinfo_p with_typeinfo_p
+             :with_tag_p with_tag_p;
+  else
+    assert (
+      0, "Unreachable reached! Unable to generate JSON for an unknown PVM value");
+}
+
+fun _pkl_jprint_any = (any val) void:
+{
+  var ctx
+    = _Pkl_JSON_Print_Format_Ctx {
+        emit = lambda (string s) void: { print s; },
+      };
+
+  _pkl_json_print_format_any (val, ctx, 1);
+}
+
+fun _pkl_jformat_any = (any val) string:
+{
+  var result = "";
+  var ctx
+    = _Pkl_JSON_Print_Format_Ctx {
+        emit = lambda (string s) void: { result += s; },
+     };
+
+  _pkl_json_print_format_any (val, ctx, 1);
+  return result;
+}
+
+fun json_format = (any val) string: { return _pkl_jformat_any (val); }
+fun json_print  = (any val) void:   {        _pkl_jprint_any (val); }
