@@ -40,7 +40,13 @@ def filter_name(n):
 	n = n.replace('"', '')
 	n = n.replace('/', '')
 	n = n.replace('(', '')
+	n = n.replace('\n', '')
 	n = n.replace(')', '')
+	return n
+
+def filter_message(n):
+	n = n.replace('\n', '')
+	n = n.replace('  ', ' ')
 	return n
 
 svdfile = sys.argv[1]
@@ -67,7 +73,7 @@ def print_flag(name, size, addr):
 
 def print_comment(msg, addr):
 	if supports_call:
-		print("\"\"@0x%x\"\"CC %s"%(addr, msg))
+		print("\"\"@0x%x\"\"CC %s"%(addr, filter_message(msg)))
 	else:
 		print("CC %s @ 0x%x"%(filter_name(msg), addr))
 
