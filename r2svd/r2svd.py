@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # use cmsis-svd python api to load the SVD peripheral and memory layout into r2
-# --pancake @ 2020
+# --pancake @ 2020-2023
 
 import json
 import sys
@@ -34,7 +34,10 @@ if not args_ok:
 	sys.exit(0)
 
 def filter_name(n):
+	n = n.replace(';', '.')
+	n = n.replace('@', '')
 	n = n.replace(' ', '')
+	n = n.replace('"', '')
 	n = n.replace('/', '')
 	n = n.replace('(', '')
 	n = n.replace(')', '')
@@ -48,6 +51,26 @@ else:
 	svd = sys.argv[2] # MK20D7.svd
 	parser = SVDParser.for_packaged_svd(mcu, svd)
 
+supports_call = False
+try:
+	import r2pipe
+	r2 = r2pipe.open("-")
+	supports_call = int(r2.cmd("?Vn")) >= 50800
+except Exception as e:
+	pass
+
+def print_flag(name, size, addr):
+	if supports_call:
+		print("\"\"f %s %d 0x%x"%(filter_name(name), size, addr))
+	else:
+		print("f %s %d 0x%x"%(filter_name(name), size, addr))
+
+def print_comment(msg, addr):
+	if supports_call:
+		print("\"\"@0x%x\"\"CC %s"%(addr, msg))
+	else:
+		print("CC %s @ 0x%x"%(filter_name(msg), addr))
+
 svd_dict = parser.get_device().to_dict()
 for p in svd_dict['peripherals']:
 	addr = p['base_address']
@@ -55,9 +78,8 @@ for p in svd_dict['peripherals']:
 		size = p['address_block']['size'] / 8
 	except:
 		size = 4
-	name = filter_name(p['name'])
-	print("\"CC %s @ 0x%x\""%(p['description'], addr))
-	print("f %s %d 0x%x"%(name, size, addr))
+	print_comment(p['description'], addr)
+	print_flag(p['name'], size, addr)
 	s = ""
 	for r in p['registers']:
 		offs = int(r['address_offset'])
@@ -65,8 +87,8 @@ for p in svd_dict['peripherals']:
 		bt = (offs % 8)
 		s += " " + r['name']
 		if at != addr:
-			print("f %s.%s %d 0x%x"%(name, r['name'], size, at))
-		# print("   0x%x %d %s"%(at, bt, r['name']))
-	print("\"CC (%s) @ 0x%x\""%(s, addr))
+			fname = "%s.%s"%(p["name"], r["name"])
+			print_flag(fname, size, at)
+	print_comment(s, addr)
 
 # print(json.dumps(svd_dict, sort_keys=True, indent=4, separators=(',', ': ')))
