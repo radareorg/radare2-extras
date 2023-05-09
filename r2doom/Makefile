@@ -1,5 +1,5 @@
 CFLAGS+=$(shell pkg-config --cflags --libs r_cons r_util)
-ifeq ($(uname),Linux)
+ifeq ($(shell uname),Linux)
 CFLAGS+=-lm
 endif
 
