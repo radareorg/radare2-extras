@@ -1057,5 +1057,5 @@ int main() {
 		}
 		doom_game_tick (&ps);
 	}
-	r_cons_set_raw (true);
+	r_cons_set_raw (false);
 }

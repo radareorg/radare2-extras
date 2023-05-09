@@ -1,12 +1,9 @@
 CFLAGS+=$(shell pkg-config --cflags --libs r_cons r_util)
-ifeq ($(shell uname),Linux)
-CFLAGS+=-lm
-endif
 
 BINDIR=$(shell r2pm -H R2PM_BINDIR)
 
 all:
-	$(CC) -o r2doom -g $(CFLAGS) doom.c entities.c
+	$(CC) -o r2doom -g doom.c entities.c $(CFLAGS)
 
 install:
 	mkdir -p ${BINDIR}
