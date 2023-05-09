@@ -1,3 +1,5 @@
+// doom port for radare2 based on the flipper zero one
+
 #include <r_cons.h>
 #include <stdlib.h>
 #include <math.h>
@@ -8,8 +10,7 @@
 #include "entities.h"
 #include "types.h"
 #include "level.h"
-// display
-// TODO: be dynamic using r_cons_get_size()
+
 uint8_t SCREEN_WIDTH     =  128;
 uint8_t SCREEN_HEIGHT    =  64;
 uint8_t HALF_WIDTH       =  64;
@@ -1029,11 +1030,8 @@ int main() {
 			ps.fired = false;
 		}
 		switch (ch) {
-		case '.':
-			doom_state_init (&ps);
-			ps.scene = GAME_PLAY;
-			break;
 		case 'f':
+		case '.':
 		case ' ':
 		case '\n':
 			if (ps.scene == GAME_PLAY) {
