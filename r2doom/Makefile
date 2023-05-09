@@ -1,4 +1,7 @@
 CFLAGS+=$(shell pkg-config --cflags --libs r_cons r_util)
+ifeq ($(uname),Linux)
+CFLAGS+=-lm
+endif
 
 BINDIR=$(shell r2pm -H R2PM_BINDIR)
 
