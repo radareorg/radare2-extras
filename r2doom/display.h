@@ -8,11 +8,11 @@
 #include "compiled/assets_icons.h"
 // display
 // TODO: be dynamic using r_cons_get_size()
-extern uint8_t SCREEN_WIDTH;
-extern uint8_t SCREEN_HEIGHT;
-extern uint8_t HALF_WIDTH ;
-extern uint8_t RENDER_HEIGHT;
-extern uint8_t HALF_HEIGHT ;
+extern int SCREEN_WIDTH;
+extern int SCREEN_HEIGHT;
+extern int HALF_WIDTH;
+extern int RENDER_HEIGHT;
+extern int HALF_HEIGHT;
 
 #define CHECK_BIT(var,pos) ((var) & (1<<(pos)))
 
@@ -23,16 +23,11 @@ static const uint8_t bit_mask[8] = { 128, 64, 32, 16, 8, 4, 2, 1 };
 #define read_bit(b, n)      b & pgm_read_byte(bit_mask + n) ? 1 : 0
 //#define read_bit(byte, index) (((unsigned)(byte) >> (index)) & 1)
 
-void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity, Canvas* const canvas);
-void drawPixel(int8_t x, int8_t y, bool color, bool raycasterViewport, const char *ansi);
-void drawSprite(int8_t x, int8_t y, const uint8_t *bitmap, const uint8_t *bitmap_mask, int16_t w, int16_t h, uint8_t sprite, double distance, const char *ansi);
-void drawBitmap(int16_t x, int16_t y, const Icon *i, int16_t w, int16_t h, uint16_t color, Canvas* const canvas);
-void drawTextSpace(int8_t x, int8_t y, char *txt, uint8_t space, Canvas* const canvas);
-void drawChar(int8_t x, int8_t y, char ch, Canvas* const canvas);
-void clearRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, Canvas* const canvas);
-void drawGun(int16_t x, int16_t y, const uint8_t *bitmap, int16_t w, int16_t h, uint16_t color, const char *ansi);
-void drawRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, Canvas* const canvas);
-void drawText(uint8_t x, uint8_t y, uint8_t num, Canvas* const canvas);
+void drawPixel(int x, int y, bool color, bool raycasterViewport, const char *ansi);
+void drawBitmap(int x, int y, const Icon *i, int w, int h, uint16_t color, Canvas* const canvas);
+void drawTextSpace(int x, int y, char *txt, uint8_t space, Canvas* const canvas);
+void drawChar(int x, int y, char ch, Canvas* const canvas);
+void clearRect(int x, int y, int w, int h, Canvas* const canvas);
 void fadeScreen(uint8_t intensity, bool color, Canvas* const canvas);
 bool getGradientPixel(uint8_t x, uint8_t y, uint8_t i);
 double getActualFps();
@@ -45,7 +40,7 @@ uint32_t lastFrameTime = 0;
 uint8_t zbuffer[128]; /// 128 = screen width & REMOVE WHEN DISPLAY.H IMPLEMENTED
 uint8_t *display_buf = NULL;
 
-void drawGun(int16_t x, int16_t y, const uint8_t *bitmap, int16_t w, int16_t h, uint16_t color, const char *ansi) {
+void drawGun(int x, int y, const uint8_t *bitmap, int w, int h, uint16_t color, const char *ansi) {
 	int16_t byteWidth = (w + 7) / 8;
 	uint8_t byte = 0;
 	for(int16_t j=0; j<h; j++, y++) {
@@ -65,8 +60,8 @@ void canvas_draw_dot(int x, int y, char ch) {
 	r_cons_printf ("%c", ch);
 }
 
-void drawVLine(uint8_t x, int8_t start_y, int8_t end_y, uint8_t intensity, Canvas* const canvas){
-	uint8_t dots = end_y - start_y;
+void drawVLine(int x, int start_y, int end_y, uint8_t intensity, Canvas* const canvas){
+	int dots = end_y - start_y;
 	for(int i = 0; i <= dots; i++) {
 		canvas_draw_dot(x, start_y + i, '=');
 	}	
@@ -77,24 +72,24 @@ void setupDisplay(Canvas* canvas){
 	r_cons_clear00 ();
 }
 
-void drawBitmap(int16_t x, int16_t y, const Icon *i, int16_t w, int16_t h, uint16_t color, Canvas* const canvas){
+void drawBitmap(int x, int y, const Icon *i, int w, int h, uint16_t color, Canvas* const canvas){
 	// canvas_draw_icon_bitmap(canvas, x, y, w, h, i);
 }
 
 // this is drawNumber
-void drawText(uint8_t x, uint8_t y, uint8_t num, Canvas* const canvas){
+void drawText(int x, int y, uint8_t num, Canvas* const canvas){
 	char buf[4]; // "0" - "255"
 	sprintf (buf, "%d", num);
 	// itoa(num, buf, 10);
 	drawTextSpace (x,y,buf,1,canvas);	
 }
 
-void drawTextSpace(int8_t x, int8_t y, char *txt, uint8_t space, Canvas* const canvas){
-	uint8_t pos = x;
-	uint8_t i = 0;
+void drawTextSpace(int x, int y, char *txt, uint8_t space, Canvas* const canvas){
+	int pos = x;
+	int i = 0;
 	char ch;
 	while ((ch = txt[i]) != '\0') {
-		drawChar(pos, y, ch, canvas);
+		drawChar (pos, y, ch, canvas);
 		i++;
 		pos += CHAR_WIDTH + space;
 		if (pos > SCREEN_WIDTH) {
@@ -104,11 +99,11 @@ void drawTextSpace(int8_t x, int8_t y, char *txt, uint8_t space, Canvas* const c
 }
 
 // Custom drawBitmap method with scale support, mask, zindex and pattern filling
-void drawSprite(int8_t x, int8_t y, const uint8_t *bitmap, const uint8_t *bitmap_mask, int16_t w, int16_t h, uint8_t sprite, double distance, const char *color) {
-	uint8_t tw = (double) w / distance;
-	uint8_t th = (double) h / distance;
-	uint8_t byte_width = w / 8;
-	uint8_t pixel_size = fmax(1, (double)1.0 / (double)distance);
+void drawSprite(int x, int y, const uint8_t *bitmap, const uint8_t *bitmap_mask, int w, int h, uint8_t sprite, double distance, const char *color) {
+	int tw = (double) w / distance;
+	int th = (double) h / distance;
+	int byte_width = w / 8;
+	int pixel_size = fmax(1, (double)1.0 / (double)distance);
 	uint16_t sprite_offset = byte_width * h * sprite;
 
 	bool pixel;
@@ -120,16 +115,16 @@ void drawSprite(int8_t x, int8_t y, const uint8_t *bitmap, const uint8_t *bitmap
 		return;
 	}
 
-	for (uint8_t ty = 0; ty < th; ty += pixel_size) {
+	for (int ty = 0; ty < th; ty += pixel_size) {
 		// Don't draw out of screen
 		if (y + ty < 0 || y + ty >= RENDER_HEIGHT) {
 			continue;
 		}
 
-		uint8_t sy = ty * distance; // The y from the sprite
+		int sy = ty * distance; // The y from the sprite
 
-		for (uint8_t tx = 0; tx < tw; tx += pixel_size) {
-			uint8_t sx = tx * distance; // The x from the sprite
+		for (int tx = 0; tx < tw; tx += pixel_size) {
+			int sx = tx * distance; // The x from the sprite
 			uint16_t byte_offset = sprite_offset + sy * byte_width + sx / 8;
 
 			// Don't draw out of screen
@@ -141,8 +136,8 @@ void drawSprite(int8_t x, int8_t y, const uint8_t *bitmap, const uint8_t *bitmap
 
 			if (maskPixel) {
 				pixel = read_bit(pgm_read_byte(bitmap + byte_offset), sx % 8);
-				for (uint8_t ox = 0; ox < pixel_size; ox++) {
-					for (uint8_t oy = 0; oy < pixel_size; oy++) {
+				for (int ox = 0; ox < pixel_size; ox++) {
+					for (int oy = 0; oy < pixel_size; oy++) {
 						if(bitmap == imp_inv)
 							drawPixel (x + tx + ox, y + ty + oy, 1, true, color);
 						else
@@ -154,7 +149,7 @@ void drawSprite(int8_t x, int8_t y, const uint8_t *bitmap, const uint8_t *bitmap
 	}
 }
 
-void drawPixel(int8_t x, int8_t y, bool color, bool raycasterViewport, const char *ansi) {
+void drawPixel(int x, int y, bool color, bool raycasterViewport, const char *ansi) {
 	if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= (raycasterViewport ? RENDER_HEIGHT : SCREEN_HEIGHT)){
 		return;
 	}
@@ -168,14 +163,14 @@ void drawPixel(int8_t x, int8_t y, bool color, bool raycasterViewport, const cha
 	}
 }
 
-void drawChar(int8_t x, int8_t y, char ch, Canvas* const canvas){
+void drawChar(int x, int y, char ch, Canvas* const canvas){
 	uint8_t lsb;
 	uint8_t c = 0;
 	while (CHAR_MAP[c] != ch && CHAR_MAP[c] != '\0') c++;
 	for(uint8_t i = 0; i < 6; i++){
 		//lsb = (char_arr[c][i] >> 4);
 		lsb = reverse_bits(char_arr[c][i]);
-		for (uint8_t n = 0; n < 4; n++){
+		for (int n = 0; n < 4; n++){
 			if(CHECK_BIT(lsb, n)){
 				drawPixel(x+n, y+i, true, false, NULL);
 			}    
@@ -184,7 +179,7 @@ void drawChar(int8_t x, int8_t y, char ch, Canvas* const canvas){
 
 }
 
-void clearRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, Canvas* const canvas){
+void clearRect(int x, int y, int w, int h, Canvas* const canvas){
 	// canvas_invert_color(canvas);
 
 	int i;
@@ -197,7 +192,7 @@ void clearRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, Canvas* const canvas)
 	// canvas_invert_color(canvas);
 }
 
-void drawRect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, Canvas* const canvas){
+void drawRect(int x, int y, int w, int h, Canvas* const canvas){
 	for(int i = 0; i < w; i++) {
 		for (int j = 0; j < h; j++){
 			canvas_draw_dot(x+i, y+j, '|');

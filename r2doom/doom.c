@@ -11,11 +11,11 @@
 #include "types.h"
 #include "level.h"
 
-uint8_t SCREEN_WIDTH     =  128;
-uint8_t SCREEN_HEIGHT    =  64;
-uint8_t HALF_WIDTH       =  64;
-uint8_t RENDER_HEIGHT    =  56;         // raycaster working height (the rest is for the hud)
-uint8_t HALF_HEIGHT      =  32;
+int SCREEN_WIDTH =  128;
+int SCREEN_HEIGHT =  64;
+int HALF_WIDTH =  64;
+int RENDER_HEIGHT =  56;         // raycaster working height (the rest is for the hud)
+int HALF_HEIGHT =  32;
 
 // Seems buggy
 #define USE_COLLISIONS 0
@@ -55,17 +55,16 @@ typedef struct {
 	double rot_speed;
 	double old_dir_x;
 	double old_plane_x;
-} PluginState; 
+} PluginState;
 
 
 static Coords translateIntoView(Coords *pos, PluginState* const ps);
 void updateHud(Canvas* const canvas, PluginState* const ps);
-// general
 
 static bool invert_screen = false;
-static uint8_t flash_screen = 0;
+static bool flash_screen = false;
 
-uint8_t getBlockAt(const uint8_t level[], uint8_t x, uint8_t y) {
+uint8_t getBlockAt(const uint8_t level[], int x, int y) {
 	if (x < 0 || x >= LEVEL_WIDTH || y < 0 || y >= LEVEL_HEIGHT) {
 		return E_FLOOR;
 	}
@@ -78,8 +77,8 @@ uint8_t getBlockAt(const uint8_t level[], uint8_t x, uint8_t y) {
 
 // Finds the player in the map
 void initializeLevel(const uint8_t level[], PluginState* const ps) {
-	for (uint8_t y = LEVEL_HEIGHT - 1; y > 0; y--) {
-		for (uint8_t x = 0; x < LEVEL_WIDTH; x++) {
+	for (int y = LEVEL_HEIGHT - 1; y > 0; y--) {
+		for (int x = 0; x < LEVEL_WIDTH; x++) {
 			uint8_t block = getBlockAt(level, x, y);
 			if (block == E_PLAYER) {
 				ps->player = create_player(x, y);
@@ -92,7 +91,7 @@ void initializeLevel(const uint8_t level[], PluginState* const ps) {
 }
 
 static bool isSpawned(UID uid, PluginState* const ps) {
-	for (uint8_t i = 0; i < ps->num_entities; i++) {
+	for (int i = 0; i < ps->num_entities; i++) {
 		if (ps->entity[i].uid == uid) return true;
 	}
 	return false;
@@ -107,7 +106,7 @@ static bool isStatic(UID uid, PluginState* const ps) {
 }
 #endif
 
-static void spawnEntity(uint8_t type, uint8_t x, uint8_t y, PluginState* const ps) {
+static void spawnEntity(uint8_t type, int x, int y, PluginState* const ps) {
 	// Limit the number of spawned entities
 	if (ps->num_entities >= MAX_ENTITIES) {
 		return;
@@ -199,7 +198,7 @@ static UID detectCollision(const uint8_t level[], Coords *pos, double relative_x
 	}
 
 	// Entity collision
-	for (uint8_t i=0; i < ps->num_entities; i++) {
+	for (int i=0; i < ps->num_entities; i++) {
 		// Don't collide with itself
 		if (&(ps->entity[i].pos) == pos) {
 			continue;
@@ -342,7 +341,7 @@ void updateEntities(const uint8_t level[], Canvas* const canvas, PluginState* co
 					      // Melee attack
 					      ps->player.health = fmax(0, ps->player.health - ENEMY_MELEE_DAMAGE);
 					      ps->entity[i].timer = 14;
-					      flash_screen = 1;
+					      flash_screen = true;
 					      updateHud(canvas, ps);
 				      }
 			      } else {
@@ -355,7 +354,7 @@ void updateEntities(const uint8_t level[], Canvas* const canvas, PluginState* co
 			if (ps->entity[i].distance < FIREBALL_COLLIDER_DIST) {
 				// Hit the player and disappear
 				ps->player.health = fmax(0, ps->player.health - ENEMY_FIREBALL_DAMAGE);
-				flash_screen = 1;
+				flash_screen = true;
 				updateHud(canvas, ps);
 				removeEntity(ps->entity[i].uid, ps);
 				continue; // continue in the loop
@@ -406,7 +405,7 @@ void updateEntities(const uint8_t level[], Canvas* const canvas, PluginState* co
 // The map raycaster. Based on https://lodev.org/cgtutor/raycasting.html
 void renderMap(const uint8_t level[], double view_height, Canvas* const canvas, PluginState* const ps) {
 	UID last_uid = 0; // NOT SURE ?
-	uint8_t x;
+	int x;
 
 	for (x = 0; x < SCREEN_WIDTH; x += RES_DIVIDER) {
 		double camera_x = 2 * (double) x / SCREEN_WIDTH - 1;
@@ -418,7 +417,7 @@ void renderMap(const uint8_t level[], double view_height, Canvas* const canvas, 
 		double delta_x = fabs(1 / ray_x);
 		double delta_y = fabs(1 / ray_y);
 
-		int8_t step_x; 
+		int8_t step_x;
 		int8_t step_y;
 		double side_x;
 		double side_y;
@@ -442,7 +441,7 @@ void renderMap(const uint8_t level[], double view_height, Canvas* const canvas, 
 		// Wall detection
 		uint8_t depth = 0;
 		bool hit = 0;
-		bool side; 
+		bool side;
 		while (!hit && depth < MAX_RENDER_DEPTH) {
 			if (side_x < side_y) {
 				side_x += delta_x;
@@ -518,7 +517,7 @@ static uint8_t sortEntities(PluginState* const ps) {
 		if (gap == 9 || gap == 10) gap = 11;
 		if (gap < 1) gap = 1;
 		swapped = false;
-		for (uint8_t i = 0; i < ps->num_entities - gap; i++) {
+		for (int i = 0; i < ps->num_entities - gap; i++) {
 			uint8_t j = i + gap;
 			if (ps->entity[i].distance < ps->entity[j].distance) {
 				swap(ps->entity[i], ps->entity[j]);
@@ -545,7 +544,7 @@ static Coords translateIntoView(Coords *pos, PluginState* const ps) {
 void renderEntities(double view_height, Canvas* const canvas, PluginState* const ps) {
 	sortEntities (ps);
 
-	for (uint8_t i = 0; i < ps->num_entities; i++) {
+	for (int i = 0; i < ps->num_entities; i++) {
 		if (ps->entity[i].state == S_HIDDEN) continue;
 
 		Coords transform = translateIntoView(&(ps->entity[i].pos), ps);
@@ -687,11 +686,11 @@ void renderHud(Canvas* const canvas, PluginState* ps) {
 
 // Render values for the HUD
 void updateHud(Canvas* const canvas, PluginState* ps) {
-	int y = RENDER_HEIGHT+2;
-	clearRect(12, y, 15, 6, canvas);
+	int y = RENDER_HEIGHT + 2;
+	clearRect (12, y, 15, 6, canvas);
 	// clearRect(50, 58, 15, 6, canvas);
-	drawText(12, y, ps->player.health, canvas);
-	drawText(50, y, ps->player.keys, canvas);
+	drawText (12, y, ps->player.health, canvas);
+	drawText (50, y, ps->player.keys, canvas);
 }
 
 // Debug stats
@@ -737,14 +736,14 @@ static void render_callback(Canvas* const canvas, void* ctx) {
 	HALF_WIDTH = w/2;
 	HALF_HEIGHT = h/2;
 	RENDER_HEIGHT = h - 8;
-	PluginState* ps = ctx; // acquire_mutex((ValueMutex*)ctx, 25);
+	PluginState* ps = ctx;
 	if (ps == NULL) {
 		return;
 	}
 	r_cons_clear00 ();
 #if 1
 	if (ps->init) {
-		 setupDisplay(canvas);
+		 setupDisplay (canvas);
 	}
 #endif
 	// canvas_set_font(canvas, FontPrimary);
@@ -755,9 +754,9 @@ static void render_callback(Canvas* const canvas, void* ctx) {
 	case GAME_PLAY:
 	       updateEntities (sto_level_1, canvas, ps);
 	       updateHud (canvas, ps);
-	       renderGun (ps->gun_pos,ps->jogging, canvas); 
 	       renderMap (sto_level_1, ps->view_height, canvas, ps);
 	       renderEntities (ps->view_height, canvas, ps);
+	       renderGun (ps->gun_pos,ps->jogging, canvas);
 	       renderHud (canvas, ps);
 	       renderStats (canvas, ps);
 	       break;
@@ -767,18 +766,7 @@ static void render_callback(Canvas* const canvas, void* ctx) {
 	r_cons_printf ("> %lf %lf %lf v=%lf\n", ps->player.pos.x, ps->player.pos.y, ps->player.dir.x, ps->player.velocity);
 #endif
 	r_cons_flush ();
-	// release_mutex((ValueMutex*)ctx, ps);
 }
-
-#if 0
-static void input_callback(InputEvent* input_event, FuriMessageQueue* event_queue) {
-	// furi_assert(event_queue); 
-
-	PluginEvent event = {.type = EventTypeKey, .input = *input_event};
-	furi_message_queue_put(event_queue, &event, 0);
-}
-#endif
-
 
 static void doom_state_init(PluginState* const ps) {
 	ps->num_entities = 0;
@@ -795,16 +783,7 @@ static void doom_state_init(PluginState* const ps) {
 	ps->right = false;
 	ps->fired = false;
 	ps->gun_fired = false;
-} 
-
-#if 0
-static void doom_game_update_timer_callback(FuriMessageQueue* event_queue) {
-	furi_assert(event_queue);
-
-	PluginEvent event = {.type = EventTypeTick};
-	furi_message_queue_put(event_queue, &event, 0);
 }
-#endif
 
 static void doom_game_tick(PluginState* const ps){
 	if (display_buf == NULL) {
@@ -852,18 +831,15 @@ static void doom_game_tick(PluginState* const ps){
 			ps->view_height = fabs(sin((double) tick() * (double)JOGGING_SPEED)) * 6 * ps->jogging;
 
 			if (ps->gun_pos > GUN_TARGET_POS) {
-				// Right after fire
 				ps->gun_pos -= 1;
 			} else if (ps->gun_pos < GUN_TARGET_POS){
 				ps->gun_pos += 2;
 			} else if (!ps->gun_fired && ps->fired){
-				//furi_hal_speaker_start(20480 / 10, 0.45f);
 				ps->gun_pos = GUN_SHOT_POS;
 				ps->gun_fired = true;
 				ps->fired = false;
 				fire(ps);
 			} else if (ps->gun_fired && !ps->fired){
-				//furi_hal_speaker_stop();
 				ps->gun_fired = false;
 			}
 		} else {
@@ -886,129 +862,6 @@ static void doom_game_tick(PluginState* const ps){
 		}
 	}
 }
-
-#if 0
-int32_t doom_app() {
-	// FuriMessageQueue* event_queue = furi_message_queue_alloc(8, sizeof(PluginEvent));
-	PluginState* ps = malloc(sizeof(PluginState));
-	doom_state_init (ps);
-#if 0
-	ValueMutex state_mutex; 
-	if (!init_mutex(&state_mutex, ps, sizeof(PluginState))) {
-		FURI_LOG_E("Doom_game", "cannot create mutex\r\n");
-		free(ps); 
-		return 255;
-	}
-	FuriTimer* timer = furi_timer_alloc(doom_game_update_timer_callback, FuriTimerTypePeriodic, event_queue);
-	furi_timer_start(timer, furi_kernel_get_tick_frequency()/ 12);
-	// Set system callbacks
-	ViewPort* view_port = view_port_alloc(); 
-	view_port_draw_callback_set(view_port, render_callback, &state_mutex);
-	view_port_input_callback_set(view_port, input_callback, event_queue);
-
-	// Open GUI and register view_port
-	Gui* gui = furi_record_open("gui"); 
-	gui_add_view_port(gui, view_port, GuiLayerFullscreen); 
-
-#endif
-	// GAMEPLAY VARS
-	bool gun_fired = false;
-
-
-
-	//double jogging;
-	uint8_t fade = GRADIENT_COUNT - 1;
-	//////////////////////////////////
-	if(display_buf != NULL)  {
-		ps->init = false;
-	}
-
-#if 0
-	PluginEvent event;
-	for(bool processing = true; processing;) {
-		FuriStatus event_status = furi_message_queue_get(event_queue, &event, 100);
-		PluginState* ps = (PluginState*)acquire_mutex_block(&state_mutex);
-		if(event_status == FuriStatusOk) {
-			if(event.type == EventTypeTick){
-				doom_game_tick(ps);
-			}
-			ps->fired = false;
-
-			// press events
-			if (event.type == EventTypeKey) {
-				if (event.input.type == InputTypePress) {
-
-					if(ps->scene == INTRO && event.input.key == InputKeyOk){
-						ps->scene = GAME_PLAY;
-						initializeLevel(sto_level_1, ps);
-					}
-
-					//While playing game
-					if(ps->scene == GAME_PLAY){
-
-						// If the player is alive
-						if (ps->player.health > 0) {
-							//Player speed
-							if(event.input.key == InputKeyUp){
-								ps->up = true;
-							}else if (event.input.key == InputKeyDown) {
-								ps->down = true; 
-							}
-							// Player rotation
-							if(event.input.key == InputKeyRight){
-								ps->right = true;
-							}else if(event.input.key == InputKeyLeft){
-								ps->left = true; 
-							}
-							if(event.input.key == InputKeyOk){
-								ps->fired = true;
-							}
-						}else{
-							// Player is dead
-							if(event.input.key == InputKeyOk)ps->scene = INTRO; 
-						} 
-					}
-
-				}
-				if(event.input.type == InputTypeRelease){
-					if (ps->player.health > 0) {
-						//Player speed
-						if(event.input.key == InputKeyUp){
-							ps->up = false;
-						}else if (event.input.key == InputKeyDown) {
-							ps->down = false;
-						} 
-						// Player rotation
-						if(event.input.key == InputKeyRight){
-							ps->right = false;
-						}else if(event.input.key == InputKeyLeft){
-							ps->left = false; 
-						}        
-					}
-				}
-				if(event.input.key == InputKeyBack){
-					processing = false;
-				}
-			} 
-		} else {
-			FURI_LOG_D("Doom_game", "osMessageQueue: event timeout");
-			// event timeout
-		}
-		view_port_update(view_port);
-		// release_mutex(&state_mutex, ps);
-	}
-#endif
-	// furi_timer_free(timer);
-#if 0
-	view_port_enabled_set(view_port, false);
-	gui_remove_view_port(gui, view_port);
-	furi_record_close("gui");
-	furi_message_queue_free(event_queue);
-	view_port_free(view_port);
-#endif
-	return 0;
-}
-#endif
 
 int main() {
 	PluginState ps = {0};
@@ -1043,7 +896,7 @@ int main() {
 			}
 			break;
 		case 'j':
-			ps.down = true; 
+			ps.down = true;
 			break;
 		case 'k':
 			ps.up = true;
@@ -1052,7 +905,7 @@ int main() {
 			ps.right = true;
 			break;
 		case 'h':
-			ps.left = true; 
+			ps.left = true;
 			break;
 		}
 		doom_game_tick (&ps);
