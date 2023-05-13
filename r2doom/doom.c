@@ -842,6 +842,7 @@ int main() {
 	while (true) {
 		render_callback (NULL, &ps);
 		int ch = r_cons_readchar ();
+		ch = r_cons_arrow_to_hjkl (ch);
 		if (ch == 'q') {
 			if (ps.scene == INTRO) {
 				break;
@@ -859,18 +860,22 @@ int main() {
 			} else {
 				ps.scene = GAME_PLAY;
 				ps.player.health = 100;
-				initializeLevel(sto_level_1, &ps);
+				initializeLevel (sto_level_1, &ps);
 			}
 			break;
+		case 's':
 		case 'j':
 			ps.down = true;
 			break;
+		case 'w':
 		case 'k':
 			ps.up = true;
 			break;
+		case 'd':
 		case 'l':
 			ps.right = true;
 			break;
+		case 'a':
 		case 'h':
 			ps.left = true;
 			break;
