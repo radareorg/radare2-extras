@@ -29,7 +29,7 @@ typedef struct Player {
   Coords dir;
   Coords plane;
   double velocity;
-  uint8_t health;
+  int health;
   uint8_t keys;  
 } Player;
 

@@ -56,7 +56,7 @@ const uint8_t SOUND_PIN   = 9; // do not change, belongs to used timer
 #define GAME_PLAY             1
 
 // Game
-#define GUN_TARGET_POS        18
+#define GUN_TARGET_POS        10
 #define GUN_SHOT_POS          GUN_TARGET_POS + 4
 
 #define ROT_SPEED             .12

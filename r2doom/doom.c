@@ -131,7 +131,7 @@ static void spawnFireball(double x, double y, PluginState* const ps) {
 		return;
 	}
 
-	UID uid = create_uid(E_FIREBALL, x, y);
+	UID uid = create_uid (E_FIREBALL, x, y);
 	// Remove if already exists, don't throw anything. Not the best, but shouldn't happen too often
 	if (isSpawned(uid, ps)) return;
 
@@ -223,16 +223,17 @@ static UID detectCollision(const uint8_t level[], Coords *pos, double relative_x
 // Shoot
 void fire(PluginState* const ps) {
 	//playSound(shoot_snd, SHOOT_SND_LEN);
-	for (uint8_t i = 0; i < ps->num_entities; i++) {
+	for (int i = 0; i < ps->num_entities; i++) {
 		// Shoot only ALIVE enemies
 		if (uid_get_type (ps->entity[i].uid) != E_ENEMY || ps->entity[i].state == S_DEAD || ps->entity[i].state == S_HIDDEN) {
 			continue;
 		}
-		Coords transform = translateIntoView(&(ps->entity[i].pos), ps);
+		Coords transform = translateIntoView (&(ps->entity[i].pos), ps);
 		if (fabs (transform.x) < 20 && transform.y > 0) {
-			uint8_t damage = (double) fmin(GUN_MAX_DAMAGE, GUN_MAX_DAMAGE / (fabs(transform.x) * ps->entity[i].distance) / 5);
+			double distance_div = (fabs(transform.x) * ps->entity[i].distance) / 5;
+			double damage = (double) fmin (GUN_MAX_DAMAGE, GUN_MAX_DAMAGE / distance_div);
 			if (damage > 0) {
-				ps->entity[i].health = fmax(0, ps->entity[i].health - damage);
+				ps->entity[i].health -= damage;
 				ps->entity[i].state = S_HIT;
 				ps->entity[i].timer = 4;
 			}
@@ -278,7 +279,7 @@ void updateEntities(const uint8_t level[], Canvas* const canvas, PluginState* co
 		switch (type) {
 		case E_ENEMY:
 		      // Enemy "IA"
-		      if (ps->entity[i].health == 0) {
+		      if (ps->entity[i].health <= 0) {
 			      if (ps->entity[i].state != S_DEAD) {
 				      ps->entity[i].state = S_DEAD;
 				      ps->entity[i].timer = 6;
@@ -348,17 +349,13 @@ void updateEntities(const uint8_t level[], Canvas* const canvas, PluginState* co
 			} else {
 				// Move. Only collide with walls.
 				// Note: using health to store the angle of the movement
-				UID collided = updatePosition(
-					      level,
-					      &(ps->entity[i].pos),
-					      cos((double) ps->entity[i].health / FIREBALL_ANGLES * (double)PI) * (double)FIREBALL_SPEED,
-					      sin((double) ps->entity[i].health / FIREBALL_ANGLES * (double)PI) * (double)FIREBALL_SPEED,
-					      true,
-					      ps
-					      );
-
+				UID collided = updatePosition (
+					      level, &(ps->entity[i].pos),
+					      cos ((double) ps->entity[i].health / FIREBALL_ANGLES * (double)PI) * (double)FIREBALL_SPEED,
+					      sin ((double) ps->entity[i].health / FIREBALL_ANGLES * (double)PI) * (double)FIREBALL_SPEED,
+					      true, ps);
 				if (collided) {
-				      removeEntity(ps->entity[i].uid, ps);
+				      removeEntity (ps->entity[i].uid, ps);
 				      continue; // continue in the entity check loop
 				}
 			}
@@ -368,7 +365,7 @@ void updateEntities(const uint8_t level[], Canvas* const canvas, PluginState* co
 				// pickup
 				//playSound(medkit_snd, MEDKIT_SND_LEN);
 				ps->entity[i].state = S_HIDDEN;
-				ps->player.health = fmin(100, ps->player.health + 50);
+				ps->player.health = fmin (100, ps->player.health + 50);
 				updateHud (canvas, ps);
 				flash_screen = 1;
 			}
@@ -616,15 +613,15 @@ void renderEntities(double view_height, Canvas* const canvas, PluginState* const
 	}
 }
 
-void renderGun(uint8_t gun_pos, double amount_jogging, Canvas* const canvas) {
+void renderGun(int gun_pos, double amount_jogging, Canvas* const canvas) {
 	// jogging
-	int t = tick();
+	int t = tick ();
 	char x = 48 + sin((double) t * (double)JOGGING_SPEED) * 10 * amount_jogging;
-	char y = RENDER_HEIGHT - gun_pos + fabs(cos((double) t * (double)JOGGING_SPEED)) * 8 * amount_jogging;
+	char y = RENDER_HEIGHT - gun_pos + fabs (cos ((double) t * (double)JOGGING_SPEED)) * 8 * amount_jogging;
 
 	if (gun_pos > GUN_SHOT_POS - 2) {
 		// Gun fire
-		drawBitmap(x + 6, y - 11, &I_fire_inv, BMP_FIRE_WIDTH, BMP_FIRE_HEIGHT, 1, canvas);
+		drawBitmap (x + 6, y - 11, &I_fire_inv, BMP_FIRE_WIDTH, BMP_FIRE_HEIGHT, 1, canvas);
 	}
 
 	// Don't draw over the hud!
@@ -645,9 +642,9 @@ void renderHud(Canvas* const canvas, PluginState* ps) {
 	// drawRect (0, 57, SCREEN_WIDTH, SCREEN_HEIGHT - 56, canvas); // "-", 0
 	////  clearRect (2, 58, SCREEN_WIDTH - 4, 6, canvas);
 	// clearRect(2, 58, SCREEN_WIDTH - 4, SCREEN_HEIGHT - 64, canvas); // "-", 0
-	drawTextSpace(2, y+2, "{}", 0, canvas);        // Health symbol
-	drawTextSpace(40, y+2, "[]", 0, canvas);       // Keys symbol
-	updateHud(canvas, ps);
+	drawTextSpace (2, y + 3, "{}", 0, canvas);        // Health symbol
+	drawTextSpace (40, y + 2, "[]", 0, canvas);       // Keys symbol
+	updateHud (canvas, ps);
 	drawHLine (0, y + 2, SCREEN_WIDTH, Color_YELLOW);
 }
 
@@ -693,7 +690,7 @@ void loopIntro(Canvas* const canvas) {
 			   " `''                                                                      ``'\n" ;
 	r_cons_printf ("Press 'q' to quit\n\n%s\n", logo);
 
-	drawTextSpace(16, SCREEN_HEIGHT - 8, "PRESS FIRE", 1, canvas);
+	drawTextSpace (16, SCREEN_HEIGHT - 8, "PRESS FIRE", 1, canvas);
 }
 
 static void render_callback(Canvas* const canvas, void* ctx) {
@@ -714,16 +711,16 @@ static void render_callback(Canvas* const canvas, void* ctx) {
 	}
 #endif
 	// canvas_set_font(canvas, FontPrimary);
-	switch (ps->scene){
+	switch (ps->scene) {
 	case INTRO:
-		loopIntro(canvas);
+		loopIntro (canvas);
 		break;
 	case GAME_PLAY:
 	       updateEntities (sto_level_1, canvas, ps);
 	       updateHud (canvas, ps);
 	       renderMap (sto_level_1, ps->view_height, canvas, ps);
 	       renderEntities (ps->view_height, canvas, ps);
-	       renderGun (ps->gun_pos,ps->jogging, canvas);
+	       renderGun (ps->gun_pos, ps->jogging, canvas);
 	       renderHud (canvas, ps);
 	       renderStats (canvas, ps);
 	       break;
@@ -756,22 +753,21 @@ static void doom_game_tick(PluginState* const ps){
 	if (display_buf == NULL) {
 		display_buf = calloc (SCREEN_WIDTH, SCREEN_HEIGHT);
 	}
-	if(ps->scene == GAME_PLAY){
-		fps();
-		//memset(display_buf, 0, SCREEN_WIDTH * (RENDER_HEIGHT / 8));
-		//player is alive
-		if (ps->player.health > 0){
-			if (ps->up){
+	if (ps->scene == GAME_PLAY) {
+		fps ();
+		// player is alive
+		if (ps->player.health > 0) {
+			if (ps->up) {
 				ps->player.velocity += ((double)MOV_SPEED - ps->player.velocity) * (double).4;
 				ps->jogging = fabs(ps->player.velocity) * MOV_SPEED_INV;
 				// ps->player.pos.x++;
 				ps->up = false;
-			}else if (ps->down){
+			} else if (ps->down){
 				// ps->player.pos.x--;
 				ps->player.velocity += (- (double)MOV_SPEED - ps->player.velocity) * (double).4;
 				ps->jogging = fabs(ps->player.velocity) * MOV_SPEED_INV;
 				ps->down = false;
-			}else {
+			} else {
 				ps->player.velocity *= (double).5;
 				ps->jogging = fabs(ps->player.velocity) * MOV_SPEED_INV;
 			}
@@ -795,19 +791,20 @@ static void doom_game_tick(PluginState* const ps){
 				ps->player.plane.y = ps->old_plane_x * sin(ps->rot_speed) + ps->player.plane.y * cos(ps->rot_speed);
 				ps->left = false;
 			}
-			ps->view_height = fabs(sin((double) tick() * (double)JOGGING_SPEED)) * 6 * ps->jogging;
+			ps->view_height = fabs (sin ((double) tick() * (double)JOGGING_SPEED)) * 6 * ps->jogging;
 
 			if (ps->gun_pos > GUN_TARGET_POS) {
 				ps->gun_pos -= 1;
-			} else if (ps->gun_pos < GUN_TARGET_POS){
+			} else if (ps->gun_pos < GUN_TARGET_POS) {
 				ps->gun_pos += 2;
-			} else if (!ps->gun_fired && ps->fired){
+			} else if (!ps->gun_fired && ps->fired) {
 				ps->gun_pos = GUN_SHOT_POS;
 				ps->gun_fired = true;
+				fire (ps);
 				ps->fired = false;
-				fire(ps);
-			} else if (ps->gun_fired && !ps->fired){
+			} else if (ps->gun_fired) { // && !ps->fired) {
 				ps->gun_fired = false;
+				ps->fired = false;
 			}
 		} else {
 			// Player is dead
@@ -819,7 +816,7 @@ static void doom_game_tick(PluginState* const ps){
 			}
 		}
 
-		if (fabs(ps->player.velocity) > (double)0.003){
+		if (fabs (ps->player.velocity) > (double)0.003) {
 			updatePosition (sto_level_1, &(ps->player.pos),
 				ps->player.dir.x * ps->player.velocity * delta,
 				ps->player.dir.y * ps->player.velocity * delta,
