@@ -132,7 +132,7 @@ int notes_index(int i, int black, int from) {
 // #define pf printf
 #define pf r_cons_printf
 
-int print_piano (int off, int nth, int pressed) {
+int print_piano(int off, int nth, int pressed) {
 	int i, y;
 	int och = 0;
 	for (y = 0; y <7; y++) {
@@ -201,6 +201,6 @@ int print_piano (int off, int nth, int pressed) {
 
 #if 0
 main() {
-	print_piano (0, 30);
+	print_piano (0, 30, 1);
 }
 #endif

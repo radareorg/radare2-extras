@@ -1484,7 +1484,7 @@ static bool au_play(RCore *core) {
 	return false;
 }
 
-static int _cmd_au (RCore *core, const char *args) {
+static int _cmd_au(RCore *core, const char *args) {
 	switch (*args) {
 	case 'i': // "aui"
 		// setup arguments here
@@ -1561,10 +1561,10 @@ static int _cmd_au (RCore *core, const char *args) {
 	case 'w': // "auw"
 		// write pattern here
 		{
-		captureBlocksize();
+		captureBlocksize ();
 		au_write (core, args + 1);
 		r_core_block_read (core);
-		restoreBlocksize();
+		restoreBlocksize ();
 		}
 		break;
 	case 'b': // "aub"
@@ -1576,10 +1576,10 @@ static int _cmd_au (RCore *core, const char *args) {
 		break;
 	case 'o': // "auo"
 		if (args[1]) {
-			captureBlocksize();
+			captureBlocksize ();
 			au_operate (core, args + 1);
 			r_core_block_read (core);
-			restoreBlocksize();
+			restoreBlocksize ();
 		} else {
 			eprintf ("Usage: auo[+-*/] [val]\n");
 		}
