@@ -1,4 +1,5 @@
 // doom port for radare2 based on the flipper zero one
+// -- pancake
 
 #include <r_cons.h>
 #include <stdlib.h>
@@ -11,11 +12,11 @@
 #include "types.h"
 #include "level.h"
 
-int SCREEN_WIDTH =  128;
-int SCREEN_HEIGHT =  64;
-int HALF_WIDTH =  64;
-int RENDER_HEIGHT =  56;         // raycaster working height (the rest is for the hud)
-int HALF_HEIGHT =  32;
+int SCREEN_WIDTH = 128;
+int SCREEN_HEIGHT = 64;
+int HALF_WIDTH = 64;
+int RENDER_HEIGHT = 56; // raycaster working height (the rest is for the hud)
+int HALF_HEIGHT = 32;
 
 // Useful macros
 #define swap(a, b) do { typeof(a) temp = a; a = b; b = temp; } while (0)
@@ -24,8 +25,7 @@ int HALF_HEIGHT =  32;
 
 int tick(void) {
 	static int t = 0;
-	t++;
-	return t;
+	return ++t;
 }
 
 typedef struct {
@@ -574,8 +574,7 @@ void renderEntities(double view_height, Canvas* const canvas, PluginState* const
 					      // stand
 					      sprite = 0;
 				      }
-
-				      drawSprite(
+				      drawSprite (
 						      sprite_screen_x - BMP_IMP_WIDTH * (double).5 / transform.y,
 						      sprite_screen_y - 8 / transform.y,
 						      imp_inv,
@@ -589,42 +588,29 @@ void renderEntities(double view_height, Canvas* const canvas, PluginState* const
 				      break;
 			      }
 		case E_FIREBALL:
-			 drawSprite(
+			 drawSprite (
 				 sprite_screen_x - BMP_FIREBALL_WIDTH / 2 / transform.y,
 				 sprite_screen_y - BMP_FIREBALL_HEIGHT / 2 / transform.y,
-				 fireball,
-				 fireball_mask,
+				 fireball, fireball_mask,
 				 BMP_FIREBALL_WIDTH,
 				 BMP_FIREBALL_HEIGHT,
-				 0,
-				 transform.y,
-				 Color_RED);
+				 0, transform.y, Color_RED);
 			 break;
 		case E_MEDIKIT:
-			drawSprite(
-					sprite_screen_x - BMP_ITEMS_WIDTH / 2 / transform.y,
-					sprite_screen_y + 5 / transform.y,
-					item,
-					item_mask,
-					BMP_ITEMS_WIDTH,
-					BMP_ITEMS_HEIGHT,
-					0,
-					transform.y,
-				      Color_CYAN
-				  );
+			 drawSprite (sprite_screen_x - BMP_ITEMS_WIDTH / 2 / transform.y,
+				sprite_screen_y + 5 / transform.y,
+				item, item_mask,
+				BMP_ITEMS_WIDTH,
+				BMP_ITEMS_HEIGHT,
+				0, transform.y, Color_CYAN);
 			break;
 		case E_KEY:
-			drawSprite(
-				    sprite_screen_x - BMP_ITEMS_WIDTH / 2 / transform.y,
-				    sprite_screen_y + 5 / transform.y,
-				    item,
-				    item_mask,
-				    BMP_ITEMS_WIDTH,
-				    BMP_ITEMS_HEIGHT,
-				    1,
-				    transform.y,
-				      Color_YELLOW
-				  );
+			drawSprite (sprite_screen_x - BMP_ITEMS_WIDTH / 2 / transform.y,
+				sprite_screen_y + 5 / transform.y,
+				item, item_mask,
+				BMP_ITEMS_WIDTH,
+				BMP_ITEMS_HEIGHT,
+				1, transform.y, Color_YELLOW);
 			break;
 		}
 	}
@@ -654,27 +640,21 @@ void renderGun(uint8_t gun_pos, double amount_jogging, Canvas* const canvas) {
 // Only needed first time
 void renderHud(Canvas* const canvas, PluginState* ps) {
 	int y = RENDER_HEIGHT;
-#if 0
-	drawRect(0, 57, SCREEN_WIDTH, SCREEN_HEIGHT - 56, canvas); // "-", 0
-	clearRect(2, 58, SCREEN_WIDTH - 4, 6, canvas);
-	// clearRect(2, 58, SCREEN_WIDTH - 4, SCREEN_HEIGHT - 64, canvas); // "-", 0
-	drawTextSpace(2, 58, "{}", 0, canvas);        // Health symbol
-	drawTextSpace(40, 58, "[]", 0, canvas);       // Keys symbol
-#else
-	drawRect(0, y+1, SCREEN_WIDTH, SCREEN_HEIGHT -y+1, canvas); // "-", 0
-	clearRect(2, y+2, SCREEN_WIDTH - 3, SCREEN_HEIGHT-y-2, canvas);
-	// clearRect(2, y+1, SCREEN_WIDTH - 4, 6, canvas);
+	// clearRect (0, y + 2, SCREEN_WIDTH - 3, SCREEN_HEIGHT-y-2, canvas);
+	clearHLines (y, SCREEN_HEIGHT-y);
+	// drawRect (0, 57, SCREEN_WIDTH, SCREEN_HEIGHT - 56, canvas); // "-", 0
+	////  clearRect (2, 58, SCREEN_WIDTH - 4, 6, canvas);
 	// clearRect(2, 58, SCREEN_WIDTH - 4, SCREEN_HEIGHT - 64, canvas); // "-", 0
 	drawTextSpace(2, y+2, "{}", 0, canvas);        // Health symbol
 	drawTextSpace(40, y+2, "[]", 0, canvas);       // Keys symbol
-#endif
 	updateHud(canvas, ps);
+	drawHLine (0, y + 2, SCREEN_WIDTH, Color_YELLOW);
 }
 
 // Render values for the HUD
 void updateHud(Canvas* const canvas, PluginState* ps) {
 	int y = RENDER_HEIGHT + 2;
-	clearRect (12, y, 15, 6, canvas);
+	// clearRect (12, y, 15, 6, canvas);
 	// clearRect(50, 58, 15, 6, canvas);
 	drawText (12, y, ps->player.health, canvas);
 	drawText (50, y, ps->player.keys, canvas);

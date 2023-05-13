@@ -166,12 +166,13 @@ void drawPixel(int x, int y, bool color, bool raycasterViewport, const char *ans
 void drawChar(int x, int y, char ch, Canvas* const canvas){
 	uint8_t lsb;
 	uint8_t c = 0;
-	while (CHAR_MAP[c] != ch && CHAR_MAP[c] != '\0') c++;
-	for(uint8_t i = 0; i < 6; i++){
-		//lsb = (char_arr[c][i] >> 4);
-		lsb = reverse_bits(char_arr[c][i]);
+	while (CHAR_MAP[c] != ch && CHAR_MAP[c] != '\0') {
+		c++;
+	}
+	for (uint8_t i = 0; i < 6; i++){
+		lsb = reverse_bits (char_arr[c][i]);
 		for (int n = 0; n < 4; n++){
-			if(CHECK_BIT(lsb, n)){
+			if (CHECK_BIT(lsb, n)){
 				drawPixel(x+n, y+i, true, false, NULL);
 			}    
 		}
@@ -181,23 +182,40 @@ void drawChar(int x, int y, char ch, Canvas* const canvas){
 
 void clearRect(int x, int y, int w, int h, Canvas* const canvas){
 	// canvas_invert_color(canvas);
-
-	int i;
-	for(i = 0; i < w; i++){
-		for(int j = 0; j < h; j++){
-			canvas_draw_dot(x+i, y+j, ' ');
+	int i, j;
+	for (i = 0; i < w; i++) {
+		for (j = 0; j < h; j++) {
+			canvas_draw_dot (x + i, y + j, ' ');
 		}
 	}
+	// canvas_invert_color (canvas);
+}
 
-	// canvas_invert_color(canvas);
+void clearHLines(int y, int h) {
+	int i;
+	for (i = 0; i < h; i++) {
+		r_cons_gotoxy (0, y + i);
+		r_cons_printf ("%s", R_CONS_CLEAR_LINE);
+	}
 }
 
 void drawRect(int x, int y, int w, int h, Canvas* const canvas){
 	for(int i = 0; i < w; i++) {
 		for (int j = 0; j < h; j++){
-			canvas_draw_dot(x+i, y+j, '|');
+			canvas_draw_dot (x + i, y + j, '|');
 		}
 	}
+}
+
+void drawHLine (int x, int y, int w, const char *color) {
+	char *line = malloc (w + 1);
+	memset (line, '-', w - 2);
+	line[0] = '.';
+	line[w - 1] = '.';
+	line[w] = 0;
+	r_cons_gotoxy (x, y);
+	r_cons_printf ("%s", line);
+	free (line);
 }
 
 #if 0
