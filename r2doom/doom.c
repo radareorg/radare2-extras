@@ -17,9 +17,6 @@ int HALF_WIDTH =  64;
 int RENDER_HEIGHT =  56;         // raycaster working height (the rest is for the hud)
 int HALF_HEIGHT =  32;
 
-// Seems buggy
-#define USE_COLLISIONS 0
-
 // Useful macros
 #define swap(a, b) do { typeof(a) temp = a; a = b; b = temp; } while (0)
 #define sign(a, b) (double) (a > b ? 1 : (b > a ? -1 : 0))
@@ -184,13 +181,13 @@ void removeStaticEntity(UID uid, PluginState* const ps) {
 
 static UID detectCollision(const uint8_t level[], Coords *pos, double relative_x, double relative_y, bool only_walls, PluginState* const ps) {
 	// Wall collision
-	uint8_t round_x = (int)pos->x + (int)relative_x;
-	uint8_t round_y = (int)pos->y + (int)relative_y;
-	uint8_t block = getBlockAt(level, round_x, round_y);
+	int round_x = (int)(pos->x + relative_x);
+	int round_y = (int)(pos->y + relative_y);
+	uint8_t block = getBlockAt (level, round_x, round_y);
 
 	if (block == E_WALL) {
 		//playSound(hit_wall_snd, HIT_WALL_SND_LEN);
-		return create_uid(block, round_x, round_y);
+		return create_uid (block, round_x, round_y);
 	}
 
 	if (only_walls) {
@@ -198,7 +195,7 @@ static UID detectCollision(const uint8_t level[], Coords *pos, double relative_x
 	}
 
 	// Entity collision
-	for (int i=0; i < ps->num_entities; i++) {
+	for (int i = 0; i < ps->num_entities; i++) {
 		// Don't collide with itself
 		if (&(ps->entity[i].pos) == pos) {
 			continue;
@@ -212,7 +209,7 @@ static UID detectCollision(const uint8_t level[], Coords *pos, double relative_x
 		}
 
 		Coords new_coords = { ps->entity[i].pos.x - relative_x, ps->entity[i].pos.y - relative_y };
-		uint8_t distance = coords_distance(pos, &new_coords);
+		double distance = coords_distance(pos, &new_coords);
 
 		// Check distance and if it's getting closer
 		if (distance < ENEMY_COLLIDER_DIST && distance < ps->entity[i].distance) {
@@ -228,11 +225,11 @@ void fire(PluginState* const ps) {
 	//playSound(shoot_snd, SHOOT_SND_LEN);
 	for (uint8_t i = 0; i < ps->num_entities; i++) {
 		// Shoot only ALIVE enemies
-		if (uid_get_type(ps->entity[i].uid) != E_ENEMY || ps->entity[i].state == S_DEAD || ps->entity[i].state == S_HIDDEN) {
+		if (uid_get_type (ps->entity[i].uid) != E_ENEMY || ps->entity[i].state == S_DEAD || ps->entity[i].state == S_HIDDEN) {
 			continue;
 		}
 		Coords transform = translateIntoView(&(ps->entity[i].pos), ps);
-		if (fabs(transform.x) < 20 && transform.y > 0) {
+		if (fabs (transform.x) < 20 && transform.y > 0) {
 			uint8_t damage = (double) fmin(GUN_MAX_DAMAGE, GUN_MAX_DAMAGE / (fabs(transform.x) * ps->entity[i].distance) / 5);
 			if (damage > 0) {
 				ps->entity[i].health = fmax(0, ps->entity[i].health - damage);
@@ -244,20 +241,10 @@ void fire(PluginState* const ps) {
 }
 
 UID updatePosition(const uint8_t level[], Coords *pos, double relative_x, double relative_y, bool only_walls, PluginState* const ps) {
-	UID collide_x = detectCollision(level, pos, relative_x, 0, only_walls, ps);
-	UID collide_y = detectCollision(level, pos, 0, relative_y, only_walls, ps);
-#if USE_COLLISIONS
-#if 1
+	UID collide_x = detectCollision (level, pos, relative_x, 0, only_walls, ps);
+	UID collide_y = detectCollision (level, pos, 0, relative_y, only_walls, ps);
 	if (!collide_x) pos->x += relative_x;
 	if (!collide_y) pos->y += relative_y;
-#else
-	if (collide_x) relative_y *= -1;
-	if (collide_y) relative_x *= -1;
-#endif
-#else
-	pos->x += relative_x;
-	pos->y += relative_y;
-#endif
 	return collide_x || collide_y || UID_null;
 }
 

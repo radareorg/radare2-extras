@@ -38,7 +38,7 @@ static inline Coords create_coords(double x, double y) {
 	return cord;
 }
 
-static inline uint8_t coords_distance(Coords* a, Coords* b) {
+static inline double coords_distance(Coords* a, Coords* b) {
 	return sqrt(sq(a->x - b->x) + sq(a->y - b->y)) * 20;
 }
 
