@@ -15,20 +15,20 @@
 static const float MUSIC_PLAYER_VOLUMES[] = {0, .25, .5, .75, 1};
 
 typedef struct {
-    uint8_t semitone_history[MUSIC_PLAYER_SEMITONE_HISTORY_SIZE];
-    uint8_t duration_history[MUSIC_PLAYER_SEMITONE_HISTORY_SIZE];
+	uint8_t semitone_history[MUSIC_PLAYER_SEMITONE_HISTORY_SIZE];
+	uint8_t duration_history[MUSIC_PLAYER_SEMITONE_HISTORY_SIZE];
 
-    uint8_t volume;
-    uint8_t semitone;
-    uint8_t dots;
-    uint8_t duration;
-    float position;
+	uint8_t volume;
+	uint8_t semitone;
+	uint8_t dots;
+	uint8_t duration;
+	float position;
 } MusicPlayerModel;
 
 typedef struct {
-    MusicPlayerModel* model; 
-    MusicPlayerWorker* worker;
-    FuriMutex** model_mutex;
+	MusicPlayerModel* model; 
+	MusicPlayerWorker* worker;
+	FuriMutex** model_mutex;
 } MusicPlayer;
 
 

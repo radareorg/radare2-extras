@@ -4,25 +4,6 @@
 #include <r_lib.h>
 #include <r_asm.h>
 #include <r_anal.h>
-#include "cpu.h"
-
-static int typeChar(const ut8 t) {
-	const char *str = "sczZpntsid";
-	if (t < strlen (str)) {
-		return str[t];
-	}
-	return '?';
-}
-
-static void aucpu_esil_wave(RAnalOp *op, const ut8 *data) {
-	int type = typeChar(data[1]);
-	int freq = ((data[2]<< 8) | data[3]) << 2;
-	if (freq == 0) {
-		r_strbuf_setf (&op->esil, ","); // do nothing
-	} else {
-		r_strbuf_setf (&op->esil, "#!auw%c %d@ r0!r1", type, freq);
-	}
-}
 
 static int _au_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *data, int len) {
 	if (len < 4) {

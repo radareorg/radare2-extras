@@ -41,11 +41,14 @@ typedef struct {
 	double view_height;
 	bool init;
 
-
 	bool up;
 	bool down;
 	bool left;
 	bool right;
+#if 0
+	bool strife_left;
+	bool strife_right;
+#endif
 	bool fired;
 	bool gun_fired;
 
@@ -688,7 +691,7 @@ void loopIntro(Canvas* const canvas) {
 			   "=='    _-'                                                            \\/   `==\n" \
 			   "\\   _-'                                                                `-_   /\n" \
 			   " `''                                                                      ``'\n" ;
-	r_cons_printf ("Press 'q' to quit\n\n%s\n", logo);
+	r_cons_printf ("Press 'Q' to quit\n\n%s\n", logo);
 
 	drawTextSpace (16, SCREEN_HEIGHT - 8, "PRESS FIRE", 1, canvas);
 }
@@ -749,7 +752,7 @@ static void doom_state_init(PluginState* const ps) {
 	ps->gun_fired = false;
 }
 
-static void doom_game_tick(PluginState* const ps){
+static void doom_game_tick(PluginState* const ps) {
 	if (display_buf == NULL) {
 		display_buf = calloc (SCREEN_WIDTH, SCREEN_HEIGHT);
 	}
@@ -762,16 +765,24 @@ static void doom_game_tick(PluginState* const ps){
 				ps->jogging = fabs(ps->player.velocity) * MOV_SPEED_INV;
 				// ps->player.pos.x++;
 				ps->up = false;
-			} else if (ps->down){
+			} else if (ps->down) {
 				// ps->player.pos.x--;
 				ps->player.velocity += (- (double)MOV_SPEED - ps->player.velocity) * (double).4;
 				ps->jogging = fabs(ps->player.velocity) * MOV_SPEED_INV;
 				ps->down = false;
 			} else {
 				ps->player.velocity *= (double).5;
-				ps->jogging = fabs(ps->player.velocity) * MOV_SPEED_INV;
+				ps->jogging = fabs (ps->player.velocity) * MOV_SPEED_INV;
 			}
-
+#if 0
+			if (ps->strife_left) {
+				ps->player.velocity += ((double)MOV_SPEED - ps->player.velocity) * (double).4;
+				ps->strife_left = false;
+			} else if (ps->strife_right) {
+				ps->player.velocity += ((double)MOV_SPEED - ps->player.velocity) * (double).4;
+				ps->strife_right = false;
+			}
+#endif
 			if (ps->right) {
 				ps->rot_speed = (double)ROT_SPEED * delta;
 				ps->old_dir_x = ps->player.dir.x;
@@ -840,7 +851,7 @@ int main() {
 		render_callback (NULL, &ps);
 		int ch = r_cons_readchar ();
 		ch = r_cons_arrow_to_hjkl (ch);
-		if (ch == 'q') {
+		if (ch == 'Q') {
 			if (ps.scene == INTRO) {
 				break;
 			}
@@ -860,6 +871,14 @@ int main() {
 				initializeLevel (sto_level_1, &ps);
 			}
 			break;
+#if 0
+		case 'q':
+			ps.strife_left = true;
+			break;
+		case 'e':
+			ps.strife_right = true;
+			break;
+#endif
 		case 's':
 		case 'j':
 			ps.down = true;

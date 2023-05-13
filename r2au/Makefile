@@ -1,4 +1,9 @@
-CFLAGS+=$(shell pkg-config --cflags r_util ao)
+CFLAGS+=$(shell pkg-config --cflags r_util r_arch)
+AO_CFLAGS+=$(shell pkg-config --cflags ao)
+ifeq ($(AO_CFLAGS),)
+error install libao
+endif
+CFLAGS+=$(AO_CFLAGS)
 #CFLAGS+=-fsanitize=address
 CFLAGS+=-g -fPIC 
 LDFLAGS+=$(shell pkg-config --libs r_util r_io r_cons r_core)
@@ -10,23 +15,22 @@ endif
 LIBEXT=$(shell r2 -H LIBEXT)
 R2P=$(shell r2 -H R2_USER_PLUGINS)
 
-LIBS=core_au.$(LIBEXT) asm_au.$(LIBEXT) anal_au.$(LIBEXT)
+LIBS=core_au.$(LIBEXT) arch_au.$(LIBEXT)
 
 all: $(LIBS)
 
-asm_au.$(LIBEXT): asm_au.c
-	$(CC) $(CFLAGS) $(LDFLAGS) asm_au.c -o asm_au.$(LIBEXT)
+arch_au.$(LIBEXT): arch_au.c
+	$(CC) $(CFLAGS) $(LDFLAGS) arch_au.c -o arch_au.$(LIBEXT)
 
-anal_au.$(LIBEXT): anal_au.c
-	$(CC) $(CFLAGS) $(LDFLAGS) anal_au.c -o anal_au.$(LIBEXT)
+#anal_au.$(LIBEXT): anal_au.c
+#	$(CC) $(CFLAGS) $(LDFLAGS) anal_au.c -o anal_au.$(LIBEXT)
 
 core_au.$(LIBEXT): core_au.c noise.c
 	$(CC) $(CFLAGS) $(LDFLAGS) noise.c core_au.c -o core_au.$(LIBEXT)
 
-install:
+user-install install:
 	mkdir -p $(R2P)
-	cp -rf asm_au.$(LIBEXT)* $(R2P)
-	cp -rf anal_au.$(LIBEXT)* $(R2P)
+	cp -rf arch_au.$(LIBEXT)* $(R2P)
 	cp -rf core_au.$(LIBEXT)* $(R2P)
 
 clean:

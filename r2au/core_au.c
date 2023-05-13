@@ -702,7 +702,11 @@ static bool au_write(RCore *core, const char *args) {
 	}
 	switch (*args) {
 	case ' ':
-		au_write (core, sdb_fmt ("%c %s", defaultShape, args + 1));
+		{
+			char *s = r_str_newf ("%c %s", defaultShape, args + 1);
+			au_write (core, s);
+			free (s);
+		}
 		break;
 	case '?':
 		au_help (core);
@@ -1149,11 +1153,11 @@ static bool au_visual(RCore *core) {
 	r_cons_print_clear ();
 	r_cons_clear00 ();
 
-	ut64 now, base = r_sys_now () / 1000 / 500;
+	ut64 now, base = r_time_now () / 1000 / 500;
 	int otdiff = 0;
 	bool keyboard_visible = false;
 	while (true) {
-		now = r_sys_now () / 1000 / 500;
+		now = r_time_now () / 1000 / 500;
 		int tdiff = now - base;
 		const char *wave = asciis (tdiff);
 		const char *waveName = asciin (waveType);
