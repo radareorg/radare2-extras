@@ -1,4 +1,4 @@
-/* radare - MIT - Copyright 2018 - pancake */
+/* radare - MIT - Copyright 2018-2023 - pancake */
 
 #if 0
 gcc -o core_au.so -fPIC `pkg-config --cflags --libs r_core` core_test.c -shared
@@ -686,12 +686,12 @@ static char defaultShape = 0;
 static bool au_write(RCore *core, const char *args) {
 	int size = 0;
 	ut8 *sample = NULL;
-	ut64 narg = *args? r_num_math (core->num, args + 1): 0;
-	float arg = narg;
 	if (*args == '?') {
 		au_help (core);
 		return true;
 	}
+	ut64 narg = *args? r_num_math (core->num, args + 1): 0;
+	float arg = narg;
 	if (arg == 0) {
 		if (*args) {
 			defaultShape = *args;
@@ -760,21 +760,49 @@ static bool au_write(RCore *core, const char *args) {
 	return true;
 }
 
-const char *asciiWaveSin[4] = {
+
+#if 0
+https://www.fileformat.info/info/unicode/block/braille_patterns/utf8test.htm
+⡇
+⡠⠊⠉⠢⣀⡠⠊⠉⠢⣀
+⠉⠢⣀⡠⠊⠉⠢⣀⡠⠊
+⠉⣇⣸⠉⣇⣸⠉⣇⣸
+#endif
+
+const char *asciiWaveSin[5] = {
+	"⡠⠊⠉⠢⣀⡠⠊⠉⠢⣀",
+	"⠊⠉⠢⣀⡠⠊⠉⠢⣀⡠",
+	"⠉⠢⣀⡠⠊⠉⠢⣀⡠⠊",
+	"⠢⣀⡠⠊⠉⠢⣀⡠⠊⠉",
+	"⣀⡠⠊⠉⠢⣀⡠⠊⠉⠢",
+};
+const char *_asciiWaveSin[4] = {
 	".''.''.'",
 	"''.''.''",
 	"'.''.''.",
 	".''.''.'",
 };
 
-const char *asciiWaveCos[4] = {
+const char *asciiWaveCos[5] = {
+	"⠉⠢⣀⡠⠊⠉⠢⣀⡠⠊",
+	"⠊⠉⠢⣀⡠⠊⠉⠢⣀⡠",
+	"⡠⠊⠉⠢⣀⡠⠊⠉⠢⣀",
+	"⣀⡠⠊⠉⠢⣀⡠⠊⠉⠢",
+	"⠢⣀⡠⠊⠉⠢⣀⡠⠊⠉",
+};
+const char *_asciiWaveCos[4] = {
 	"..'..'..",
 	".'..'..'",
 	"'..'..'.",
 	"..'..'..",
 };
 
-const char *asciiWaveTriangle[4] = {
+const char *asciiWaveTriangle[3] = {
+	"⡠⠊⠢⡠⠊⠢⡠⠊⠢⡠⠊⠢",
+	"⠊⠢⡠⠊⠢⡠⠊⠢⡠⠊⠢⡠",
+	"⠢⡠⠊⠢⡠⠊⠢⡠⠊⠢⡠⠊"
+};
+const char *_asciiWaveTriangle[4] = {
 	"/\\/\\/\\/\\",
 	"\\/\\/\\/\\/",
 	"/\\/\\/\\/\\",
@@ -782,27 +810,51 @@ const char *asciiWaveTriangle[4] = {
 };
 
 const char *asciiWaveCrosses[4] = {
+	// "⡢⠪⣑⡢⠪⣑⡢⠪⣑⡢⠪⣑⡢⠪⣑⡢⠪⣑
+	"⠪⡢⠪⡢⠪⡢⠪⡢⠪⡢⠪",
+	"⡢⠪⡢⠪⡢⠪⡢⠪⡢⠪⡢",
+	"⠪⡢⠪⡢⠪⡢⠪⡢⠪⡢⠪",
+	"⡢⠪⡢⠪⡢⠪⡢⠪⡢⠪⡢"
+#if 0
 	"><><><><",
 	"<><><><>",
 	"><><><><",
 	"<><><><>",
+#endif
 };
 
-const char *asciiWavePulse[4] = {
+const char *asciiWavePulse[3] = {
+	"⠉⣇⣸⠉⣇⣸⠉⣇⣸",
+	"⣇⣸⠉⣇⣸⠉⣇⣸⠉",
+	"⣸⠉⣇⣸⠉⣇⣸⠉⣇",
+};
+
+const char *_asciiWavePulse[4] = {
 	"_|'|_|'|",
 	"|'|_|'|_",
 	"'|_|'|_|",
 	"|_|'|_|'",
 };
-
 const char *asciiWaveVPulse[4] = {
+	"⣸⣀⣀⣀⣸⣀⣀⣀⣸⣀",
+	"⣀⣀⣀⣸⣀⣀⣀⣸⣀⣀",
+	"⣀⣀⣸⣀⣀⣀⣸⣀⣀⣀",
+	"⣀⣸⣀⣀⣀⣸⣀⣀⣀⣸",
+#if 0
 	"__'___'_",
 	"_'___'__",
 	"'___'___",
 	"___'___'",
+#endif
 };
 
 const char *asciiWaveNoise[4] = {
+	"⠵⠉⢬⢕⠲⠋⢮⣆",
+	"⡓⠳⢡⣕⢒⢅⡉⣪",
+	"⠺⢺⢃⡰⡫⠛⠞⢼",
+	"⡄⠌⡲⠒⢨⣈⡴⡛",
+};
+const char *_asciiWaveNoise[4] = {
 	"/:./|.:/",
 	":./|.:/:",
 	"./|.:/:.",
@@ -816,28 +868,55 @@ const char *asciiWaveSilence[4] = {
 	"________",
 };
 
-const char *asciiWaveIncrement[4] = {
-	"_..---''",
-	".__---''",
-	"...===''",
-	"_..---\"\"",
+const char *asciiWaveIncrement[9] = {
+	"⣀⣀⣀⣀⣀⣀⣀⣀⣀",
+	"⣀⣀⣀⣀⣀⣀⣀⣀⠤",
+	"⣀⣀⣀⣀⣀⣀⠤⠤⠒",
+	"⣀⣀⣀⣀⠤⠤⠒⠒⠉",
+	"⣀⣀⠤⠤⠒⠒⠉⠉⠉",
+	"⣀⠤⠤⠒⠒⠉⠉⠉⠉",
+	"⠤⠤⠒⠒⠉⠉⠉⠉⠉",
+	"⠒⠒⠉⠉⠉⠉⠉⠉⠉",
+	"⠉⠉⠉⠉⠉⠉⠉⠉⠉",
 };
 
-const char *asciiWaveDecrement[4] = {
+const char *asciiWaveDecrement[9] = {
+	"⠉⠉⠉⠉⠉⠉⠉⠉⠉",
+	"⠒⠒⠉⠉⠉⠉⠉⠉⠉",
+	"⠤⠤⠒⠒⠉⠉⠉⠉⠉",
+	"⣀⠤⠤⠒⠒⠉⠉⠉⠉",
+	"⣀⣀⠤⠤⠒⠒⠉⠉⠉",
+	"⣀⣀⣀⣀⠤⠤⠒⠒⠉",
+	"⣀⣀⣀⣀⣀⣀⠤⠤⠒",
+	"⣀⣀⣀⣀⣀⣀⣀⣀⠤",
+	"⣀⣀⣀⣀⣀⣀⣀⣀⣀",
+#if 0
 	"\"\"---.._",
 	"''===.._",
 	"''---__.",
 	"''---.._",
+#endif
 };
 
-const char *asciiWaveSaw[4] = {
+const char *asciiWaveSaw[3] = {
+	"⡠⠊⣇⡠⠊⣇⡠⠊⣇⡠⠊⣇⡠",
+	"⠊⣇⡠⠊⣇⡠⠊⣇⡠⠊⣇⡠⠊",
+	"⣇⡠⠊⣇⡠⠊⣇⡠⠊⣇⡠⠊⣇",
+};
+const char *_asciiWaveSaw[4] = {
 	"/|/|/|/|",
 	"|/|/|/|/",
 	"/|/|/|/|",
 	"|/|/|/|/",
 };
 
-const char *asciiWaveAntiSaw[4] = {
+// scr.utf8
+const char *asciiWaveAntiSaw[3] = {
+	"⣸⠉⠢⣸⠉⠢⣸⠉⠢⣸⠉⠢⣸",
+	"⠉⠢⣸⠉⠢⣸⠉⠢⣸⠉⠢⣸⠉",
+	"⠢⣸⠉⠢⣸⠉⠢⣸⠉⠢⣸⠉⠢"
+};
+const char *_asciiWaveAntiSaw[4] = {
 	"\\|\\|\\|\\|",
 	"|\\|\\|\\|\\",
 	"\\|\\|\\|\\|",
@@ -929,7 +1008,28 @@ static const char *asciin(int waveType) {
 
 static const char *asciis(int i) {
 	int mod = waveType % WAVETYPES;
-	i %= 4;
+	switch (mod) {
+	case SHAPE_CROSSES:
+		i %= 2;
+		break;
+	case SHAPE_INC:
+	case SHAPE_DEC:
+		i %= 9;
+		break;
+	case SHAPE_SIN:
+	case SHAPE_COS:
+		i %= 5;
+		break;
+	case SHAPE_SAW:
+	case SHAPE_ANTISAW:
+	case SHAPE_TRIANGLE:
+	case SHAPE_PULSE:
+		i %= 3;
+		break;
+	default:
+		i %= 4;
+		break;
+	}
 	switch (mod) {
 	case SHAPE_SIN: return asciiWaveSin[i];
 	case SHAPE_COS: return asciiWaveCos[i];
@@ -1103,6 +1203,27 @@ static void au_setchords(RCore *core, const char *input) {
 }
 
 static bool au_visual_phone(RCore *core) {
+	const char phone_macros[] =
+	"\"\"(phone x y;auws $0@track0;auws $1@track1;s track0;aum track1;au.)\n"
+	"f track0=0;f abs=0x4000;f track1=abs;aub abs\n"
+	"(tone x;s track0;auws $0;au.)\n"
+	"\"\"(1;.(phone 697 1209))\n"
+	"\"\"(2;.(phone 697 1336))\n"
+	"\"\"(3;.(phone 697 1477))\n"
+	"\"\"(A;.(phone 697 1633))\n"
+	"\"\"(4;.(phone 770 1209))\n"
+	"\"\"(5;.(phone 770 1336))\n"
+	"\"\"(6;.(phone 770 1477))\n"
+	"\"\"(B;.(phone 770 1633))\n"
+	"\"\"(7;.(phone 852 1209))\n"
+	"\"\"(8;.(phone 852 1336))\n"
+	"\"\"(9;.(phone 852 1477))\n"
+	"\"\"(C;.(phone 852 1633))\n"
+	"\"\"(*;.(phone 941 1209))\n"
+	"\"\"(0;.(phone 941 1336))\n"
+	"\"\"(#;.(phone 941 1477))\n"
+	"\"\"(D;.(phone 941 1633))\n";
+	r_core_cmd_lines (core, phone_macros);
 	while (1) {
 		r_cons_clear00 ();
 		r_core_cmd0 (core, "aup");
@@ -1120,6 +1241,11 @@ static bool au_visual_phone(RCore *core) {
 	//	r_cons_visual_flush ();
 		int ch = r_cons_readchar_timeout (500);
 		switch (ch) {
+		case '\n':
+		case '\r':
+		case ' ':
+			phone_str[0] = 0;
+			break;
 		case 'h': if (strlen (phone_str) >0) {phone_str [ strlen (phone_str)-1 ] = 0; } break;
 		case 'l': memmove (phone_str, phone_str + 1, strlen (phone_str)); break;
 		case 127: *phone_str = 0; break;
@@ -1139,8 +1265,8 @@ static bool au_visual_phone(RCore *core) {
 			r_core_visual_prompt_input (core);
 			break;
 		case 'q':
+			phone_str[0] = 0;
 			return 0;
-			break;
 		default:
 			//printf ("KEY %d %c\n", ch, ch);
 			break;
@@ -1149,6 +1275,7 @@ static bool au_visual_phone(RCore *core) {
 }
 
 static bool au_visual(RCore *core) {
+	bool jam = false;
 	r_cons_flush ();
 	r_cons_print_clear ();
 	r_cons_clear00 ();
@@ -1168,7 +1295,7 @@ static bool au_visual(RCore *core) {
 				r_core_cmd0 (core, "s+2");
 			}
 		}
-		r_cons_printf ("[r2:auv] [0x%08"PFMT64x"] [%04x] %s %s freq %d block %d cursor %d cycle %d zoom %d\n",
+		r_cons_printf ("[r2:auv] [0x%08"PFMT64x"] [%04x] |%s| %s freq %d block %d cursor %d cycle %d zoom %d\n",
 			core->offset, tdiff, wave, waveName, waveFreq, toneSize, cursorPos, cycleSize, zoomLevel);
 		int oy, minus = 64;
 		if (keyboard_visible) {
@@ -1268,7 +1395,7 @@ static bool au_visual(RCore *core) {
 				waveFreq = r_num_math (core->num, buf);
 				I->line->contents = NULL;
 				r_core_cmdf (core, "auw%c %d", waveTypeChar, waveFreq);
-				r_core_cmd0 (core, "au.");
+				r_core_cmd0 (core, "& au.");
 			}
 			break;
 		case 'b':
@@ -1488,7 +1615,9 @@ static int _cmd_au(RCore *core, const char *args) {
 	switch (*args) {
 	case 'i': // "aui"
 		// setup arguments here
-		{
+		if (args[1] == '?') {
+			R_LOG_INFO ("Usage: aui [rate] [bits] [channels] # %d %d %d\n", WAVERATE, WAVEBITS, 1);
+		} else {
 			char *arg_freq = strchr (args, ' ');
 			int rate = WAVERATE;
 			int bits = WAVEBITS;
@@ -1497,6 +1626,10 @@ static int _cmd_au(RCore *core, const char *args) {
 				char *arg_bits = strchr (arg_freq + 1, ' ');
 				*arg_freq++ = 0;
 				rate = r_num_math (core->num, arg_freq);
+				if ((int)rate < 1) {
+					R_LOG_ERROR ("Invalid freq\n");
+					return 0;
+				}
 				if (arg_bits) {
 					*arg_bits++ = 0;
 					char *arg_chans = strchr (arg_bits, ' ');
@@ -1507,10 +1640,11 @@ static int _cmd_au(RCore *core, const char *args) {
 					}
 				}
 			}
-			int be = r_config_get_i (core->config, "cfg.bigendian");
+			bool be = r_config_get_b (core->config, "cfg.bigendian");
 			// TODO: register 'e au.rate' 'au.bits'... ?
 			eprintf ("[au] %d Hz %d bits %d channels\n", rate, bits, chan);
 			au_init (rate, bits, chan, be);
+			r_core_cmd0 (core, "-a au");
 			// ao_play (device, (char *)core->block, core->blocksize);
 		}
 		break;
@@ -1568,10 +1702,20 @@ static int _cmd_au(RCore *core, const char *args) {
 		}
 		break;
 	case 'b': // "aub"
-		if (args[1] == ' ') {
+		switch (args[1]) {
+		case ' ':
 			aBlocksize = r_num_math (core->num, args + 2);
-		} else {
-			r_cons_printf ("0x%"PFMT64x"\n", aBlocksize);
+			break;
+		case 'a':
+			au_anal (core, args + 1);
+			break;
+		case '.':
+		case 0:
+			r_cons_printf ("0x%x\n", aBlocksize);
+			break;
+		default:
+			eprintf ("Usage: aub[a] [size] - audio block size (auba to analyze)\n");
+			break;
 		}
 		break;
 	case 'o': // "auo"
@@ -1583,9 +1727,6 @@ static int _cmd_au(RCore *core, const char *args) {
 		} else {
 			eprintf ("Usage: auo[+-*/] [val]\n");
 		}
-		break;
-	case 'a': // "aua"
-		au_anal (core, args + 1);
 		break;
 	case 'p': // "aup"
 		switch (args[1]) {
@@ -1603,7 +1744,7 @@ static int _cmd_au(RCore *core, const char *args) {
 		break;
 	case '.': // "au."
 		if (args[1] == '&') {
-			eprintf ("Temporal magic\n");
+			eprintf ("Not implemented\n");
 		} else if (args[1] == ' ') {
 			int i, rep = r_num_math (core->num, args + 2);
 			r_cons_break_push (NULL, NULL);
@@ -1614,12 +1755,12 @@ static int _cmd_au(RCore *core, const char *args) {
 			}
 			r_cons_break_pop ();
 		} else {
-			captureBlocksize();
+			captureBlocksize ();
 			au_play (core);
-			restoreBlocksize();
+			restoreBlocksize ();
 		}
 		break;
-	case 'E': // "auE"
+	case 'a': // "aua"
 		au_setchords (core, r_str_trim_head_ro (args + 1));
 		break;
 	case 'N': // "auN"
@@ -1645,7 +1786,7 @@ static int _cmd_au(RCore *core, const char *args) {
 		if (args[1] == ' ') {
 			int idx = r_num_math (core->num, args + 1);
 			if (idx >= 0 && idx < TONES) {
-				r_cons_printf ("%d\n", (int)tones[idx].freq);
+				r_cons_printf ("%d\n", (int)(tones[idx].freq * 10));
 			}
 		} else {
 			for (int i = 0; i < TONES; i++) {
@@ -1655,7 +1796,7 @@ static int _cmd_au(RCore *core, const char *args) {
 				if (dolar) {
 					*dolar = '_';
 				}
-				r_cons_printf ("f tone.%s = %d # %d\n", note, (int)tones[i].freq, i);
+				r_cons_printf ("f tone.%s = %d # %d\n", note, (int)(tones[i].freq * 10), i);
 			}
 		}
 		break;
@@ -1665,20 +1806,19 @@ static int _cmd_au(RCore *core, const char *args) {
 	default:
 	case '?':
 		eprintf ("Usage: au[.abfeEimopvw] [args]\n");
-		eprintf (" au. - play current block (au.& in bg)\n");
-		eprintf (" aua - analyze wave in current block\n");
-		eprintf (" aub - audio blocksize\n");
-		eprintf (" auf - flags per freqs associated with keys\n");
-		eprintf (" aue - audio effects (arpeggio, percent, ..)\n");
-		eprintf (" auE [arpeggio] - arpeggio chords to use\n");
-		eprintf (" aui - init audio\n");
-		eprintf (" aum - mix from given address into current with bsize\n");
-		eprintf (" aun [noisetype] - select [white, pink, brown]\n");
-		eprintf (" auN [amplitudes] - space separated volume changes 100 = 1\n");
-		eprintf (" auo - apply operation with immediate\n");
-		eprintf (" aup - print wave (aupi print piano)\n");
-		eprintf (" auv - visual wave mode\n");
-		eprintf (" auw - write wave (see auw?)\n");
+		eprintf ("| au.       - play current block (au.& in bg)\n");
+		eprintf ("| aub[a]    - audio blocksize (auba - to analyze)\n");
+		eprintf ("| auf       - flags per freqs associated with keys\n");
+		eprintf ("| aue       - audio effects (arpeggio, percent, ..)\n");
+		eprintf ("| aua [arpeggio] - arpeggio chords to use\n");
+		eprintf ("| aui ([rate] [bits] [channels]) - init audio \n");
+		eprintf ("| aum       - mix from given address into current with bsize\n");
+		eprintf ("| aun [noisetype] - select [white, pink, brown]\n");
+		eprintf ("| auN [amplitudes] - space separated volume changes 100 = 1\n");
+		eprintf ("| auo       - apply operation with immediate\n");
+		eprintf ("| aup[i]    - print wave (aupi print piano)\n");
+		eprintf ("| auv       - visual wave mode (auv= for visual piano jam)\n");
+		eprintf ("| auw       - write wave (see auw?)\n");
 		break;
 	}
 	return false;

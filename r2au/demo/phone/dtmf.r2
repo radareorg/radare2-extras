@@ -6,30 +6,30 @@ f track1 = abs
 aub abs
 
 # (phone x y,s track0,auws $0,auo-,s track1,auws $1,auo_,s track0,aum track1,au.)
-"(phone x y,auws $0@track0,auws $1@track1,s track0,aum track1,au.)"
-(tone x,s track0,auws $0,au.)
+""(phone x y;auws $0@track0;auws $1@track1;s track0;aum track1;au.)
+(tone x;s track0;auws $0;au.)
 
 # .(tone 697)
 
-(1,.(phone 697 1209))
-(2,.(phone 697 1336))
-(3,.(phone 697 1477))
-(A,.(phone 697 1633))
+""(1;.(phone 697 1209))
+""(2;.(phone 697 1336))
+""(3;.(phone 697 1477))
+""(A;.(phone 697 1633))
 
-(4,.(phone 770 1209))
-(5,.(phone 770 1336))
-(6,.(phone 770 1477))
-(B,.(phone 770 1633))
+""(4;.(phone 770 1209))
+""(5;.(phone 770 1336))
+""(6;.(phone 770 1477))
+""(B;.(phone 770 1633))
 
-(7,.(phone 852 1209))
-(8,.(phone 852 1336))
-(9,.(phone 852 1477))
-(C,.(phone 852 1633))
+""(7;.(phone 852 1209))
+""(8;.(phone 852 1336))
+""(9;.(phone 852 1477))
+""(C;.(phone 852 1633))
 
-(*,.(phone 941 1209))
-(0,.(phone 941 1336))
-(#,.(phone 941 1477))
-(D,.(phone 941 1633))
+""(*;.(phone 941 1209))
+""(0;.(phone 941 1336))
+""(#;.(phone 941 1477))
+""(D;.(phone 941 1633))
 
 # .(phone 697 1209)
 # .(2);.(1);.(3);.(5);.(5);.(6);.(8)

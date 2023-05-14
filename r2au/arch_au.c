@@ -18,7 +18,7 @@ static void aucpu_esil_wave(RAnalOp *op, const ut8 *data) {
 	if (freq == 0) {
 		r_strbuf_setf (&op->esil, ","); // do nothing
 	} else {
-		r_strbuf_setf (&op->esil, "#!auw%c %d@ r0!r1", type, freq);
+		r_strbuf_setf (&op->esil, "auw%c %d@ r0!r1,#!", type, freq);
 	}
 }
 
@@ -28,11 +28,34 @@ static bool assemble(RArchSession *a, RAnalOp *op, RArchEncodeMask mask) {
 	r_str_replace_char (arg, ',', ' ');
 	RList *args = r_str_split_list (arg, " ", -1);
 	const char *mnemonic = r_list_get_n (args, 0);
-	ut8 *buf = r_asm_op_get_buf (op);
+	free (op->bytes);
+	op->bytes = malloc (32);
+	ut8 *buf = op->bytes;
 	op->size = -1;
 	if (!strcmp (mnemonic, "nop")) {
 		buf[0] = AUCPU_OP_NOP;
 		op->size = 4;
+	} else if (!strcmp (mnemonic, "add")) {
+		const char *arg0 = r_list_get_n (args, 1);
+		buf[0] = AUCPU_OP_ADD;
+		op->size = 4;
+		if (arg0 && *arg0 == 'r') {
+			buf[1] = atoi (arg0 + 1);
+			const char *arg1 = r_list_get_n (args, 2);
+			if (arg1) {
+				if (*arg1 == 'r') {
+					buf[0] = AUCPU_OP_ADDREG;
+					buf[1] |= atoi (arg0 + 1);
+					op->size = 2;
+				} else {
+					ut16 v = r_num_math (NULL, arg1);
+					buf[2] = (v >> 8) & 0xff;
+					buf[3] = (v & 0xff);
+				}
+			}
+		} else {
+			return false;
+		}
 	} else if (!strcmp (mnemonic, "mov")) {
 		const char *arg0 = r_list_get_n (args, 1);
 		buf[0] = AUCPU_OP_MOV;
@@ -50,13 +73,21 @@ static bool assemble(RArchSession *a, RAnalOp *op, RArchEncodeMask mask) {
 					buf[2] = (v >> 8) & 0xff;
 					buf[3] = (v & 0xff);
 				}
+			} else {
+				return false;
 			}
+		} else {
+			return false;
 		}
 	} else if (!strcmp (mnemonic, "trap")) {
 		op->size = 2;
 		buf[0] = AUCPU_OP_TRAP;
 	} else if (!strcmp (mnemonic, "wave")) {
-		op->size = 4;
+		op->size = 2;
+		buf[0] = AUCPU_OP_WAVE;
+		buf[1] = type;
+		// wave r0
+		return false;
 		// RETHINK OP, r0, r1 must be 2nd arg
 		// wsin r0, r1, r2
 	} else if (!strcmp (mnemonic, "play")) {
@@ -74,7 +105,6 @@ static bool assemble(RArchSession *a, RAnalOp *op, RArchEncodeMask mask) {
 			}
 		}
 	}
-	eprintf ("MNEMO %s\n", mnemonic);
 	r_list_free (args);
 	return op->size > 0;
 }
@@ -86,23 +116,23 @@ static const char *waveType(const ut8 t) {
 		NULL
 	};
 	int i = 0;
-	for (i=0;types[i] && i<t;i++) {
-
+	for (i = 0; types[i] && i < t; i++) {
+		// find index in bounds
 	}
 	return types[i];
 }
 
 static void invalid(RAnalOp *op, const ut8 *buf) {
 	st16 *dword = (st16*)buf;
-	char *s = r_str_newf (".short %d", *dword);
-	r_asm_op_set_asm (op, s);
-	free (s);
+	op->type = R_ANAL_OP_TYPE_ILL;
+	free (op->mnemonic);
+	op->mnemonic = r_str_newf (".short %d", *dword);
 	op->size = 2;
 }
 
-static int au_op(RArchSession *as, RAnalOp *op, RArchDecodeMask mask) {
-	if (op->size < 4) {
-		return -1;
+static bool au_op(RArchSession *as, RAnalOp *op, RArchDecodeMask mask) {
+	if (op->size < 2) {
+		return false;
 	}
 	const ut8 *data = op->bytes;
 	op->size = 4;
@@ -112,8 +142,9 @@ static int au_op(RArchSession *as, RAnalOp *op, RArchDecodeMask mask) {
 		op->type = R_ANAL_OP_TYPE_NOP;
 		break;
 	case AUCPU_OP_PLAY:
-		op->type = R_ANAL_OP_TYPE_SWI;
-		r_strbuf_setf (&op->esil, "#!au.@ r0!r1");
+		op->type = R_ANAL_OP_TYPE_MOV;
+		r_strbuf_setf (&op->esil, "au.@ r0!r1,#!");
+		op->cycles = 2;
 		op->size = 2;
 		break;
 	case AUCPU_OP_PLAYREG:
@@ -122,11 +153,13 @@ static int au_op(RArchSession *as, RAnalOp *op, RArchDecodeMask mask) {
 		{
 			int r0 = data[1] & 0xf;
 			int r1 = (data[1] & 0xf0) >> 4;
-			r_strbuf_setf (&op->esil, "#!au.@ r%d!r%d", r0, r1);
+			r_strbuf_setf (&op->esil, "au.@ r%d!r%d,#!", r0, r1);
 		}
+		op->cycles = 2;
 		break;
 	case AUCPU_OP_TRAP:
 		op->type = R_ANAL_OP_TYPE_TRAP;
+		op->cycles = 2;
 		break;
 	case AUCPU_OP_MOVREG:
 		op->type = R_ANAL_OP_TYPE_MOV;
@@ -146,6 +179,7 @@ static int au_op(RArchSession *as, RAnalOp *op, RArchDecodeMask mask) {
 		break;
 	case AUCPU_OP_WAVE:
 		op->type = R_ANAL_OP_TYPE_STORE;
+		op->size = 4;
 		aucpu_esil_wave (op, data);
 		break;
 	case AUCPU_OP_WAIT:
@@ -154,7 +188,7 @@ static int au_op(RArchSession *as, RAnalOp *op, RArchDecodeMask mask) {
 			int v = (data[2] << 8) | data[3];
 			int r = data[1];
 			op->cycles = v;
-			r_strbuf_setf (&op->esil, "#!!sleep %d", v);
+			r_strbuf_setf (&op->esil, "sleep %d,#!", v);
 		}
 		break;
 	case AUCPU_OP_JMP:
@@ -176,28 +210,31 @@ static int au_op(RArchSession *as, RAnalOp *op, RArchDecodeMask mask) {
 		}
 		break;
 	defaultr:
-		r_strbuf_setf (&op->esil, "#!?E hello world");
+		r_strbuf_setf (&op->esil, "?E hello world,#!");
 		break;
 	}
-	return op->size;
+	return true;
 }
 
 static bool disassemble(RArchSession *as, RAnalOp *op, RArchDecodeMask mask) {
-	au_op (as, op, mask);
 	const ut8 *buf = op->bytes;
 	const int len = op->size;
-	if (len < 4) {
-		return -1;
+	au_op (as, op, mask);
+	if (len < 2) {
+		return false;
 	}
 	op->size = 4;
 	switch (buf[0]) {
 	case AUCPU_OP_NOP:
-		r_asm_op_set_asm (op, "nop");
+		op->size = 2;
+		free (op->mnemonic);
+		op->mnemonic = strdup ("nop");
 		break;
 	case AUCPU_OP_MOVREG:
 		{
 			int r0 = buf[1] & 0xf;
 			int r1 = (buf[1] & 0xf0);
+			op->size = 4;
 			free (op->mnemonic);
 			op->mnemonic = r_str_newf ("mov r%d, r%d", r0, r1);
 		}
@@ -208,18 +245,21 @@ static bool disassemble(RArchSession *as, RAnalOp *op, RArchDecodeMask mask) {
 			int v = (buf[2] << 8) | buf[3];
 			free (op->mnemonic);
 			op->mnemonic = r_str_newf ("mov r%d, %d", r, v);
+			op->size = 4;
 		}
 		break;
 	case AUCPU_OP_WAVE:
 		{
 			int t = buf[1];
 			int freq = ((buf[2]<< 8) | buf[3]) << 2;
-			const char *type = waveType(buf[1]);
+			op->size = 4;
+			const char *type = waveType (buf[1]);
 			if (type) {
 				free (op->mnemonic);
 				op->mnemonic = r_str_newf ("wave %s, %d", type, freq);
 			} else {
 				invalid (op, buf);
+				return false;
 			}
 		}
 		break;
@@ -260,11 +300,14 @@ static bool disassemble(RArchSession *as, RAnalOp *op, RArchDecodeMask mask) {
 		}
 		break;
 	case AUCPU_OP_TRAP:
-		r_asm_op_set_asm (op, "trap");
+		free (op->mnemonic);
+		op->mnemonic = r_str_newf ("trap");
 		op->size = 2;
 		break;
 	case AUCPU_OP_PLAY: // DEPRECATE?
-		r_asm_op_set_asm (op, "play");
+		free (op->mnemonic);
+		op->mnemonic = strdup ("play");
+		op->type = R_ANAL_OP_TYPE_MOV;
 		op->size = 2;
 		break;
 	case AUCPU_OP_PLAYREG:
@@ -276,14 +319,43 @@ static bool disassemble(RArchSession *as, RAnalOp *op, RArchDecodeMask mask) {
 		}
 		break;
 	default:
+		eprintf ("INVALID %d\n", *buf);
 		invalid (op, buf);
-		break;
+		return false;
 	}
-	// unaligned check?
-	return op->size;
+	return true;
 }
 
 static char *regs(RArchSession *as) {
+#if 0
+	// Registers
+	ProgramCounter
+	WavePointer - where to play
+	WaveFreq - what to write
+	WaveType - sin, cos, ..
+	AudioBlockSize
+	Frequency (22050, 44100, ..)
+	BitsPerSample (8, 16, 32)
+	Channels (1, 2) mono or stereo
+
+	// General Purpose Registers
+	r0-r8
+
+	// Operations
+	mov r0, 120
+	mov r0, r1
+	shl r0, 3
+	and r0, 3
+	shr r0, 3
+	cj r0, r0
+	mov r0, r1
+	mov r0, pc
+	add r0, -8
+	load r4, r0 // r4=[r0]
+	j r0
+	j r1
+
+#endif
 	const char p[] =
 		"=PC	pc\n"
 		"=BP	sp\n"
@@ -315,6 +387,28 @@ static char *regs(RArchSession *as) {
 	return strdup (p);
 }
 
+static int archinfo(RArchSession *as, ut32 what) {
+	switch (what) {
+	case R_ANAL_ARCHINFO_INV_OP_SIZE:
+		return 2;
+	case R_ANAL_ARCHINFO_MIN_OP_SIZE:
+		return 2;
+	case R_ANAL_ARCHINFO_MAX_OP_SIZE:
+		return 4;
+	}
+	return 2;
+}
+
+static char *mnemonics(RArchSession *as, int id, bool json) {
+	char *s = strdup ("nop\n"
+			"mov\n"
+			"trap\n"
+			"wave\n"
+			"play\n"
+			);
+	return s;
+}
+
 RArchPlugin r_arch_plugin_au = {
 	.name = "au",
 	.desc = "virtual audio chip",
@@ -323,6 +417,8 @@ RArchPlugin r_arch_plugin_au = {
 	.endian = R_SYS_ENDIAN_LITTLE | R_SYS_ENDIAN_BIG,
 	.license = "MIT",
 	.regs = regs,
+	.info = archinfo,
+	.mnemonics = &mnemonics,
 	.encode = &assemble,
 	.decode = &disassemble,
 };

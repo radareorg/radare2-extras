@@ -838,6 +838,15 @@ static void doom_game_tick(PluginState* const ps) {
 	}
 }
 
+// nokia
+#if 0
+http://zserge.com/nokia-composer/#eyJicG0iOiIxMjAiLCJzb25nIjoiYyBkIGUgZiBnIGEgYiJ9
+DO RE MI FA SOL LA SI
+ c  d  e  f   g  a  b
+
+
+#endif
+
 int main() {
 	PluginState ps = {0};
 	doom_state_init (&ps);

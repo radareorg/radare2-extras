@@ -110,7 +110,7 @@ static char tecla(const char *s) {
 }
 
 float notes_freq(int i) {
-	return (i >= 0 && i < TONES) ? tones[i].freq: 0;
+	return (i >= 0 && i < TONES) ? (tones[i].freq): 0;
 }
 
 int notes_index(int i, int black, int from) {
@@ -135,6 +135,7 @@ int notes_index(int i, int black, int from) {
 int print_piano(int off, int nth, int pressed) {
 	int i, y;
 	int och = 0;
+	pf ("[piano]> [HL] inc/dec freq [1234567890] play note\n");
 	for (y = 0; y <7; y++) {
 		char t = 0;
 		for (i = off; i < TONES && (i-off < nth); i++) {
