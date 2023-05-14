@@ -6,7 +6,7 @@
 #include <keystone/x86.h>
 #include "keystone.c"
 
-static bool assemble(RArchSession *a, RAnalOp *ao, const char *str) {
+static bool assemble(RArchSession *a, RAnalOp *ao, RArchEncodeMask mask) {
 	ks_mode mode = (ks_mode)0;
 	switch (a->config->bits) {
 	case 16:
@@ -19,7 +19,7 @@ static bool assemble(RArchSession *a, RAnalOp *ao, const char *str) {
 		mode = KS_MODE_64;
 		break;
 	}
-	return keystone_assemble (a, ao, str, KS_ARCH_X86, mode);
+	return keystone_assemble (a, ao, ao->mnemonic, KS_ARCH_X86, mode);
 }
 
 RArchPlugin r_arch_plugin_x86_ks = {
