@@ -12,18 +12,18 @@ static R_TH_LOCAL void *oldcur = NULL;
 static R_TH_LOCAL ks_engine *ks = NULL;
 static R_TH_LOCAL int oldbit = 0;
 
-static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch, ks_mode mode) {
+static bool keystone_assemble(RArchSession *a, RAnalOp *ao, const char *str, ks_arch arch, ks_mode mode) {
 	ks_err err = KS_ERR_ARCH;
 	bool must_init = false;
 	size_t count, size;
 	ut8 *insn = NULL;
 
 	if (!ks_arch_supported (arch)) {
-		return -1;
+		return false;
 	}
 
 	must_init = true; //!oldcur || (a->cur != oldcur || oldbit != a->bits);
-	oldcur = a->cur;
+	// oldcur = a->cur;
 	oldbit = a->config->bits;
 
 	if (must_init) {
@@ -33,13 +33,13 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 		}
 		err = ks_open (arch, mode, &ks);
 		if (err || !ks) {
-			eprintf ("Cannot initialize keystone\n");
+			R_LOG_ERROR ("Cannot initialize keystone");
 			ks_free (insn);
 			if (ks) {
 				ks_close (ks);
 				ks = NULL;
 			}
-			return -1;
+			return false;
 		}
 	}
 
@@ -49,14 +49,14 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 			ks_close (ks);
 			ks = NULL;
 		}
-		return -1;
+		return false;
 	}
 	if (a->config->syntax == ATTSYNTAX) {
 		ks_option (ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_ATT);
 	} else {
 		ks_option (ks, KS_OPT_SYNTAX, KS_OPT_SYNTAX_NASM);
 	}
-	int rc = ks_asm (ks, str, a->pc, &insn, &size, &count);
+	int rc = ks_asm (ks, str, ao->addr, &insn, &size, &count);
 	if (rc) {
 		eprintf ("ks_asm: (%s) %s\n", str, ks_strerror ((ks_err)ks_errno (ks)));
 		ks_free (insn);
@@ -64,13 +64,14 @@ static int keystone_assemble(RAsm *a, RAsmOp *ao, const char *str, ks_arch arch,
 			ks_close (ks);
 			ks = NULL;
 		}
-		return -1;
+		return false;
 	}
-	r_asm_op_set_buf (ao, insn, size);
+	ao->size = size;
+	ao->bytes = r_mem_dup (insn, size);
 	ks_free (insn);
 	if (ks) {
 		ks_close (ks);
 		ks = NULL;
 	}
-	return size;
+	return size > 0;
 }
