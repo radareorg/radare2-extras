@@ -1,6 +1,6 @@
 include build.mk
 
-PLUGINS=arm x86 mips sparc ppc hexagon sysz
+PLUGINS=arm x86 mips sparc ppc hexagon s390x evm
 
 LIBS=$(addsuffix _ks.$(SO_EXT),$(addprefix arch_,${PLUGINS}))
 #R2PM_PLUGDIR?=${LIBDIR}/radare2/last/

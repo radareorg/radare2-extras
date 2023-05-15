@@ -14,11 +14,11 @@ static bool assemble(RArchSession *a, RAnalOp *ao, RArchEncodeMask mask) {
 	return keystone_assemble (a, ao, ao->mnemonic, KS_ARCH_SYSTEMZ, mode);
 }
 
-RArchPlugin r_arch_plugin_sysz_ks = {
-	.name = "sysz.ks",
+RArchPlugin r_arch_plugin_s390x_ks = {
+	.name = "s390x.ks",
 	.desc = "SystemZ keystone assembler (S390X)",
 	.license = "GPL",
-	.arch = "sysz",
+	.arch = "s390x",
 	.bits = 32,
 	.encode = &assemble,
 };
@@ -26,7 +26,7 @@ RArchPlugin r_arch_plugin_sysz_ks = {
 #ifndef CORELIB
 RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_ARCH,
-	.data = &r_arch_plugin_sysz_ks,
+	.data = &r_arch_plugin_s390x_ks,
 	.version = R2_VERSION
 };
 #endif
