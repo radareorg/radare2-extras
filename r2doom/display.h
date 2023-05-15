@@ -62,8 +62,18 @@ void canvas_draw_dot(int x, int y, char ch) {
 
 void drawVLine(int x, int start_y, int end_y, uint8_t intensity, Canvas* const canvas){
 	int dots = end_y - start_y;
+	int pc = RENDER_HEIGHT / dots;
+	char ch = '#';
+	if (pc > 6) {
+		ch = '.';
+	} else if (pc > 4) {
+		ch = '-';
+	} else if (pc > 2) {
+		ch = '=';
+	}
 	for(int i = 0; i <= dots; i++) {
-		canvas_draw_dot(x, start_y + i, '=');
+		canvas_draw_dot (x, start_y + i, ch);
+		canvas_draw_dot (x+1, start_y + i, ch);
 	}	
 }
 
@@ -211,8 +221,8 @@ void drawHLine (int x, int y, int w, const char *color) {
 	char *line = malloc (w + 1);
 	memset (line, '-', w - 2);
 	line[0] = '.';
-	line[w - 1] = '.';
-	line[w] = 0;
+	line[w - 2] = '.';
+	line[w -1] = 0;
 	r_cons_gotoxy (x, y);
 	r_cons_printf ("%s", line);
 	free (line);

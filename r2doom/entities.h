@@ -12,6 +12,8 @@
 #define create_key(x, y)              create_entity(E_KEY, x, y, S_STAND, 0)
 #define create_fireball(x, y, dir)    create_entity(E_FIREBALL, x, y, S_STAND, dir)
 #define create_door(x, y)             create_entity(E_DOOR, x, y, S_STAND, 0)
+#define create_exit(x, y)             create_entity(E_EXIT, x, y, S_STAND, 0)
+#define create_lockeddoor(x, y)       create_entity(E_LOCKEDDOOR, x, y, S_STAND, 0)
 
 // entity statuses
 #define S_STAND               0

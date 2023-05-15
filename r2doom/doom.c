@@ -45,24 +45,43 @@ typedef struct {
 	bool down;
 	bool left;
 	bool right;
-#if 0
+	bool strife;
 	bool strife_left;
 	bool strife_right;
-#endif
 	bool fired;
 	bool gun_fired;
+	bool exit;
 
 	double rot_speed;
 	double old_dir_x;
 	double old_plane_x;
 } PluginState;
 
-
 static Coords translateIntoView(Coords *pos, PluginState* const ps);
 void updateHud(Canvas* const canvas, PluginState* const ps);
+void updateEntities(uint8_t level[], Canvas* const canvas, PluginState* const ps);
 
 static bool invert_screen = false;
 static bool flash_screen = false;
+
+void setBlockAt(uint8_t level[], int x, int y, char ch) {
+	if (x < 0 || x >= LEVEL_WIDTH || y < 0 || y >= LEVEL_HEIGHT) {
+		return;
+	}
+	int nibble = x % 2;
+	uint8_t *data = (level + (((LEVEL_HEIGHT - 1 - y) * LEVEL_WIDTH + x) / 2));
+	if (nibble) {
+		uint8_t v = *data;
+		v &= 0xf0;
+		v |= ch;
+		*data = v;
+	} else {
+		uint8_t v = *data;
+		v &= 0x0f;
+		v |= (ch << 4);
+		*data = v;
+	}
+}
 
 uint8_t getBlockAt(const uint8_t level[], int x, int y) {
 	if (x < 0 || x >= LEVEL_WIDTH || y < 0 || y >= LEVEL_HEIGHT) {
@@ -113,6 +132,18 @@ static void spawnEntity(uint8_t type, int x, int y, PluginState* const ps) {
 	}
 	// todo: read static entity status
 	switch (type) {
+	case E_EXIT:
+		ps->entity[ps->num_entities] = create_exit(x, y);
+		ps->num_entities++;
+		break;
+	case E_DOOR:
+		ps->entity[ps->num_entities] = create_door(x, y);
+		ps->num_entities++;
+		break;
+	case E_LOCKEDDOOR:
+		ps->entity[ps->num_entities] = create_lockeddoor(x, y);
+		ps->num_entities++;
+		break;
 	case E_ENEMY:
 		ps->entity[ps->num_entities] = create_enemy(x, y);
 		ps->num_entities++;
@@ -172,17 +203,15 @@ void removeStaticEntity(UID uid, PluginState* const ps) {
 			found = true;
 			ps->num_static_entities--;
 		}
-
 		// displace entities
 		if (found) {
 			ps->static_entity[i] = ps->static_entity[i + 1];
 		}
-
 		i++;
 	}
 }
 
-static UID detectCollision(const uint8_t level[], Coords *pos, double relative_x, double relative_y, bool only_walls, PluginState* const ps) {
+static UID detectCollision(uint8_t level[], Coords *pos, double relative_x, double relative_y, bool only_walls, PluginState* const ps) {
 	// Wall collision
 	int round_x = (int)(pos->x + relative_x);
 	int round_y = (int)(pos->y + relative_y);
@@ -191,6 +220,20 @@ static UID detectCollision(const uint8_t level[], Coords *pos, double relative_x
 	if (block == E_WALL) {
 		//playSound(hit_wall_snd, HIT_WALL_SND_LEN);
 		return create_uid (block, round_x, round_y);
+	}
+	if (block == E_EXIT) {
+		ps->exit = true;
+		return UID_null;
+	}
+	if (block == E_LOCKEDDOOR) {
+		if (ps->player.keys > 0) {
+			ps->player.keys --;
+			// check if enough keys
+			setBlockAt (level, round_x, round_y, E_DOOR);
+		}
+		return create_uid (block, round_x, round_y);
+			// ps->entity[i].uid = E_DOOR;
+			// return ps->entity[i].uid;
 	}
 
 	if (only_walls) {
@@ -228,7 +271,13 @@ void fire(PluginState* const ps) {
 	//playSound(shoot_snd, SHOOT_SND_LEN);
 	for (int i = 0; i < ps->num_entities; i++) {
 		// Shoot only ALIVE enemies
-		if (uid_get_type (ps->entity[i].uid) != E_ENEMY || ps->entity[i].state == S_DEAD || ps->entity[i].state == S_HIDDEN) {
+		uint8_t type = uid_get_type (ps->entity[i].uid);
+		if (type != E_ENEMY || ps->entity[i].state == S_DEAD || ps->entity[i].state == S_HIDDEN) {
+			if (type == E_LOCKEDDOOR) {
+				removeEntity(ps->entity[i].uid, ps);
+			eprintf ("Bisdaf %d\n", type);
+			sleep(1);
+			}
 			continue;
 		}
 		Coords transform = translateIntoView (&(ps->entity[i].pos), ps);
@@ -244,7 +293,7 @@ void fire(PluginState* const ps) {
 	}
 }
 
-UID updatePosition(const uint8_t level[], Coords *pos, double relative_x, double relative_y, bool only_walls, PluginState* const ps) {
+UID updatePosition(uint8_t level[], Coords *pos, double relative_x, double relative_y, bool only_walls, PluginState* const ps) {
 	UID collide_x = detectCollision (level, pos, relative_x, 0, only_walls, ps);
 	UID collide_y = detectCollision (level, pos, 0, relative_y, only_walls, ps);
 	if (!collide_x) pos->x += relative_x;
@@ -252,7 +301,7 @@ UID updatePosition(const uint8_t level[], Coords *pos, double relative_x, double
 	return collide_x || collide_y || UID_null;
 }
 
-void updateEntities(const uint8_t level[], Canvas* const canvas, PluginState* const ps) {
+void updateEntities(uint8_t level[], Canvas* const canvas, PluginState* const ps) {
 	uint8_t i = 0;
 	while (i < ps->num_entities) {
 		// update distance
@@ -280,6 +329,9 @@ void updateEntities(const uint8_t level[], Canvas* const canvas, PluginState* co
 		uint8_t type = uid_get_type(ps->entity[i].uid);
 
 		switch (type) {
+		case E_EXIT:
+			// do nothing
+			break;
 		case E_ENEMY:
 		      // Enemy "IA"
 		      if (ps->entity[i].health <= 0) {
@@ -291,26 +343,26 @@ void updateEntities(const uint8_t level[], Canvas* const canvas, PluginState* co
 			      if (ps->entity[i].timer == 0) {
 				      // Back to alert state
 				      ps->entity[i].state = S_ALERT;
-				      ps->entity[i].timer = 40;     // delay next fireball thrown
+				      ps->entity[i].timer = 10;     // delay next fireball thrown
 			      }
 		      } else if (ps->entity[i].state == S_FIRING) {
 			      if (ps->entity[i].timer == 0) {
 				      // Back to alert state
 				      ps->entity[i].state = S_ALERT;
-				      ps->entity[i].timer = 40;     // delay next fireball throwm
+				      ps->entity[i].timer = 10;     // delay next fireball throwm
 			      }
 		      } else {
 			      // ALERT STATE
 			      if (ps->entity[i].distance > ENEMY_MELEE_DIST && ps->entity[i].distance < MAX_ENEMY_VIEW) {
 				      if (ps->entity[i].state != S_ALERT) {
 					      ps->entity[i].state = S_ALERT;
-					      ps->entity[i].timer = 20;   // used to throw fireballs
+					      ps->entity[i].timer = 10;   // used to throw fireballs
 				      } else {
 					      if (ps->entity[i].timer == 0) {
 						      // Throw a fireball
-						      spawnFireball(ps->entity[i].pos.x, ps->entity[i].pos.y, ps);
+						      spawnFireball (ps->entity[i].pos.x, ps->entity[i].pos.y, ps);
 						      ps->entity[i].state = S_FIRING;
-						      ps->entity[i].timer = 6;
+						      ps->entity[i].timer = 3;
 					      } else {
 						      // move towards to the player.
 						      updatePosition(
@@ -394,6 +446,7 @@ void renderMap(const uint8_t level[], double view_height, Canvas* const canvas, 
 	UID last_uid = 0; // NOT SURE ?
 	int x;
 
+	bool first = true;
 	for (x = 0; x < SCREEN_WIDTH; x += RES_DIVIDER) {
 		double camera_x = 2 * (double) x / SCREEN_WIDTH - 1;
 		double ray_x = ps->player.dir.x + ps->player.plane.x * camera_x;
@@ -429,6 +482,8 @@ void renderMap(const uint8_t level[], double view_height, Canvas* const canvas, 
 		uint8_t depth = 0;
 		bool hit = 0;
 		bool side;
+		int isdoor = false;
+		int isexit = false;
 		while (!hit && depth < MAX_RENDER_DEPTH) {
 			if (side_x < side_y) {
 				side_x += delta_x;
@@ -440,20 +495,31 @@ void renderMap(const uint8_t level[], double view_height, Canvas* const canvas, 
 				side = 1;
 			}
 
-			uint8_t block = getBlockAt(level, map_x, map_y);
+			uint8_t block = getBlockAt (level, map_x, map_y);
 
-			if (block == E_WALL) {
+			if (block == E_LOCKEDDOOR) {
+				hit = 1;
+				isdoor = true;
+			} else if (block == E_EXIT) {
+				hit = 1;
+				isexit = true;
+			} else if (block == E_DOOR) {
+				isdoor = true;
+			} else if (block == E_WALL) {
+				isdoor = false;
+				// render a wall if hit
 				hit = 1;
 			} else {
 				// Spawning entities here, as soon they are visible for the
+				isdoor = false;
 				// player. Not the best place, but would be a very performance
 				// cost scan for them in another loop
 				if (block == E_ENEMY || (block & 0b00001000) /* all collectable items */) {
 					// Check that it's close to the player
-					if (coords_distance(&(ps->player.pos), &map_coords) < MAX_ENTITY_DISTANCE) {
-						UID uid = create_uid(block, map_x, map_y);
-						if (last_uid != uid && !isSpawned(uid, ps)) {
-							spawnEntity(block, map_x, map_y, ps);
+					if (coords_distance (&(ps->player.pos), &map_coords) < MAX_ENTITY_DISTANCE) {
+						UID uid = create_uid (block, map_x, map_y);
+						if (last_uid != uid && !isSpawned (uid, ps)) {
+							spawnEntity (block, map_x, map_y, ps);
 							last_uid = uid;
 						}
 					}
@@ -466,9 +532,9 @@ void renderMap(const uint8_t level[], double view_height, Canvas* const canvas, 
 			double distance;
 
 			if (side == 0) {
-				distance = fmax(1, (map_x - ps->player.pos.x + (1 - step_x) / 2) / ray_x);
+				distance = fmax (1, (map_x - ps->player.pos.x + (1 - step_x) / 2) / ray_x);
 			} else {
-				distance = fmax(1, (map_y - ps->player.pos.y + (1 - step_y) / 2) / ray_y);
+				distance = fmax (1, (map_y - ps->player.pos.y + (1 - step_y) / 2) / ray_y);
 			}
 
 			// store zbuffer value for the column
@@ -483,13 +549,56 @@ void renderMap(const uint8_t level[], double view_height, Canvas* const canvas, 
 				canvas_draw_dot(canvas, x, y, '-');
 			}
 #else
+			if (isexit) {
+				if (first) {
+					r_cons_gotoxy (x, 3);
+					r_cons_printf ("exit");
+					first = false;
+				}
+				r_cons_printf (Color_GREEN);
+			} else if (isdoor) {
+				if (hit) {
+					if (first) {
+						r_cons_gotoxy (x, 3);
+						r_cons_printf ("locked door");
+						first = false;
+					}
+					r_cons_printf (Color_YELLOW);
+				}
+			}
 			drawVLine(
 					x,
 					view_height / distance - line_height / 2 + RENDER_HEIGHT / 2,
 					view_height / distance + line_height / 2 + RENDER_HEIGHT / 2,
 					GRADIENT_COUNT - (int)distance / MAX_RENDER_DEPTH * GRADIENT_COUNT - side * 2,
 					canvas);
+			if (isexit) {
+				r_cons_printf ("\x1b[0m");
+			} else if (isdoor) {
+				if (hit) {
+					r_cons_printf ("\x1b[0m");
+				}
+			}
 #endif
+		} else {
+			if (isdoor) {
+				double distance;
+
+				if (side == 0) {
+					distance = fmax (1, (map_x - ps->player.pos.x + (1 - step_x) / 2) / ray_x);
+				} else {
+					distance = fmax (1, (map_y - ps->player.pos.y + (1 - step_y) / 2) / ray_y);
+				}
+				uint8_t line_height = 2;
+				r_cons_printf (Color_YELLOW);
+				drawVLine(
+						x,
+						view_height / distance - line_height / 2 + RENDER_HEIGHT / 2,
+						view_height / distance + line_height / 2 + RENDER_HEIGHT / 2,
+						GRADIENT_COUNT - (int)distance / MAX_RENDER_DEPTH * GRADIENT_COUNT - side * 2,
+						canvas);
+				r_cons_printf ("\x1b[0m");
+			}
 		}
 	}
 }
@@ -596,6 +705,16 @@ void renderEntities(double view_height, Canvas* const canvas, PluginState* const
 				 BMP_FIREBALL_HEIGHT,
 				 0, transform.y, Color_RED);
 			 break;
+		case E_DOOR:
+			 // never happens
+			 sleep(1);
+			 drawSprite (sprite_screen_x - BMP_ITEMS_WIDTH / 2 / transform.y,
+				sprite_screen_y + 5 / transform.y,
+				door, door,
+				BMP_ITEMS_WIDTH,
+				BMP_ITEMS_HEIGHT,
+				0, transform.y, Color_CYAN);
+			break;
 		case E_MEDIKIT:
 			 drawSprite (sprite_screen_x - BMP_ITEMS_WIDTH / 2 / transform.y,
 				sprite_screen_y + 5 / transform.y,
@@ -603,6 +722,16 @@ void renderEntities(double view_height, Canvas* const canvas, PluginState* const
 				BMP_ITEMS_WIDTH,
 				BMP_ITEMS_HEIGHT,
 				0, transform.y, Color_CYAN);
+			break;
+		case E_EXIT:
+			// XXX never happens for a reason
+			// eprintf ("pintaexi %d\n",3); sleep(1);
+			drawSprite (sprite_screen_x - BMP_ITEMS_WIDTH / 2 / transform.y,
+				sprite_screen_y + 5 / transform.y,
+				item, item_mask,
+				BMP_ITEMS_WIDTH,
+				BMP_ITEMS_HEIGHT,
+				1, transform.y, Color_GREEN);
 			break;
 		case E_KEY:
 			drawSprite (sprite_screen_x - BMP_ITEMS_WIDTH / 2 / transform.y,
@@ -619,22 +748,33 @@ void renderEntities(double view_height, Canvas* const canvas, PluginState* const
 void renderGun(int gun_pos, double amount_jogging, Canvas* const canvas) {
 	// jogging
 	int t = tick ();
-	char x = 48 + sin((double) t * (double)JOGGING_SPEED) * 10 * amount_jogging;
-	char y = RENDER_HEIGHT - gun_pos + fabs (cos ((double) t * (double)JOGGING_SPEED)) * 8 * amount_jogging;
+	int gx = SCREEN_WIDTH / 3;
+	int x = gx + sin((double) t * (double)JOGGING_SPEED) * 10 * amount_jogging;
+	int y = RENDER_HEIGHT - gun_pos + fabs (cos ((double) t * (double)JOGGING_SPEED)) * 8 * amount_jogging;
 
+	bool onfire = false;
 	if (gun_pos > GUN_SHOT_POS - 2) {
 		// Gun fire
+		onfire = true;
+		r_cons_printf(Color_RED);
 		drawBitmap (x + 6, y - 11, &I_fire_inv, BMP_FIRE_WIDTH, BMP_FIRE_HEIGHT, 1, canvas);
+		r_cons_printf("\x1b[0m");
 	}
 
 	// Don't draw over the hud!
 	uint8_t clip_height = fmax(0, fmin(y + BMP_GUN_HEIGHT, RENDER_HEIGHT) - y);
 
+	clip_height+=2;
 	// Draw the gun (black mask + actual sprite).
 	drawBitmap(x, y, &I_gun_mask_inv, BMP_GUN_WIDTH, clip_height, 0, canvas);
 	drawBitmap(x, y, &I_gun_inv, BMP_GUN_WIDTH, clip_height, 1, canvas);
-	drawGun(x,y,gun_mask, BMP_GUN_WIDTH, clip_height, 0, Color_BLUE);
-	drawGun(x,y,gun, BMP_GUN_WIDTH, clip_height, 1, Color_CYAN);
+	if (onfire) {
+		drawGun(x,y,gun_mask, BMP_GUN_WIDTH, clip_height, 0, Color_RED);
+		drawGun(x,y,gun, BMP_GUN_WIDTH, clip_height, 1, Color_WHITE);
+	} else {
+		drawGun(x,y,gun_mask, BMP_GUN_WIDTH, clip_height, 0, Color_BLUE);
+		drawGun(x,y,gun, BMP_GUN_WIDTH, clip_height, 1, Color_CYAN);
+	}
 }
 
 // Only needed first time
@@ -645,8 +785,11 @@ void renderHud(Canvas* const canvas, PluginState* ps) {
 	// drawRect (0, 57, SCREEN_WIDTH, SCREEN_HEIGHT - 56, canvas); // "-", 0
 	////  clearRect (2, 58, SCREEN_WIDTH - 4, 6, canvas);
 	// clearRect(2, 58, SCREEN_WIDTH - 4, SCREEN_HEIGHT - 64, canvas); // "-", 0
+	r_cons_printf (Color_RED);
 	drawTextSpace (2, y + 3, "{}", 0, canvas);        // Health symbol
+	r_cons_printf (Color_YELLOW);
 	drawTextSpace (40, y + 2, "[]", 0, canvas);       // Keys symbol
+	r_cons_printf("\x1b[0m");
 	updateHud (canvas, ps);
 	drawHLine (0, y + 2, SCREEN_WIDTH, Color_YELLOW);
 }
@@ -699,7 +842,7 @@ void loopIntro(Canvas* const canvas) {
 static void render_callback(Canvas* const canvas, void* ctx) {
 	int h, w = r_cons_get_size (&h);
 	SCREEN_WIDTH = w;
-	SCREEN_HEIGHT = h;
+	SCREEN_HEIGHT = h+1;
 	HALF_WIDTH = w/2;
 	HALF_HEIGHT = h/2;
 	RENDER_HEIGHT = h - 8;
@@ -719,14 +862,19 @@ static void render_callback(Canvas* const canvas, void* ctx) {
 		loopIntro (canvas);
 		break;
 	case GAME_PLAY:
-	       updateEntities (sto_level_1, canvas, ps);
-	       updateHud (canvas, ps);
-	       renderMap (sto_level_1, ps->view_height, canvas, ps);
-	       renderEntities (ps->view_height, canvas, ps);
-	       renderGun (ps->gun_pos, ps->jogging, canvas);
-	       renderHud (canvas, ps);
-	       renderStats (canvas, ps);
-	       break;
+		updateEntities (sto_level_1, canvas, ps);
+		updateHud (canvas, ps);
+		renderMap (sto_level_1, ps->view_height, canvas, ps);
+		renderEntities (ps->view_height, canvas, ps);
+		renderHud (canvas, ps);
+		renderStats (canvas, ps);
+		if (ps->player.health > 0) {
+			renderGun (ps->gun_pos, ps->jogging, canvas);
+		}
+		r_cons_gotoxy (0, 0);
+		r_cons_printf ("Press 'Q' to quit");
+		r_cons_gotoxy (0, 0);
+		break;
 	}
 #if 0
 	r_cons_gotoxy (0,1);
@@ -774,15 +922,15 @@ static void doom_game_tick(PluginState* const ps) {
 				ps->player.velocity *= (double).5;
 				ps->jogging = fabs (ps->player.velocity) * MOV_SPEED_INV;
 			}
-#if 0
 			if (ps->strife_left) {
-				ps->player.velocity += ((double)MOV_SPEED - ps->player.velocity) * (double).4;
+				ps->player.velocity -= ((double)MOV_SPEED - ps->player.velocity) * (double).4;
+				ps->strife = true;
 				ps->strife_left = false;
 			} else if (ps->strife_right) {
 				ps->player.velocity += ((double)MOV_SPEED - ps->player.velocity) * (double).4;
+				ps->strife = true;
 				ps->strife_right = false;
 			}
-#endif
 			if (ps->right) {
 				ps->rot_speed = (double)ROT_SPEED * delta;
 				ps->old_dir_x = ps->player.dir.x;
@@ -826,7 +974,18 @@ static void doom_game_tick(PluginState* const ps) {
 				ps->gun_pos -= 2;
 			}
 		}
-
+#define STRIFE_DELTA 12
+			if (ps->strife) {
+				double delta = -STRIFE_DELTA;
+				ps->rot_speed = (double)ROT_SPEED * delta;
+				ps->old_dir_x = ps->player.dir.x;
+				ps->player.dir.x = ps->player.dir.x * cos(ps->rot_speed) - ps->player.dir.y * sin(ps->rot_speed);
+				ps->player.dir.y = ps->old_dir_x * sin(ps->rot_speed) + ps->player.dir.y * cos(ps->rot_speed);
+				ps->old_plane_x = ps->player.plane.x;
+				ps->player.plane.x = ps->player.plane.x * cos(ps->rot_speed) - ps->player.plane.y * sin(ps->rot_speed);
+				ps->player.plane.y = ps->old_plane_x * sin(ps->rot_speed) + ps->player.plane.y * cos(ps->rot_speed);
+				// sleep(1);
+			}
 		if (fabs (ps->player.velocity) > (double)0.003) {
 			updatePosition (sto_level_1, &(ps->player.pos),
 				ps->player.dir.x * ps->player.velocity * delta,
@@ -835,6 +994,18 @@ static void doom_game_tick(PluginState* const ps) {
 		} else {
 			ps->player.velocity = 0;
 		}
+			if (ps->strife) {
+				// sleep(1);
+				ps->strife = false;
+				double delta = STRIFE_DELTA;
+				ps->rot_speed = (double)ROT_SPEED * delta;
+				ps->old_dir_x = ps->player.dir.x;
+				ps->player.dir.x = ps->player.dir.x * cos(ps->rot_speed) - ps->player.dir.y * sin(ps->rot_speed);
+				ps->player.dir.y = ps->old_dir_x * sin(ps->rot_speed) + ps->player.dir.y * cos(ps->rot_speed);
+				ps->old_plane_x = ps->player.plane.x;
+				ps->player.plane.x = ps->player.plane.x * cos(ps->rot_speed) - ps->player.plane.y * sin(ps->rot_speed);
+				ps->player.plane.y = ps->old_plane_x * sin(ps->rot_speed) + ps->player.plane.y * cos(ps->rot_speed);
+			}
 	}
 }
 
@@ -848,6 +1019,11 @@ DO RE MI FA SOL LA SI
 #endif
 
 int main() {
+	sto_level_1 = sto_level_1_orig;
+	char *map = r_file_slurp ("map.txt", NULL);
+	if (map) {
+		sto_level_1 = parse_map (map);
+	}
 	PluginState ps = {0};
 	doom_state_init (&ps);
 	static const char music[] = \
@@ -855,15 +1031,17 @@ int main() {
 		    "c#5,f,f,8b.,f,f,f5,f,f,d#5,f,f,c#5,f,f,b,f,f,c5,c#5,f,f,f5,f,f,d#5,f,f,c#5,f,f," \
 		    "8b.,a#,a#,a#5,a#,a#,g#5,a#,a#,f#5,a#,a#,e5,a#,a#,f5,f#5,a#,a#,a#5,a#,a#,g#5,a#,a#,f#5,a#,a#,8e5";
 	r_cons_new ();
+	r_cons_show_cursor (false);
 	r_cons_set_raw (true);
 	while (true) {
 		render_callback (NULL, &ps);
 		int ch = r_cons_readchar ();
 		ch = r_cons_arrow_to_hjkl (ch);
-		if (ch == 'Q') {
+		if (ps.exit || ch == 'Q') {
 			if (ps.scene == INTRO) {
 				break;
 			}
+			ps.exit = false;
 			ps.scene = INTRO;
 			ps.fired = false;
 		}
@@ -880,14 +1058,12 @@ int main() {
 				initializeLevel (sto_level_1, &ps);
 			}
 			break;
-#if 0
 		case 'q':
 			ps.strife_left = true;
 			break;
 		case 'e':
 			ps.strife_right = true;
 			break;
-#endif
 		case 's':
 		case 'j':
 			ps.down = true;

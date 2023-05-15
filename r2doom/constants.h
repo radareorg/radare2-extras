@@ -68,15 +68,15 @@ const uint8_t SOUND_PIN   = 9; // do not change, belongs to used timer
 #define FIREBALL_SPEED        .2
 #define FIREBALL_ANGLES       45          // Num of angles per PI
 
-#define MAX_ENTITIES          10          // Max num of active entities
+#define MAX_ENTITIES          60          // Max num of active entities
 #define MAX_STATIC_ENTITIES   28          // Max num of entities in sleep mode
 
 #define MAX_ENTITY_DISTANCE   200         // * DISTANCE_MULTIPLIER
 #define MAX_ENEMY_VIEW        80          // * DISTANCE_MULTIPLIER
 #define ITEM_COLLIDER_DIST    6           // * DISTANCE_MULTIPLIER
 #define ENEMY_COLLIDER_DIST   4           // * DISTANCE_MULTIPLIER
-#define FIREBALL_COLLIDER_DIST 2          // * DISTANCE_MULTIPLIER
-#define ENEMY_MELEE_DIST      6           // * DISTANCE_MULTIPLIER
+#define FIREBALL_COLLIDER_DIST 4          // * DISTANCE_MULTIPLIER
+#define ENEMY_MELEE_DIST      3           // * DISTANCE_MULTIPLIER
 #define WALL_COLLIDER_DIST    .2
 
 #define ENEMY_MELEE_DAMAGE    8

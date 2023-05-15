@@ -3,8 +3,72 @@
 
 #include "constants.h"
 
+extern uint8_t sto_level_1_orig[];
+static uint8_t *parse_map(const char *str) {
+	// return sto_level_1_orig;
+	size_t bufsz = R_MAX (strlen (str), 64*56);
+	uint8_t *buf = malloc (bufsz);
+	if (!buf) {
+		return NULL;
+	}
+	int subch = 0;
+	uint8_t bch = 0;
+	int i = 0;
+	bool nibble = false;
+	while (*str) {
+		switch (*str) {
+		case '#':
+			subch = E_WALL;
+			break;
+		case '.':
+			subch = E_FLOOR;
+			break;
+		case 'E': // enemy
+			subch = E_ENEMY;
+			break;
+		case 'K': // key
+			subch = E_KEY;
+			break;
+		case 'P': // player
+			subch = E_PLAYER;
+			break;
+		case 'D': // door
+			subch = E_DOOR;
+			break;
+		case 'L': // locked-door
+			subch = E_LOCKEDDOOR;
+			break;
+		case 'M': // medkit
+			subch = E_MEDIKIT;
+			break;
+		case 'A': // fireball
+			subch = E_FIREBALL;
+			break;
+		case 'X': // exit
+			subch = E_EXIT;
+			break;
+		default:
+			subch = -1;
+			break;
+		}
+		if (subch != -1) {
+			if (nibble) {
+				buf[i++] = bch | subch;
+				nibble = false;
+			} else {
+				nibble = true;
+				bch = subch << 4;
+			}
+		}
+		str++;
+	}
+	return buf;
+};
+
 /*
   Based on E1M1 from Wolfenstein 3D
+  64 columns
+  56 rows
 
   ################################################################
   #############################...........########################
@@ -68,7 +132,9 @@
    Same map above built from some regexp replacements using the legend above.
    Using this way lets me use only 4 bit to store each block
 */
-const uint8_t sto_level_1[LEVEL_SIZE] = {
+uint8_t *sto_level_1 = NULL;
+
+uint8_t sto_level_1_orig[LEVEL_SIZE] = {
   0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
   0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 
   0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 

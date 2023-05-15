@@ -4,30 +4,33 @@
 #include <r_types.h>
 #include <r_lib.h>
 #include <r_asm.h>
+// #include <r_arch.h>
 #include <r_anal.h>
 #include <stdio.h>
 #include <fcntl.h>
 
-static int ptsHandle=0;
+static int ptsHandle = 0;
 
-static int reg_read(RAnalEsil *esil, const char *regname, ut64 *num) {
+static bool reg_read(RAnalEsil *esil, const char *regname, ut64 *num) {
 	RRegItem *reg = r_reg_get (esil->anal->reg, regname, -1);
 	if (reg) {
-		if (num)
+		if (num) {
 			*num = r_reg_get_value (esil->anal->reg, reg);
-		return 1;
+		}
+		return true;
 	}
-	return 0;
+	return false;
 }
 
-static int reg_write(RAnalEsil *esil, const char *regname, ut64 num) {
+static bool reg_write(RAnalEsil *esil, const char *regname, ut64 num) {
 	RRegItem *reg = r_reg_get (esil->anal->reg, regname, -1);
 	if (reg) {
-		if (num)
+		if (num) {
 			r_reg_set_value (esil->anal->reg, reg,num);
-		return 1;
+		}
+		return true;
 	}
-	return 0;
+	return false;
 }
 /*
 
@@ -544,7 +547,7 @@ static int esil_baleful_intr (RAnalEsil *esil, int intr) {
 }
 
 static bool esil_bale_interrupt_wrapper_cb (RAnalEsil *esil, ut32 interrupt, void *user) {	//user is always NULL, bc we has no init and fini
-	return !!esil_baleful_intr(esil, interrupt);
+	return !!esil_baleful_intr (esil, interrupt);
 }
 
 static int set_reg_profile(RAnal *anal) {
