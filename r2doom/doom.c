@@ -12,6 +12,8 @@
 #include "types.h"
 #include "level.h"
 
+#define REALTIME 1
+
 int SCREEN_WIDTH = 128;
 int SCREEN_HEIGHT = 64;
 int HALF_WIDTH = 64;
@@ -343,20 +345,20 @@ void updateEntities(uint8_t level[], Canvas* const canvas, PluginState* const ps
 			      if (ps->entity[i].timer == 0) {
 				      // Back to alert state
 				      ps->entity[i].state = S_ALERT;
-				      ps->entity[i].timer = 10;     // delay next fireball thrown
+				      ps->entity[i].timer = 15;     // delay next fireball thrown
 			      }
 		      } else if (ps->entity[i].state == S_FIRING) {
 			      if (ps->entity[i].timer == 0) {
 				      // Back to alert state
 				      ps->entity[i].state = S_ALERT;
-				      ps->entity[i].timer = 10;     // delay next fireball throwm
+				      ps->entity[i].timer = 15;     // delay next fireball throwm
 			      }
 		      } else {
 			      // ALERT STATE
 			      if (ps->entity[i].distance > ENEMY_MELEE_DIST && ps->entity[i].distance < MAX_ENEMY_VIEW) {
 				      if (ps->entity[i].state != S_ALERT) {
 					      ps->entity[i].state = S_ALERT;
-					      ps->entity[i].timer = 10;   // used to throw fireballs
+					      ps->entity[i].timer = 15;   // used to throw fireballs
 				      } else {
 					      if (ps->entity[i].timer == 0) {
 						      // Throw a fireball
@@ -1035,7 +1037,12 @@ int main() {
 	r_cons_set_raw (true);
 	while (true) {
 		render_callback (NULL, &ps);
+		// 1000 = 1s
+#if REALTIME
+		int ch = r_cons_readchar_timeout (300);
+#else
 		int ch = r_cons_readchar ();
+#endif
 		ch = r_cons_arrow_to_hjkl (ch);
 		if (ps.exit || ch == 'Q') {
 			if (ps.scene == INTRO) {
