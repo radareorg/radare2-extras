@@ -12,6 +12,7 @@
 #include "types.h"
 #include "level.h"
 
+#define SOUND 1
 #define REALTIME 1
 
 int SCREEN_WIDTH = 128;
@@ -24,6 +25,13 @@ int HALF_HEIGHT = 32;
 #define swap(a, b) do { typeof(a) temp = a; a = b; b = temp; } while (0)
 #define sign(a, b) (double) (a > b ? 1 : (b > a ? -1 : 0))
 #define pgm_read_byte(addr) (*(const unsigned char *)(addr))
+
+static void beep(void) {
+#if SOUND
+	printf ("\a");
+	fflush (stdout);
+#endif
+}
 
 int tick(void) {
 	static int t = 0;
@@ -225,6 +233,7 @@ static UID detectCollision(uint8_t level[], Coords *pos, double relative_x, doub
 	}
 	if (block == E_EXIT) {
 		ps->exit = true;
+		beep();
 		return UID_null;
 	}
 	if (block == E_LOCKEDDOOR) {
@@ -232,6 +241,7 @@ static UID detectCollision(uint8_t level[], Coords *pos, double relative_x, doub
 			ps->player.keys --;
 			// check if enough keys
 			setBlockAt (level, round_x, round_y, E_DOOR);
+			beep();
 		}
 		return create_uid (block, round_x, round_y);
 			// ps->entity[i].uid = E_DOOR;
@@ -288,6 +298,7 @@ void fire(PluginState* const ps) {
 			double damage = (double) fmin (GUN_MAX_DAMAGE, GUN_MAX_DAMAGE / distance_div);
 			if (damage > 0) {
 				ps->entity[i].health -= damage;
+				beep();
 				ps->entity[i].state = S_HIT;
 				ps->entity[i].timer = 4;
 			}
@@ -385,6 +396,7 @@ void updateEntities(uint8_t level[], Canvas* const canvas, PluginState* const ps
 				      } else if (ps->entity[i].timer == 0) {
 					      // Melee attack
 					      ps->player.health = fmax(0, ps->player.health - ENEMY_MELEE_DAMAGE);
+					      beep();
 					      ps->entity[i].timer = 14;
 					      flash_screen = true;
 					      updateHud(canvas, ps);
@@ -398,6 +410,7 @@ void updateEntities(uint8_t level[], Canvas* const canvas, PluginState* const ps
 		case E_FIREBALL:
 			if (ps->entity[i].distance < FIREBALL_COLLIDER_DIST) {
 				// Hit the player and disappear
+				beep();
 				ps->player.health = fmax(0, ps->player.health - ENEMY_FIREBALL_DAMAGE);
 				flash_screen = true;
 				updateHud(canvas, ps);
@@ -418,13 +431,18 @@ void updateEntities(uint8_t level[], Canvas* const canvas, PluginState* const ps
 			}
 			break;
 		case E_MEDIKIT:
-			      if (ps->entity[i].distance < ITEM_COLLIDER_DIST) {
+			if (ps->entity[i].distance < ITEM_COLLIDER_DIST) {
 				// pickup
-				//playSound(medkit_snd, MEDKIT_SND_LEN);
-				ps->entity[i].state = S_HIDDEN;
-				ps->player.health = fmin (100, ps->player.health + 50);
-				updateHud (canvas, ps);
-				flash_screen = 1;
+				if (ps->player.health < 100) {
+					//playSound(medkit_snd, MEDKIT_SND_LEN);
+					ps->entity[i].state = S_HIDDEN;
+					ps->player.health = fmin (100, ps->player.health + 50);
+					beep();
+					r_sys_usleep (100);
+					beep();
+					updateHud (canvas, ps);
+					flash_screen = 1;
+				}
 			}
 			break;
 		case E_KEY:
@@ -433,6 +451,7 @@ void updateEntities(uint8_t level[], Canvas* const canvas, PluginState* const ps
 				//playSound(get_key_snd, GET_KEY_SND_LEN);
 				ps->entity[i].state = S_HIDDEN;
 				ps->player.keys++;
+				beep();
 				updateHud (canvas, ps);
 				flash_screen = 1;
 			}
@@ -962,6 +981,7 @@ static void doom_game_tick(PluginState* const ps) {
 				ps->gun_pos = GUN_SHOT_POS;
 				ps->gun_fired = true;
 				fire (ps);
+				beep();
 				ps->fired = false;
 			} else if (ps->gun_fired) { // && !ps->fired) {
 				ps->gun_fired = false;
