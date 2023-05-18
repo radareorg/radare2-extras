@@ -9,6 +9,12 @@
 // XXX dont polute the global space
 static R_TH_LOCAL RCore *Gcore = NULL;
 static R_TH_LOCAL pk_compiler pc = NULL;
+static R_TH_LOCAL struct pk_alien_token alien_token;
+static R_TH_LOCAL char *res = NULL;
+
+#ifndef USE_POKE_GIT
+#define USE_POKE_GIT 0
+#endif
 
 #include "term.c"
 #include "iod.c"
@@ -32,7 +38,7 @@ fun r2_exception_handler = (Exception exception) void:\
   }\
 }";
 
-static void poke_handle_exception (pk_val exception) {
+static void poke_handle_exception(pk_val exception) {
 	pk_val handler = pk_decl_val (pc, "r2_exception_handler");
 	if (handler == PK_NULL) {
 		R_LOG_ERROR ("Couldn't get a handler for poke gdb_exception_handler");
@@ -42,8 +48,39 @@ static void poke_handle_exception (pk_val exception) {
 	}
 }
 
-static R_TH_LOCAL struct pk_alien_token alien_token;
-static R_TH_LOCAL char *res = NULL;
+#if USE_POKE_GIT
+static struct pk_alien_token *aliendtoken(char delim, const char *id, char **errmsg) {
+	R_LOG_DEBUG ("Resolve delimited alien with id (%s) %c", id, delim);
+	char *idh = NULL;
+	if (delim == *id) {
+		id = idh = r_str_ndup (id + 1, strlen (id) -2);
+	} else {
+		id++;
+	}
+	if (r_str_startswith (id, "r2cmd::")) {
+		alien_token.kind = PK_ALIEN_TOKEN_STRING;
+		free (res);
+		res = r_core_cmd_str (Gcore, id + 7);
+		alien_token.value.string.str = res;
+		// leaks res
+		free (idh);
+		return &alien_token;
+	}
+	RFlagItem *fi = r_flag_get (Gcore->flags, id);
+	if (fi) {
+		alien_token.kind = PK_ALIEN_TOKEN_OFFSET;
+		alien_token.value.offset.magnitude = fi->offset;
+		alien_token.value.offset.width = 8 * 8; // uint64
+		alien_token.value.offset.signed_p = 0;
+		alien_token.value.offset.unit = 8;
+		free (idh);
+		return &alien_token;
+	}
+	R_LOG_ERROR ("Unknown alien (%s)", id);
+	free (idh);
+	return NULL;
+}
+#endif
 
 static struct pk_alien_token *alientoken(const char *id, char **errmsg) {
 	R_LOG_DEBUG ("Resolve alien with id (%s)", id);
@@ -146,6 +183,9 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 	pk_set_omode (pc, PK_PRINT_TREE);
 	pk_set_lexical_cuckolding_p (pc, 1);
 	pk_set_alien_token_fn (pc, alientoken);
+#if USE_POKE_GIT
+	pk_set_alien_dtoken_fn (pc, aliendtoken);
+#endif
 	// [0x100003a3c]> 'poke printf ("%<stderr:jejejeje%>")
 	if (pk_compile_buffer (pc, "fun eprintf = (string msg) void : {printf(\"%<stderr:%s%>\", msg);};", NULL, &exit_exception) != PK_OK) {
 		R_LOG_ERROR ("Cannot register eprintf");

@@ -11,6 +11,11 @@ LDFLAGS+=$(shell pkg-config --libs poke)
 R2PM_PLUGDIR?=$(shell r2 -H R2_USER_PLUGINS)
 LDFLAGS+=-Wl,-rpath,$(shell r2pm -H R2PM_PREFIX)/lib
 
+POKE_GIT=1
+ifeq ($(POKE_GIT),1)
+CFLAGS+=-DUSE_POKE_GIT=1
+endif
+
 CFLAGS+=-ggdb
 
 all: $(LIBPOKE)

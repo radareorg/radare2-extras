@@ -1,0 +1,3 @@
+// poke running r2 commands using alien tokens
+var msg = $<r2cmd::?e world>;
+printf "Hello %s\n", msg;
