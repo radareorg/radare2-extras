@@ -39,9 +39,9 @@ typedef struct Entity {
   UID uid;
   Coords pos;
   uint8_t state;
-  uint8_t health;     // angle for fireballs
-  uint8_t distance;
-  uint8_t timer;
+  int health;     // angle for fireballs
+  int distance;
+  int timer;
 } Entity;
 
 typedef struct StaticEntity  { 
