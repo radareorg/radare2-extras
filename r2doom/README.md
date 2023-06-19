@@ -4,5 +4,6 @@ This is an implementation of the DOOM on top of radare2 based on the [Flipper Ze
 
 ![r2doom.png](assets/r2doom.png)
 
+![r2doom-ailogo.jpg](assets/r2doom-ailogo.jpg)
 
 -- pancake
