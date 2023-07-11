@@ -290,7 +290,6 @@ static int r_debug_unicorn_cmd(RDebug *dbg, const char *cmd) {
 #endif
 
 static RList *r_debug_unicorn_map_get(RDebug *dbg) {
-	int i = 0;
 	RList *list = r_list_new ();
 	ut32 mapid;
 	if (!r_id_storage_get_lowest (dbg->iob.io->maps, &mapid)) {
@@ -308,7 +307,6 @@ static RList *r_debug_unicorn_map_get(RDebug *dbg) {
 		if (JUST_FIRST_BLOCK) {
 			break;
 		}
-		i++;
 	} while (r_id_storage_get_next (dbg->iob.io->maps, &mapid));
 	return list;
 }
@@ -378,7 +376,11 @@ static int r_debug_unicorn_bp(RBreakpointItem *bp, int set, void *user) {
 }
 #endif
 
+#if R2_VERSION_NUMBER >= 50809
+static bool r_debug_unicorn_reg_read(RDebug *dbg, int type, ut8 *buf, int size) {
+#else
 static int r_debug_unicorn_reg_read(RDebug *dbg, int type, ut8 *buf, int size) {
+#endif
 	// NOTE: This must be in sync with the profile.
 	ut64 *rip = (ut64*)(buf + 0x00);
 	ut64 *rax = (ut64*)(buf + 0x08);
@@ -774,15 +776,24 @@ static bool r_debug_unicorn_init(RDebug *dbg) {
 }
 
 RDebugPlugin r_debug_plugin_unicorn = {
+#if R2_VERSION_NUMBER >= 50809
+	.meta = {
+		.name = "unicorn",
+		.license = "GPL",
+		.author = "pancake",
+	},
+	.init_debugger = &r_debug_unicorn_init,
+#else
 	.name = "unicorn",
 	.license = "GPL",
 	.author = "pancake",
+	.init = &r_debug_unicorn_init,
+#endif
 	.bits = R_SYS_BITS_32 | R_SYS_BITS_64,
 	.arch = "x86,arm,riscv,mips",
 	.canstep = 1,
 	.keepio = 1,
 
-	.init = &r_debug_unicorn_init,
 	.step = &r_debug_unicorn_step,
 	.cont = &r_debug_unicorn_continue,
 	.wait = &r_debug_unicorn_wait,
