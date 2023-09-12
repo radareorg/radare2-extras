@@ -1,3 +1,4 @@
+#if 0
 /* radare - LGPL - Copyright 2018-2021 - xvilka, pancake */
 
 #include <r_types.h>
@@ -111,4 +112,5 @@ R_API RLibStruct radare_plugin = {
 	.data = &r_anal_plugin_hexagon,
 	.version = R2_VERSION
 };
+#endif
 #endif

@@ -5,9 +5,6 @@ rl78:
 ba2:
 	cd p ; $(MAKE) anal_ba2.$(LIBEXT)
 
-qdsp6 hexagon:
-	$(MAKE) -C p anal_hexagon.$(LIBEXT)
-
 bea:
 	cd p ; $(MAKE) anal_x86_bea.$(LIBEXT)
 
@@ -32,6 +29,5 @@ clean:
 	rm -f p/anal_m68k_net.$(LIBEXT)
 	rm -f p/anal_atombios.{$(LIBEXT),o}
 	rm -f p/anal_nios.$(LIBEXT)
-	rm -f p/anal_hexagon.$(LIBEXT)
 
 include ../../options.mk

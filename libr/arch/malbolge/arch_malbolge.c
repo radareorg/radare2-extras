@@ -64,17 +64,19 @@ static bool mal_decode(RArchSession *s, RAnalOp *op, RArchEncodeMask mask) {
 }
 
 RArchPlugin r_arch_plugin_malbolge = {
-	.name = "malbolge",
-	.desc = "Malbolge analysis plugin",
+	.meta = {
+		.name = "malbolge",
+		.desc = "Malbolge analysis plugin",
+		.license = "LGPL3",
+	},
 	.arch = "malbolge",
-	.license = "LGPL3",
 	.bits = 32,
 	.decode = &mal_decode,
 };
 
 #ifndef R2_PLUGIN_INCORE
 R_API RLibStruct radare_plugin = {
-	.type = R_LIB_TYPE_ANAL,
+	.type = R_LIB_TYPE_ARCH,
 	.data = &r_arch_plugin_malbolge,
 	.version = R2_VERSION
 };

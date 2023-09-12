@@ -27055,7 +27055,7 @@ int hexagon_disasm_instruction(ut32 hi_u32, HexInsn *hi, ut32 addr) {
 					hi->ops[1].type = HEX_OP_TYPE_IMM;
 					hi->ops[1].op.imm = (((hi_u32 & 0x1f0000) >> 11) | ((hi_u32 & 0xe0) >> 3) | ((hi_u32 & 0x3) >> 0));
 					hi->predicate = HEX_NOPRED;
-					hex_op_extend_off(&hi->ops[0], 2);
+					hex_op_extend_off (&hi->ops[0], 2);
 					sprintf(hi->mnem, "loop0 (0x%x, 0x%x)", hi->ops[0].op.imm, hi->ops[1].op.imm);
 					break;
 				}
@@ -27071,7 +27071,7 @@ int hexagon_disasm_instruction(ut32 hi_u32, HexInsn *hi, ut32 addr) {
 					hi->ops[1].type = HEX_OP_TYPE_IMM;
 					hi->ops[1].op.imm = (((hi_u32 & 0x1f0000) >> 11) | ((hi_u32 & 0xe0) >> 3) | ((hi_u32 & 0x3) >> 0));
 					hi->predicate = HEX_NOPRED;
-					hex_op_extend_off(&hi->ops[0], 2);
+					hex_op_extend_off (&hi->ops[0], 2);
 					sprintf(hi->mnem, "loop1 (0x%x, 0x%x)", hi->ops[0].op.imm, hi->ops[1].op.imm);
 					break;
 				}
