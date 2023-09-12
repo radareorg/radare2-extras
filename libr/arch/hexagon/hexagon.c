@@ -221,7 +221,7 @@ inline bool hex_if_duplex(uint32_t insn_word)
 }
 
 // Constant extender value
-R_TH_LOCAL ut32 constant_extender = 1;
+ut32 constant_extender = 1;
 
 void hex_op_extend(HexOp *op) {
 	if ((constant_extender != 1) && (op->type == HEX_OP_TYPE_IMM)) {
