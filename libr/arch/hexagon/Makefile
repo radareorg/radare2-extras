@@ -1,7 +1,7 @@
 SO=$(shell r2 -H R2_LIBEXT)
 PD=$(shell r2 -H R2_USER_PLUGINS)
 
-CFLAGS+=$(shell pkg-config --cflags r_util r_arch)
+CFLAGS+=$(shell pkg-config --cflags r_util r_arch) -fPIC
 LDFLAGS+=$(shell pkg-config --libs r_util r_arch)
 CFLAGS+=-g
 
