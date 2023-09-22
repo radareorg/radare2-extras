@@ -33,7 +33,7 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         path: ./radare2-extras
     - name: Init r2pm
-      run: r2pm init
+      run: r2pm -U
     - name: Compile and install plugins
       run: |
         set -e
