@@ -235,9 +235,11 @@ static int r_cmd_poke_fini(void *user, const char *cmd) {
 }
 
 RCorePlugin r_core_plugin_poke = {
-	.name = "poke",
-	.desc = "GNU/POKE for radare2",
-	.license = "GPL3",
+	.meta = {
+		.name = "poke",
+		.desc = "GNU/POKE for radare2",
+		.license = "GPL3",
+	},
 	.call = r_cmd_poke_call,
 	.init = r_cmd_poke_init,
 	.fini = r_cmd_poke_fini

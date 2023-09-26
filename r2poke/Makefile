@@ -11,7 +11,9 @@ LDFLAGS+=$(shell pkg-config --libs poke)
 R2PM_PLUGDIR?=$(shell r2 -H R2_USER_PLUGINS)
 LDFLAGS+=-Wl,-rpath,$(shell r2pm -H R2PM_PREFIX)/lib
 
-POKE_GIT=1
+# poke-3.3 doesnt support this, we must wait for 4.0 to enable this
+POKE4=$(shell r2pm -r pkg-config --modversion poke| grep ^4 && echo 1)
+POKE_GIT?=$(POKE4)
 ifeq ($(POKE_GIT),1)
 CFLAGS+=-DUSE_POKE_GIT=1
 endif
