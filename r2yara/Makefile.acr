@@ -31,7 +31,7 @@ MOD=core_yara
 all: $(MOD).$(LIBEXT)
 
 $(MOD).$(LIBEXT): ${MOD}.o
-	${CC} ${MOD}.o ${CFLAGS} ${LDFLAGS} -o ${MOD}.${LIBEXT}
+	$(CC) -g ${MOD}.o ${CFLAGS} ${LDFLAGS} -o ${MOD}.${LIBEXT}
 
 clean:
 	rm -f ${MOD}.o ${MOD}.${LIBEXT}
@@ -54,5 +54,5 @@ symstall:
 
 user-uninstall uninstall:
 	rm -f ${R2PM_USRPLUGIN_DIR}/$(MOD).$(LIBEXT)
-	rm -rf ${RULESDIR)
+	rm -rf $(RULESDIR)
 	rm -rf ${R2PM_USRPLUGIN_DIR}/yara

@@ -278,6 +278,10 @@ static void logerr(YR_COMPILER* compiler, R_NULLABLE const char *arg) {
 }
 
 static int r_cmd_yara_add(const RCore* core, const char* input) {
+	if (!input) {
+		R_LOG_ERROR ("Missing argument");
+		return false;
+	}
 	/* Add a rule with user input */
 	YR_COMPILER* compiler = NULL;
 	int result, i, continue_edit;
@@ -370,22 +374,26 @@ static int r_cmd_yara_add_file(const char* rules_path) {
 	return true;
 
 err_exit:
-	if (compiler) yr_compiler_destroy (compiler);
-	if (rules_file) fclose (rules_file);
+	if (compiler) {
+		yr_compiler_destroy (compiler);
+	}
+	if (rules_file) {
+		fclose (rules_file);
+	}
 	return false;
 }
 
 static int r_cmd_yara_help(const RCore* core) {
-	const char * help_message[] = {
-		"Usage: yara", "", " Yara plugin",
-		"add", " [file]", "Add yara rules from file, or open $EDITOR with yara rule template",
-		"clear", "", "Clear all rules",
-		"help", "", "Show this help",
-		"list", "", "List all rules",
-		"scan", "[S]", "Scan the current file, if S option is given it prints matching strings.",
-		"show", " name", "Show rules containing name",
-		"tag", " name", "List rules with tag 'name'",
-		"tags", "", "List tags from the loaded rules",
+	const char *help_message[] = {
+		"Usage: yara", " [action] [args..]", " load and run yara rules inside r2",
+		"yara", " add [file]", "Add yara rules from file, or open $EDITOR with yara rule template",
+		"yara", " clear", "Clear all rules",
+		"yara", " help", "Show this help (same as 'yara?')",
+		"yara", " list", "List all rules",
+		"yara", " scan[S]", "Scan the current file, if S option is given it prints matching strings",
+		"yara", " show [name]", "Show rules containing name",
+		"yara", " tag [name]", "List rules with tag 'name'",
+		"yara", " tags", "List tags from the loaded rules",
 		NULL
 	};
 	r_core_cmd_help (core, help_message);
