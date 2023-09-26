@@ -23,11 +23,13 @@ static bool assemble(RArchSession *a, RAnalOp *ao, RArchEncodeMask mask) {
 }
 
 RArchPlugin r_arch_plugin_x86_ks = {
-	.name = "x86.ks",
-	.desc = "x86 keystone assembler",
-	.license = "GPL",
+	.meta = {
+		.name = "x86.ks",
+		.desc = "x86 keystone assembler",
+		.license = "GPL",
+	},
 	.arch = "x86",
-	.bits = 16 | 32 | 64,
+	.bits = R_SYS_BITS_PACK3 (16, 32, 64),
 	.encode = &assemble,
 };
 

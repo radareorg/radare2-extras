@@ -23,9 +23,11 @@ static bool assemble(RArchSession *a, RAnalOp *ao, RArchEncodeMask mask) {
 }
 
 RArchPlugin r_arch_plugin_ppc_ks = {
-	.name = "ppc.ks",
-	.desc = "powerpc keystone assembler",
-	.license = "GPL",
+	.meta = {
+		.name = "ppc.ks",
+		.desc = "powerpc keystone assembler",
+		.license = "GPL",
+	},
 	.arch = "ppc",
 	.bits = R_SYS_BITS_PACK2 (32,64),
 	.encode = &assemble,

@@ -23,11 +23,13 @@ static bool assemble(RArchSession *a, RAnalOp *ao, RArchEncodeMask mask) {
 }
 
 RArchPlugin r_arch_plugin_sparc_ks = {
-	.name = "sparc.ks",
-	.desc = "sparc keystone assembler",
-	.license = "GPL",
+	.meta = {
+		.name = "sparc.ks",
+		.desc = "sparc keystone assembler",
+		.license = "GPL",
+	},
 	.arch = "sparc",
-	.bits = R_SYS_BITS_PACK2 (32,64),
+	.bits = R_SYS_BITS_PACK2 (32, 64),
 	.encode = &assemble,
 };
 

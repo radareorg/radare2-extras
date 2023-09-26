@@ -15,9 +15,11 @@ static bool assemble(RArchSession *a, RAnalOp *ao, RArchEncodeMask mask) {
 }
 
 RArchPlugin r_arch_plugin_hexagon_ks = {
-	.name = "hexagon.ks",
-	.desc = "Hexagon keystone assembler",
-	.license = "GPL",
+	.meta = {
+		.name = "hexagon.ks",
+		.desc = "Hexagon keystone assembler",
+		.license = "GPL",
+	},
 	.arch = "hexagon",
 	.bits = 32,
 	.encode = &assemble,

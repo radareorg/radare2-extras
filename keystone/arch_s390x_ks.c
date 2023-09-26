@@ -15,9 +15,11 @@ static bool assemble(RArchSession *a, RAnalOp *ao, RArchEncodeMask mask) {
 }
 
 RArchPlugin r_arch_plugin_s390x_ks = {
-	.name = "s390x.ks",
-	.desc = "SystemZ keystone assembler (S390X)",
-	.license = "GPL",
+	.meta = {
+		.name = "s390x.ks",
+		.desc = "SystemZ keystone assembler (S390X)",
+		.license = "GPL",
+	},
 	.arch = "s390x",
 	.bits = 32,
 	.encode = &assemble,

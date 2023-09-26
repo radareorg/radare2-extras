@@ -15,9 +15,11 @@ static bool assemble(RArchSession *a, RAnalOp *ao, RArchEncodeMask mask) {
 }
 
 RArchPlugin r_arch_plugin_evm_ks = {
-	.name = "evm.ks",
-	.desc = "EVM keystone assembler",
-	.license = "GPL",
+	.meta = {
+		.name = "evm.ks",
+		.desc = "EVM keystone assembler",
+		.license = "GPL",
+	},
 	.arch = "evm",
 	.bits = 32,
 	.encode = &assemble,

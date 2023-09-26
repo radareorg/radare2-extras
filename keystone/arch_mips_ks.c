@@ -26,9 +26,11 @@ static bool assemble(RArchSession *a, RAnalOp *ao, RArchEncodeMask mask) {
 }
 
 RArchPlugin r_arch_plugin_mips_ks = {
-	.name = "mips.ks",
-	.desc = "MIPS keystone assembler",
-	.license = "GPL",
+	.meta = {
+		.name = "mips.ks",
+		.desc = "MIPS keystone assembler",
+		.license = "GPL",
+	},
 	.arch = "mips",
 	.bits = R_SYS_BITS_PACK3 (16, 32, 64),
 	.encode = &assemble,

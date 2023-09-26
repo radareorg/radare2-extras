@@ -26,9 +26,11 @@ static bool assemble(RArchSession *a, RAnalOp *ao, RArchEncodeMask mask) {
 }
 
 RArchPlugin r_arch_plugin_arm_ks = {
-	.name = "arm.ks",
-	.desc = "ARM keystone assembler",
-	.license = "GPL",
+	.meta = {
+		.name = "arm.ks",
+		.desc = "ARM keystone assembler",
+		.license = "GPL",
+	},
 	.arch = "arm",
 	.bits = R_SYS_BITS_PACK3 (16, 32, 64),
 	.encode = &assemble,
