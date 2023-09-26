@@ -17,6 +17,7 @@
 *.swo
 *.un~
 /Makefile
+r2yara/Makefile
 /options.mk
 
 # misc
