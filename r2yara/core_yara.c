@@ -144,7 +144,7 @@ static int cmd_yara_scan(const RCore* core, R_NULLABLE const char* option) {
 		return false;
 	}
 
-	if (option) {
+	if (*option) {
 		if (*option == '\0') {
 			print_strings = false;
 		} else if (*option == 'S') {
