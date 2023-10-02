@@ -16,15 +16,15 @@ static int callback(int message, void* rule, void* data);
 #else
 static int callback(YR_SCAN_CONTEXT* context, int message, void* rule, void* data);
 #endif
-static int r_cmd_yara_add(const RCore* core, const char* input);
-static int r_cmd_yara_add_file (const char* rules_path);
-static int r_cmd_yara_call(void *user, const char *input);
-static int r_cmd_yara_clear();
-static int r_cmd_yara_init(void *user, const char *cmd);
-static int r_cmd_yara_help(const RCore* core);
-static int r_cmd_yara_process(const RCore* core, const char* input);
-static int r_cmd_yara_scan(const RCore* core, const char* option);
-static int r_cmd_yara_load_default_rules (const RCore* core);
+static int cmd_yara_add(const RCore* core, const char* input);
+static int cmd_yara_add_file (const char* rules_path);
+static int cmd_yara_call(void *user, const char *input);
+static int cmd_yara_clear();
+static int cmd_yara_init(void *user, const char *cmd);
+static int cmd_yara_help(const RCore* core);
+static int cmd_yara_process(const RCore* core, const char* input);
+static int cmd_yara_scan(const RCore* core, const char* option);
+static int cmd_yara_load_default_rules(const RCore* core);
 
 static const char yara_rule_template[] = "rule RULE_NAME {\n\tstrings:\n\n\tcondition:\n}";
 
@@ -130,7 +130,7 @@ static void compiler_callback(int error_level, const char* file_name,
 }
 #endif
 
-static int r_cmd_yara_scan(const RCore* core, const char* option) {
+static int cmd_yara_scan(const RCore* core, R_NULLABLE const char* option) {
 	RListIter* rules_it;
 	YR_RULES* rules;
 	void* to_scan;
@@ -144,14 +144,16 @@ static int r_cmd_yara_scan(const RCore* core, const char* option) {
 		return false;
 	}
 
-	if (*option == '\0') {
-		print_strings = false;
-	} else if (*option == 'S') {
-		print_strings = true;
-	} else {
-		print_strings = false;
-		R_LOG_ERROR ("Invalid option");
-		return false;
+	if (option) {
+		if (*option == '\0') {
+			print_strings = false;
+		} else if (*option == 'S') {
+			print_strings = true;
+		} else {
+			print_strings = false;
+			R_LOG_ERROR ("Invalid option");
+			return false;
+		}
 	}
 
 	to_scan = malloc (to_scan_size);
@@ -174,7 +176,7 @@ static int r_cmd_yara_scan(const RCore* core, const char* option) {
 	return true;
 }
 
-static int r_cmd_yara_show(const char * name) {
+static int cmd_yara_show(const char * name) {
 	/* List loaded rules containing name */
 	RListIter* rules_it;
 	YR_RULES* rules;
@@ -191,7 +193,7 @@ static int r_cmd_yara_show(const char * name) {
 	return true;
 }
 
-static int r_cmd_yara_tags() {
+static int cmd_yara_tags() {
 	/* List tags from all the different loaded rules */
 	RListIter* rules_it;
 	RListIter *tags_it;
@@ -222,7 +224,7 @@ static int r_cmd_yara_tags() {
 	return true;
 }
 
-static int r_cmd_yara_tag(const char * search_tag) {
+static int cmd_yara_tag(const char * search_tag) {
 	/* List rules with tag search_tag */
 	RListIter* rules_it;
 	YR_RULES* rules;
@@ -244,7 +246,7 @@ static int r_cmd_yara_tag(const char * search_tag) {
 	return true;
 }
 
-static int r_cmd_yara_list() {
+static int cmd_yara_list() {
 	/* List all loaded rules */
 	RListIter* rules_it;
 	YR_RULES* rules;
@@ -259,7 +261,7 @@ static int r_cmd_yara_list() {
 	return true;
 }
 
-static int r_cmd_yara_clear() {
+static int cmd_yara_clear() {
 	/* Clears all loaded rules */
 	r_list_free (rules_list);
 	rules_list = r_list_newf ((RListFree) yr_rules_destroy);
@@ -277,7 +279,7 @@ static void logerr(YR_COMPILER* compiler, R_NULLABLE const char *arg) {
 	}
 }
 
-static int r_cmd_yara_add(const RCore* core, const char* input) {
+static int cmd_yara_add(const RCore* core, const char* input) {
 	if (!input) {
 		R_LOG_ERROR ("Missing argument");
 		return false;
@@ -288,7 +290,7 @@ static int r_cmd_yara_add(const RCore* core, const char* input) {
 
 	for (i = 0; input[i]; i++) {
 		if (input[i] != ' ') {
-			return r_cmd_yara_add_file (input + i);
+			return cmd_yara_add_file (input + i);
 		}
 	}
 
@@ -333,7 +335,7 @@ err_exit:
 	return false;
 }
 
-static int r_cmd_yara_add_file(const char* rules_path) {
+static int cmd_yara_add_file(const char* rules_path) {
 	YR_COMPILER* compiler = NULL;
 	YR_RULES* rules;
 	FILE* rules_file = NULL;
@@ -383,7 +385,7 @@ err_exit:
 	return false;
 }
 
-static int r_cmd_yara_help(const RCore* core) {
+static int cmd_yara_help(const RCore* core) {
 	const char *help_message[] = {
 		"Usage: yara", " [action] [args..]", " load and run yara rules inside r2",
 		"yara", " add [file]", "Add yara rules from file, or open $EDITOR with yara rule template",
@@ -400,7 +402,7 @@ static int r_cmd_yara_help(const RCore* core) {
 	return true;
 }
 
-static int r_cmd_yara_process(const RCore* core, const char* input) {
+static int cmd_yara_process(const RCore* core, const char* input) {
 	char *inp = strdup (input);
 	char *arg = r_str_after (inp, ' ');
 	if (arg) {
@@ -408,40 +410,40 @@ static int r_cmd_yara_process(const RCore* core, const char* input) {
 	}
 	int res = -1;
 	if (r_str_startswith (input, "add")) {
-		res = r_cmd_yara_add (core, arg);
+		res = cmd_yara_add (core, arg);
 	} else if (r_str_startswith (inp, "clear")) {
-		res = r_cmd_yara_clear ();
+		res = cmd_yara_clear ();
 	} else if (r_str_startswith (inp, "list")) {
-		res = r_cmd_yara_list ();
+		res = cmd_yara_list ();
 	} else if (r_str_startswith (inp, "scan")) {
-		res = r_cmd_yara_scan (core, arg);
+		res = cmd_yara_scan (core, arg);
 	} else if (r_str_startswith (inp, "show")) {
-		res = r_cmd_yara_show (arg);
+		res = cmd_yara_show (arg);
 	} else if (r_str_startswith (inp, "tags")) {
-		res = r_cmd_yara_tags ();
+		res = cmd_yara_tags ();
 	} else if (r_str_startswith (input, "tag ")) {
-        	res = r_cmd_yara_tag (arg);
+        	res = cmd_yara_tag (arg);
 	} else {
-		r_cmd_yara_help (core);
+		cmd_yara_help (core);
 	}
 	free (inp);
 	return res;
 }
 
-static int r_cmd_yara_call(void *user, const char *input) {
+static int cmd_yara_call(void *user, const char *input) {
 	RCore* core = (RCore*) user;
 	if (!r_str_startswith (input, "yara")) {
 		return false;
 	}
-	if (!initialized && !r_cmd_yara_init (core, NULL)) {
+	if (!initialized && !cmd_yara_init (core, NULL)) {
 		return false;
 	}
 	const char *args = input[4]? input + 5: input + 4;
-	r_cmd_yara_process (core, args);
+	cmd_yara_process (core, args);
 	return true;
 }
 
-static int r_cmd_yara_load_default_rules(const RCore* core) {
+static int cmd_yara_load_default_rules(const RCore* core) {
 	RListIter* iter = NULL;
 	YR_COMPILER* compiler = NULL;
 	YR_RULES* yr_rules;
@@ -494,17 +496,17 @@ err_exit:
 	return false;
 }
 
-static int r_cmd_yara_init(void *user, const char *cmd) {
+static int cmd_yara_init(void *user, const char *cmd) {
 	RCore* core = (RCore *)user;
 	rules_list = r_list_newf ((RListFree) yr_rules_destroy);
 	yr_initialize ();
-	r_cmd_yara_load_default_rules (core);
+	cmd_yara_load_default_rules (core);
 	initialized = true;
 	flagidx = 0;
 	return true;
 }
 
-static int r_cmd_yara_fini() {
+static int cmd_yara_fini() {
 	if (initialized) {
 		r_list_free (rules_list);
 		yr_finalize ();
@@ -519,9 +521,9 @@ RCorePlugin r_core_plugin_yara = {
 		.desc = "YARA integration",
 		.license = "LGPL",
 	},
-	.call = r_cmd_yara_call,
-	.init = r_cmd_yara_init,
-	.fini = r_cmd_yara_fini
+	.call = cmd_yara_call,
+	.init = cmd_yara_init,
+	.fini = cmd_yara_fini
 };
 
 #ifndef CORELIB
