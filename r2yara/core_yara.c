@@ -3,13 +3,12 @@
 #include <r_core.h>
 #include <yara.h>
 
-// true if the plugin has been initialized.
-static R_TH_LOCAL bool initialized = false;
-
 // TODO: remove globals!
+static R_TH_LOCAL bool initialized = false;
 static R_TH_LOCAL bool print_strings = false;
 static R_TH_LOCAL unsigned int flagidx = 0;
 static R_TH_LOCAL bool io_va = true;
+static R_TH_LOCAL RList* rules_list = NULL;
 
 #if YR_MAJOR_VERSION < 4
 static int callback(int message, void* rule, void* data);
@@ -17,7 +16,7 @@ static int callback(int message, void* rule, void* data);
 static int callback(YR_SCAN_CONTEXT* context, int message, void* rule, void* data);
 #endif
 static int cmd_yara_add(const RCore* core, const char* input);
-static int cmd_yara_add_file (const char* rules_path);
+static int cmd_yara_add_file(const char* rules_path);
 static int cmd_yara_call(void *user, const char *input);
 static int cmd_yara_clear();
 static int cmd_yara_init(void *user, const char *cmd);
@@ -26,13 +25,12 @@ static int cmd_yara_process(const RCore* core, const char* input);
 static int cmd_yara_scan(const RCore* core, const char* option);
 static int cmd_yara_load_default_rules(const RCore* core);
 
-static const char yara_rule_template[] = "rule RULE_NAME {\n\tstrings:\n\n\tcondition:\n}";
+static const char yara_rule_template[] = "rule RULE_NAME {\n  strings:\n\n  condition:\n}";
 
 /* Because of how the rules are compiled, we are not allowed to add more
  * rules to a compiler once it has compiled. That's why we keep a list
  * of those compiled rules.
  */
-static R_TH_LOCAL RList* rules_list = NULL;
 
 #if YR_MAJOR_VERSION < 4
 static int callback (int message, void *msg_data, void *user_data) {
@@ -144,7 +142,7 @@ static int cmd_yara_scan(const RCore* core, R_NULLABLE const char* option) {
 		return false;
 	}
 
-	if (*option) {
+	if (option != NULL) {
 		if (*option == '\0') {
 			print_strings = false;
 		} else if (*option == 'S') {
@@ -257,7 +255,6 @@ static int cmd_yara_list() {
 			r_cons_printf ("%s\n", rule->identifier);
 		}
 	}
-
 	return true;
 }
 
@@ -385,23 +382,32 @@ err_exit:
 	return false;
 }
 
-static int cmd_yara_help(const RCore* core) {
-	const char *help_message[] = {
-		"Usage: yara", " [action] [args..]", " load and run yara rules inside r2",
-		"yara", " add [file]", "Add yara rules from file, or open $EDITOR with yara rule template",
-		"yara", " clear", "Clear all rules",
-		"yara", " help", "Show this help (same as 'yara?')",
-		"yara", " list", "List all rules",
-		"yara", " scan[S]", "Scan the current file, if S option is given it prints matching strings",
-		"yara", " show [name]", "Show rules containing name",
-		"yara", " tag [name]", "List rules with tag 'name'",
-		"yara", " tags", "List tags from the loaded rules",
-		"yara", " version", "Show version information about r2yara and yara",
-		NULL
-	};
-	r_core_cmd_help (core, help_message);
-	return true;
-}
+const char *short_help_message[] = {
+	"Usage: yr", "[action] [args..]", " load and run yara rules inside r2",
+	"yr", " [file]", "add yara rules from file",
+	"yr", "-*", "unload all the rules",
+	"yr", "?", "show this help (same as 'yara?')",
+	"yr", "", "list loaded rules",
+	"yr", "s[S]", "scan the current file, if S option is given it prints matching strings",
+	"yr", "t", "list tags from the loaded rules",
+	"yr", "t [tagname]", "list rules with given tag",
+	"yr", "v", "show version information about r2yara and yara",
+	NULL
+};
+
+const char *long_help_message[] = {
+	"Usage: yara", " [action] [args..]", " load and run yara rules inside r2",
+	"yara", " add [file]", "Add yara rules from file, or open $EDITOR with yara rule template",
+	"yara", " clear", "Clear all rules",
+	"yara", " help", "Show this help (same as 'yara?')",
+	"yara", " list", "List all rules",
+	"yara", " scan[S]", "Scan the current file, if S option is given it prints matching strings",
+	"yara", " show [name]", "Show rules containing name",
+	"yara", " tag [name]", "List rules with tag 'name'",
+	"yara", " tags", "List tags from the loaded rules",
+	"yara", " version", "Show version information about r2yara and yara",
+	NULL
+};
 
 static int cmd_yara_process(const RCore* core, const char* input) {
 	char *inp = strdup (input);
@@ -416,6 +422,8 @@ static int cmd_yara_process(const RCore* core, const char* input) {
 		res = cmd_yara_clear ();
 	} else if (r_str_startswith (inp, "list")) {
 		res = cmd_yara_list ();
+	} else if (r_str_startswith (inp, "scanS") || r_str_startswith (inp, "scan S")) {
+		res = cmd_yara_scan (core, "S");
 	} else if (r_str_startswith (inp, "scan")) {
 		res = cmd_yara_scan (core, arg);
 	} else if (r_str_startswith (inp, "show")) {
@@ -430,7 +438,44 @@ static int cmd_yara_process(const RCore* core, const char* input) {
 		r_cons_printf ("r2yara %s\n", R2Y_VERSION);
 		res = 0;
 	} else {
-		cmd_yara_help (core);
+		r_core_cmd_help (core, long_help_message);
+	}
+	free (inp);
+	return res;
+}
+
+static int cmd_yr(RCore *core, const char *input) {
+	char *inp = strdup (input);
+	char *arg = r_str_after (inp, ' ');
+	int res = -1;
+	if (arg) {
+		arg = (char *)r_str_trim_head_ro (arg);
+	}
+	switch (*input) {
+	case '?': // "yr?"
+		r_core_cmd_help (core, short_help_message);
+		break;
+	case '/': // "yr/" <- imho makes more sense
+	case 's': // "yrs"
+		res = cmd_yara_scan (core, arg);
+		break;
+	case '+':
+	case ' ':
+		cmd_yara_add (core, arg);
+		break;
+	case '-':
+		cmd_yara_clear ();
+		break;
+	case 't': // "yrs"
+		if (input[1]) {
+			cmd_yara_tag (arg);
+		} else {
+			cmd_yara_tags ();
+		}
+		break;
+	case 0:
+		cmd_yara_list ();
+		break;
 	}
 	free (inp);
 	return res;
@@ -438,6 +483,10 @@ static int cmd_yara_process(const RCore* core, const char* input) {
 
 static int cmd_yara_call(void *user, const char *input) {
 	RCore* core = (RCore*) user;
+	if (r_str_startswith (input, "yr")) {
+		cmd_yr (core, input + 2);
+		return true;
+	}
 	if (!r_str_startswith (input, "yara")) {
 		return false;
 	}
