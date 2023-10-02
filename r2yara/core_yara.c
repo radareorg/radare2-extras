@@ -322,7 +322,9 @@ static int cmd_yara_add(const RCore* core, const char* input) {
 	} while (result > 0);
 
 	free (modified_template);
-	yr_compiler_destroy (compiler);
+	if (compiler != NULL) {
+		yr_compiler_destroy (compiler);
+	}
 	R_LOG_INFO ("Rule successfully added");
 	return true;
 
@@ -338,15 +340,13 @@ err_exit:
 static int cmd_yara_add_file(const char* rules_path) {
 	YR_COMPILER* compiler = NULL;
 	YR_RULES* rules;
-	FILE* rules_file = NULL;
-	int result;
 
 	if (!rules_path) {
 		R_LOG_INFO ("Please tell me what am I supposed to load");
 		return false;
 	}
 
-	rules_file = r_sandbox_fopen (rules_path, "r");
+	FILE* rules_file = r_sandbox_fopen (rules_path, "r");
 	if (!rules_file) {
 		R_LOG_ERROR ("Unable to open %s", rules_path);
 		return false;
@@ -357,7 +357,7 @@ static int cmd_yara_add_file(const char* rules_path) {
 		goto err_exit;
 	}
 
-	result = yr_compiler_add_file (compiler, rules_file, NULL, rules_path);
+	int result = yr_compiler_add_file (compiler, rules_file, NULL, rules_path);
 	fclose (rules_file);
 	rules_file = NULL;
 	if (result > 0) {
@@ -396,6 +396,7 @@ static int cmd_yara_help(const RCore* core) {
 		"yara", " show [name]", "Show rules containing name",
 		"yara", " tag [name]", "List rules with tag 'name'",
 		"yara", " tags", "List tags from the loaded rules",
+		"yara", " version", "Show version information about r2yara and yara",
 		NULL
 	};
 	r_core_cmd_help (core, help_message);
@@ -423,6 +424,11 @@ static int cmd_yara_process(const RCore* core, const char* input) {
 		res = cmd_yara_tags ();
 	} else if (r_str_startswith (input, "tag ")) {
         	res = cmd_yara_tag (arg);
+	} else if (r_str_startswith (input, "ver")) {
+		r_cons_printf ("r2 %s\n", R2_VERSION);
+		r_cons_printf ("yara %s\n", YR_VERSION);
+		r_cons_printf ("r2yara %s\n", R2Y_VERSION);
+		res = 0;
 	} else {
 		cmd_yara_help (core);
 	}
@@ -483,7 +489,9 @@ static int cmd_yara_load_default_rules(const RCore* core) {
 
 	r_list_append (rules_list, yr_rules);
 
-	yr_compiler_destroy (compiler);
+	if (compiler) {
+		yr_compiler_destroy (compiler);
+	}
 	return true;
 
 err_exit:
@@ -520,6 +528,7 @@ RCorePlugin r_core_plugin_yara = {
 		.name = "yara",
 		.desc = "YARA integration",
 		.license = "LGPL",
+		.version = "0.1.2",
 	},
 	.call = cmd_yara_call,
 	.init = cmd_yara_init,

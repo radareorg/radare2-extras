@@ -1,5 +1,5 @@
 PWD=$(shell pwd)
-R2VERSION=@R2VERSION@
+VERSION=@VERSION@
 DESTDIR=
 PREFIX=@PREFIX@
 HOST_OS=@HOST_OS@
@@ -21,8 +21,9 @@ CFLAGS+=${R2_CFLAGS} ${LIBYARA_CFLAGS} ${YR_CFLAGS}
 LDFLAGS+=${R2_LDFLAGS} ${LIBYARA_LDFLAGS} ${YR_LDFLAGS}
 CFLAGS+=-I. -fPIC
 LDFLAGS+=-shared
+CFLAGS+=-DR2Y_VERSION=\"$(VERSION)\"
 
-ifneq ("$(wildcard ../../options.mk)","")
+ifneq ($(wildcard ../../options.mk),)
 include ../../options.mk
 endif
 
