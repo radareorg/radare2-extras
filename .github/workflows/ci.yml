@@ -22,7 +22,9 @@ jobs:
         ref: master
         path: ./radare2
     - name: Install dependencies
-      run: sudo apt-get --assume-yes install libjansson-dev libboost-dev libcurl4-openssl-dev python3-wheel python3-setuptools && sudo pip3 install meson ninja
+      run: |
+        sudo apt-get --assume-yes update
+        sudo apt-get --assume-yes install libjansson-dev libboost-dev libcurl4-openssl-dev python3-wheel python3-setuptools && sudo pip3 install meson ninja
     - name: Install radare2
       run: |
         export PATH=$PATH:/usr/local/bin
