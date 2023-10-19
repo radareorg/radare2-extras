@@ -10,13 +10,13 @@ jobs:
 
   build-extras:
     name: Build radare2 extras and r2pipe
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       BUILDS: 'blessr2 keystone-lib keystone r2svd unicorn-lib'
       TESTS: 'keystone'
       R2PIPE_TESTS: 'r2pipe-js r2pipe-py'
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         repository: radareorg/radare2
         ref: master
@@ -28,7 +28,7 @@ jobs:
         export PATH=$PATH:/usr/local/bin
         meson --prefix=/usr --buildtype=release build && ninja -C build && sudo ninja -C build install
       working-directory: radare2
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         path: ./radare2-extras
