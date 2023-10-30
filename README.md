@@ -1,7 +1,6 @@
 radare2-extras
 ==============
-
-[![GithubCI Status](https://github.com/radareorg/radare2-extras/workflows/CI/badge.svg?branch=master)](https://github.com/radareorg/radare2-extras/actions?query=workflow%3A%22ci%22)|
+[![GithubCI Status](https://github.com/radareorg/radare2-extras/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/radareorg/radare2-extras/actions?query=workflow%3A%22ci%22)
 
 This repository contains extra plugins for radare2.
 
