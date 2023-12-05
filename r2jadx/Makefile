@@ -1,19 +1,10 @@
-R2PM_BINDIR=$(shell r2pm -H R2PM_BINDIR)
+R2PM_PLUGDIR=$(shell r2pm -H R2PM_PLUGDIR)
 
-all: node_modules
+all:
 
-node_modules:
-	mkdir -p node_modules
-	npm i
+install user-install:
+	mkdir -p ${R2PM_PLUGDIR}
+	ln -fs $(shell pwd)/r2jadx.r2.js ${R2PM_PLUGDIR}/r2jadx.r2.js
 
-install:
-	ln -fs "$(shell pwd)"/r2jadx.js "$(R2PM_BINDIR)"/r2jadx
-
-uninstall:
-	rm -f "$(R2PM_BINDIR)"/r2jadx
-
-test:
-	r2 -A -i ./r2jadx.js /tmp/classes.dex
-
-indent:
-	node_modules/.bin/semistandard --fix *.js
+uninstall user-uninstall::
+	rm -f ${R2PM_PLUGDIR}/r2jadx.r2.js
