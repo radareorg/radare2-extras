@@ -34,11 +34,7 @@ zyan:
 	$(MAKE) -C asm zyan
 
 evm:
-	$(MAKE) -C asm evm
-	$(MAKE) -C anal evm
 	$(MAKE) -C io evm
-	$(MAKE) -C debug evm
-
 nios:
 	$(MAKE) -C anal nios
 
@@ -77,10 +73,7 @@ zyan-install:
 	cp -f asm/p/asm_x86_zyan.$(LIBEXT) $(R2PM_PLUGDIR)
 
 evm-install:
-	cp -f asm/p/asm_evm.$(LIBEXT) $(R2PM_PLUGDIR)
-	cp -f anal/p/anal_evm.$(LIBEXT) $(R2PM_PLUGDIR)
 	cp -f io/p/io_evm.$(LIBEXT) $(R2PM_PLUGDIR)
-	cp -f debug/p/debug_evm.$(LIBEXT) $(R2PM_PLUGDIR)
 
 nios-install:
 	cp -f asm/p/asm_nios.$(LIBEXT) $(R2PM_PLUGDIR)

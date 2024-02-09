@@ -754,9 +754,11 @@ static char *__system(RIO *io, RIODesc *fd, const char *cmd) {
 }
 
 RIOPlugin r_io_plugin_evm = {
-	.name = "evm",
-	.license = "LGPL3",
-	.desc = "Attach to EVM RPC debug api evm://localhost:8545:contractaddr:txaddr",
+	.meta = {
+		.name = "evm",
+		.license = "LGPL3",
+		.desc = "Attach to EVM RPC debug api evm://localhost:8545:contractaddr:txaddr",
+	},
 	.open = __open,
 	.close = __close,
 	.read = __read,

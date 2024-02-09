@@ -17,9 +17,6 @@ m68k_net:
 atombios:
 	cd p ; $(MAKE) anal_atombios.$(LIBEXT)
 
-evm:
-	cd p ; $(MAKE) anal_evm.$(LIBEXT)
-
 nios:
 	cd p ; $(MAKE) anal_nios.$(LIBEXT)
 
