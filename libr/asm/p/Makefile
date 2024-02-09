@@ -17,7 +17,6 @@ ARCHS+=vc4.mk
 ARCHS+=mc6809.mk
 ARCHS+=z80_nc.mk
 ARCHS+=x86_zyan.mk
-ARCHS+=evm.mk
 ARCHS+=atombios.mk
 
 
