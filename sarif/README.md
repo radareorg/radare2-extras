@@ -21,4 +21,8 @@ sarif reset         - reset all loaded sarif reports
 
 ## Links
 
+* https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/sarif-support-for-code-scanning?learn=code_security_integration
+* https://github.com/microsoft/sarif-tutorials/
 * https://docs.oasis-open.org/sarif/sarif/v2.0/sarif-v2.0.html
+* https://sarifweb.azurewebsites.net/#Specification
+* https://github.blog/2024-02-14-fixing-security-vulnerabilities-with-ai/
