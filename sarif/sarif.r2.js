@@ -32,6 +32,30 @@ class R2Sarif {
     }
   }
 
+  loadResults (sarifDocument) {
+    for (let run of sarifDocument.runs) {
+      for (let res of run.results) {
+        const ruleId = res.ruleId;
+        const level = res.level;
+        const message = res.message.text;
+        const loc0 = res.locations[0];
+	try {
+		console.log(JSON.stringify(loc0, null, 2));
+        const phyloc = loc0.physicalLocation;
+        const artifact = phyloc.artifactLocation.uri;
+	const locations = [{
+		va: loc0.properties.memoryAddress,
+		pa: phyloc.region.startByteOffset,
+		sz: phyloc.region.byteLength,
+	}];
+        this.addResult (ruleId, level, message, artifact, locations);
+	} catch (e) {
+		console.error(e);
+	}
+      }
+    }
+  }
+
   addRule (id) {
     if (this.doc.runs[0].tool.driver.rules.filter((x) => x.id === id).length !== 0) {
       return true;
@@ -108,7 +132,7 @@ class R2Sarif {
         const size = loc.physicalLocation.region.byteLength;
         const ruleId = res.ruleId;
         script += `CC ${ruleId}:${text} @ ${address}\n`;
-        script += `f bug.${counter} ${size} ${address}\n`;
+        script += `f sarif.${counter} ${size} ${address}\n`;
         counter++;
       }
     }
@@ -141,7 +165,12 @@ function sarifRegisterPlugin () {
     }
     function sarifLoadRules(fileName) {
       const sarifObject = r2.cmdj(`cat ${fileName}`);
-      sarif.loadRules (sarifObject);
+      sarif.loadRules(sarifObject);
+    }
+    function sarifLoadResults(fileName) {
+      const sarifObject = r2.cmdj(`cat ${fileName}`);
+      sarif.loadRules(sarifObject);
+      sarif.loadResults(sarifObject);
     }
     function listRules() {
       const res = [];
@@ -159,13 +188,15 @@ function sarifRegisterPlugin () {
       }
       return res.join("\n");
     }
-    function sarifExport (fileName) {
-      console.log(fileName);
+    function sarifImport(fileName) {
       if (fileName === '') {
-        console.log(sarif.toString());
+        console.log('Usage: sarif -i [filename]');
       } else {
-        console.log('Exporting to ' + fileName);
+        sarifLoadResults(fileName);
       }
+    }
+    function sarifExport () {
+      console.log(sarif.toString());
     }
     function sarifScript (fileName) {
       r2.log(sarif.toScript());
