@@ -20,89 +20,39 @@ const sarifTemplate = {
 class R2Sarif {
   constructor () {
     this.doc = sarifTemplate;
+    this.rulesLoaded = {};
   }
 
-  addRule (id, description, helpUri) {
-    if (this.doc.runs[0].tool.driver.rules.filter((x) => x.id === id).length !== 0) {
-      return false;
+  /* load rules from a sarif file */
+  loadRules (sarifDocument) {
+    for (let run of sarifDocument.runs) {
+      for (let rule of run.tool.driver.rules) {
+        this.rulesLoaded[rule.id] = rule;
+      }
     }
-    const rule = {
-      id: id,
-      shortDescription: {
-        text: description
-      },
-      helpUri: helpUri
-    };
-    this.doc.runs[0].tool.driver.rules.push(rule);
-    return true;
   }
 
+  addRule (id) {
+    if (this.doc.runs[0].tool.driver.rules.filter((x) => x.id === id).length !== 0) {
+      return true;
+    }
+    const rule = this.rulesLoaded[id];
+    if (rule) {
+      this.doc.runs[0].tool.driver.rules.push(rule);
+      return true;
+    }
+    return false;
+  }
   reset () {
     this.doc.runs[0].results = [];
     this.doc.runs[0].tool.driver.rules = [];
   }
 
-  addRuleOverflow () {
-    const ruleId = 'VULN-OVERFLOW';
-    this.addRule(ruleId, 'Potential Buffer Overflow',
-      'http://example.com/vulnerability/EXAMPLE-VULN-001');
-    return ruleId;
-  }
-
-  addRuleWeakCrypto () {
-    const ruleId = 'VULN-WEAKCRYPTO';
-    this.addRule(ruleId, 'Weak Crypto Usage',
-      'http://example.com/vulnerability/EXAMPLE-VULN-002');
-    return ruleId;
-  }
-
-  addRuleSqlInjection () {
-    const ruleId = 'VULN-SQLINJECTION';
-    this.addRule(ruleId, 'SQL Injection Vulnerability',
-      'http://example.com/vulnerability/EXAMPLE-VULN-003');
-    return ruleId;
-  }
-
-  addRuleHeapOverflow () {
-    const ruleId = 'VULN-HEAP-OVERFLOW';
-    this.addRule(ruleId, 'Potential Heap Buffer Overflow',
-      'http://example.com/vulnerability/EXAMPLE-VULN-004');
-    return ruleId;
-  }
-
-  addRuleDeprecated () {
-    const ruleId = 'VULN-DEPRECATED';
-    this.addRule(ruleId, 'Use of deprecated APIs',
-      'http://example.com/vulnerability/EXAMPLE-VULN-005');
-    return ruleId;
-  }
-
-  addResultWeakCrypto (artifact, comment, locations) {
-    const ruleId = this.addRuleWeakCrypto();
-    this.addResult(ruleId, 'error', comment, artifact, locations);
-  }
-
-  addResultHeapOverflow (artifact, comment, locations) {
-    const ruleId = this.addRuleHeapOverflow();
-    this.addResult(ruleId, 'error', comment, artifact, locations);
-  }
-
-  addResultOverflow (artifact, comment, locations) {
-    const ruleId = this.addRuleOverflow();
-    this.addResult(ruleId, 'error', comment, artifact, locations);
-  }
-
-  addResultSqlInjection (artifact, comment, locations) {
-    const ruleId = this.addRuleSqlInjection();
-    this.addResult(ruleId, 'error', comment, artifact, locations);
-  }
-
-  addResultDeprecated (artifact, comment, locations) {
-    const ruleId = this.addRuleDeprecated();
-    this.addResult(ruleId, 'warning', comment, artifact, locations);
-  }
-
   addResult (ruleId, level, message, artifact, locations) {
+    if (!this.addRule(ruleId)) {
+      console.error("Invalid rule id: " + ruleId);
+      return false;
+    }
     const sarifLocations = [];
     const result = {
       ruleId: ruleId,
@@ -139,6 +89,7 @@ class R2Sarif {
       result.locations.push(myLoc);
     }
     this.doc.runs[0].results.push(result);
+    return true;
   }
 
   toString () {
@@ -179,15 +130,34 @@ function sarifRegisterPlugin () {
   function sarifCommand (args) {
     function sarifHelp () {
       console.log('sarif [action] [arguments]');
-      console.log('sarif help                  - show this help message');
-      console.log('sarif add [type] [comment]  - add a new sarif finding');
-      console.log('sarif import [file]         - import sarif info from given file');
-      console.log('sarif export [file]         - export sarif findings into given file or stdout');
-      console.log('sarif r2|script             - generate r2 script with loaded sarif info');
-      console.log('sarif reset                 - reset all loaded sarif reports');
+      console.log('sarif -h, help              - show this help message (-h)');
+      console.log('sarif -a, add [r] [c]       - add a new sarif finding');
+      console.log('sarif -aw,-ae,-an [r] [c]   - add warning, error or note');
+      console.log('sarif -i, import [file]     - import sarif info from given file');
+      console.log('sarif -e, export [file]     - export sarif findings into given file or stdout');
+      console.log('sarif -r, r2|script         - generate r2 script with loaded sarif info');
+      console.log('sarif -R, reset             - reset reported findings list');
+      console.log('sarif -l, rules ([file])    - list or load rules from file');
     }
-    function sarifImport (fileName) {
-      console.log('Importing from ' + fileName);
+    function sarifLoadRules(fileName) {
+      const sarifObject = r2.cmdj(`cat ${fileName}`);
+      sarif.loadRules (sarifObject);
+    }
+    function listRules() {
+      const res = [];
+      for (const ruleId of Object.keys(sarif.rulesLoaded)) {
+        const rule = sarif.rulesLoaded[ruleId];
+        res.push(`- ${ruleId}`);
+	try {
+	  const desc = rule.fullDescription.text;
+          res.push(`  - description: ${desc}`);
+	} catch (e) {}
+	try {
+	  const level = rule.defaultConfiguration.level;
+          res.push (`  - level: ${level}`);
+	} catch (e) {}
+      }
+      return res.join("\n");
     }
     function sarifExport (fileName) {
       console.log(fileName);
@@ -200,45 +170,31 @@ function sarifRegisterPlugin () {
     function sarifScript (fileName) {
       r2.log(sarif.toScript());
     }
-    function sarifAdd (args) {
+    function sarifAdd (level, args) {
       const arg = args.split(/ /);
-      const artifact = r2.cmd('o.');
+      if (arg.length === 0) {
+        console.error("Usage: sarif add[?] [id] [message]");
+        return false;
+      }
+      const artifact = r2.cmd('o.').trim();
       const loc0 = {
         va: +r2.cmd('?v $$'),
-        pa: r2.cmd('?p $$'),
+        pa: r2.cmd('?p $$').trim(),
         sz: 1
       };
-      console.log(loc0);
       const locations = [loc0];
+      const ruleId = arg[0];
+      const rule = sarif.rulesLoaded[ruleId];
       const comment = arg.length > 1 ? arg[1] : '';
-      switch (arg[0]) {
-        case 'dep':
-          sarif.addResultDeprecated(artifact, comment, locations);
-          break;
-        case 'sqli':
-          sarif.addResultSqlInjection(artifact, comment, locations);
-          break;
-        case 'hbo':
-          sarif.addResultHeapOverflow(artifact, comment, locations);
-          break;
-        case 'ovf':
-        case 'bfo':
-        case 'overflow':
-          sarif.addResultOverflow(artifact, comment, locations);
-          break;
-        case 'weak':
-        case 'crypto':
-        case 'weakcrypto':
-          sarif.addResultWeakCrypto(artifact, comment, locations);
-          break;
-        default:
-          console.error('Unknown type and missing comment');
-          console.error('sqli : sql injection');
-          console.error('weak : weak crypto');
-          console.error('ovf  : buffer overflow');
-          console.error('hbo  : heap buffer overflow');
-          console.error('dep  : deprecated api usage');
-          break;
+      if (level === null) {
+	try {
+          level = rule.defaultConfiguration.level;
+	} catch (err) {
+          level = "warning";
+	}
+      }
+      if (!sarif.addResult(ruleId, level, comment, artifact, locations)) {
+        console.error("Cannot add result");
       }
     }
     let arg = args.substr('sarif'.length).trim();
@@ -259,16 +215,35 @@ function sarifRegisterPlugin () {
         break;
       case '-a':
       case 'add':
-        try {
-          sarifAdd(arg);
-        } catch (e) {
-          console.error(e);
-        }
+        sarifAdd(null, arg);
+        break;
+      case '-aw':
+      case 'addw':
+        sarifAdd("warning", arg);
+        break;
+      case '-ae':
+      case 'adde':
+        sarifAdd("error", arg);
+        break;
+      case '-an':
+      case 'addn':
+        sarifAdd("note", arg);
+        break;
+      case '-l':
+      case 'lr':
+      case 'rules':
+      case 'load-rules':
+	if (arg) {
+	  sarifLoadRules(arg);
+	} else {
+	  r2.log(listRules());
+	}
         break;
       case '-i':
       case 'import':
         sarifImport(arg);
         break;
+      case '-j':
       case '-e':
       case 'export':
         sarifExport(arg);
@@ -278,6 +253,10 @@ function sarifRegisterPlugin () {
       case 'r2':
       case 'script':
         sarifScript(arg);
+        break;
+      case '-R':
+      case 'reset':
+        sarif.reset();
         break;
       default:
         console.error('Unknown action');
