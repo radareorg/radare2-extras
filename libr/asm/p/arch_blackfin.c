@@ -224,13 +224,18 @@ static RList *preludes(RArchSession *as) {
 }
 
 RArchPlugin r_arch_plugin_blackfin = {
-	.name = "blackfin",
+	.meta = {
+		.name = "blackfin",
+		.desc = "BlackFIN architecture plugin",
+		.author = "",
+		.version = "",
+		.license = "GPL",
+		.status = R_PLUGIN_STATUS_OK,
+	},
 	.arch = "blackfin",
-	.license = "GPL",
 	.bits = R_SYS_BITS_PACK1 (32),
 	.endian = R_SYS_ENDIAN_LITTLE,
 	.info = &info,
-	.desc = "BlackFIN architecture plugin",
 	.regs = getregs,
 	.preludes = preludes,
 	.encode = &encode,
