@@ -1,0 +1,13 @@
+[package]
+name = "r2iced"
+version = "0.1.0"
+edition = "2021"
+authors = ["Richard Patel <me@terorie.dev>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+iced-x86 = "1.21.0"
+libc = "0.2.154"
+r2api = "5.9.0"
