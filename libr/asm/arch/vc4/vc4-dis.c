@@ -599,6 +599,7 @@ print_insn (CGEN_CPU_DESC cd,
 	    {
 	      CGEN_PRINT_FN (cd, insn) (cd, info, insn, &fields, pc, length);
 	      /* Length is in bits, result is in bytes.  */
+	      info->private_data = (void*) insn;
 	      return length / 8;
 	    }
 	}
