@@ -20,7 +20,7 @@ CFLAGS_VC4=$(R2_CFLAGS)
 CFLAGS_VC4+=-g -I$(TOP)/shlr
 CFLAGS_VC4+=-Wall -shared -fPIC ${LDFLAGS_LIB}
 
-CFLAGS_VC4+=-I../arch/vc4/libvc4/ -I../arch/vc4/include/ -I../arch/vc4/include/opcode/ -I../arch/include/
+CFLAGS_VC4+=-I../arch/vc4/ -I../arch/vc4/libvc4/ -I../arch/vc4/include/ -I../arch/vc4/include/opcode/ -I../arch/include/
 
 STATIC_OBJ+=${OBJ_VC4}
 TARGET_VC4=arch_vc4.${LIBEXT}
