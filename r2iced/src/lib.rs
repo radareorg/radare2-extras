@@ -1,12 +1,18 @@
 #[allow(dead_code)]
 mod r2api_ext;
 
-use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, IntelFormatter};
+use iced_x86::{Decoder, DecoderOptions, Formatter, GasFormatter, Instruction, IntelFormatter, MasmFormatter};
 use std::ffi::{c_char, c_int, c_void, CStr};
 use std::ptr::{null, null_mut};
 
 use crate::r2api_ext::*;
 use r2api::*;
+
+macro_rules! static_cstr {
+    ($str: tt) => {
+        unsafe { CStr::from_bytes_with_nul_unchecked(concat!($str, "\x00").as_bytes()).as_ptr() }
+    };
+}
 
 /// r2c_strdup creates a new libc malloc()ed C String from a Rust string.
 unsafe fn r2c_strdup(s: &str) -> *mut c_char {
@@ -41,7 +47,28 @@ unsafe extern "C" fn decode(
     decoder.decode_out(&mut instruction);
     op.size = instruction.len() as c_int;
 
-    let mut formatter = IntelFormatter::new();
+    let mut att_fmt = GasFormatter::new();
+    let mut intel_fmt = IntelFormatter::new();
+    let mut masm_fmt = MasmFormatter::new();
+
+    let formatter: &mut dyn Formatter = match config.syntax {
+        R_ARCH_SYNTAX_NONE | R_ARCH_SYNTAX_INTEL => &mut intel_fmt,
+        R_ARCH_SYNTAX_ATT => &mut att_fmt,
+        R_ARCH_SYNTAX_MASM => &mut masm_fmt,
+        _ => {
+            if r_log_match(R_LOG_LEVEL_ERROR as c_int, static_cstr!("r2iced")) {
+                r_log_message(
+                    R_LOG_LEVEL_ERROR,
+                    static_cstr!("r2iced"),
+                    static_cstr!("lib.rs"),
+                    line!() as c_int,
+                    static_cstr!("asm.x86.iced only support intel, masm, at&t syntax"),
+                );
+            }
+            return false;
+        }
+    };
+
     let mut output = String::new();
     formatter.format(&instruction, &mut output);
     op.mnemonic = r2c_strdup(&output);
@@ -53,12 +80,6 @@ unsafe extern "C" fn decode(
 pub struct UnsafeSync<T>(pub T);
 
 unsafe impl<T> Sync for UnsafeSync<T> {}
-
-macro_rules! static_cstr {
-    ($str: tt) => {
-        unsafe { CStr::from_bytes_with_nul_unchecked(concat!($str, "\x00").as_bytes()).as_ptr() }
-    };
-}
 
 static ARCH_PLUGIN: UnsafeSync<RArchPlugin> = UnsafeSync(RArchPlugin {
     meta: RPluginMeta {
