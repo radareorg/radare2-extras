@@ -6,7 +6,7 @@ PLUGNAME=$(NAME).$(SOEXT)
 all:
 	cargo build --release
 	mkdir -p $(PLUGDIR)
-	cp -f target/release/libr2iced.$(SOEXT) $(PLUGDIR)/$(PLUGNAME)
+	cp -f target/release/libx86iced.$(SOEXT) $(PLUGDIR)/$(PLUGNAME)
 
 uninstall:
 	rm -f $(PLUGDIR)/$(PLUGNAME)

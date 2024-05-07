@@ -56,13 +56,13 @@ unsafe extern "C" fn decode(
         R_ARCH_SYNTAX_ATT => &mut att_fmt,
         R_ARCH_SYNTAX_MASM => &mut masm_fmt,
         _ => {
-            if r_log_match(R_LOG_LEVEL_ERROR as c_int, static_cstr!("r2iced")) {
+            if r_log_match(R_LOG_LEVEL_ERROR as c_int, static_cstr!("x86.iced")) {
                 r_log_message(
                     R_LOG_LEVEL_ERROR,
-                    static_cstr!("r2iced"),
+                    static_cstr!("x86.iced"),
                     static_cstr!("lib.rs"),
                     line!() as c_int,
-                    static_cstr!("asm.x86.iced only support intel, masm, at&t syntax"),
+                    static_cstr!("arch.x86.iced only support intel, masm, at&t syntax"),
                 );
             }
             return false;
@@ -109,7 +109,7 @@ static ARCH_PLUGIN: UnsafeSync<RArchPlugin> = UnsafeSync(RArchPlugin {
     // The Default trait is currently not const.
 });
 
-/// The primary entrypoint for the r2iced plugin.
+/// The primary entrypoint for the x86.iced plugin.
 /// radare2 discovers this symbol via [`libc::dlsym`].
 #[no_mangle]
 pub static radare_plugin: UnsafeSync<RLibStruct> = UnsafeSync(RLibStruct {
