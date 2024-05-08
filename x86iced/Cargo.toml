@@ -3,6 +3,9 @@ name = "x86iced"
 version = "0.1.0"
 edition = "2021"
 authors = ["Richard Patel <me@terorie.dev>"]
+publish = false
+license = "MIT"
+description = "radare2 plugin bundling the iced-x86 disassembler"
 
 [lib]
 crate-type = ["cdylib"]
