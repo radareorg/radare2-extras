@@ -1,7 +1,9 @@
 #[allow(dead_code)]
 mod r2api_ext;
 
-use iced_x86::{Decoder, DecoderOptions, Formatter, GasFormatter, Instruction, IntelFormatter, MasmFormatter};
+use iced_x86::{
+    Decoder, DecoderOptions, Formatter, GasFormatter, Instruction, IntelFormatter, MasmFormatter,
+};
 use std::ffi::{c_char, c_int, c_void, CStr};
 use std::ptr::{null, null_mut};
 
@@ -19,7 +21,7 @@ unsafe fn r2c_strdup(s: &str) -> *mut c_char {
     let out_ptr = libc::malloc(s.len() + 1) as *mut c_char;
     assert!(!out_ptr.is_null(), "malloc failed");
     let out = std::slice::from_raw_parts_mut(out_ptr, s.len() + 1);
-    out.copy_from_slice(std::mem::transmute::<&[u8], &[c_char]>(s.as_bytes()));
+    out[..s.len()].copy_from_slice(std::mem::transmute::<&[u8], &[c_char]>(s.as_bytes()));
     out[s.len()] = 0;
     out_ptr
 }
