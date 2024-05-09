@@ -2,8 +2,8 @@
 mod r2api_ext;
 
 use iced_x86::{
-    Decoder, DecoderOptions, Formatter, GasFormatter, Instruction, IntelFormatter, MasmFormatter,
-    Mnemonic,
+    Decoder, DecoderOptions, Formatter, GasFormatter, Instruction, InstructionInfoFactory,
+    IntelFormatter, MasmFormatter, Mnemonic, OpAccess, Register,
 };
 use libc::malloc;
 use std::ffi::{c_char, c_int, c_void, CStr};
@@ -26,6 +26,21 @@ unsafe fn r2c_strdup(s: &str) -> *mut c_char {
     out[..s.len()].copy_from_slice(std::mem::transmute::<&[u8], &[c_char]>(s.as_bytes()));
     out[s.len()] = 0;
     out_ptr
+}
+
+static mut REGISTER_CSTRS: Vec<Vec<u8>> = Vec::new();
+
+unsafe extern "C" fn init(_s: *mut RArchSession) -> bool {
+    REGISTER_CSTRS = vec![vec![]; 256];
+    for reg in Register::values() {
+        REGISTER_CSTRS[reg.number()] = format!("{:?}\x00", reg).to_lowercase().into_bytes();
+    }
+    true
+}
+
+unsafe extern "C" fn fini(_s: *mut RArchSession) -> bool {
+    REGISTER_CSTRS.clear();
+    true
 }
 
 unsafe extern "C" fn mnemonics(_s: *mut RArchSession, id: c_int, json: bool) -> *mut c_char {
@@ -119,35 +134,83 @@ unsafe extern "C" fn decode(
         r_strbuf_append_n(opex_ptr, op_json.as_ptr() as *const c_char, op_json.len());
     }
 
-    //if mask & R_ARCH_OP_MASK_VAL != 0 {
-    //    op_fillval(session, op, &instruction);
-    //}
+    if mask & R_ARCH_OP_MASK_VAL != 0 {
+        op_fillval(session, op, &instruction);
+    }
 
     true
 }
 
-/*
-unsafe fn set_access_info(session: &RArchSession, op: &mut RAnalOp, instruction: &Instruction) {
+unsafe fn op_fillval(session: &RArchSession, op: &mut RAnalOp, instruction: &Instruction) {
+    let config = session.config.as_ref().unwrap();
+    let bits = config.bits;
+
+    let ret = r_list_newf(Some(std::mem::transmute(r_anal_value_free as usize)));
+    if ret.is_null() {
+        return;
+    }
+
     // PC register
     let val = malloc(std::mem::size_of::<RAnalValue>()) as *mut RAnalValue;
     let val = match val.as_mut() {
         Some(v) => v,
-        None => return,
+        None => {
+            r_list_free(ret);
+            return
+        },
     };
     *val = RAnalValue {
         type_: RArchValueType_R_ANAL_VAL_REG,
         access: R_PERM_W,
-        reg: static_cstr!("rip"),
+        reg: if bits == 64 {
+            static_cstr!("rip")
+        } else {
+            static_cstr!("eip")
+        },
         ..RAnalValue::default()
     };
+    r_list_append(ret, val as *mut RArchValue as *mut c_void);
 
-    // Register access info
-}
+    let mut info_factory = InstructionInfoFactory::new();
+    let info = info_factory.info(instruction);
 
-unsafe fn op_fillval(session: &RArchSession, op: &mut RAnalOp, instruction: &Instruction) {
-    set_access_info(session, op, instruction);
+    for used_register in info.used_registers() {
+        let register = &used_register.register();
+        let access = &used_register.access();
+
+        let val = malloc(std::mem::size_of::<RAnalValue>()) as *mut RAnalValue;
+        let val = match val.as_mut() {
+            Some(v) => v,
+            None => {
+                r_list_free(ret);
+                return
+            },
+        };
+        *val = RAnalValue {
+            type_: RArchValueType_R_ANAL_VAL_REG,
+            access: match access {
+                OpAccess::Write
+                | OpAccess::CondWrite
+                | OpAccess::ReadWrite
+                | OpAccess::ReadCondWrite => R_PERM_W,
+                _ => R_PERM_R,
+            },
+            reg: if REGISTER_CSTRS[register.number()].is_empty() {
+                null()
+            } else {
+                REGISTER_CSTRS[register.number()].as_ptr() as *const c_char
+            },
+            ..RAnalValue::default()
+        };
+        r_list_append(ret, val as *mut RArchValue as *mut c_void);
+    }
+
+    // TODO
+    //for used_memory in info.used_memory() {
+    //}
+
+    op.access = ret;
 }
-*/
 
 #[repr(transparent)]
 pub struct UnsafeSync<T>(pub T);
@@ -168,8 +231,8 @@ static ARCH_PLUGIN: UnsafeSync<RArchPlugin> = UnsafeSync(RArchPlugin {
     endian: R_SYS_ENDIAN_LITTLE,
     bits: 16 | 32 | 64,
     addr_bits: 0,
-    init: None,
-    fini: None,
+    init: Some(init),
+    fini: Some(fini),
     info: None,
     regs: None,
     encode: None,
