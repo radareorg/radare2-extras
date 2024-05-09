@@ -3,7 +3,9 @@ mod r2api_ext;
 
 use iced_x86::{
     Decoder, DecoderOptions, Formatter, GasFormatter, Instruction, IntelFormatter, MasmFormatter,
+    Mnemonic,
 };
+use libc::malloc;
 use std::ffi::{c_char, c_int, c_void, CStr};
 use std::ptr::{null, null_mut};
 
@@ -26,6 +28,40 @@ unsafe fn r2c_strdup(s: &str) -> *mut c_char {
     out_ptr
 }
 
+unsafe extern "C" fn mnemonics(_s: *mut RArchSession, id: c_int, json: bool) -> *mut c_char {
+    if id != -1 {
+        let mnemonic = match Mnemonic::try_from(id as usize) {
+            Ok(v) => format!("{:?}", v).to_lowercase(),
+            Err(_) => return null_mut(),
+        };
+        if json {
+            r2c_strdup(&format!(r#"["{}"]"#, mnemonic))
+        } else {
+            r2c_strdup(&mnemonic)
+        }
+    } else if json {
+        let mnemonics = Mnemonic::values()
+            .map(|m| format!("{:?}", m).to_lowercase())
+            .collect::<Vec<String>>();
+        let out = serde_json::to_string(&mnemonics).unwrap();
+        r2c_strdup(&out)
+    } else {
+        let mut strlen = 0usize;
+        for value in Mnemonic::values() {
+            strlen += format!("{:?}\n", value).len();
+        }
+        let str_ptr = malloc(strlen + 1) as *mut c_char;
+        let mut str_slice = std::slice::from_raw_parts_mut(str_ptr as *mut u8, strlen + 1);
+        for value in Mnemonic::values() {
+            let value_str = format!("{:?}\n", value).to_lowercase();
+            str_slice[..value_str.len()].copy_from_slice(value_str.as_bytes());
+            str_slice = &mut str_slice[value_str.len()..];
+        }
+        str_slice[0] = 0;
+        str_ptr
+    }
+}
+
 unsafe extern "C" fn decode(
     session_ptr: *mut RArchSession,
     op_ptr: *mut RAnalOp,
@@ -42,41 +78,76 @@ unsafe extern "C" fn decode(
     if !decoder.can_decode() {
         return false;
     }
-    if mask & R_ARCH_OP_MASK_DISASM == 0 {
-        return false;
+    decoder.decode_out(&mut instruction);
+
+    op.size = instruction.len() as c_int;
+    op.id = instruction.mnemonic() as c_int;
+
+    if mask & R_ARCH_OP_MASK_DISASM != 0 {
+        let mut att_fmt = GasFormatter::new();
+        let mut intel_fmt = IntelFormatter::new();
+        let mut masm_fmt = MasmFormatter::new();
+
+        let formatter: &mut dyn Formatter = match config.syntax {
+            R_ARCH_SYNTAX_NONE | R_ARCH_SYNTAX_INTEL => &mut intel_fmt,
+            R_ARCH_SYNTAX_ATT => &mut att_fmt,
+            R_ARCH_SYNTAX_MASM => &mut masm_fmt,
+            _ => {
+                if r_log_match(R_LOG_LEVEL_ERROR as c_int, static_cstr!("x86.iced")) {
+                    r_log_message(
+                        R_LOG_LEVEL_ERROR,
+                        static_cstr!("x86.iced"),
+                        static_cstr!("lib.rs"),
+                        line!() as c_int,
+                        static_cstr!("arch.x86.iced only support intel, masm, at&t syntax"),
+                    );
+                }
+                return false;
+            }
+        };
+
+        let mut output = String::new();
+        formatter.format(&instruction, &mut output);
+        op.mnemonic = r2c_strdup(&output);
     }
 
-    decoder.decode_out(&mut instruction);
-    op.size = instruction.len() as c_int;
+    if mask & R_ARCH_OP_MASK_OPEX != 0 {
+        let op_json = serde_json::to_vec(&instruction).expect("JSON serialize failed");
 
-    let mut att_fmt = GasFormatter::new();
-    let mut intel_fmt = IntelFormatter::new();
-    let mut masm_fmt = MasmFormatter::new();
+        let opex_ptr: *mut RStrBuf = &mut op.opex;
+        r_strbuf_init(opex_ptr);
+        r_strbuf_append_n(opex_ptr, op_json.as_ptr() as *const c_char, op_json.len());
+    }
 
-    let formatter: &mut dyn Formatter = match config.syntax {
-        R_ARCH_SYNTAX_NONE | R_ARCH_SYNTAX_INTEL => &mut intel_fmt,
-        R_ARCH_SYNTAX_ATT => &mut att_fmt,
-        R_ARCH_SYNTAX_MASM => &mut masm_fmt,
-        _ => {
-            if r_log_match(R_LOG_LEVEL_ERROR as c_int, static_cstr!("x86.iced")) {
-                r_log_message(
-                    R_LOG_LEVEL_ERROR,
-                    static_cstr!("x86.iced"),
-                    static_cstr!("lib.rs"),
-                    line!() as c_int,
-                    static_cstr!("arch.x86.iced only support intel, masm, at&t syntax"),
-                );
-            }
-            return false;
-        }
-    };
-
-    let mut output = String::new();
-    formatter.format(&instruction, &mut output);
-    op.mnemonic = r2c_strdup(&output);
+    //if mask & R_ARCH_OP_MASK_VAL != 0 {
+    //    op_fillval(session, op, &instruction);
+    //}
 
     true
 }
+
+/*
+unsafe fn set_access_info(session: &RArchSession, op: &mut RAnalOp, instruction: &Instruction) {
+    // PC register
+    let val = malloc(std::mem::size_of::<RAnalValue>()) as *mut RAnalValue;
+    let val = match val.as_mut() {
+        Some(v) => v,
+        None => return,
+    };
+    *val = RAnalValue {
+        type_: RArchValueType_R_ANAL_VAL_REG,
+        access: R_PERM_W,
+        reg: static_cstr!("rip"),
+        ..RAnalValue::default()
+    };
+
+    // Register access info
+}
+
+unsafe fn op_fillval(session: &RArchSession, op: &mut RAnalOp, instruction: &Instruction) {
+    set_access_info(session, op, instruction);
+}
+*/
 
 #[repr(transparent)]
 pub struct UnsafeSync<T>(pub T);
@@ -104,7 +175,7 @@ static ARCH_PLUGIN: UnsafeSync<RArchPlugin> = UnsafeSync(RArchPlugin {
     encode: None,
     decode: Some(decode),
     patch: None,
-    mnemonics: None,
+    mnemonics: Some(mnemonics),
     preludes: None,
     esilcb: None,
     // Unfortunately, we can't use ..RArchPlugin::default() here.
