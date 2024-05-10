@@ -1,6 +1,7 @@
 R2PM_PLUGDIR=$(shell r2pm -H R2PM_PLUGDIR)
 
 all:
+	$(MAKE) user-install
 
 install user-install:
 	mkdir -p ${R2PM_PLUGDIR}

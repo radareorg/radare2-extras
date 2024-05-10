@@ -1,4 +1,4 @@
-// r2js rewrite of the original nodejs's r2jadx -- 2024
+// r2js rewrite of the original nodejs's r2jadx -- 2023-2024
 // -- pancake -- this is far from complete, contribs are welcome
 
 function nospace(d) {
@@ -87,7 +87,9 @@ function processMethod (data, mode, offset, method) {
 			}
 			return '';
 		}
-
+		if (line == '') {
+			return '';
+		}
 		if (mode === 'f') {
 			let lastOffset = parseInt(method.offset);
 			if (addr === lastOffset) {
@@ -95,6 +97,11 @@ function processMethod (data, mode, offset, method) {
 			}
 			return '';
 		}
+		line = line.replaceAll("\t", "  ");
+		line = line.replaceAll("\r", "");
+		line = line.replaceAll("\n", "");
+		line = line.replaceAll(/[^ -~]+/g, "");
+		line = line.replaceAll(/^SourceFile:\d+ /g, "");
 		const b64line = b64(line);
 		if (b64line.length > 2048) {
 			return 'CCu toolong @ ' + addr + '\n';
@@ -178,6 +185,7 @@ function r2jadxCrawlFiles(target, mode, arg) {
 function r2jadxCrawl(target, mode, arg) {
 	// console.log('crawling', arguments);
 	switch (mode) {
+	case 'cn':
 	case 'f':
 		return r2jadxCrawlFiles(pathJoin(target, 'hl'), mode, arg);
 	case 'c':
@@ -210,7 +218,8 @@ function r2jadxDecompile(target, mode, arg) {
 	const outdir = dex2path(target);
 	if (!directoryExists (outdir)) {
 		console.error('jadx: Performing the low level decompilation...');
-		runCmd([ 'r2pm', '-r', 'jadx', '--output-format', 'json', '-f', '-d', pathJoin(outdir, 'll'), target ]);
+		runCmd([ 'r2pm', '-r', 'jadx', '--output-format', 'json', '-m', 'simple', '-d', pathJoin(outdir, 'll'), target ]);
+		runCmd([ 'r2pm', '-r', 'jadx', '--output-format', 'java', '-m', 'simple', '-d', pathJoin(outdir, 'll'), target ]);
 		console.error('jadx: Performing the high level decompilation...');
 		runCmd([ 'r2pm', '-r', 'jadx', '--show-bad-code', '--output-format', 'java', '-d', pathJoin(outdir, 'hl'), target ]);
 		console.error('jadx: Constructing the high level jsons...');
@@ -223,25 +232,25 @@ function r2jadxMain(argv) {
 	function helpMessage() {
 		console.error('Usage: r2jadx [-mode]');
 		console.error('Setup: e cmd.pdc=r2jadx');
+		console.error(' -r   = import low level decompilation as comments');
+		console.error(' -r2  = import high level decompilation as comments');
+		console.error('----------------------------------');
+		console.error(' -cn  = show current classname');
 		console.error(' -a   = show decompilation of all the classes');
 		console.error(' -c   = decompile current class');
 		console.error(' -f   = decompile current function');
-		console.error(' -r   = dump decompilation as comments (ll)');
-		console.error(' -r2  = dump decompilation as comments (hl)');
 		console.error(' -ahl = all high level decompilation');
 		console.error(' -all = all low level decompilation');
 		console.error(' -hl  = high level decompilation');
 		console.error(' -ll  = low level decompilation');
 	}
-	console.log(argv);
+	// console.log(argv);
 	const r2arg = (argv.length > 0 && argv[0][0] !== '-') ? argv[0] : undefined;
-	console.log(r2arg);
-	/*
-	if (!r2arg) {
+	// console.log(r2arg);
+	if (r2arg == '' || r2arg === '?' || r2arg == '-h') {
 		helpMessage();
 		return;
 	}
-	*/
 	try {
 		r2.cmd('af');
 		const info = r2.cmdj('ij');
@@ -276,7 +285,7 @@ function r2jadxMain(argv) {
 }
 
 function r2jadxBegin() {
-	console.log("WIP: r2jadx plugin is highly experimental and not yet usable, please contribute");
+//	console.log("WIP: r2jadx plugin is highly experimental and not yet usable, please contribute");
 	r2.unload("core", "r2jadx");
 	r2.plugin("core", function() {
 		function coreCall(cmd) {
