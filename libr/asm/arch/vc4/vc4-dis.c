@@ -63,17 +63,8 @@ bfd_default_compatible (a, b)
 
   if (a->mach > b->mach)
     return a;
-}
 
-static void *
-bfd_arch_default_fill (bfd_size_type count,
-			bfd_boolean is_bigendian ATTRIBUTE_UNUSED,
-			bfd_boolean code ATTRIBUTE_UNUSED)
-{
-  void *fill = malloc (count);
-  if (fill != NULL)
-    memset (fill, 0, count);
-  return fill;
+  return b;
 }
 
 #define M(BITS_WORD, BITS_ADDR, NUMBER, PRINT, DEFAULT, NEXT) \
@@ -89,7 +80,6 @@ bfd_arch_default_fill (bfd_size_type count,
     DEFAULT,                                                  \
     bfd_default_compatible,                                   \
     bfd_default_scan,                                         \
-    bfd_arch_default_fill,                                    \
     NEXT,                                                     \
   }
 
@@ -560,6 +550,12 @@ print_insn (CGEN_CPU_DESC cd,
 	      buflen = cd->base_insn_bitsize / 8;
 	      status = (*info->read_memory_func) (pc + i / 8, extrabuf, buflen,
 						  info);
+
+	      if (status != 0)
+	        {
+	          (*info->memory_error_func) (status, pc, info);
+	          return -1;
+	        }
 
 	      bits = bfd_get_bits (extrabuf, cd->base_insn_bitsize,
 				   info->endian == BFD_ENDIAN_BIG);
