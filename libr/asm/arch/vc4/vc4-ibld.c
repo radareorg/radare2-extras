@@ -265,7 +265,7 @@ insert_insn_normal (CGEN_CPU_DESC cd,
   /* The excuse for this is that CGEN_MAX_EXTRA_OPCODE_OPERANDS is only useful
      for variable-length instruction sets, and those will probably have insns
      longer than INT_INSN size.  */
-#error You can't have CGEN_MAX_EXTRA_OPCODE_OPERANDS with CGEN_INT_INSN_P.
+#error "You can't have CGEN_MAX_EXTRA_OPCODE_OPERANDS with CGEN_INT_INSN_P."
 #endif
 
   put_insn_int_value (cd, buffer, cd->base_insn_bitsize,

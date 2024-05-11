@@ -28,7 +28,7 @@ This file is part of the GNU Binutils and/or GDB, the GNU debugger.
 /* -- opc.h */
 
 #ifndef CGEN_ASM_HASH
-#define CGEN_ASM_HASH
+#define CGEN_ASM_HASH(mnem) (*(unsigned char *) (mnem) % CGEN_ASM_HASH_SIZE)
 # define CGEN_DIS_HASH_SIZE 127
 #endif
 #define CGEN_DIS_HASH(buf, value)					\

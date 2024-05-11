@@ -166,7 +166,7 @@ parse_imm16 (CGEN_CPU_DESC cd, const char **strp, int opindex, long *valuep)
 static const char *
 parse_pcrel27 (CGEN_CPU_DESC cd, const char **strp, int opindex,
 	       bfd_reloc_code_real_type code,
-	       enum cgen_parse_operand_result *result_type, long *valuep)
+	       enum cgen_parse_operand_result *result_type, long long unsigned int *valuep)
 {
   /* Instructions like "st r5,(lr)" are ambiguous since "lr" can be interpreted
      as a bracketed symbolic name when we meant it to be parsed as a register
