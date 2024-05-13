@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       BUILDS: 'asahi blackfin blessr2 keystone-lib keystone r2svd unicorn-lib vc4 x86iced'
-      TESTS: 'keystone'
+      TESTS: 'keystone vc4'
       R2PIPE_TESTS: 'r2pipe-js r2pipe-py'
     steps:
     - uses: actions/checkout@v3
