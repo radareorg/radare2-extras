@@ -17,7 +17,12 @@ Install:
 
     meson install -C build
 
-## Usage:
+## Running:
 
     r2 -e asm.pseudo=true <file>
 
+## Usage:
+
+For instance, to rename `rbp + rax - 0x1020` expression to `cwd[i]`, you could use the following command:
+
+    afen cmd[i] "rbp + rax - 0x1020"
