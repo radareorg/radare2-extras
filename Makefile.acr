@@ -15,6 +15,7 @@ help:
 	@echo "Usage make [target] .. Targets:"
 	@echo "  all                - build everything"
 	@echo "  baleful            - build baleful r2 plugin"
+	@echo "  afen               - build afen r2 plugin"
 	@echo "  asm                - build armthumb, ppc, psosvm, x86bea, m68k plugins"
 	@echo "  io                 - build io plugins"
 	@echo "  anal               - build analysis plugins (RAnal)"
