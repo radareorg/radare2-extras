@@ -27,6 +27,8 @@ help:
 
 #	@echo "  install-yara{2,3}  - install Yara 2 or 3 from Git"
 
+afen:
+	$(MAKE) -C afen
 baleful:
 	$(MAKE) -C baleful
 debug unicorn:
@@ -54,6 +56,8 @@ yara:
 	$(MAKE) -C yara/$@
 yara-clean:
 	$(MAKE) -C yara/yara clean
+afen-install:
+	$(MAKE) -C afen install DESTDIR=$(DESTDIR)
 baleful-install:
 	$(MAKE) -C baleful install DESTDIR=$(DESTDIR)
 debug-install unicorn-install:
