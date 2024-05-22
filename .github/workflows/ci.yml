@@ -12,7 +12,7 @@ jobs:
     name: Build radare2 extras and r2pipe
     runs-on: ubuntu-22.04
     env:
-      BUILDS: 'asahi blackfin blessr2 keystone-lib keystone r2svd unicorn-lib vc4 x86iced'
+      BUILDS: 'asahi blackfin blessr2 keystone-lib keystone r2afen r2svd unicorn-lib vc4 x86iced'
       TESTS: 'keystone vc4'
       R2PIPE_TESTS: 'r2pipe-js r2pipe-py'
     steps:
