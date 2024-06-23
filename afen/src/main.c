@@ -8,8 +8,7 @@ static RList *old_names;
 static RList *new_names;
 
 // afen parser
-static int r_afen_parse(RParse *p, const char *data, char *str) {
-	int res = true;
+static int r_parse_afen(RParse *p, const char *data, char *str) {
 	char *input = strdup (data);
 
 	int n = r_list_length(old_names);
@@ -31,29 +30,37 @@ static int r_afen_parse(RParse *p, const char *data, char *str) {
 	}
 
 	strcpy (str, input);
-	return res;
+	return true;
 }
 
+// RParse plugin Definition Info
+RParsePlugin r_parse_plugin_afen = {
+	.name = "rparse-afen",
+	.desc = "Afen parse plugin",
+	.parse = r_parse_afen,
+};
+
 // sets afen parser
-static int r_cmd_init(void *user, const char *input) {
+static int r_core_init_afen(void *user, const char *input) {
 	RCmd *rcmd = (RCmd *) user;
 	RCore *core = (RCore *) rcmd->data;
+
+	r_parse_plugin_add(core->parser, &r_parse_plugin_afen);
+
 	old_names = r_list_new ();
 	new_names = r_list_new ();
-
-	core->parser->cur->parse = r_afen_parse;
 	
 	return true;
 }
 
-static int r_cmd_fini(void *user, const char *input) {
+static int r_core_fini_afen(void *user, const char *input) {
 	r_list_free(old_names);
 	r_list_free(new_names);
 
 	return true;
 }
 
-static int r_cmd_afen_client(void *user, const char *input) {
+static int r_core_call_afen(void *user, const char *input) {
 	if (r_str_startswith (input, "afen")) {
 		int *argc = (int*) malloc(sizeof(int));
 		char **argv = r_str_argv(input, argc);
@@ -71,7 +78,8 @@ static int r_cmd_afen_client(void *user, const char *input) {
 	return false;
 }
 
-// PLUGIN Definition Info
+
+// RCore plugin Definition Info
 RCorePlugin r_core_plugin_afen = {
 	.meta = {
 		.name = "core-afen",
@@ -79,9 +87,9 @@ RCorePlugin r_core_plugin_afen = {
 		.author = "satk0",
 		.license = "GPLv3",
 	},
-	.call = r_cmd_afen_client,
-	.init = r_cmd_init,
-	.fini = r_cmd_fini
+	.call = r_core_call_afen,
+	.init = r_core_init_afen,
+	.fini = r_core_fini_afen
 };
 
 

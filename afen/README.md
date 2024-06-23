@@ -19,9 +19,9 @@ Install:
 
     meson install -C build
 
-## Running:
+## Run:
 
-    r2 -e asm.pseudo=true <file>
+    r2 -e asm.parser=rparse-afen -e asm.pseudo=true <file>
 
 ## Usage:
 
