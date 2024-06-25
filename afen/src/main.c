@@ -11,9 +11,9 @@ static RList *new_names;
 static int r_parse_afen(RParse *p, const char *data, char *str) {
 	char *input = strdup (data);
 
-	int n = r_list_length(old_names);
+	int n = r_list_length (old_names);
 
-	if (n){
+	if (n) {
 		RListIter *s_iter_old = NULL;
 		RListIter *s_iter_new = NULL;
 
@@ -23,8 +23,8 @@ static int r_parse_afen(RParse *p, const char *data, char *str) {
 		for (int i = 0; i < n; ++i) {
 			input = r_str_replace_all (input, s_iter_old->data, s_iter_new->data);
 
-			s_iter_old = r_list_iter_get_next(s_iter_old);
-			s_iter_new = r_list_iter_get_next(s_iter_new);
+			s_iter_old = r_list_iter_get_next (s_iter_old);
+			s_iter_new = r_list_iter_get_next (s_iter_new);
 		}
 
 	}
@@ -35,7 +35,7 @@ static int r_parse_afen(RParse *p, const char *data, char *str) {
 
 // RParse plugin Definition Info
 RParsePlugin r_parse_plugin_afen = {
-	.name = "rparse-afen",
+	.name = "afen",
 	.desc = "Afen parse plugin",
 	.parse = r_parse_afen,
 };
@@ -45,7 +45,7 @@ static int r_core_init_afen(void *user, const char *input) {
 	RCmd *rcmd = (RCmd *) user;
 	RCore *core = (RCore *) rcmd->data;
 
-	r_parse_plugin_add(core->parser, &r_parse_plugin_afen);
+	r_parse_plugin_add (core->parser, &r_parse_plugin_afen);
 
 	old_names = r_list_new ();
 	new_names = r_list_new ();
@@ -54,24 +54,24 @@ static int r_core_init_afen(void *user, const char *input) {
 }
 
 static int r_core_fini_afen(void *user, const char *input) {
-	r_list_free(old_names);
-	r_list_free(new_names);
+	r_list_free (old_names);
+	r_list_free (new_names);
 
 	return true;
 }
 
 static int r_core_call_afen(void *user, const char *input) {
 	if (r_str_startswith (input, "afen")) {
-		int *argc = (int*) malloc(sizeof(int));
-		char **argv = r_str_argv(input, argc);
+		int *argc = (int*) malloc (sizeof (int));
+		char **argv = r_str_argv (input, argc);
 
 		if (*argc != 3) {
-			r_cons_printf("Usage: afen new_name old_name\n");
+			r_cons_printf ("Usage: afen new_name old_name\n");
 			return true;
 		}
 
-		r_list_append(new_names, argv[1]);
-		r_list_append(old_names, argv[2]);
+		r_list_append (new_names, argv[1]);
+		r_list_append (old_names, argv[2]);
 
 		return true;
 	}
