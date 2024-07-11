@@ -12,8 +12,10 @@ static R_TH_LOCAL pk_compiler pc = NULL;
 static R_TH_LOCAL struct pk_alien_token alien_token;
 static R_TH_LOCAL char *res = NULL;
 
-#ifndef USE_POKE_GIT
-#define USE_POKE_GIT 0
+#ifdef PK_IOD_EMMAP
+#define GNUPOKE 4
+#else
+#define GNUPOKE 3
 #endif
 
 #include "term.c"
@@ -48,7 +50,7 @@ static void poke_handle_exception(pk_val exception) {
 	}
 }
 
-#if USE_POKE_GIT
+#if GNUPOKE >= 4
 static struct pk_alien_token *aliendtoken(char delim, const char *id, char **errmsg) {
 	R_LOG_DEBUG ("Resolve delimited alien with id (%s) %c", id, delim);
 	char *idh = NULL;
@@ -183,7 +185,7 @@ static int r_cmd_poke_init(void *user, const char *cmd) {
 	pk_set_omode (pc, PK_PRINT_TREE);
 	pk_set_lexical_cuckolding_p (pc, 1);
 	pk_set_alien_token_fn (pc, alientoken);
-#if USE_POKE_GIT
+#if GNUPOKE >= 4
 	pk_set_alien_dtoken_fn (pc, aliendtoken);
 #endif
 	// [0x100003a3c]> 'poke printf ("%<stderr:jejejeje%>")
