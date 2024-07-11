@@ -1,4 +1,4 @@
-/* radare - LGPLv3 - Copyright 2023 - pancake */
+/* radare - LGPLv3 - Copyright 2023-2024 - pancake */
 
 // needed for vasprintf
 #define _GNU_SOURCE
