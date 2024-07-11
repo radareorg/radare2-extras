@@ -10,6 +10,7 @@ LDFLAGS+=$(shell pkg-config --libs r_core)
 LDFLAGS+=$(shell pkg-config --libs poke)
 R2PM_PLUGDIR?=$(shell r2 -H R2_USER_PLUGINS)
 LDFLAGS+=-Wl,-rpath,$(shell r2pm -H R2PM_PREFIX)/lib
+CFLAGS+=-DR2POKE_VERSION=\"1.0.0\"
 
 # poke-3.3 doesnt support this, we must wait for 4.0 to enable this
 POKE4=$(shell r2pm -r pkg-config --modversion poke| grep ^4 && echo 1)

@@ -241,6 +241,7 @@ RCorePlugin r_core_plugin_poke = {
 		.name = "poke",
 		.desc = "GNU/POKE for radare2",
 		.license = "GPL3",
+		.version = R2POKE_VERSION
 	},
 	.call = r_cmd_poke_call,
 	.init = r_cmd_poke_init,
