@@ -13,7 +13,7 @@ to any text, thus enabling a creation of variables from expressions.
 
 Build:
 
-    r2pm -r meson build
+    r2pm -r meson setup build
 
 Install:
 
