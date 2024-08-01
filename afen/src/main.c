@@ -123,7 +123,7 @@ static int r_core_call_afen(void *user, const char *input) {
 
 		if (updated) return true;
 
-		repl = (RAfenRepl*) malloc (sizeof (RAfenRepl));
+		repl = R_NEW (RAfenRepl);
 		repl->new_name = argv[1];
 		repl->old_name = argv[2];
 
