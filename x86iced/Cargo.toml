@@ -12,7 +12,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 iced-x86 = { version = "1.21.0", features = ["serde"] }
-libc = "0.2.154"
+libc = "0.2.158"
 r2api = "5.9.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
