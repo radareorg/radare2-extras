@@ -1,4 +1,5 @@
-/* radare - LGPL - Copyright 2018 - damo22 */
+/* radare - LGPL - Copyright 2018-2024 - damo22, pancake */
+#if 0
 
 #include <r_types.h>
 #include <r_lib.h>
@@ -37,4 +38,7 @@ RLibStruct radare_plugin = {
 	.data = &r_asm_plugin_atombios,
 	.version = R2_VERSION
 };
+#endif
+#else
+#warning asm_atombios needs to be ported to RArch
 #endif

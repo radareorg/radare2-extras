@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2015-2023 - pancake */
+/* radare - LGPL - Copyright 2015-2024 - pancake */
 
 #include <r_lib.h>
 #include <r_asm.h>
@@ -227,8 +227,8 @@ RArchPlugin r_arch_plugin_blackfin = {
 	.meta = {
 		.name = "blackfin",
 		.desc = "BlackFIN architecture plugin",
-		.author = "",
-		.version = "",
+		.author = "pancake",
+		.version = "0.2",
 		.license = "GPL",
 		.status = R_PLUGIN_STATUS_OK,
 	},
