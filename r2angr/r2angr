@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ ! -z "$R2_FILE" ]; then
+    echo "Run this script from radare2. with !r2angr"
+    exit 1
+fi
+angr decompile --functions=${R2_OFFSET} ${R2_FILE} || echo "r2pm -ci angr"
