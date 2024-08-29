@@ -1,5 +1,6 @@
 #!/bin/sh
 CWD=$(dirname $0)
+echo $CWD
 if [ ! -d venv ]; then
     python -m venv venv
 fi
