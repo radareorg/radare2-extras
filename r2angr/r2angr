@@ -3,7 +3,9 @@ if [ -z "$R2_FILE" ]; then
     echo "Run this script from radare2. with !r2angr"
     exit 1
 fi
-if [ "$R2_OFFSET" -lt 10000 ]; then
+if [ "$R2_BADDR" == 0 ]; then
+    echo "If the function is not found use r2 -B 0x400000"
+elif [ "$R2_OFFSET" -lt 10000 ]; then
     echo "If the function is not found use r2 -B 0x400000"
 fi
 angr decompile --functions=${R2_XOFFSET} \
