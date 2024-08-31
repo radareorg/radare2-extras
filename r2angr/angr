@@ -7,5 +7,6 @@ fi
 . venv/bin/activate
 if [ ! -x venv/bin/angr ]; then
     pip install angr
+    pip install capstone==5.0.3
 fi
 angr $@
