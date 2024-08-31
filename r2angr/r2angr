@@ -1,6 +1,6 @@
 #!/bin/sh
 if [ -z "$R2_FILE" ]; then
-    echo "Run this script from radare2. with !r2angr"
+    echo "Run this script from radare2. with !r2angr ([sailr,phenox,dream])"
     exit 1
 fi
 if [ "$R2_BADDR" == 0 ]; then
@@ -8,6 +8,8 @@ if [ "$R2_BADDR" == 0 ]; then
 elif [ "$R2_OFFSET" -lt 10000 ]; then
     echo "If the function is not found use r2 -B 0x400000"
 fi
-angr decompile --functions=${R2_XOFFSET} \
+ARG=""
+[ -n "$1" ] && ARG="--structurer $1"
+angr decompile $ARG --functions=${R2_XOFFSET} \
     ${R2_FILE} 2> /tmp/.r2angr.txt || \
     echo "r2pm -ci angr, Check /tmp/.r2angr.txt for details"
