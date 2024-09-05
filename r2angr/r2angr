@@ -10,6 +10,7 @@ elif [ "$R2_OFFSET" -lt 10000 ]; then
 fi
 ARG=""
 [ -n "$1" ] && ARG="--structurer $1"
+[ -z "$TMPDIR" ] && TMPDIR=/tmp
 angr decompile $ARG --functions=${R2_XOFFSET} \
-    ${R2_FILE} 2> /tmp/.r2angr.txt || \
-    echo "r2pm -ci angr, Check /tmp/.r2angr.txt for details"
+    ${R2_FILE} 2> "${TMPDIR}/.r2angr.txt" || \
+    echo "r2pm -ci angr, Check ${TMPDIR}/.r2angr.txt for details"
