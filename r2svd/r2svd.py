@@ -6,7 +6,7 @@ import json
 import sys
 import math
 import os.path
-import pkg_resources
+import importlib
 from cmsis_svd.parser import SVDParser
 
 argc = len(sys.argv)
@@ -21,10 +21,10 @@ if argc == 3:
 if not args_ok:
 	try:
 		if argc == 1:
-			vendors = pkg_resources.resource_listdir("cmsis_svd", "data")
+			vendors = importlib.resources.listdir("cmsis_svd", "data")
 			print('\n'.join(vendors))
 		elif argc == 2:
-			svds = pkg_resources.resource_listdir("cmsis_svd", "data/%s"%(sys.argv[1]))
+			svds = importlib.resources.listdir("cmsis_svd", "data/%s"%(sys.argv[1]))
 			print('\n'.join(svds))
 		else:
 			raise Exception('')
