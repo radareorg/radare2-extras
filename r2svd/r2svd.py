@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # use cmsis-svd python api to load the SVD peripheral and memory layout into r2
-# --pancake @ 2020-2023
+# --pancake @ 2020-2024
 
 import json
 import base64

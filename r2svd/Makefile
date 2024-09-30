@@ -4,6 +4,7 @@ all: cmsis-svd
 
 cmsis-svd:
 	git clone --depth=1 https://github.com/brainstorm/cmsis-svd && cd cmsis-svd && git checkout regex_fix
+	pip3 install setuptools
 	cd cmsis-svd/python && python3 setup.py build
 	cd cmsis-svd/python && python3 setup.py install
 
