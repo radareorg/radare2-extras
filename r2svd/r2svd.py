@@ -10,7 +10,7 @@ import os.path
 import importlib
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
-newpypath = os.path.join(script_dir, "/cmsis-svd/python")
+newpypath = script_dir + "/cmsis-svd/python"
 sys.path.append(newpypath)
 
 from cmsis_svd.parser import SVDParser
