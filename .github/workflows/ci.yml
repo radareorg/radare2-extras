@@ -39,8 +39,6 @@ jobs:
     - name: Compile and install plugins
       run: |
         set -e
-        export R2PM_GITDIR=`pwd`/..
-        export R2PM_GITSKIP=1
         for p in $BUILDS ; do
           echo $p
           r2pm -i $p
@@ -50,8 +48,6 @@ jobs:
       working-directory: radare2/test
       run: |
         set -e
-        export R2PM_GITDIR=`pwd`/..
-        export R2PM_GITSKIP=1
         for p in $TESTS ; do
           echo $p
           make $p
