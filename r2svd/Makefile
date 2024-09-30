@@ -10,8 +10,9 @@ clean:
 	rm -rf cmsis-svd
 
 install:
-	cp -f r2svd.py $(BINDIR)/r2svd
-	chmod +x $(BINDIR)/r2svd
+	$(MAKE) uninstall
+	ln -fs "$(shell pwd)/r2svd.py" "$(BINDIR)/r2svd"
+	chmod +x "$(BINDIR)/r2svd"
 
 uninstall:
-	rm -f $(BINDIR)/r2svd.py
+	rm -f $(BINDIR)/r2svd
