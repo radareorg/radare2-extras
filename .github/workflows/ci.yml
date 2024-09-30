@@ -14,7 +14,6 @@ jobs:
     env:
       BUILDS: 'asahi blackfin blessr2 keystone-lib keystone r2afen r2svd unicorn-lib vc4 x86iced'
       TESTS: 'keystone vc4'
-      R2PIPE_TESTS: 'r2pipe-js r2pipe-py'
     steps:
     - uses: actions/checkout@v3
       with:
@@ -39,8 +38,6 @@ jobs:
     - name: Compile and install plugins
       run: |
         set -e
-        export R2PM_GITDIR=`pwd`
-        export R2PM_GITSKIP=1
         for p in $BUILDS ; do
           echo $p
           r2pm -i $p
@@ -50,21 +47,9 @@ jobs:
       working-directory: radare2/test
       run: |
         set -e
-        export R2PM_GITDIR=`pwd`
-        export R2PM_GITSKIP=1
         for p in $TESTS ; do
           echo $p
           make $p
-        done
-        set +e
-    - name: Compile and install r2pipe
-      run: |
-        set -e
-        export R2PM_GITDIR=`pwd`
-        export R2PM_GITSKIP=1
-        for p in $R2PIPE_TESTS ; do
-          echo $p
-          r2pm -i $p
         done
         set +e
 
