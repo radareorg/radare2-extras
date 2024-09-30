@@ -63,11 +63,12 @@ else:
 	svd = sys.argv[2] # MK20D7.svd
 	parser = SVDParser.for_packaged_svd(mcu, svd)
 
-supports_call = False
+supports_call = True
 try:
 	import r2pipe
 	r2 = r2pipe.open("malloc://1")
-	supports_call = int(r2.cmd("?Vn")) >= 50800
+	if int(r2.cmd("?Vn")) < 50800:
+		supports_call = False
 except Exception as e:
 	pass
 
