@@ -17,9 +17,7 @@ fi
 . venv/bin/activate
 if [ ! -x venv/bin/angr ]; then
     if command -v termux-setup-storage; then
-        pip install git+https://github.com/angr/archinfo.git
-        pip install git+https://github.com/angr/cle.git
-        pip install git+https://github.com/angr/ailment.git
+        pip install setuptools
         pip install unicorn==2.0.1.post1
         # Because z3-solver from pip tries to force install custom cmake
         # which breaks installation of z3-solver, check https://github.com/Z3Prover/z3/issues/7424
@@ -32,8 +30,7 @@ if [ ! -x venv/bin/angr ]; then
         echo -e "\033[1;33m Starting z3 build, it may take a while...\033[0m"
         python scripts/mk_make.py --python
         cd build
-        cpu_count=$(nproc)
-        make -j$cpu_count
+        make
         make install
         cd ../../
 
@@ -69,7 +66,6 @@ For documentation, please read http://z3prover.github.io/api/html/z3.html
 
 In the event of technical difficulties related to configuration, compilation, or installation, please submit issues to https://github.com/z3prover/z3.git
 EOL
-        pip install git+https://github.com/angr/claripy.git
         # Re-Check if z3-solver is installed or not
         if [ -z "$(pip show z3-solver)" ]; then
             echo -e "\033[0;33mSeems like an error occured during installation!"
@@ -78,12 +74,8 @@ EOL
             echo "You can find the venv folder in $HOME/.local/share/radare2/prefix/bin"
             exit 1
         fi
-        pip install setuptools
-        git clone https://github.com/angr/pyvex.git --recursive && cd $CWD/pyvex && pip install . && cd ../ && rm -rf pyvex
-        pip install -v angr --no-build-isolation
-    else
-        pip install -v angr
     fi
+    pip install -v angr
     pip install capstone==5.0.3
 fi
 cd $OLD
