@@ -9,9 +9,8 @@ if [ ! -d venv ]; then
         echo -e "\033[1;33mTermux environment detected. Installing necessary packages...\033[0m"
 
         pkg update && pkg upgrade -y
-        pkg install -y cmake ninja clang python-numpy
-        pkg install -y unicorn                      # Required for unicorn during angr installation
-        python3 -m venv --system-site-packages venv # For packages like numpy
+        pkg install -y cmake ninja clang python-numpy unicorn # uncorn Required for unicorn during angr installation
+        python3 -m venv --system-site-packages venv           # For packages like numpy
     fi
 fi
 . venv/bin/activate
