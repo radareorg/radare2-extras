@@ -26,11 +26,13 @@ static int assemble(RAsm *a, RAsmOp *op, const char *buf) {
 }
 
 RAsmPlugin r_a_plugin_evm = {
-	.name = "evm",
-	.author = "pancake",
-	.version = "0.0.1",
+	.meta = {
+		.name = "evm",
+		.author = "pancake",
+		.version = "0.0.1",
+		.license = "MIT",
+	},
 	.arch = "evm",
-	.license = "MIT",
 	.bits = 32,
 	.endian = R_SYS_ENDIAN_BIG,
 	.desc = "evm",

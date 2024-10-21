@@ -90,7 +90,7 @@ static int m32c_op(RAnal *anal, RAnalOp *op, ut64 addr, const ut8 *b, int len, R
 RAnalPlugin r_anal_plugin_m32c = {
 	.name = "m32c",
 	.desc = "m32c analysis plugin",
-	.license = "LGPL3",
+	.license = "LGPL-3.0-only",
 	.arch = "m32c",
 	.esil = false,
 	.bits = 32,

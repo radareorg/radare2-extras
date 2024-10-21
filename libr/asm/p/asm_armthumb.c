@@ -1,11 +1,5 @@
-/* radare - LGPL - Copyright 2010-2018 - pancake */
+/* radare - LGPL - Copyright 2010-2024 - pancake */
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <r_types.h>
-#include <r_util.h>
-#include <r_lib.h>
 #include <r_asm.h>
 #include "../arch/arm/arm.h"
 

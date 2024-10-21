@@ -1030,9 +1030,7 @@ RArchPlugin r_arch_plugin_vc4 = {
 	.meta = {
 		.name = "vc4",
 		.desc = "VideoCore IV",
-		.author = "",
-		.version = "",
-		.license = "GPL3",
+		.license = "GPL-3.0-only",
 		.status = R_PLUGIN_STATUS_OK,
 	},
 	.arch = "vc4",
