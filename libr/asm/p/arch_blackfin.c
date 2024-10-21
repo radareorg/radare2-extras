@@ -229,7 +229,7 @@ RArchPlugin r_arch_plugin_blackfin = {
 		.desc = "BlackFIN architecture plugin",
 		.author = "pancake",
 		.version = "0.2",
-		.license = "GPL",
+		.license = "GPL-3.0-only",
 		.status = R_PLUGIN_STATUS_OK,
 	},
 	.arch = "blackfin",
