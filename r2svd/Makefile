@@ -3,7 +3,7 @@ BINDIR=$(shell r2pm -H R2PM_BINDIR)
 all: cmsis-svd
 
 cmsis-svd:
-	git clone --depth=1 https://github.com/brainstorm/cmsis-svd && cd cmsis-svd && git checkout regex_fix
+	git clone --depth=1 https://github.com/cmsis-svd/cmsis-svd && cd cmsis-svd
 	pip3 install -t $(shell pwd)/cmsis-svd/python lxml six
 
 clean:
