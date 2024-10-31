@@ -126,8 +126,9 @@ for p in svd_dict['peripherals']:
 			nam = f"{nam} {fname}"
 			fmt = f"{fmt}{wi}b"
 			# TODO. bit offset ignored. we are assuming fields are sorted properly
-		print_bitfield(at, bfsize, f"{fmt}{nam}")
-		fmt=""
-		nam=""
+		if fmt != "":
+			print_bitfield(at, bfsize, f"{fmt}{nam}")
+		fmt = ""
+		nam = ""
 
 # print(json.dumps(svd_dict, sort_keys=True, indent=4, separators=(',', ': ')))
