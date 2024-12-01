@@ -101,6 +101,18 @@ static int mmap_struct (struct file *filp, struct vm_area_struct *vma) {
 	return 0;
 }
 
+/*
+ * FIXME: __module_address is no longer exported on moddern kernels.
+ * Some other method to figure out is the address is a valid address from a
+ * loaded module should be found.
+ * 
+ * Meanwhile you could change __module_address if you feel brave and you are
+ * sure that the give address exists or you do not mind crashing the kernel.
+ */
+#ifndef __module_address
+#define __module_address(addr) (0)
+#endif
+
 static bool is_from_module_or_vmalloc (unsigned long addr) {
 	return (is_vmalloc_addr ((void *)addr) || __module_address (addr));
 }
@@ -402,12 +414,18 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 		next_aligned_addr = get_next_aligned_addr (m_transf->addr);
 		nr_pages = get_nr_pages (m_transf->addr, next_aligned_addr, len);
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5,8,0)
+		mmap_read_lock(current->mm);
+#else
 		down_read (&task->mm->mmap_sem);
+#endif
 		for (page_i = 0 ; page_i < nr_pages ; page_i++ ) {
 			struct page *pg = NULL;
 			void *kaddr;
 			int bytes;
-#if LINUX_VERSION_CODE > KERNEL_VERSION(4,0,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
+			ret = get_user_pages (task->mm, m_transf->addr, 1, 0, &pg, NULL);
+#elif LINUX_VERSION_CODE > KERNEL_VERSION(4,0,0)
 			ret = get_user_pages_remote (task, task->mm, m_transf->addr, 1, 0, &pg, NULL, NULL);
 #else
 			ret = get_user_pages (task, task->mm, m_transf->addr, 1,
@@ -465,7 +483,11 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 		}
 
 	out_loop:
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5,8,0)
+		mmap_read_unlock(current->mm);
+#else
 		up_read (&task->mm->mmap_sem);
+#endif
 
 		break;
 	}
@@ -617,7 +639,7 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 #else
 		regs.cr4 = native_read_cr4 ();
 #endif
-#ifdef CONFIG_X86_64
+#if defined(CONFIG_X86_64) && LINUX_VERSION_CODE < KERNEL_VERSION(5,8,0)
 		regs.cr8 = native_read_cr8 ();
 #endif
 #elif defined (CONFIG_ARM)
@@ -665,12 +687,13 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 			goto out;
 		}
 
-		mm = task->mm;
-		vma = mm ? mm->mmap : NULL;
-
 		task_lock(task);
 		strncpy (proc_inf->comm, task->comm, sizeof (task->comm));
 		task_unlock(task);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,1,0)
+		mm = task->mm;
+		vma = mm ? mm->mmap : NULL;
 
 		counter = 0;
 		if (vma) {
@@ -683,6 +706,19 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 			}
 			//TODO: memory map details on vsyscall address range
 		}
+#else
+		VMA_ITERATOR(vmi, mm, 0);
+		counter = 0;
+
+		for_each_vma(vmi, vma) {
+			ret = write_vmareastruct(vma, mm, proc_inf, &counter);
+			if (ret) {
+				pr_info("write_vmareastruct - error\n");
+				goto out;
+			}
+		}
+
+#endif
 
 #ifdef CONFIG_STACK_GROWSUP
 		proc_inf->stack = (unsigned long)task->stack;
@@ -732,7 +768,12 @@ static struct file_operations fops = {
 	.mmap = mmap_struct,
 };
 
-static char *r2k_devnode (struct device *dev_ph, umode_t *mode) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,1,0)
+static char *r2k_devnode (const struct device *dev_ph, umode_t *mode)
+#else
+static char *r2k_devnode (struct device *dev_ph, umode_t *mode)
+#endif
+{
 	if (mode) {
 		if (dev_ph->devt == devno) {
 			*mode = 0600;
@@ -751,7 +792,11 @@ static int __init r2k_init (void) {
 		goto out;
 	}
 
+#if ( LINUX_VERSION_CODE >= KERNEL_VERSION( 6, 4, 0 ) )
+	r2k_class = class_create (R2_CLASS_NAME);
+#else
 	r2k_class = class_create (THIS_MODULE, R2_CLASS_NAME);
+#endif
 	if (IS_ERR (r2k_class)) {
 		pr_info ("%s: class_create failed creating -r2k- class\n",
 								r2_devname);

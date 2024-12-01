@@ -24,6 +24,15 @@
 #   define r2kunmap_atomic(addr)	kunmap_atomic(addr)
 #endif
 
+#ifndef native_read_cr3
+#define native_read_cr3 __native_read_cr3
+#endif
+
+#ifndef native_read_cr4_safe
+#define native_read_cr4_safe native_read_cr4
+#endif
+
+
 #define ADDR_OFFSET(x)          (x & (~PAGE_MASK))
 
 #define IOCTL_READ_KERNEL_MEMORY        0x1
