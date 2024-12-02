@@ -1,4 +1,4 @@
-/* Copyright 2016-2018 - radare2 - MIT - nighterman + pancake + panda + leberus */
+/* Copyright 2016-2024 - radare2 - MIT - nighterman + pancake + panda + leberus */
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -16,6 +16,8 @@
 #include <linux/vmalloc.h>
 #include <asm/io.h>
 #include "r2k.h"
+
+static int Gpid = -1;
 
 /*
 	- Oscar Salvador <leberus>
@@ -105,7 +107,7 @@ static int mmap_struct (struct file *filp, struct vm_area_struct *vma) {
  * FIXME: __module_address is no longer exported on moddern kernels.
  * Some other method to figure out is the address is a valid address from a
  * loaded module should be found.
- * 
+ *
  * Meanwhile you could change __module_address if you feel brave and you are
  * sure that the give address exists or you do not mind crashing the kernel.
  */
@@ -253,21 +255,16 @@ write_name:
 }
 
 static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_addr) {
-	struct r2k_memory_transf *m_transf;
-	struct r2k_map k_map;
-	struct r2k_proc_info *proc_inf;
-	int ret;
+	struct r2k_memory_transf *m_transf = NULL;
+	struct r2k_map k_map = {0};
+	struct r2k_proc_info *proc_inf = NULL;
+	int ret = 0;
 
-	ret = 0;
-	m_transf = NULL;
-	proc_inf = NULL;
-	k_map.map_info = NULL;
-
-	if (_IOC_TYPE (cmd) != R2_TYPE)
+	if (_IOC_TYPE (cmd) != R2_TYPE) {
 		return -EINVAL;
+	}
 
 	switch (_IOC_NR (cmd)) {
-
 	case IOCTL_READ_KERNEL_MEMORY:
 	{
 		int len;
@@ -318,7 +315,6 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 			ret = -ENOMEM;
 			goto out;
 		}
-
 		ret = copy_from_user (m_transf, (void __user*)data_addr,
 					sizeof (struct r2k_memory_transf));
 		if (ret) {
@@ -330,21 +326,30 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 
 		len = m_transf->len;
 		if (!check_kernel_addr (m_transf->addr)) {
-			pr_info ("%s: 0x%lx invalid addr\n", r2_devname,
-								m_transf->addr);
+			pr_info ("%s: 0x%lx invalid addr\n", r2_devname, (size_t)m_transf->addr);
 			ret = -EFAULT;
 			goto out;
 		}
 
-		if (!addr_is_writeable(m_transf->addr) && m_transf->wp) {
-			pr_info ("%s: cannot write at addr 0x%lx\n", r2_devname,
-								m_transf->addr);
+		if (!addr_is_writeable (m_transf->addr) && m_transf->wp) {
+			pr_info ("%s: cannot write at addr %p\n", r2_devname, (void*)(size_t)m_transf->addr);
 			ret = -EPERM;
 			goto out;
 		}
 
-		ret = r2k_copy_from_user((void *)m_transf->addr, m_transf->buff,
-								len, m_transf->wp);
+		// may segfault is apparmer protects this address
+		rcu_read_lock ();
+
+		// XXX segfault ret = r2k_copy_from_user ((void *)m_transf->addr, m_transf->buff, len, m_transf->wp);
+		uint8_t *tbuf = kmalloc (len, 1);
+		if (tbuf) {
+			ret = r2k_copy_from_user ((void *)tbuf, m_transf->buff, len, m_transf->wp);
+			void *dst = (void*)(size_t)m_transf->addr;
+			if (dst) {
+				memcpy (dst, tbuf, len);
+			}
+			kfree (tbuf);
+		}
 		if (ret) {
 			pr_info ("%s: copy_to_user failed\n", r2_devname);
 			ret = -EFAULT;
@@ -381,21 +386,32 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 
 		buffer_r = m_transf->buff;
 		len = m_transf->len;
-
-		task = pid_task (find_vpid (m_transf->pid), PIDTYPE_PID);
+		rcu_read_lock ();
+		Gpid = m_transf->pid;
+		task = pid_task (find_vpid (Gpid), PIDTYPE_PID);
+		if (task) {
+			printk ("Task UID %d Comm %s\n", from_kuid (&init_user_ns, task->cred->uid), task->comm);
+			printk ("wx 0000 @ 0x%lx\n", (size_t)(void*)&task->cred->euid);
+#if 0
+			memcpy (&task->cred->uid, "\x00\x00\x00\x00", 4);
+			memcpy (&task->cred->euid, "\x00\x00\x00\x00", 4);
+#endif
+			printk ("Task %d EUID 0x%lx Cred 0x%lx\n", m_transf->pid,
+					(size_t)(void*)&task->cred->euid, (size_t)task->cred);
+		}
+		rcu_read_unlock ();
 		if (!task) {
 			pr_info ("%s: could not retrieve task_struct from pid (%d)\n",
 					r2_devname, m_transf->pid);
 			ret = -ESRCH;
 			goto out;
 		}
-		printk("Task %p + %d\n", task, (int)(size_t)((void*)&task->cred - (void*)task));
+		printk ("Task 0x%lx + %d\n", (size_t)(void*)task, (int)(size_t)((void*)&task->cred - (void*)task));
 
 		vma = find_vma (task->mm, m_transf->addr);
 		if (!vma) {
-			pr_info ("%s: could not retrieve vm_area_struct"
-								"at 0x%lx\n",
-						r2_devname, m_transf->addr);
+			pr_info ("%s: could not retrieve vm_area_struct at %p\n",
+					r2_devname, (void*)m_transf->addr);
 			ret = -EFAULT;
 			goto out;
 		}
@@ -680,16 +696,18 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 			goto out;
 		}
 
+		rcu_read_lock ();
 		task = pid_task (find_vpid (proc_inf->pid), PIDTYPE_PID);
+		rcu_read_unlock ();
 		if (!task) {
 			pr_info ("%s: Couldn't retrieve task_struct for pid (%d)\n", r2_devname, proc_inf->pid);
 			ret = -ESRCH;
 			goto out;
 		}
 
-		task_lock(task);
+		task_lock (task);
 		strncpy (proc_inf->comm, task->comm, sizeof (task->comm));
-		task_unlock(task);
+		task_unlock (task);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6,1,0)
 		mm = task->mm;
@@ -710,8 +728,8 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 		VMA_ITERATOR(vmi, mm, 0);
 		counter = 0;
 
-		for_each_vma(vmi, vma) {
-			ret = write_vmareastruct(vma, mm, proc_inf, &counter);
+		for_each_vma (vmi, vma) {
+			ret = write_vmareastruct (vma, mm, proc_inf, &counter);
 			if (ret) {
 				pr_info("write_vmareastruct - error\n");
 				goto out;
@@ -742,21 +760,20 @@ static long io_ioctl (struct file *file, unsigned int cmd, unsigned long data_ad
 	}
 
 out:
-	if (m_transf)
-		kfree (m_transf);
-	if (k_map.map_info && ret)
-		clean_mmap();
-	if (proc_inf)
-		kfree (proc_inf);
+	if (k_map.map_info && ret) {
+		clean_mmap ();
+	}
+	kfree (m_transf);
+	kfree (proc_inf);
 
 	return ret;
 }
 
-static int io_open (struct inode *inode, struct file *file) {
+static int io_open(struct inode *inode, struct file *file) {
 	return 0;
 }
 
-static int io_close (struct inode *inode, struct file *file) {
+static int io_close(struct inode *inode, struct file *file) {
 	return 0;
 }
 
