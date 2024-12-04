@@ -1571,8 +1571,7 @@ int read_super(char *source) {
 			memcpy(&sBlk_3, &sblk, sizeof(squashfs_super_block_3));
 			swap = 1;
 		} else  {
-			ERROR("Can't find a SQUASHFS superblock on %s\n",
-				source);
+			// ERROR("Can't find a SQUASHFS superblock on %s\n", source);
 			goto failed_mount;
 		}
 	}
@@ -1649,23 +1648,6 @@ failed_mount:
 }
 
 
-struct pathname *process_extract_files(struct pathname *path, char *filename)
-{
-	FILE *fd;
-	char name[16384];
-
-	fd = fopen(filename, "r");
-	if(fd == NULL)
-		EXIT_UNSQUASH("Could not open %s, because %s\n", filename,
-			strerror(errno));
-
-	while(fscanf(fd, "%16384[^\n]\n", name) != EOF)
-		path = add_path(path, name, name);
-
-	fclose(fd);
-	return path;
-}
-		
 
 /*
  * reader thread.  This thread processes read requests queued by the
@@ -2043,14 +2025,6 @@ int main(int argc, char *argv[])
 				strcmp(argv[i], "-li") == 0) {
 			info = TRUE;
 			short_ls = FALSE;
-		} else if(strcmp(argv[i], "-ef") == 0 ||
-				strcmp(argv[i], "-e") == 0) {
-			if(++i == argc) {
-				fprintf(stderr, "%s: -ef missing filename\n",
-					argv[0]);
-				exit(1);
-			}
-			path = process_extract_files(path, argv[i]);
 		} else if(strcmp(argv[i], "-regex") == 0 ||
 				strcmp(argv[i], "-r") == 0)
 			use_regex = TRUE;
