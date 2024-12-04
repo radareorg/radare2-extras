@@ -9,7 +9,7 @@ int sq_mount(RFSRoot *root, ut64 delta);
 int sq_dir(const char *path, SquashDirCallback cb, void *user);
 unsigned char *sq_cat(const char *path, int *len);
 
-static RFSFile *fs_squash_open(RFSRoot *root, const char *path) {
+static RFSFile *fs_squash_open(RFSRoot *root, const char *path, bool create) {
 	int size = 0;
 	unsigned char *buf = sq_cat (path, &size);
 	if (buf) {
@@ -27,15 +27,15 @@ static RFSFile *fs_squash_open(RFSRoot *root, const char *path) {
 	return NULL;
 }
 
-static bool fs_squash_read(RFSFile *file, ut64 addr, int len) {
+static int fs_squash_read(RFSFile *file, ut64 addr, int len) {
 	int size = 0;
 	unsigned char *buf = sq_cat (file->path, &size);
 	if (buf) {
 		file->data = buf;
 		// file->size = size;
-		return file;
+		return size;
 	}
-	return NULL;
+	return -1;
 }
 
 static void fs_squash_close(RFSFile *file) {
@@ -88,7 +88,7 @@ static RList *fs_squash_dir(RFSRoot *root, const char *path, int view /*ignored*
 	return list;
 }
 
-static int fs_squash_mount(RFSRoot *root) {
+static bool fs_squash_mount(RFSRoot *root) {
 	root->ptr = NULL;
 	return sq_mount (root, root->delta);
 }
@@ -98,9 +98,17 @@ static void fs_squash_umount(RFSRoot *root) {
 }
 
 RFSPlugin r_fs_plugin_io = {
+#if 1
+	.meta = {
+		.name = "squashfs",
+		.desc = "SquashFS filesystem (XZ + LZMA)",
+		.license = "LGPL-3.0-only",
+	},
+#else
 	.name = "squashfs",
 	.desc = "SquashFS filesystem (XZ + LZMA)",
-	.license = "GPL",
+	.license = "LGPL-3.0-only",
+#endif
 	.open = fs_squash_open,
 	.read = fs_squash_read,
 	.close = fs_squash_close,
