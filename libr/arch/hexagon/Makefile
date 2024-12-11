@@ -16,6 +16,7 @@ all: arch_hexagon.${SO}
 arch_hexagon.$(SO): $(OBJS)
 	$(CC) -shared -fPIC -o arch_hexagon.$(SO) $(OBJS) $(LDFLAGS)
 	rm -f $(PD)/arch_hexagon.$(SO)
+	mkdir -p $(PD)
 	cp -f arch_hexagon.$(SO) $(PD)/arch_hexagon.$(SO)
 
 clean:
