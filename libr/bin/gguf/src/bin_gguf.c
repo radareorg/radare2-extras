@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2023 - pancake */
+/* radare - LGPL - Copyright 2023-2025 - pancake */
 
 #include <r_bin.h>
 enum {
@@ -156,19 +156,17 @@ static RList *entries(RBinFile *hello) {
 	RList *ret = r_list_newf (free);
 	if (ret) {
 		RBinAddr *ptr = R_NEW0 (RBinAddr);
-		if (ptr) {
-			ptr->paddr = ptr->vaddr = 0;
-			r_list_append (ret, ptr);
-		}
+		ptr->paddr = ptr->vaddr = 0;
+		r_list_append (ret, ptr);
 	}
 	return ret;
 }
 
 RBinPlugin r_bin_plugin_hello = {
 	.meta = {
-		.name = "hello",
-		.desc = "hello world for rbin",
-		.license = "LGPL3",
+		.name = "gguf",
+		.desc = "GGUF bin parser",
+		.license = "MIT",
 	},
 	.load = &load,
 	.destroy = &destroy,
