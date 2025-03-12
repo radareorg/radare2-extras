@@ -6,6 +6,12 @@
 #include <r_core.h>
 #include <libpoke.h>
 
+#if R2_VERSION_NUMBER >= 50909
+#define FLAG_ADDR(x) (x)->addr
+#else
+#define FLAG_ADDR(x) (x)->offset
+#endif
+
 // XXX dont polute the global space
 static R_TH_LOCAL RCore *Gcore = NULL;
 static R_TH_LOCAL pk_compiler pc = NULL;
@@ -71,7 +77,7 @@ static struct pk_alien_token *aliendtoken(char delim, const char *id, char **err
 	RFlagItem *fi = r_flag_get (Gcore->flags, id);
 	if (fi) {
 		alien_token.kind = PK_ALIEN_TOKEN_OFFSET;
-		alien_token.value.offset.magnitude = fi->offset;
+		alien_token.value.offset.magnitude = FLAG_ADDR (fi);
 		alien_token.value.offset.width = 8 * 8; // uint64
 		alien_token.value.offset.signed_p = 0;
 		alien_token.value.offset.unit = 8;
@@ -97,7 +103,7 @@ static struct pk_alien_token *alientoken(const char *id, char **errmsg) {
 	RFlagItem *fi = r_flag_get (Gcore->flags, id);
 	if (fi) {
 		alien_token.kind = PK_ALIEN_TOKEN_OFFSET;
-		alien_token.value.offset.magnitude = fi->offset;
+		alien_token.value.offset.magnitude = FLAG_ADDR (fi);
 		alien_token.value.offset.width = 8 * 8; // uint64
 		alien_token.value.offset.signed_p = 0;
 		alien_token.value.offset.unit = 8;
@@ -142,7 +148,7 @@ static int r_cmd_poke_call(void *user, const char *input) {
 		pk_compile_file (pc, "poke/pickles/uuid.pk", &exit_exception);
 		pk_compile_buffer (pc, "var a = UUID @ 0#B;", NULL, &exit_exception);
 		if (pk_compile_buffer (pc, "printf(\"fHELLO %i60d\\n\", (UUID@0#b).get_time());", NULL, &exit_exception)) {
-			R_LOG_ERROR("fhLLOE ");
+			R_LOG_ERROR ("fhLLOE ");
 		}
 		pk_compile_buffer (pc, "print(\"HELLO\\n\");", NULL, &exit_exception);
 		if (pk_compile_buffer (pc, "var u=UUID @ 0#b;print(\"jeje\\n\");printf(\"time:%i60d\\n\", u.get_time());", NULL, &exit_exception) != PK_OK) {
