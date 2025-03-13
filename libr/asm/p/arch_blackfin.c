@@ -207,11 +207,19 @@ static char *getregs(RArchSession *as) {
 
 static int info(RArchSession *s, ut32 q) {
 	switch (q) {
+#if R2_VERSION_NUMBER >= 50909
+	case R_ARCH_INFO_MINOP_SIZE:
+		return 2;
+	case R_ARCH_INFO_MAXOP_SIZE:
+		return 4;
+	}
+#else
 	case R_ARCH_INFO_MIN_OP_SIZE:
 		return 2;
 	case R_ARCH_INFO_MAX_OP_SIZE:
 		return 4;
 	}
+#endif
 	// i think data align is 4
 	return 2;
 }

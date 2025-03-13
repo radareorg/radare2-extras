@@ -1,4 +1,4 @@
-/* radare - LGPL - Copyright 2016 - pancake */
+/* radare - LGPL - Copyright 2016-2025 - pancake */
 
 #include <r_lib.h>
 #include <r_asm.h>
@@ -964,12 +964,20 @@ static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 }
 
 static int info(RArchSession *s, ut32 q) {
+#if R2_VERSION_NUMBER >= 50909
+	case R_ARCH_INFO_MINOP_SIZE:
+		return 2;
+	case R_ARCH_INFO_MAXOP_SIZE:
+		return 6;
+	}
+#else
 	switch (q) {
 	case R_ARCH_INFO_MIN_OP_SIZE:
 		return 2;
 	case R_ARCH_INFO_MAX_OP_SIZE:
 		return 6;
 	}
+#endif
 	return 2;
 }
 
