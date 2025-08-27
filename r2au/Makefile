@@ -42,6 +42,9 @@ test:
 test2:
 	r2 -c 'b 4K;aui;aup' -c auv malloc://64K
 
+dist:
+	git ls-files -z | xargs -0 tar -cvzf r2au-source.tar.gz
+
 uninstall:
 	rm $(R2P)/*au.$(LIBEXT)*
 
