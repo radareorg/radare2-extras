@@ -1,6 +1,8 @@
 
 enum aucpu_opcodes {
 	AUCPU_OP_NOP,
+	AUCPU_OP_ADD,
+	AUCPU_OP_ADDREG,
 	AUCPU_OP_MOV,
 	AUCPU_OP_WAVE,
 	AUCPU_OP_MOVREG,

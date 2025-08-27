@@ -132,10 +132,11 @@ int notes_index(int i, int black, int from) {
 // #define pf printf
 #define pf r_cons_printf
 
-int print_piano(int off, int nth, int pressed) {
+static int print_piano(RCore *core, int off, int nth, int pressed) {
+	RCons *cons = core->cons;
 	int i, y;
 	int och = 0;
-	pf ("[piano]> [HL] inc/dec freq [1234567890] play note\n");
+	pf (cons, "[piano]> [HL] inc/dec freq [1234567890] play note\n");
 	for (y = 0; y <7; y++) {
 		char t = 0;
 		for (i = off; i < TONES && (i-off < nth); i++) {
@@ -145,57 +146,57 @@ int print_piano(int off, int nth, int pressed) {
 			bool isPressed = pressed >= 0 ? (i - off == pressed - 1): false;
 			bool isDollar = t != '_';
 			if (y == 0) {
-				pf (isDollar? ".=": ".==");
+				pf (cons, isDollar? ".=": ".==");
 			} else if (y == 5) {
 				if (isDollar) {
-					pf ("-'");
+					pf (cons, "-'");
 				} else {
 					if (off + i==0) {
-						pf ("`--");
+						pf (cons, "`--");
 					} else {
-						pf ("---");
+						pf (cons, "---");
 					}
 				}
 			} else if (y == 6) {
 				if (t == '_') {
-					pf ("%3s", tones[i].note);
+					pf (cons, "%3s", tones[i].note);
 				} else {
-					pf (" $");
+					pf (cons, " $");
 				}
 			} else {
 				if (t == '_') {
 					if (!och || och == '_') {
-						pf (isPressed?":##":":  ");
+						pf (cons, isPressed?":##":":  ");
 					} else if (och && och == '|' && y < 5) {
-						pf (isPressed?"##":"  ");
+						pf (cons, isPressed?"##":"  ");
 					} else {
-						pf (isPressed?"##":"  ");
+						pf (cons, isPressed?"##":"  ");
 					}
 				} else {
 					if (y == 3) {
-						pf ("`-´");
+						pf (cons, "`-´");
 					} else if (y > 3) {
-						pf ("   ");
+						pf (cons, "   ");
 					} else {
-						pf (isPressed?"|#|":"| |");
+						pf (cons, isPressed?"|#|":"| |");
 					}
 				}
 			}
-	//		pf ("%s", tones[i].note);
-//			pf ("%c", tecla(tones[i].note));
+	//		pf (cons, "%s", tones[i].note);
+//			pf (cons, "%c", tecla(tones[i].note));
 		}
 		if (y == 0) {
-			pf (".\n");
+			pf (cons, ".\n");
 		} else if (y < 5) {
-			pf ("|\n");
+			pf (cons, "|\n");
 		} else if (y == 5) {
-			pf ("'\n");
+			pf (cons, "'\n");
 		} else {
-			pf ("\n");
+			pf (cons, "\n");
 		}
 	}
 	if (pressed >= 0) {
-		pf ("Note: %s  Freq: %f\n", tones[off+pressed].note, tones[off+pressed].freq);
+		pf (cons, "Note: %s  Freq: %f\n", tones[off+pressed].note, tones[off+pressed].freq);
 	}
 	return 0;
 }

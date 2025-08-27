@@ -1,4 +1,4 @@
-/* radare2-au - MIT - Copyright 2018-2023 - pancake */
+/* radare2-au - MIT - Copyright 2018-2025 - pancake */
 
 #include <r_asm.h>
 #include <r_lib.h>
@@ -85,7 +85,7 @@ static bool assemble(RArchSession *a, RAnalOp *op, RArchEncodeMask mask) {
 	} else if (!strcmp (mnemonic, "wave")) {
 		op->size = 2;
 		buf[0] = AUCPU_OP_WAVE;
-		buf[1] = type;
+		buf[1] = 0; // TODO: type;
 		// wave r0
 		return false;
 		// RETHINK OP, r0, r1 must be 2nd arg
@@ -389,11 +389,11 @@ static char *regs(RArchSession *as) {
 
 static int archinfo(RArchSession *as, ut32 what) {
 	switch (what) {
-	case R_ANAL_ARCHINFO_INV_OP_SIZE:
+	case R_ARCH_INFO_INVOP_SIZE:
 		return 2;
-	case R_ANAL_ARCHINFO_MIN_OP_SIZE:
+	case R_ARCH_INFO_MINOP_SIZE:
 		return 2;
-	case R_ANAL_ARCHINFO_MAX_OP_SIZE:
+	case R_ARCH_INFO_MAXOP_SIZE:
 		return 4;
 	}
 	return 2;
@@ -410,12 +410,14 @@ static char *mnemonics(RArchSession *as, int id, bool json) {
 }
 
 RArchPlugin r_arch_plugin_au = {
-	.name = "au",
-	.desc = "virtual audio chip",
+	.meta = {
+		.name = "au",
+		.desc = "virtual audio chip",
+		.license = "MIT",
+	},
 	.arch = "au",
 	.bits = R_SYS_BITS_PACK3 (8, 16, 32),
 	.endian = R_SYS_ENDIAN_LITTLE | R_SYS_ENDIAN_BIG,
-	.license = "MIT",
 	.regs = regs,
 	.info = archinfo,
 	.mnemonics = &mnemonics,

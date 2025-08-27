@@ -523,11 +523,11 @@ static bool au_mix(RCore *core, const char *args) {
 	ut64 narg = *args? r_num_math (core->num, args + 1): 0;
 	float arg = narg;
 	if (arg == 0) {
-		eprintf ("Usage: aum [from] # honors aub blocksize and core->offset\n");
+		eprintf ("Usage: aum [from] # honors aub blocksize and core->addr\n");
 		return true;
 	}
 	const int bs = aBlocksize; //core->blocksize;
-	// eprintf ("[au] Mixing from 0x%"PFMT64x" to 0x%"PFMT64x"\n", narg, core->offset);
+	// eprintf ("[au] Mixing from 0x%"PFMT64x" to 0x%"PFMT64x"\n", narg, core->addr);
 	short *dst = calloc (bs, 1);
 	short *src = calloc (bs, 1);
 	if (!src || !dst) {
@@ -535,14 +535,14 @@ static bool au_mix(RCore *core, const char *args) {
 		free (dst);
 		return false;
 	}
-	r_io_read_at (core->io, core->offset, (ut8*)dst, bs);
+	r_io_read_at (core->io, core->addr, (ut8*)dst, bs);
 	r_io_read_at (core->io, narg, (ut8*)src, bs);
 	int shorts = bs / sizeof (*dst);
 	for (int i = 0; i < shorts; i++) {
 		st64 sum = src[i] + dst[i];
 		dst[i] = sum / 2;
 	}
-	r_io_write_at (core->io, core->offset, (const ut8*)dst, bs);
+	r_io_write_at (core->io, core->addr, (const ut8*)dst, bs);
 	return true;
 }
 
@@ -559,6 +559,7 @@ static void auo_help () {
 }
 
 static bool au_anal(RCore *core, const char *args) {
+	RCons *cons = core->cons;
 	ut64 narg = *args? r_num_math (core->num, args + 1): 0;
 	float arg = narg;
 	const int bs = aBlocksize;
@@ -567,7 +568,7 @@ static bool au_anal(RCore *core, const char *args) {
 	if (!dst) {
 		return false;
 	}
-	r_io_read_at (core->io, core->offset, (ut8*)dst, bs);
+	r_io_read_at (core->io, core->addr, (ut8*)dst, bs);
 	short init = dst[0];
 	// XXX not working well
 	int direction = (dst[1] > init)? 1: -1;
@@ -592,8 +593,8 @@ static bool au_anal(RCore *core, const char *args) {
 		}
 	}
 	if (end) {
-		r_cons_printf ("cycle length %d\n", (i*10));
-		r_cons_printf ("frequency %d\n", 1000 - (i*10));
+		r_cons_printf (cons, "cycle length %d\n", (i*10));
+		r_cons_printf (cons, "frequency %d\n", 1000 - (i*10));
 	}
 	return true;
 }
@@ -607,7 +608,7 @@ static bool au_operate(RCore *core, const char *args) {
 	if (!dst) {
 		return false;
 	}
-	r_io_read_at (core->io, core->offset, (ut8*)dst, bs);
+	r_io_read_at (core->io, core->addr, (ut8*)dst, bs);
 	switch (*args) {
 	case ')':
 		if (arg >= shorts) {
@@ -677,13 +678,14 @@ static bool au_operate(RCore *core, const char *args) {
 		auo_help ();
 		break;
 	}
-	r_io_write_at (core->io, core->offset, (const ut8*)dst, bs);
+	r_io_write_at (core->io, core->addr, (const ut8*)dst, bs);
 	return true;
 }
 
 static char defaultShape = 0;
 
 static bool au_write(RCore *core, const char *args) {
+	RCons *cons = core->cons;
 	int size = 0;
 	ut8 *sample = NULL;
 	if (*args == '?') {
@@ -696,7 +698,7 @@ static bool au_write(RCore *core, const char *args) {
 		if (*args) {
 			defaultShape = *args;
 		} else {
-			r_cons_printf ("auw%c\n", defaultShape);
+			r_cons_printf (cons, "auw%c\n", defaultShape);
 		}
 		return true;
 	}
@@ -752,7 +754,7 @@ static bool au_write(RCore *core, const char *args) {
 		int i;
 		for (i = 0; i < core->blocksize ; i+= size) {
 			int left = R_MIN (size, core->blocksize -i);
-			r_io_write_at (core->io, core->offset + i, (const ut8*)sample, left);
+			r_io_write_at (core->io, core->addr + i, (const ut8*)sample, left);
 		}
 	}
 	r_core_block_read (core);
@@ -923,23 +925,24 @@ const char *_asciiWaveAntiSaw[4] = {
 	"|\\|\\|\\|\\",
 };
 
-extern int print_piano (int off, int nth, int pressed);
+extern int print_piano (RCore *core, int off, int nth, int pressed);
 static int lastKey = -1;
 static int lastKeyReal = -1;
 
 static bool printPiano(RCore *core) {
-	int w = r_cons_get_size (NULL);
-	print_piano (keyboard_offset, w / 3, lastKey);
+	int w = r_cons_get_size (core->cons, NULL);
+	print_piano (core, keyboard_offset, w / 3, lastKey);
 	return true;
 }
 
 static bool printWave(RCore *core, int oy) {
+	RCons *cons = core->cons;
 	short sample = 0;
 	short *words = (short*)core->block;
 	// TODO: shift with 'h' and 'l'
 	int x , y, h;
 	int i, nwords = core->blocksize / 2;
-	int w = r_cons_get_size (&h);
+	int w = r_cons_get_size (cons, &h);
 #if 0
 	h = 20;
 
@@ -956,8 +959,8 @@ static bool printWave(RCore *core, int oy) {
 	int step = zoomMode? 2: 1;
 	if (cursorMode) {
 		for (i = 0; i<h; i++) {
-			r_cons_gotoxy (cursorPos + 2, i + oy);
-			r_cons_printf ("|");
+			r_cons_gotoxy (cons, cursorPos + 2, i + oy);
+			r_cons_printf (cons, "|");
 		}
 	}
 	step *= zoomLevel;
@@ -971,18 +974,18 @@ static bool printWave(RCore *core, int oy) {
 			break;
 		}
 		if (cursorMode && x == cursorPos + 2) {
-			r_cons_gotoxy (x - 1, y + 3 + oy);
-			r_cons_printf ("[#]");
+			r_cons_gotoxy (cons, x - 1, y + 3 + oy);
+			r_cons_printf (cons, "[#]");
 //			oy = y;
 		} else if (cursorMode && x == cursorPos + 3 && y == oy) {
 			// do nothing
 		} else {
-			r_cons_gotoxy (x, y + 3 + oy);
-			r_cons_printf (Color_MAGENTA"*"Color_RESET);
+			r_cons_gotoxy (cons, x, y + 3 + oy);
+			r_cons_printf (cons, Color_MAGENTA"*"Color_RESET);
 		}
 		// r_cons_printf ("%d %d - ", x, y);
 	}
-	r_cons_gotoxy (0, h - 4 + oy);
+	r_cons_gotoxy (cons, 0, h - 4 + oy);
 #endif
 	return true;
 }
@@ -1102,41 +1105,43 @@ static void au_note_set(RCore *core, int note) {
 }
 
 static bool au_visual_help(RCore *core) {
-	r_cons_clear00 ();
-	r_cons_printf ("Usage: auv - visual mode for audio processing\n\n");
-	r_cons_printf (" jk -> change wave type (sin, saw, ..)\n");
-	r_cons_printf (" hl -> seek around the buffer\n");
-	r_cons_printf (" HL -> seek faster around the buffer\n");
-	r_cons_printf (" R  -> randomize color theme\n");
-	r_cons_printf (" n  -> assign current freq+type into [0-9] key\n");
-	r_cons_printf (" 0-9-> play and write the recorded note\n");
-	r_cons_printf (" +- -> increment/decrement the frequency\n");
-	r_cons_printf (" pP -> rotate print modes\n");
-	r_cons_printf (" .  -> play current block\n");
-	r_cons_printf (" e  -> effect (arpeggio, percent, ...)\n");
-	r_cons_printf (" i  -> insert current note in current offset\n");
-	r_cons_printf (" :  -> type r2 command\n");
+	r_cons_clear00 (core->cons);
+	const char msg[] = 
+	"Usage: auv - visual mode for audio processing\n\n"
+	" jk -> change wave type (sin, saw, ..)\n"
+	" hl -> seek around the buffer\n"
+	" HL -> seek faster around the buffer\n"
+	" R  -> randomize color theme\n"
+	" n  -> assign current freq+type into [0-9] key\n"
+	" 0-9-> play and write the recorded note\n"
+	" +- -> increment/decrement the frequency\n"
+	" pP -> rotate print modes\n"
+	" .  -> play current block\n"
+	" e  -> effect (arpeggio, percent, ...)\n"
+	" i  -> insert current note in current offset\n"
+	" :  -> type r2 command\n";
+	r_cons_print (core->cons, msg);
 
-	r_cons_flush (); // use less here
-	r_cons_readchar ();
+	r_cons_flush (core->cons); // use less here
+	r_cons_readchar (core->cons);
 	return true;
 }
 
 static void editCycle (RCore *core, int step) {
 	// adjust wave (use [] to specify the width to be affected)
 	short data = 0;
-	r_io_read_at (core->io, core->offset + (cursorPos*2), (ut8*)&data, 2);
+	r_io_read_at (core->io, core->addr + (cursorPos*2), (ut8*)&data, 2);
 	data += step;
-	r_io_write_at (core->io, core->offset + (cursorPos*2), (ut8*)&data, 2);
+	r_io_write_at (core->io, core->addr + (cursorPos*2), (ut8*)&data, 2);
 
 	char *cycle = malloc (cycleSize);
 	if (!cycle) {
 		return;
 	}
-	r_io_read_at (core->io, core->offset, (ut8*)cycle, cycleSize);
+	r_io_read_at (core->io, core->addr, (ut8*)cycle, cycleSize);
 	int i;
 	for (i = cycleSize; i<core->blocksize; i+= cycleSize) {
-		r_io_write_at (core->io, core->offset + i, (const ut8*)cycle, cycleSize);
+		r_io_write_at (core->io, core->addr + i, (const ut8*)cycle, cycleSize);
 	}
 	free (cycle);
 	r_core_block_read (core);
@@ -1203,6 +1208,7 @@ static void au_setchords(RCore *core, const char *input) {
 }
 
 static bool au_visual_phone(RCore *core) {
+	RCons *cons = core->cons;
 	const char phone_macros[] =
 	"\"\"(phone x y;auws $0@track0;auws $1@track1;s track0;aum track1;au.)\n"
 	"f track0=0;f abs=0x4000;f track1=abs;aub abs\n"
@@ -1225,21 +1231,21 @@ static bool au_visual_phone(RCore *core) {
 	"\"\"(D;.(phone 941 1633))\n";
 	r_core_cmd_lines (core, phone_macros);
 	while (1) {
-		r_cons_clear00 ();
+		r_cons_clear00 (cons);
 		r_core_cmd0 (core, "aup");
-		r_cons_gotoxy (0, 0);
-		r_cons_printf ("[r2phone:0x%08"PFMT64x"]>\n", core->offset);
-		r_cons_printf ("%s", phone);
-		r_cons_gotoxy (5, 8);
-		r_cons_printf ("%10s", phone_str);
+		r_cons_gotoxy (cons, 0, 0);
+		r_cons_printf (cons, "[r2phone:0x%08"PFMT64x"]>\n", core->addr);
+		r_cons_printf (cons, "%s", phone);
+		r_cons_gotoxy (cons, 5, 8);
+		r_cons_printf (cons, "%10s", phone_str);
 		if (*phone_str) {
-			r_cons_gotoxy (6 + 9, 8);
+			r_cons_gotoxy (cons, 6 + 9, 8);
 		} else {
-			r_cons_gotoxy (5 + 9, 8);
+			r_cons_gotoxy (cons, 5 + 9, 8);
 		}
-		r_cons_flush ();
-	//	r_cons_visual_flush ();
-		int ch = r_cons_readchar_timeout (500);
+		r_cons_flush (cons);
+	//	r_cons_visual_flush (cons);
+		int ch = r_cons_readchar_timeout (cons, 500);
 		switch (ch) {
 		case '\n':
 		case '\r':
@@ -1275,10 +1281,11 @@ static bool au_visual_phone(RCore *core) {
 }
 
 static bool au_visual(RCore *core) {
+	RCons *cons = core->cons;
 	bool jam = false;
-	r_cons_flush ();
-	r_cons_print_clear ();
-	r_cons_clear00 ();
+	r_cons_flush (cons);
+	r_cons_print_clear (cons);
+	r_cons_clear00 (cons);
 
 	ut64 now, base = r_time_now () / 1000 / 500;
 	int otdiff = 0;
@@ -1288,19 +1295,19 @@ static bool au_visual(RCore *core) {
 		int tdiff = now - base;
 		const char *wave = asciis (tdiff);
 		const char *waveName = asciin (waveType);
-		r_cons_clear00 ();
+		r_cons_clear00 (cons);
 		if (tdiff + 1 > otdiff) {
 		//	r_core_cmd (core, "au.", 0);
 			if (animateMode) {
 				r_core_cmd0 (core, "s+2");
 			}
 		}
-		r_cons_printf ("[r2:auv] [0x%08"PFMT64x"] [%04x] |%s| %s freq %d block %d cursor %d cycle %d zoom %d\n",
-			core->offset, tdiff, wave, waveName, waveFreq, toneSize, cursorPos, cycleSize, zoomLevel);
+		r_cons_printf (cons, "[r2:auv] [0x%08"PFMT64x"] [%04x] |%s| %s freq %d block %d cursor %d cycle %d zoom %d\n",
+			core->addr, tdiff, wave, waveName, waveFreq, toneSize, cursorPos, cycleSize, zoomLevel);
 		int oy, minus = 64;
 		if (keyboard_visible) {
-			int w = r_cons_get_size (NULL);
-			print_piano (keyboard_offset, w / 3, lastKeyReal);
+			int w = r_cons_get_size (core->cons, NULL);
+			print_piano (core, keyboard_offset, w / 3, lastKeyReal);
 			minus = 128;
 			oy = 10;
 		} else {
@@ -1334,9 +1341,9 @@ static bool au_visual(RCore *core) {
 			}
 			break;
 		}
-		r_cons_flush ();
+		r_cons_flush (cons);
 	//	r_cons_visual_flush ();
-		int ch = r_cons_readchar_timeout (500);
+		int ch = r_cons_readchar_timeout (cons, 500);
 		char waveTypeChar = WAVECMD[waveType % WAVETYPES];
 		switch (ch) {
 		case '!':
@@ -1370,9 +1377,9 @@ static bool au_visual(RCore *core) {
 			keyboard_visible = !keyboard_visible;
 			break;
 		case 'n':
-			r_cons_printf ("\nWhich note? (1 2 3 4 5 6 7 8 9 0) \n");
-			r_cons_flush ();
-			int ch = r_cons_readchar ();
+			r_cons_printf (cons, "\nWhich note? (1 2 3 4 5 6 7 8 9 0) \n");
+			r_cons_flush (cons);
+			int ch = r_cons_readchar (cons);
 			if (ch >= '0' && ch <= '9') {
 				au_note_set (core, ch - '0');
 			} else if (ch == 'q') {
@@ -1388,24 +1395,22 @@ static bool au_visual(RCore *core) {
 			break;
 		case 'f':
 			{
-				RCons *I = r_cons_singleton ();
-				r_line_set_prompt ("(freq)> ");
-				I->line->contents = r_str_newf ("%d", toneSize);
-				const char *buf = r_line_readline ();
+				r_line_set_prompt (cons->line, "(freq)> ");
+				cons->line->contents = r_str_newf ("%d", toneSize);
+				const char *buf = r_line_readline (cons);
 				waveFreq = r_num_math (core->num, buf);
-				I->line->contents = NULL;
+				cons->line->contents = NULL;
 				r_core_cmdf (core, "auw%c %d", waveTypeChar, waveFreq);
 				r_core_cmd0 (core, "& au.");
 			}
 			break;
 		case 'b':
 			{
-				RCons *I = r_cons_singleton ();
-				r_line_set_prompt ("audio block size> ");
-				I->line->contents = r_str_newf ("%d", toneSize);
-				const char *buf = r_line_readline ();
+				r_line_set_prompt (cons->line, "audio block size> ");
+				cons->line->contents = r_str_newf ("%d", toneSize);
+				const char *buf = r_line_readline (cons);
 				toneSize = r_num_math (core->num, buf);
-				I->line->contents = NULL;
+				cons->line->contents = NULL;
 			}
 			break;
 		case 'K':
@@ -1612,6 +1617,7 @@ static bool au_play(RCore *core) {
 }
 
 static int _cmd_au(RCore *core, const char *args) {
+	RCons *cons = core->cons;
 	switch (*args) {
 	case 'i': // "aui"
 		// setup arguments here
@@ -1658,13 +1664,13 @@ static int _cmd_au(RCore *core, const char *args) {
 		} else {
 			switch (noiseType) {
 			case NOISE_WHITE:
-				r_cons_printf ("white\n");
+				r_cons_printf (cons, "white\n");
 				break;
 			case NOISE_PINK:
-				r_cons_printf ("pink\n");
+				r_cons_printf (cons, "pink\n");
 				break;
 			case NOISE_BROWN:
-				r_cons_printf ("brown\n");
+				r_cons_printf (cons, "brown\n");
 				break;
 			}
 		}
@@ -1711,7 +1717,7 @@ static int _cmd_au(RCore *core, const char *args) {
 			break;
 		case '.':
 		case 0:
-			r_cons_printf ("0x%x\n", aBlocksize);
+			r_cons_printf (cons, "0x%x\n", aBlocksize);
 			break;
 		default:
 			eprintf ("Usage: aub[a] [size] - audio block size (auba to analyze)\n");
@@ -1747,13 +1753,13 @@ static int _cmd_au(RCore *core, const char *args) {
 			eprintf ("Not implemented\n");
 		} else if (args[1] == ' ') {
 			int i, rep = r_num_math (core->num, args + 2);
-			r_cons_break_push (NULL, NULL);
+			r_cons_break_push (cons, NULL, NULL);
 			for (i = 0; i<rep ; i++) {
-				r_cons_is_breaked ();
+				r_cons_is_breaked (cons);
 				au_play (core);
 				r_sys_usleep (500);
 			}
-			r_cons_break_pop ();
+			r_cons_break_pop (cons);
 		} else {
 			captureBlocksize ();
 			au_play (core);
@@ -1786,7 +1792,7 @@ static int _cmd_au(RCore *core, const char *args) {
 		if (args[1] == ' ') {
 			int idx = r_num_math (core->num, args + 1);
 			if (idx >= 0 && idx < TONES) {
-				r_cons_printf ("%d\n", (int)(tones[idx].freq * 10));
+				r_cons_printf (cons, "%d\n", (int)(tones[idx].freq * 10));
 			}
 		} else {
 			for (int i = 0; i < TONES; i++) {
@@ -1796,7 +1802,7 @@ static int _cmd_au(RCore *core, const char *args) {
 				if (dolar) {
 					*dolar = '_';
 				}
-				r_cons_printf ("f tone.%s = %d # %d\n", note, (int)(tones[i].freq * 10), i);
+				r_cons_printf (cons, "f tone.%s = %d # %d\n", note, (int)(tones[i].freq * 10), i);
 			}
 		}
 		break;
@@ -1824,8 +1830,8 @@ static int _cmd_au(RCore *core, const char *args) {
 	return false;
 }
 
-static int r_cmd_au_call(void *user, const char *input) {
-	RCore *core = (RCore *) user;
+static bool r_cmd_au_call(RCorePluginSession *cs, const char *input) {
+	RCore *core = cs->core;
 	if (!strncmp (input, "au", 2)) {
 		_cmd_au (core, input + 2);
 		return true;
@@ -1834,9 +1840,11 @@ static int r_cmd_au_call(void *user, const char *input) {
 }
 
 RCorePlugin r_core_plugin_au = {
-	.name = "audio",
-	.desc = "play mustic with radare2",
-	.license = "MIT",
+	.meta = {
+		.name = "audio",
+		.desc = "play mustic with radare2",
+		.license = "MIT",
+	},
 	.call = r_cmd_au_call,
 };
 
