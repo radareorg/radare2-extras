@@ -18,15 +18,17 @@ fi
 if [ ! -x venv/bin/angr ]; then
     if command -v termux-setup-storage; then
         pip install setuptools
-        # for latest cmake 4.1 issue on termux
-        curl -fSL https://files.pythonhosted.org/packages/64/c7/1a571a06adda2a9802e21d84398c5547761cb28b22f59a2c5db62bf23887/unicorn-2.0.1.post1.tar.gz -o unicorn-2.0.1.post1.tar.gz
-        tar -xvf unicorn-2.0.1.post1.tar.gz
-        sed -i 's/cmake_minimum_required(VERSION 3.1)/cmake_minimum_required(VERSION 3.5)/g' unicorn-2.0.1.post1/src/CMakeLists.txt
-        pip install -v unicorn-2.0.1.post1/
-
-        if [ -d $CWD/unicorn-2.0.1.post1/ ]; then
-            rm -rf $CWD/unicorn-2.0.1.post1/
-            rm $CWD/unicorn-2.0.1.post1.tar.gz
+        if [ -z "$(pip show unicorn)" ]; then
+          # for latest cmake 4.1 issue on termux
+          curl -fSL https://files.pythonhosted.org/packages/64/c7/1a571a06adda2a9802e21d84398c5547761cb28b22f59a2c5db62bf23887/unicorn-2.0.1.post1.tar.gz -o unicorn-2.0.1.post1.tar.gz
+          tar -xvf unicorn-2.0.1.post1.tar.gz
+          sed -i 's/cmake_minimum_required(VERSION 3.1)/cmake_minimum_required(VERSION 3.5)/g' unicorn-2.0.1.post1/src/CMakeLists.txt
+          pip install -v unicorn-2.0.1.post1/
+  
+          if [ -d $CWD/unicorn-2.0.1.post1/ ]; then
+              rm -rf $CWD/unicorn-2.0.1.post1/
+              rm $CWD/unicorn-2.0.1.post1.tar.gz
+          fi
         fi
         if [ -z "$(pip show z3-solver)" ]; then
           # Because z3-solver from pip tries to force install custom cmake
@@ -80,10 +82,11 @@ EOL
       git clone https://github.com/angr/pypcode.git -b v3.0.3 --depth 1
       sed -i -E 's/("cmake" ]|"cmake"])/ ]/g' pypcode/pyproject.toml
       pip install -v pypcode/
-      pip install -v pyvex==9.2.154
-      pip install -v angr==9.2.154 --no-build-isolation
+      pip install -v pyvex==9.2.141
+      pip install -v angr==9.2.141 --no-build-isolation
+    else
+      pip install -v angr==9.2.172
     fi
-    pip install -v angr==9.2.154
     pip install capstone==5.0.3
 fi
 cd $OLD
