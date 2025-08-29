@@ -5,7 +5,7 @@ if [ -z "$R2_FILE" ]; then
 fi
 if [ "$R2_BADDR" = 0 ]; then
     echo "If the function is not found use r2 -B 0x400000"
-elif [ "$R2_OFFSET" -lt 10000 ]; then
+elif [ "${R2_OFFSET:-0}" -lt 10000 ]; then
     echo "If the function is not found use r2 -B 0x400000"
 fi
 ARG=""
