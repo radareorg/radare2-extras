@@ -8,7 +8,7 @@ if [ ! -d venv ]; then
 
         pkg update && pkg upgrade -y
         # unicorn Required for unicorn during angr installation
-        pkg install -y cmake build-essential ninja clang python-numpy unicorn python-cryptography
+        pkg install -y cmake binutils build-essential ninja clang python-numpy unicorn python-cryptography
         python3 -m venv --system-site-packages venv           # For packages like numpy
     else
         python3 -m venv venv
