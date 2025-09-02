@@ -52,7 +52,9 @@ static RBinInfo *info(RBinFile *bf) {
 }
 
 static bool check(RBinFile *hello, RBuffer *buf) {
-	r_return_val_if_fail (buf, false);
+	if (!buf) {
+		return false;
+	}
 
 	ut8 tmp[64] = {0};
 	int read_length = r_buf_read_at (buf, 0, tmp, sizeof (tmp));
@@ -82,7 +84,7 @@ static bool check(RBinFile *hello, RBuffer *buf) {
 				break;
 			}
 			R_LOG_DEBUG ("KeyNameLen: %d", textlen);
-			char *text = r_str_ndup (data + 8, textlen);
+			char *text = r_str_ndup ((const char *)(data + 8), textlen);
 			R_LOG_INFO ("KeyName: %s", text);
 			free (text);
 			pos += textlen;
@@ -95,7 +97,7 @@ static bool check(RBinFile *hello, RBuffer *buf) {
 					ut64 vlen = r_read_le64 (data + 8 + textlen + 4);
 					R_LOG_DEBUG ("KeyValueSize: %d", vlen);
 					vlen = R_MIN (vlen, sizeof (data) - 16 + textlen + 4);
-					char *text = r_str_ndup (data + 8 + textlen + 4 + 8, vlen);
+					char *text = r_str_ndup ((const char *)(data + 8 + textlen + 4 + 8), vlen);
 					R_LOG_INFO ("KeyValue: %s", text);
 					free (text);
 					pos += vlen + 8;
@@ -140,7 +142,7 @@ static bool check(RBinFile *hello, RBuffer *buf) {
 				R_LOG_ERROR ("Invalid tensor name");
 				break;
 			}
-			char *text = r_str_ndup (data + 8, textlen);
+			char *text = r_str_ndup ((const char *)(data + 8), textlen);
 			R_LOG_INFO ("Tensor[%d]: %s", i, text);
 			free (text);
 			pos += textlen;
@@ -152,7 +154,9 @@ static bool check(RBinFile *hello, RBuffer *buf) {
 }
 
 static RList *entries(RBinFile *hello) {
-	r_return_val_if_fail (hello, NULL);
+	if (!hello) {
+		return NULL;
+	}
 	RList *ret = r_list_newf (free);
 	if (ret) {
 		RBinAddr *ptr = R_NEW0 (RBinAddr);
