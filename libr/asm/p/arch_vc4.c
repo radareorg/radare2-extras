@@ -111,7 +111,7 @@ static bool parse_one_register(char *str, char reg[4]) {
 	if (*str == 'r') { // r0..r29
 		str++; // go to the register number
 		register_number = r_num_get (NULL, str);
-		snprintf (reg, 4, "r%li", register_number);
+		snprintf (reg, 4, "r%llu", register_number);
 	} else if (*str == 'p' || *str == 's' ||
 			  *str == 'g' || *str == 'l') { // pc, sp, sr, gp or lr
 		reg[0] = str[0];
@@ -913,7 +913,7 @@ static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 					}
 
 					for (; i <= j; i++) {
-						snprintf (reg, 4, "r%li", i);
+						snprintf (reg, 4, "r%llu", i);
 
 						ADD_REG_TO_LIST_OR_BREAK (access_list,
 							is_pop ? R_PERM_W : R_PERM_R,
@@ -965,6 +965,7 @@ static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 
 static int info(RArchSession *s, ut32 q) {
 #if R2_VERSION_NUMBER >= 50909
+	switch (q) {
 	case R_ARCH_INFO_MINOP_SIZE:
 		return 2;
 	case R_ARCH_INFO_MAXOP_SIZE:
