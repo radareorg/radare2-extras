@@ -1,5 +1,7 @@
 ARCHS=
 
+ARCHS=
+
 ARCHS+=x86_udis.mk
 ARCHS+=spc700.mk
 ARCHS+=ba2.mk
@@ -21,4 +23,3 @@ ARCHS+=atombios.mk
 
 
 include ../../plugs.mk
-

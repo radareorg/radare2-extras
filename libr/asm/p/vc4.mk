@@ -1,18 +1,18 @@
 OBJ_VC4=arch_vc4.o
-OBJ_VC4+=../arch/vc4/vc4-dis.o
-OBJ_VC4+=../arch/vc4/vc4-asm.o
-OBJ_VC4+=../arch/vc4/vc4-desc.o
-OBJ_VC4+=../arch/vc4/vc4-ibld.o
-OBJ_VC4+=../arch/vc4/vc4-opc.o
-OBJ_VC4+=../arch/vc4/cgen-bitset.o
-OBJ_VC4+=../arch/vc4/cgen-dis.o
-OBJ_VC4+=../arch/vc4/cgen-asm.o
-OBJ_VC4+=../arch/vc4/cgen-opc.o
-OBJ_VC4+=../arch/vc4/libvc4/eval.o
-OBJ_VC4+=../arch/vc4/libvc4/decode.o
-OBJ_VC4+=../arch/vc4/libvc4/vc4_decode.o
-OBJ_VC4+=../arch/vc4/libvc4/vc4_arch.o
-OBJ_VC4+=../arch/vc4/libvc4/vc4_util.o
+OBJ_VC4+=vc4-dis.o
+OBJ_VC4+=vc4-asm.o
+OBJ_VC4+=vc4-desc.o
+OBJ_VC4+=vc4-ibld.o
+OBJ_VC4+=vc4-opc.o
+OBJ_VC4+=cgen-bitset.o
+OBJ_VC4+=cgen-dis.o
+OBJ_VC4+=cgen-asm.o
+OBJ_VC4+=cgen-opc.o
+OBJ_VC4+=eval.o
+OBJ_VC4+=decode.o
+OBJ_VC4+=vc4_decode.o
+OBJ_VC4+=vc4_arch.o
+OBJ_VC4+=vc4_util.o
 
 SRC_VC4=$(patsubst %.o, %.c, $(OBJ_VC4))
 
@@ -27,7 +27,33 @@ TARGET_VC4=arch_vc4.${LIBEXT}
 
 ALL_TARGETS+=${TARGET_VC4}
 
-$(OBJ_VC4): %.o : %.c
+vc4-dis.o: ../arch/vc4/vc4-dis.c
+	$(CC) -c $(CFLAGS_VC4) $< -o $@
+vc4-asm.o: ../arch/vc4/vc4-asm.c
+	$(CC) -c $(CFLAGS_VC4) $< -o $@
+vc4-desc.o: ../arch/vc4/vc4-desc.c
+	$(CC) -c $(CFLAGS_VC4) $< -o $@
+vc4-ibld.o: ../arch/vc4/vc4-ibld.c
+	$(CC) -c $(CFLAGS_VC4) $< -o $@
+vc4-opc.o: ../arch/vc4/vc4-opc.c
+	$(CC) -c $(CFLAGS_VC4) $< -o $@
+cgen-bitset.o: ../arch/vc4/cgen-bitset.c
+	$(CC) -c $(CFLAGS_VC4) $< -o $@
+cgen-dis.o: ../arch/vc4/cgen-dis.c
+	$(CC) -c $(CFLAGS_VC4) $< -o $@
+cgen-asm.o: ../arch/vc4/cgen-asm.c
+	$(CC) -c $(CFLAGS_VC4) $< -o $@
+cgen-opc.o: ../arch/vc4/cgen-opc.c
+	$(CC) -c $(CFLAGS_VC4) $< -o $@
+eval.o: ../arch/vc4/libvc4/eval.c
+	$(CC) -c $(CFLAGS_VC4) $< -o $@
+decode.o: ../arch/vc4/libvc4/decode.c
+	$(CC) -c $(CFLAGS_VC4) $< -o $@
+vc4_decode.o: ../arch/vc4/libvc4/vc4_decode.c
+	$(CC) -c $(CFLAGS_VC4) $< -o $@
+vc4_arch.o: ../arch/vc4/libvc4/vc4_arch.c
+	$(CC) -c $(CFLAGS_VC4) $< -o $@
+vc4_util.o: ../arch/vc4/libvc4/vc4_util.c
 	$(CC) -c $(CFLAGS_VC4) $< -o $@
 
 ${TARGET_VC4}: ${OBJ_VC4}
