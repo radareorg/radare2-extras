@@ -11,34 +11,66 @@ typedef struct RAfenRepl {
 
 static R_TH_LOCAL HtUP *ht; // hash table
 
-// afen parser
-static int r_parse_afen(RParse *p, const char *data, char *str) {
-	char *input = strdup (data);
+#if R2_VERSION_NUMBER >= 50909
+static void fini(RAsmPluginSession *aps) {
+	RParse *p = aps->rasm->parse;
+	R_FREE (p->retleave_asm);
+}
+#endif
 
-	RCore *core = (RCore *) p->analb.anal->user;
+static char *parse(RCore *core, const char *data) {
+	char *out = strdup (data);
 
+#if R2_VERSION_NUMBER >= 50909
+	RAnalFunction *fcn = r_anal_get_function_at (core->anal, core->addr);
+#else
 	RAnalFunction *fcn = r_anal_get_function_at (core->anal, core->offset);
+#endif
 
 	if (fcn) {
 		RVector *vec = ht_up_find (ht, fcn->addr, NULL);
 		if (vec) {
 			RAfenRepl *repl;
 			r_vector_foreach (vec, repl) {
-				input = r_str_replace_all (input, repl->old_name, repl->new_name);
+				out = r_str_replace_all (out, repl->old_name, repl->new_name);
 			}
 		}
 	}
+	return out;
+}
+// afen parser
+#if R2_VERSION_NUMBER >= 50909
+static char *r_parse_afen(RAsmPluginSession *aps, const char *data) {
+	char* out = parse ((RCore *) aps->rasm->user, data);
+	return out;
+}
+#else
+static int r_parse_afen(RParse *p, const char *data, char *str) {
+	char* out = parse ((RCore *) p->analb.anal->user, data);
 
-	strcpy (str, input);
+	strcpy (str, out);
 	return true;
 }
+#endif
 
 // RParse plugin Definition Info
+#if R2_VERSION_NUMBER >= 50909
+RAsmPlugin r_parse_plugin_afen = {
+	.meta = {
+		.name = "afen",
+		.desc = "Afen parse plugin",
+	},
+	.parse = r_parse_afen,
+	.fini = fini,
+	// .subvar = subvar,
+};
+#else
 RParsePlugin r_parse_plugin_afen = {
 	.name = "afen",
 	.desc = "Afen parse plugin",
 	.parse = r_parse_afen,
 };
+#endif
 
 static inline void repl_free_afen(void *e, void *user ) {
 	RAfenRepl *repl = (RAfenRepl *) e;
@@ -55,8 +87,24 @@ static inline void vector_value_free_afen(HtUPKv *kv) {
 	}
 }
 
-// sets afen parser
-static int r_core_init_afen(void *user, const char *input) {
+// setup afen parser
+#if R2_VERSION_NUMBER >= 50909
+static bool r_core_init_afen(RCorePluginSession *cps) {
+	RCore *core = (RCore *) cps->core;
+
+	r_asm_plugin_add (core->rasm, &r_parse_plugin_afen);
+
+	/*<ut64, RVector<RAfenRepl*>>*/ ht = ht_up_new (NULL, vector_value_free_afen, NULL);
+	if (!ht) {
+		R_LOG_ERROR ("Fail to initialize hashtable");
+		ht_up_free (ht);
+		return false;
+	}
+
+	return true;
+}
+#else
+static bool r_core_init_afen(void *user, const char *input) {
 	RCmd *rcmd = (RCmd *) user;
 	RCore *core = (RCore *) rcmd->data;
 
@@ -71,17 +119,26 @@ static int r_core_init_afen(void *user, const char *input) {
 
 	return true;
 }
+#endif
 
-static int r_core_fini_afen(void *user, const char *input) {
+
+#if R2_VERSION_NUMBER >= 50909
+static bool r_core_fini_afen(RCorePluginSession *cps) {
 	ht_up_free (ht);
 	ht = NULL;
 
 	return true;
 }
+#else
+static bool r_core_fini_afen(void *user, const char *input) {
+	ht_up_free (ht);
+	ht = NULL;
 
-static int r_core_call_afen(void *user, const char *input) {
-	RCore *core = (RCore *) user;
+	return true;
+}
+#endif
 
+static bool check_for_afen_command(RCore *core, const char *input) {
 	if (r_str_startswith (input, "afen")) {
 		int argc;
 		char **argv = r_str_argv (input, &argc);
@@ -96,10 +153,18 @@ static int r_core_call_afen(void *user, const char *input) {
 			return false;
 		}
 
+#if R2_VERSION_NUMBER >= 50909
+		RAnalFunction *fcn = r_anal_get_function_at (core->anal, core->addr);
+#else
 		RAnalFunction *fcn = r_anal_get_function_at (core->anal, core->offset);
+#endif
 
 		if (!fcn) {
+#if R2_VERSION_NUMBER >= 50909
+			R_LOG_ERROR ("No Function at 0x%08" PFMT64x, core->addr);
+#else
 			R_LOG_ERROR ("No Function at 0x%08" PFMT64x, core->offset);
+#endif
 			R_LOG_INFO ("Use afen inside a function!");
 			return false;
 		}
@@ -134,6 +199,15 @@ static int r_core_call_afen(void *user, const char *input) {
 	return false;
 }
 
+#if R2_VERSION_NUMBER >= 50909
+static bool r_core_call_afen(RCorePluginSession *cps, const char *input) {
+	return check_for_afen_command(cps->core, input);
+}
+#else
+static bool r_core_call_afen(void *user, const char *input) {
+	return check_for_afen_command((RCore *) user, input);
+}
+#endif
 
 // RCore plugin Definition Info
 RCorePlugin r_core_plugin_afen = {
@@ -153,6 +227,9 @@ RCorePlugin r_core_plugin_afen = {
 R_API RLibStruct radare_plugin = {
 	.type = R_LIB_TYPE_CORE,
 	.data = &r_core_plugin_afen,
-	.version = R2_VERSION
+	.version = R2_VERSION,
+#if R2_VERSION_NUMBER >= 50909
+	.abiversion = R2_ABIVERSION,
+#endif
 };
 #endif
