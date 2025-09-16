@@ -1,5 +1,8 @@
 R2PM_PLUGDIR ?=$(HOME)/.config/radare2/plugins
 
+all:
+	@echo
+
 atombios:
 	cd p ; $(MAKE) asm_atombios.$(LIBEXT)
 
