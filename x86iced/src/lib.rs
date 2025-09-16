@@ -156,8 +156,8 @@ unsafe fn op_fillval(session: &RArchSession, op: &mut RAnalOp, instruction: &Ins
         Some(v) => v,
         None => {
             r_list_free(ret);
-            return
-        },
+            return;
+        }
     };
     *val = RAnalValue {
         type_: RArchValueType_R_ANAL_VAL_REG,
@@ -183,8 +183,8 @@ unsafe fn op_fillval(session: &RArchSession, op: &mut RAnalOp, instruction: &Ins
             Some(v) => v,
             None => {
                 r_list_free(ret);
-                return
-            },
+                return;
+            }
         };
         *val = RAnalValue {
             type_: RArchValueType_R_ANAL_VAL_REG,
@@ -223,6 +223,8 @@ static ARCH_PLUGIN: UnsafeSync<RArchPlugin> = UnsafeSync(RArchPlugin {
         desc: static_cstr!("iced-x86 disassembler") as *mut c_char,
         author: static_cstr!("ripatel") as *mut c_char,
         version: null_mut(),
+        contact: null_mut(),
+        copyright: null_mut(),
         license: static_cstr!("MIT") as *mut c_char,
         status: R_PLUGIN_STATUS_BROKEN,
     },
@@ -251,7 +253,8 @@ static ARCH_PLUGIN: UnsafeSync<RArchPlugin> = UnsafeSync(RArchPlugin {
 pub static radare_plugin: UnsafeSync<RLibStruct> = UnsafeSync(RLibStruct {
     type_: R_LIB_TYPE_ARCH,
     data: &ARCH_PLUGIN.0 as *const RArchPlugin as *mut c_void,
-    version: static_cstr!("5.9.0"),
+    version: static_cstr!("6.0.0"),
+    abiversion: 0,
     free: None,
     pkgname: null(),
 });
