@@ -9,7 +9,10 @@ typedef struct RAfenRepl {
 	char *new_name;
 } RAfenRepl;
 
+#if R2_VERSION_NUMBER >= 50909
+#else
 static R_TH_LOCAL HtUP *ht; // hash table
+#endif
 
 #if R2_VERSION_NUMBER >= 50909
 static void fini(RAsmPluginSession *aps) {
@@ -18,7 +21,7 @@ static void fini(RAsmPluginSession *aps) {
 }
 #endif
 
-static char *parse(RCore *core, const char *data) {
+static char *parse(RCore *core, const char *data, HtUP *ht) {
 	char *out = strdup (data);
 
 #if R2_VERSION_NUMBER >= 50909
@@ -41,12 +44,12 @@ static char *parse(RCore *core, const char *data) {
 // afen parser
 #if R2_VERSION_NUMBER >= 50909
 static char *r_parse_afen(RAsmPluginSession *aps, const char *data) {
-	char* out = parse ((RCore *) aps->rasm->user, data);
+	char* out = parse ((RCore *) aps->rasm->user, data, aps->data);
 	return out;
 }
 #else
 static int r_parse_afen(RParse *p, const char *data, char *str) {
-	char* out = parse ((RCore *) p->analb.anal->user, data);
+	char* out = parse ((RCore *) p->analb.anal->user, data, ht);
 
 	strcpy (str, out);
 	return true;
@@ -94,12 +97,24 @@ static bool r_core_init_afen(RCorePluginSession *cps) {
 
 	r_asm_plugin_add (core->rasm, &r_parse_plugin_afen);
 
-	/*<ut64, RVector<RAfenRepl*>>*/ ht = ht_up_new (NULL, vector_value_free_afen, NULL);
+	RAsmPluginSession *afen_aps;
+
+	RListIter *iter;
+	RAsmPluginSession *aps;
+	r_list_foreach (core->rasm->sessions, iter, aps) {
+		if (!strcmp(aps->plugin->meta.name, "afen")) {
+			afen_aps = aps;
+		}
+	}
+
+	HtUP /*<ut64, RVector<RAfenRepl*>>*/ *ht = ht_up_new (NULL, vector_value_free_afen, NULL);
 	if (!ht) {
 		R_LOG_ERROR ("Fail to initialize hashtable");
 		ht_up_free (ht);
 		return false;
 	}
+	afen_aps->data = ht;
+	cps->data = ht;
 
 	return true;
 }
@@ -121,9 +136,9 @@ static bool r_core_init_afen(void *user, const char *input) {
 }
 #endif
 
-
 #if R2_VERSION_NUMBER >= 50909
 static bool r_core_fini_afen(RCorePluginSession *cps) {
+	HtUP *ht = cps->data;
 	ht_up_free (ht);
 	ht = NULL;
 
@@ -138,7 +153,7 @@ static bool r_core_fini_afen(void *user, const char *input) {
 }
 #endif
 
-static bool check_for_afen_command(RCore *core, const char *input) {
+static bool check_for_afen_command(RCore *core, const char *input, HtUP *ht) {
 	if (r_str_startswith (input, "afen")) {
 		int argc;
 		char **argv = r_str_argv (input, &argc);
@@ -201,11 +216,11 @@ static bool check_for_afen_command(RCore *core, const char *input) {
 
 #if R2_VERSION_NUMBER >= 50909
 static bool r_core_call_afen(RCorePluginSession *cps, const char *input) {
-	return check_for_afen_command(cps->core, input);
+	return check_for_afen_command(cps->core, input, cps->data);
 }
 #else
 static bool r_core_call_afen(void *user, const char *input) {
-	return check_for_afen_command((RCore *) user, input);
+	return check_for_afen_command((RCore *) user, input, ht);
 }
 #endif
 
