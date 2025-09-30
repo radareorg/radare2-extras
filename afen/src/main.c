@@ -23,13 +23,11 @@ static void fini(RAsmPluginSession *aps) {
 
 static char *parse(RCore *core, const char *data, HtUP *ht) {
 	char *out = strdup (data);
-
 #if R2_VERSION_NUMBER >= 50909
 	RAnalFunction *fcn = r_anal_get_function_at (core->anal, core->addr);
 #else
 	RAnalFunction *fcn = r_anal_get_function_at (core->anal, core->offset);
 #endif
-
 	if (fcn) {
 		RVector *vec = ht_up_find (ht, fcn->addr, NULL);
 		if (vec) {
@@ -96,7 +94,7 @@ static bool print_afen_rules(void *user, const ut64 key, const void *value) {
 	RAfenRepl *repl;
 
 	r_vector_foreach (vec, repl) {
-		r_cons_printf (core->cons, "'@0x%08"PFMT64x"'afen %s %s\n", key, repl->new_name, repl->old_name);
+		r_cons_printf (core->cons, "'@0x%08"PFMT64x"'afen \"%s\" \"%s\"\n", key, repl->new_name, repl->old_name);
 	}
 	return true;
 }
@@ -172,44 +170,21 @@ static bool r_core_fini_afen(void *user, const char *input) {
 
 static bool check_for_afen_command(RCore *core, const char *input, HtUP *ht) {
 	if (r_str_startswith (input, "afen*")) {
-		int argc;
-		char **argv = r_str_argv (input, &argc);
-
-		if (!argv) {
-			R_LOG_ERROR ("Can't get args");
-			return false;
-		}
-
-		if (argc == 1 || (argc == 2 && !strcmp(argv[1], "*"))) {
-			ht_up_foreach(ht, print_afen_rules, core);
-			r_str_argv_free (argv);
-			return true;
-		} else {
-			R_LOG_INFO ("Usage: afen* [*]");
-			r_str_argv_free (argv);
-			return true;
-		}
+		ht_up_foreach(ht, print_afen_rules, core);
+		return true;
 	} else if (r_str_startswith (input, "afen")) {
-		int argc;
+		int argc = 0;
 		char **argv = r_str_argv (input, &argc);
-
-		if (!argv) {
-			R_LOG_ERROR ("Can't get args");
-			return false;
-		}
-
-		if (argc != 3) {
+		if (!argv || argc != 3) {
 			R_LOG_INFO ("Usage: afen new_name old_name");
 			r_str_argv_free (argv);
 			return true;
 		}
-
 #if R2_VERSION_NUMBER >= 50909
 		RAnalFunction *fcn = r_anal_get_function_at (core->anal, core->addr);
 #else
 		RAnalFunction *fcn = r_anal_get_function_at (core->anal, core->offset);
 #endif
-
 		if (!fcn) {
 #if R2_VERSION_NUMBER >= 50909
 			R_LOG_ERROR ("No Function at 0x%08" PFMT64x, core->addr);
