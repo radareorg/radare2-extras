@@ -1,6 +1,7 @@
-radare2-extras
-==============
+# radare2-extras
+
 [![GithubCI Status](https://github.com/radareorg/radare2-extras/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/radareorg/radare2-extras/actions?query=workflow%3A%22ci%22)
+[![radare2](https://img.shields.io/badge/radare2-6.0.4-green)](https://github.com/radareorg/radare2)
 
 This repository contains extra plugins for radare2.
 
@@ -14,13 +15,6 @@ repository are the following:
 * Duplicates functionality from r2 (no need to have
   multiple disassemblers for the same arch in core)
 
-The compiled plugins will be installed at
-
-	/usr/lib/radare2-extras/$(VERSION)
-
-Some of the plugins/code doesnt compiles, it will be reviewed
-and cleaned up, merged into core, updated or removed.
-
 In addition, this repository will be useful to new contributors,
 comers who want to write his own r2 plugins for example.
 
@@ -29,8 +23,7 @@ repository to be as concise as possible, and reduce the
 amount of unnecessary plugins to shrink the install size and
 keep it usable for 99% of users.
 
-Building
-========
+## Building
 
 The recommended way to build and install those plugins for users
 is to use r2pm. See the [radare2 plugins](https://github.com/radareorg/radare2#plugins) documentation for details.
