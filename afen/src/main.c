@@ -90,6 +90,17 @@ static inline void vector_value_free_afen(HtUPKv *kv) {
 	}
 }
 
+static bool print_afen_rules(void *user, const ut64 key, const void *value) {
+	RCore *core = (RCore *) user;
+	RVector *vec = (RVector *) value;
+	RAfenRepl *repl;
+
+	r_vector_foreach (vec, repl) {
+		r_cons_printf (core->cons, "'@0x%08"PFMT64x"'afen %s %s\n", key, repl->new_name, repl->old_name);
+	}
+	return true;
+}
+
 // setup afen parser
 #if R2_VERSION_NUMBER >= 50909
 static bool r_core_init_afen(RCorePluginSession *cps) {
@@ -97,14 +108,20 @@ static bool r_core_init_afen(RCorePluginSession *cps) {
 
 	r_asm_plugin_add (core->rasm, &r_parse_plugin_afen);
 
-	RAsmPluginSession *afen_aps;
+	RAsmPluginSession *afen_aps = NULL;
 
 	RListIter *iter;
 	RAsmPluginSession *aps;
 	r_list_foreach (core->rasm->sessions, iter, aps) {
-		if (!strcmp(aps->plugin->meta.name, "afen")) {
+		if (aps && aps->plugin && aps->plugin->meta.name &&
+				!strcmp(aps->plugin->meta.name, "afen")) {
 			afen_aps = aps;
+			break;
 		}
+	}
+	if (!afen_aps) {
+		R_LOG_ERROR ("Failed to find afen plugin session");
+		return false;
 	}
 
 	HtUP /*<ut64, RVector<RAfenRepl*>>*/ *ht = ht_up_new (NULL, vector_value_free_afen, NULL);
@@ -154,18 +171,37 @@ static bool r_core_fini_afen(void *user, const char *input) {
 #endif
 
 static bool check_for_afen_command(RCore *core, const char *input, HtUP *ht) {
-	if (r_str_startswith (input, "afen")) {
+	if (r_str_startswith (input, "afen*")) {
 		int argc;
 		char **argv = r_str_argv (input, &argc);
-
-		if (argc != 3) {
-			R_LOG_INFO ("Usage: afen new_name old_name");
-			return true;
-		}
 
 		if (!argv) {
 			R_LOG_ERROR ("Can't get args");
 			return false;
+		}
+
+		if (argc == 1 || (argc == 2 && !strcmp(argv[1], "*"))) {
+			ht_up_foreach(ht, print_afen_rules, core);
+			r_str_argv_free (argv);
+			return true;
+		} else {
+			R_LOG_INFO ("Usage: afen* [*]");
+			r_str_argv_free (argv);
+			return true;
+		}
+	} else if (r_str_startswith (input, "afen")) {
+		int argc;
+		char **argv = r_str_argv (input, &argc);
+
+		if (!argv) {
+			R_LOG_ERROR ("Can't get args");
+			return false;
+		}
+
+		if (argc != 3) {
+			R_LOG_INFO ("Usage: afen new_name old_name");
+			r_str_argv_free (argv);
+			return true;
 		}
 
 #if R2_VERSION_NUMBER >= 50909
@@ -181,6 +217,7 @@ static bool check_for_afen_command(RCore *core, const char *input, HtUP *ht) {
 			R_LOG_ERROR ("No Function at 0x%08" PFMT64x, core->offset);
 #endif
 			R_LOG_INFO ("Use afen inside a function!");
+			r_str_argv_free (argv);
 			return false;
 		}
 
@@ -194,21 +231,28 @@ static bool check_for_afen_command(RCore *core, const char *input, HtUP *ht) {
 		bool updated = false;
 		RAfenRepl *repl;
 		r_vector_foreach (vec, repl) {
-			if (!strcmp (repl->old_name, argv[2])) {
-				repl->new_name = argv[1];
+			if (repl->old_name && argv[2] && !strcmp (repl->old_name, argv[2])) {
+				if (repl->new_name) {
+					R_FREE (repl->new_name);
+				}
+				repl->new_name = strdup (argv[1]);
 				updated = true;
 				break;
 			}
 		}
 
-		if (updated) return true;
+		if (updated) {
+			r_str_argv_free (argv);
+			return true;
+		}
 
-		repl = R_NEW (RAfenRepl);
-		repl->new_name = argv[1];
-		repl->old_name = argv[2];
+		repl = R_NEW0 (RAfenRepl);
+		repl->new_name = strdup (argv[1]);
+		repl->old_name = strdup (argv[2]);
 
 		r_vector_push (vec, repl);
 
+		r_str_argv_free (argv);
 		return true;
 	}
 	return false;
