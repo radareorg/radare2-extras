@@ -67,6 +67,8 @@ typedef struct {
 	double old_plane_x;
 } PluginState;
 
+RCons *rcons = NULL;
+
 static Coords translateIntoView(Coords *pos, PluginState* const ps);
 void updateHud(Canvas* const canvas, PluginState* const ps);
 void updateEntities(uint8_t level[], Canvas* const canvas, PluginState* const ps);
@@ -571,35 +573,35 @@ void renderMap(const uint8_t level[], double view_height, Canvas* const canvas, 
 			}
 #else
 			if (isexit) {
-				if (first) {
-					r_cons_gotoxy (x, 3);
-					r_cons_printf ("exit");
-					first = false;
-				}
-				r_cons_printf (Color_GREEN);
-			} else if (isdoor) {
-				if (hit) {
-					if (first) {
-						r_cons_gotoxy (x, 3);
-						r_cons_printf ("locked door");
-						first = false;
-					}
-					r_cons_printf (Color_YELLOW);
-				}
-			}
+                if (first) {
+                    r_cons_gotoxy (rcons, x, 3);
+                    r_cons_printf (rcons, "exit");
+                    first = false;
+                }
+                r_cons_printf (rcons, Color_GREEN);
+            } else if (isdoor) {
+                if (hit) {
+                    if (first) {
+                        r_cons_gotoxy (rcons, x, 3);
+                        r_cons_printf (rcons, "locked door");
+                        first = false;
+                    }
+                    r_cons_printf (rcons, Color_YELLOW);
+                }
+            }
 			drawVLine(
 					x,
 					view_height / distance - line_height / 2 + RENDER_HEIGHT / 2,
 					view_height / distance + line_height / 2 + RENDER_HEIGHT / 2,
 					GRADIENT_COUNT - (int)distance / MAX_RENDER_DEPTH * GRADIENT_COUNT - side * 2,
 					canvas);
-			if (isexit) {
-				r_cons_printf ("\x1b[0m");
-			} else if (isdoor) {
-				if (hit) {
-					r_cons_printf ("\x1b[0m");
-				}
-			}
+                if (isexit) {
+                    r_cons_printf (rcons, "\x1b[0m");
+                } else if (isdoor) {
+                    if (hit) {
+                        r_cons_printf (rcons, "\x1b[0m");
+                    }
+                }
 #endif
 		} else {
 			if (isdoor) {
@@ -611,14 +613,14 @@ void renderMap(const uint8_t level[], double view_height, Canvas* const canvas, 
 					distance = fmax (1, (map_y - ps->player.pos.y + (1 - step_y) / 2) / ray_y);
 				}
 				uint8_t line_height = 2;
-				r_cons_printf (Color_YELLOW);
+                r_cons_printf (rcons, Color_YELLOW);
 				drawVLine(
 						x,
 						view_height / distance - line_height / 2 + RENDER_HEIGHT / 2,
 						view_height / distance + line_height / 2 + RENDER_HEIGHT / 2,
 						GRADIENT_COUNT - (int)distance / MAX_RENDER_DEPTH * GRADIENT_COUNT - side * 2,
 						canvas);
-				r_cons_printf ("\x1b[0m");
+                r_cons_printf (rcons, "\x1b[0m");
 			}
 		}
 	}
@@ -773,14 +775,14 @@ void renderGun(int gun_pos, double amount_jogging, Canvas* const canvas) {
 	int x = gx + sin((double) t * (double)JOGGING_SPEED) * 10 * amount_jogging;
 	int y = RENDER_HEIGHT - gun_pos + fabs (cos ((double) t * (double)JOGGING_SPEED)) * 8 * amount_jogging;
 
-	bool onfire = false;
-	if (gun_pos > GUN_SHOT_POS - 2) {
-		// Gun fire
-		onfire = true;
-		r_cons_printf(Color_RED);
-		drawBitmap (x + 6, y - 11, &I_fire_inv, BMP_FIRE_WIDTH, BMP_FIRE_HEIGHT, 1, canvas);
-		r_cons_printf("\x1b[0m");
-	}
+    bool onfire = false;
+    if (gun_pos > GUN_SHOT_POS - 2) {
+        // Gun fire
+        onfire = true;
+        r_cons_printf(rcons, Color_RED);
+        drawBitmap (x + 6, y - 11, &I_fire_inv, BMP_FIRE_WIDTH, BMP_FIRE_HEIGHT, 1, canvas);
+        r_cons_printf(rcons, "\x1b[0m");
+    }
 
 	// Don't draw over the hud!
 	uint8_t clip_height = fmax(0, fmin(y + BMP_GUN_HEIGHT, RENDER_HEIGHT) - y);
@@ -806,11 +808,11 @@ void renderHud(Canvas* const canvas, PluginState* ps) {
 	// drawRect (0, 57, SCREEN_WIDTH, SCREEN_HEIGHT - 56, canvas); // "-", 0
 	////  clearRect (2, 58, SCREEN_WIDTH - 4, 6, canvas);
 	// clearRect(2, 58, SCREEN_WIDTH - 4, SCREEN_HEIGHT - 64, canvas); // "-", 0
-	r_cons_printf (Color_RED);
-	drawTextSpace (2, y + 3, "{}", 0, canvas);        // Health symbol
-	r_cons_printf (Color_YELLOW);
-	drawTextSpace (40, y + 2, "[]", 0, canvas);       // Keys symbol
-	r_cons_printf("\x1b[0m");
+    r_cons_printf (rcons, Color_RED);
+    drawTextSpace (2, y + 3, "{}", 0, canvas);        // Health symbol
+    r_cons_printf (rcons, Color_YELLOW);
+    drawTextSpace (40, y + 2, "[]", 0, canvas);       // Keys symbol
+    r_cons_printf(rcons, "\x1b[0m");
 	updateHud (canvas, ps);
 	drawHLine (0, y + 2, SCREEN_WIDTH, Color_YELLOW);
 }
@@ -855,13 +857,13 @@ void loopIntro(Canvas* const canvas) {
 			   "=='    _-'                                                            \\/   `==\n" \
 			   "\\   _-'                                                                `-_   /\n" \
 			   " `''                                                                      ``'\n" ;
-	r_cons_printf ("Press 'Q' to quit\n\n%s\n", logo);
+	r_cons_printf (rcons, "Press 'Q' to quit\n\n%s\n", logo);
 
 	drawTextSpace (16, SCREEN_HEIGHT - 8, "PRESS FIRE", 1, canvas);
 }
 
 static void render_callback(Canvas* const canvas, void* ctx) {
-	int h, w = r_cons_get_size (&h);
+    int h, w = r_cons_get_size (rcons, &h);
 	SCREEN_WIDTH = w;
 	SCREEN_HEIGHT = h+1;
 	HALF_WIDTH = w/2;
@@ -871,7 +873,7 @@ static void render_callback(Canvas* const canvas, void* ctx) {
 	if (ps == NULL) {
 		return;
 	}
-	r_cons_clear00 ();
+		r_cons_clear00 (rcons);
 #if 1
 	if (ps->init) {
 		 setupDisplay (canvas);
@@ -892,16 +894,16 @@ static void render_callback(Canvas* const canvas, void* ctx) {
 		if (ps->player.health > 0) {
 			renderGun (ps->gun_pos, ps->jogging, canvas);
 		}
-		r_cons_gotoxy (0, 0);
-		r_cons_printf ("Press 'Q' to quit");
-		r_cons_gotoxy (0, 0);
+		r_cons_gotoxy (rcons, 0, 0);
+		r_cons_printf (rcons, "Press 'Q' to quit");
+		r_cons_gotoxy (rcons, 0, 0);
 		break;
 	}
 #if 0
 	r_cons_gotoxy (0,1);
 	r_cons_printf ("> %lf %lf %lf v=%lf\n", ps->player.pos.x, ps->player.pos.y, ps->player.dir.x, ps->player.velocity);
 #endif
-	r_cons_flush ();
+	r_cons_flush (rcons);
 }
 
 static void doom_state_init(PluginState* const ps) {
@@ -1052,18 +1054,18 @@ int main() {
 		    "Doom:d=32,o=4,b=56:f,f,f5,f,f,d#5,f,f,c#5,f,f,b,f,f,c5,c#5,f,f,f5,f,f,d#5,f,f," \
 		    "c#5,f,f,8b.,f,f,f5,f,f,d#5,f,f,c#5,f,f,b,f,f,c5,c#5,f,f,f5,f,f,d#5,f,f,c#5,f,f," \
 		    "8b.,a#,a#,a#5,a#,a#,g#5,a#,a#,f#5,a#,a#,e5,a#,a#,f5,f#5,a#,a#,a#5,a#,a#,g#5,a#,a#,f#5,a#,a#,8e5";
-	r_cons_new ();
-	r_cons_show_cursor (false);
-	r_cons_set_raw (true);
+	rcons = r_cons_new ();
+	r_cons_show_cursor (rcons, false);
+	r_cons_set_raw (rcons, true);
 	while (true) {
 		render_callback (NULL, &ps);
 		// 1000 = 1s
 #if REALTIME
-		int ch = r_cons_readchar_timeout (300);
+		int ch = r_cons_readchar_timeout (rcons, 300);
 #else
-		int ch = r_cons_readchar ();
+		int ch = r_cons_readchar (rcons);
 #endif
-		ch = r_cons_arrow_to_hjkl (ch);
+		ch = r_cons_arrow_to_hjkl (rcons, ch);
 		if (ps.exit || ch == 'Q') {
 			if (ps.scene == INTRO) {
 				break;
@@ -1110,5 +1112,5 @@ int main() {
 		}
 		doom_game_tick (&ps);
 	}
-	r_cons_set_raw (false);
+	r_cons_set_raw (rcons, false);
 }

@@ -4,6 +4,7 @@
 #include <u8g2_glue.h>
 #endif
 #include <r_cons.h>
+extern RCons *rcons;
 #include "constants.h"
 #include "compiled/assets_icons.h"
 // display
@@ -56,8 +57,8 @@ void canvas_draw_dot(int x, int y, char ch) {
 	// x/=2;
 	// y/=2;
 	// r_cons_printf ("(%d/%d)\n", x, y);
-	r_cons_gotoxy (x, y);
-	r_cons_printf ("%c", ch);
+	r_cons_gotoxy (rcons, x, y);
+	r_cons_printf (rcons, "%c", ch);
 }
 
 void drawVLine(int x, int start_y, int end_y, uint8_t intensity, Canvas* const canvas){
@@ -79,7 +80,7 @@ void drawVLine(int x, int start_y, int end_y, uint8_t intensity, Canvas* const c
 
 void setupDisplay(Canvas* canvas){
 	memset(zbuffer, 0xff, 128);
-	r_cons_clear00 ();
+	r_cons_clear00 (rcons);
 }
 
 void drawBitmap(int x, int y, const Icon *i, int w, int h, uint16_t color, Canvas* const canvas){
@@ -165,8 +166,8 @@ void drawPixel(int x, int y, bool color, bool raycasterViewport, const char *ans
 	}
 	char pixel = color? '#': '+';
 	if (ansi) {
-		r_cons_gotoxy (x, y);
-		r_cons_printf ("%s%c"Color_RESET, ansi, pixel);
+		r_cons_gotoxy (rcons, x, y);
+		r_cons_printf (rcons, "%s%c"Color_RESET, ansi, pixel);
 		// canvas_draw_dot (canvas, x, y, pixel);
 	} else {
 		canvas_draw_dot (x, y, pixel);
@@ -204,8 +205,8 @@ void clearRect(int x, int y, int w, int h, Canvas* const canvas){
 void clearHLines(int y, int h) {
 	int i;
 	for (i = 0; i < h; i++) {
-		r_cons_gotoxy (0, y + i);
-		r_cons_printf ("%s", R_CONS_CLEAR_LINE);
+		r_cons_gotoxy (rcons, 0, y + i);
+		r_cons_printf (rcons, "%s", R_CONS_CLEAR_LINE);
 	}
 }
 
@@ -223,8 +224,8 @@ void drawHLine (int x, int y, int w, const char *color) {
 	line[0] = '.';
 	line[w - 2] = '.';
 	line[w -1] = 0;
-	r_cons_gotoxy (x, y);
-	r_cons_printf ("%s", line);
+	r_cons_gotoxy (rcons, x, y);
+	r_cons_printf (rcons, "%s", line);
 	free (line);
 }
 
