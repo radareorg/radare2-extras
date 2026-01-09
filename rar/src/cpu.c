@@ -7,7 +7,7 @@
 // XXX little endian only?
 
 /* helpers */
-#define eprintf(x,y...) fprintf(stderr,x,##y)
+#define eprintf(x,...) fprintf(stderr,x,##__VA_ARGS__)
 #define SKIPSPACES(x) if (x) while (*x==' '||*x=='\t') x++
 static const char *skipspaces(const char *x) { SKIPSPACES(x); return x; }
 //static const char *regs = "r0\x00r1\x00r2\x00r3\x00r4\x00r5\x00r6\x00r7";
