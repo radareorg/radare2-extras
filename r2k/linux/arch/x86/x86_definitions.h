@@ -62,6 +62,14 @@
 
 #endif
 
+#ifdef __clang__
+#define R2K_FORCE_ORDER "memory"
+#define R2K_FORCE_INPUT
+#else
+#define R2K_FORCE_ORDER
+#define R2K_FORCE_INPUT , __FORCE_ORDER
+#endif
+
 
 static inline void cr0_set_bits(unsigned long mask)
 {
@@ -70,7 +78,7 @@ static inline void cr0_set_bits(unsigned long mask)
     cr0 = native_read_cr0();
     if ((cr0 | mask) != cr0) {
         cr0 |= mask;
-        asm volatile("mov %0,%%cr0": : "r" (cr0), __FORCE_ORDER);
+        asm volatile("mov %0,%%cr0": : "r" (cr0) R2K_FORCE_INPUT : R2K_FORCE_ORDER);
 	}
 }
 
@@ -81,7 +89,7 @@ static inline void cr0_clear_bits(unsigned long mask)
     cr0 = native_read_cr0();
     if ((cr0 & ~mask) != cr0) {
             cr0 &= ~mask;
-            asm volatile("mov %0,%%cr0": : "r" (cr0), __FORCE_ORDER);
+            asm volatile("mov %0,%%cr0": : "r" (cr0) R2K_FORCE_INPUT : R2K_FORCE_ORDER);
     }
 }
 
