@@ -93,6 +93,34 @@ function walkSync(dir: string): string[] {
 	return files.length > 0 ? files.split(/\n/g) : [];
 }
 
+const R2JADX_HELP = `Usage: r2jadx [-mode]
+Setup: e cmd.pdc=r2jadx
+ -r   = import low level decompilation as comments
+ -r2  = import high level decompilation as comments
+----------------------------------
+ -cn  = show current classname
+ -a   = show decompilation of all the classes
+ -c   = decompile current class
+ -f   = decompile current function
+ -ahl = all high level decompilation
+ -all = all low level decompilation
+ -hl  = high level decompilation
+ -ll  = low level decompilation`;
+
+function r2jadxIsHelpArg(arg: string): boolean {
+	switch (arg) {
+	case "":
+	case "?":
+	case "h":
+	case "help":
+	case "-h":
+	case "-help":
+	case "--help":
+		return true;
+	}
+	return false;
+}
+
 function processClass(data: JadxClass, mode: string, offset: Offset): string {
 	const classOffset = parseOffset(offset);
 	let res = "";
@@ -251,7 +279,7 @@ function r2jadxCrawl(target: string, mode: string, arg: Offset): string {
 	case "h":
 	case "help":
 	default:
-		return "Usage: r2jadx ([filename])[ll,hl,all,ahl,cat,help]";
+		return R2JADX_HELP;
 	}
 }
 
@@ -270,25 +298,9 @@ function r2jadxDecompile(target: string, mode: string, arg: Offset): string {
 }
 
 function r2jadxMain(argv: string[]): string | undefined {
-	function helpMessage(): void {
-		console.error("Usage: r2jadx [-mode]");
-		console.error("Setup: e cmd.pdc=r2jadx");
-		console.error(" -r   = import low level decompilation as comments");
-		console.error(" -r2  = import high level decompilation as comments");
-		console.error("----------------------------------");
-		console.error(" -cn  = show current classname");
-		console.error(" -a   = show decompilation of all the classes");
-		console.error(" -c   = decompile current class");
-		console.error(" -f   = decompile current function");
-		console.error(" -ahl = all high level decompilation");
-		console.error(" -all = all low level decompilation");
-		console.error(" -hl  = high level decompilation");
-		console.error(" -ll  = low level decompilation");
-	}
-
 	const firstArg = argv[0] || "";
-	if (firstArg === "" || firstArg === "?" || firstArg === "-h") {
-		helpMessage();
+	if (r2jadxIsHelpArg(firstArg)) {
+		console.error(R2JADX_HELP);
 		return undefined;
 	}
 	try {
