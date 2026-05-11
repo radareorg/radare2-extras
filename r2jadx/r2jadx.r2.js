@@ -42,7 +42,8 @@
     return files.length > 0 ? files.split(/\n/g) : [];
   }
   var R2JADX_HELP = `Usage: r2jadx [-mode]
-Setup: e cmd.pdc=r2jadx
+Setup: e cmd.pdc=pd:j
+Alias: pd:j, pd:jo
  -r   = import low level decompilation as comments
  -r2  = import high level decompilation as comments
  -e   = display or change plugin config
@@ -575,6 +576,31 @@ Setup: e cmd.pdc=r2jadx
       throw e;
     }
   }
+  function r2jadxWithAddr(addr, cb) {
+    const savedAddr = r2jadxConfig.addr;
+    r2jadxConfig.addr = addr;
+    try {
+      return cb();
+    } finally {
+      r2jadxConfig.addr = savedAddr;
+    }
+  }
+  function r2jadxPdCommand(cmd) {
+    const flags = cmd.substring(4).trim();
+    if (flags.indexOf("?") !== -1) {
+      console.error(R2JADX_HELP);
+      return;
+    }
+    if (flags.indexOf("*") !== -1) {
+      r2jadxMain(["-r2"]);
+      return;
+    }
+    if (flags.indexOf("=") !== -1 || flags.indexOf("a") !== -1) {
+      r2jadxMain(["-a"]);
+      return;
+    }
+    r2jadxWithAddr(flags.indexOf("o") !== -1, () => r2jadxMain(["-f"]));
+  }
   function r2jadxBegin() {
     r2.unload("core", "r2jadx");
     r2.plugin("core", function() {
@@ -582,6 +608,10 @@ Setup: e cmd.pdc=r2jadx
         if (cmd.startsWith("r2jadx")) {
           const argv = cmd.substring(6).trim().split(" ");
           r2jadxMain(argv);
+          return true;
+        }
+        if (cmd.startsWith("pd:j")) {
+          r2jadxPdCommand(cmd);
           return true;
         }
         return false;
