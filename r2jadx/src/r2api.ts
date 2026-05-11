@@ -12,6 +12,7 @@ interface R2Api {
 	cmdj: <T = unknown>(cmd: string) => T;
 	fdump: (data: string, file: string) => boolean;
 	fload: (file: string) => string;
+	log: (msg: string) => boolean;
 	plugin: (type: string, factory: () => R2CorePlugin) => void;
 	unload: (type: string, name: string) => void;
 }
@@ -28,6 +29,10 @@ export function b64decode(data: string): string {
 
 export function r2cmd(cmd: string): string {
 	return r2.cmd(cmd);
+}
+
+export function r2log(msg: string): void {
+	r2.log(msg);
 }
 
 export function r2cmdj<T = unknown>(cmd: string): T {

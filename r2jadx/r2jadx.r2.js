@@ -1,5 +1,31 @@
 "use strict";
 (() => {
+  // src/r2api.ts
+  function b64encode(data) {
+    return b64(data);
+  }
+  function r2cmd(cmd) {
+    return r2.cmd(cmd);
+  }
+  function r2log(msg) {
+    r2.log(msg);
+  }
+  function r2cmdj(cmd) {
+    return r2.cmdj(cmd);
+  }
+  function r2fdump(data, file) {
+    return r2.fdump(data, file);
+  }
+  function r2fload(file) {
+    return r2.fload(file);
+  }
+  function r2plugin(type, factory) {
+    r2.plugin(type, factory);
+  }
+  function r2unload(type, name) {
+    r2.unload(type, name);
+  }
+
   // src/config.ts
   var r2jadxConfig = {
     alias: true,
@@ -14,14 +40,14 @@ Alias: pd:j, pd:jo
  -a   = show decompilation of all the classes
  -ahl = all high level decompilation
  -all = all low level decompilation
- -c   = decompile current class
- -c*  = import current class decompilation as comments
  -ci  = list current class imports
  -cn  = show current classname
+ -d   = decompile current function
+ -d*  = import current function decompilation as comments
+ -dc  = decompile current class
+ -dc* = import current class decompilation as comments
+ -dj  = decompile current function as json
  -e   = display or change plugin config
- -f   = decompile current function
- -f*  = import current function decompilation as comments
- -fj  = decompile current function as json
  -hl  = high level decompilation
  -i   = list all imports
  -ll  = low level decompilation
@@ -80,7 +106,7 @@ Alias: pd:j, pd:jo
   }
   function r2jadxListConfig() {
     for (const key of Object.keys(r2jadxConfigHandlers)) {
-      console.log("r2jadx -e " + key + "=" + r2jadxConfigHandlers[key].get());
+      r2log("r2jadx -e " + key + "=" + r2jadxConfigHandlers[key].get());
     }
   }
   function r2jadxEvalConfig(arg) {
@@ -93,11 +119,11 @@ Alias: pd:j, pd:jo
       return;
     }
     if (value === "?") {
-      console.log("true\nfalse");
+      r2log("true\nfalse");
       return;
     }
     if (value === void 0) {
-      console.log(handler.get());
+      r2log(handler.get());
       return;
     }
     handler.set(value);
@@ -110,29 +136,6 @@ Alias: pd:j, pd:jo
     } finally {
       r2jadxConfig.addr = savedAddr;
     }
-  }
-
-  // src/r2api.ts
-  function b64encode(data) {
-    return b64(data);
-  }
-  function r2cmd(cmd) {
-    return r2.cmd(cmd);
-  }
-  function r2cmdj(cmd) {
-    return r2.cmdj(cmd);
-  }
-  function r2fdump(data, file) {
-    return r2.fdump(data, file);
-  }
-  function r2fload(file) {
-    return r2.fload(file);
-  }
-  function r2plugin(type, factory) {
-    r2.plugin(type, factory);
-  }
-  function r2unload(type, name) {
-    r2.unload(type, name);
   }
 
   // src/util.ts
@@ -224,9 +227,9 @@ Alias: pd:j, pd:jo
   function r2jadxShouldColor(mode) {
     switch (mode) {
       case "a":
-      case "c":
       case "cat":
-      case "f":
+      case "d":
+      case "dc":
       case "all":
       case "ahl":
       case "s":
@@ -251,22 +254,22 @@ Alias: pd:j, pd:jo
       return r2jadxClassMatches(data, context) ? r2jadxImportLines(data, true) : "";
     }
     const methods = data.methods || [];
-    if (mode === "c*") {
+    if (mode === "dc*") {
       if (!r2jadxClassMatches(data, context)) {
         return "";
       }
-      return methods.map((method) => processMethod(data, "c*", context, method)).join("");
+      return methods.map((method) => processMethod(data, "dc*", context, method)).join("");
     }
-    if (mode === "c") {
+    if (mode === "dc") {
       return r2jadxClassMatches(data, context) ? r2jadxReadClassSource(data) : "";
     }
     let res = "";
     for (const method of methods) {
       switch (mode) {
         case "a":
-        case "f":
-        case "fj":
-        case "f*":
+        case "d":
+        case "dj":
+        case "d*":
         case "cat":
         case "all":
         case "ahl":
@@ -821,12 +824,12 @@ Alias: pd:j, pd:jo
   }
   function processMethod(data, mode, context, method) {
     function comment(addr, line) {
-      if (mode === "c" || mode === "cat") {
+      if (mode === "dc" || mode === "cat") {
         if (!data.source) {
           return "";
         }
         const lastOffset2 = parseOffset(method.offset);
-        if (mode === "cat" || mode === "c" && addr === lastOffset2) {
+        if (mode === "cat" || mode === "dc" && addr === lastOffset2) {
           const source = data.source.replace(".json", ".java");
           const fileData = readFile(source);
           return fileData.toString();
@@ -836,7 +839,7 @@ Alias: pd:j, pd:jo
       if (line === "") {
         return "";
       }
-      if (mode === "f") {
+      if (mode === "d") {
         return "";
       }
       line = line.replaceAll("	", "  ");
@@ -852,13 +855,13 @@ Alias: pd:j, pd:jo
     }
     let lastOffset = parseOffset(method.offset);
     const lines = method.lines || [];
-    if (mode === "f") {
+    if (mode === "d") {
       return r2jadxMethodMatches(data, method, context) ? r2jadxFormatMethod(method) : "";
     }
-    if (mode === "fj") {
+    if (mode === "dj") {
       return r2jadxMethodMatches(data, method, context) ? r2jadxFormatMethodJson(method) : "";
     }
-    if (mode === "f*" && !r2jadxMethodMatches(data, method, context)) {
+    if (mode === "d*" && !r2jadxMethodMatches(data, method, context)) {
       return "";
     }
     if (mode === "all" || mode === "ahl") {
@@ -875,11 +878,11 @@ Alias: pd:j, pd:jo
     if (mode === "ll" || mode === "hl") {
       let res2 = "";
       if (context.offset === lastOffset) {
-        return processMethod(data, "f*", context, method);
+        return processMethod(data, "d*", context, method);
       }
       for (const line of lines) {
         if (parseOffset(line.offset) === context.offset - 16) {
-          res2 += processMethod(data, "f*", context, method);
+          res2 += processMethod(data, "d*", context, method);
         }
       }
       return res2;
@@ -887,7 +890,7 @@ Alias: pd:j, pd:jo
     let res = comment(parseOffset(method.offset) + 16, method.name);
     for (const line of lines) {
       const addr = parseOffset(line.offset || lastOffset);
-      const code = mode === "f" ? line.code : line.code.trim();
+      const code = mode === "d" ? line.code : line.code.trim();
       res += comment(addr, code);
       if (line.offset) {
         lastOffset = parseOffset(line.offset);
@@ -904,7 +907,7 @@ Alias: pd:j, pd:jo
         return r2jadxXrefLinesFromIndex(cached, context);
       }
     }
-    if (mode === "c" || mode === "c*" || mode === "ci" || mode === "f" || mode === "fj" || mode === "f*" || mode === "p") {
+    if (mode === "dc" || mode === "dc*" || mode === "ci" || mode === "d" || mode === "dj" || mode === "d*" || mode === "p") {
       for (const fileName of r2jadxDirectClassFiles(target, context)) {
         try {
           const directRes = r2jadxProcessClassFile(fileName, mode, context);
@@ -990,18 +993,18 @@ Alias: pd:j, pd:jo
       case "cn":
       case "p":
       case "ci":
-      case "f":
-      case "fj":
-      case "f*":
+      case "d":
+      case "dj":
+      case "d*":
       case "x":
         return r2jadxCrawlFiles(pathJoin(target, "hl"), mode, context);
       case "i":
       case "pi":
       case "pl":
         return r2jadxCrawlFiles(pathJoin(target, "hl"), mode, context);
-      case "c":
-        return r2jadxCrawlFiles(pathJoin(target, "hl"), "c", context);
-      case "c*":
+      case "dc":
+        return r2jadxCrawlFiles(pathJoin(target, "hl"), mode, context);
+      case "dc*":
         return r2jadxCrawlFiles(pathJoin(target, "hl"), mode, context);
       case "a":
         return r2jadxCrawlFiles(pathJoin(target, "hl"), "cat", context);
@@ -1026,7 +1029,7 @@ Alias: pd:j, pd:jo
     return mode !== "ll" && mode !== "all";
   }
   function r2jadxNeedsHighJava(mode) {
-    return mode === "a" || mode === "c" || mode === "cat";
+    return mode === "a" || mode === "dc" || mode === "cat";
   }
   function r2jadxNeedsLowJson(mode) {
     return mode === "ll" || mode === "all";
@@ -1043,7 +1046,7 @@ Alias: pd:j, pd:jo
     }
     return false;
   }
-  function r2jadxEnsureDecompiled(target, mode = "f") {
+  function r2jadxEnsureDecompiled(target, mode = "d") {
     const outdir = dex2path(target);
     if (r2jadxNeedsLowJson(mode) && !fileExists(r2jadxMappingFile(outdir, "ll"))) {
       console.error("jadx: Performing the low level json decompilation...");
@@ -1131,7 +1134,7 @@ Alias: pd:j, pd:jo
   function r2jadxMain(argv) {
     const firstArg = argv[0] || "";
     if (r2jadxIsHelpArg(firstArg)) {
-      console.error(R2JADX_HELP);
+      r2log(R2JADX_HELP);
       return void 0;
     }
     if (firstArg === "-e") {
@@ -1167,11 +1170,11 @@ Alias: pd:j, pd:jo
       const searchText = argv.slice(1).join(" ").trim();
       if (mode === "s") {
         if (searchText.length === 0) {
-          console.error("Usage: r2jadx -s text");
+          r2log("Usage: r2jadx -s text");
           return void 0;
         }
         const res2 = r2jadxSearch(pathJoin(r2jadxEnsureDecompiled(fileName, "s"), "hl"), searchText);
-        console.log(r2jadxFormatOutput(res2, mode));
+        r2log(r2jadxFormatOutput(res2, mode));
         return res2;
       }
       const res = r2jadxDecompile(fileName, mode, context);
@@ -1182,9 +1185,9 @@ Alias: pd:j, pd:jo
           }
         }
       } else if (mode.endsWith("j")) {
-        console.log(res);
+        r2log(res);
       } else {
-        console.log(r2jadxFormatOutput(res, mode));
+        r2log(r2jadxFormatOutput(res, mode));
       }
       return res;
     } catch (e) {
@@ -1196,22 +1199,22 @@ Alias: pd:j, pd:jo
   function r2jadxPdCommand(cmd) {
     const flags = cmd.substring(4).trim();
     if (flags.indexOf("?") !== -1) {
-      console.error(R2JADX_HELP);
+      r2log(R2JADX_HELP);
       return;
     }
     if (flags.indexOf("j") !== -1) {
-      r2jadxMain(["-fj"]);
+      r2jadxMain(["-dj"]);
       return;
     }
     if (flags.indexOf("*") !== -1) {
-      r2jadxMain(["-f*"]);
+      r2jadxMain(["-d*"]);
       return;
     }
     if (flags.indexOf("=") !== -1 || flags.indexOf("a") !== -1) {
       r2jadxMain(["-a"]);
       return;
     }
-    r2jadxWithAddr(flags.indexOf("o") !== -1, () => r2jadxMain(["-f"]));
+    r2jadxWithAddr(flags.indexOf("o") !== -1, () => r2jadxMain(["-d"]));
   }
   function r2jadxBegin() {
     r2unload("core", "r2jadx");

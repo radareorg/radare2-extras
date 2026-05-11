@@ -1,3 +1,5 @@
+import { r2log } from "./r2api";
+
 export interface R2JadxConfig {
 	alias: boolean;
 	addr: boolean;
@@ -24,14 +26,14 @@ Alias: pd:j, pd:jo
  -a   = show decompilation of all the classes
  -ahl = all high level decompilation
  -all = all low level decompilation
- -c   = decompile current class
- -c*  = import current class decompilation as comments
  -ci  = list current class imports
  -cn  = show current classname
+ -d   = decompile current function
+ -d*  = import current function decompilation as comments
+ -dc  = decompile current class
+ -dc* = import current class decompilation as comments
+ -dj  = decompile current function as json
  -e   = display or change plugin config
- -f   = decompile current function
- -f*  = import current function decompilation as comments
- -fj  = decompile current function as json
  -hl  = high level decompilation
  -i   = list all imports
  -ll  = low level decompilation
@@ -95,7 +97,7 @@ export function r2jadxIsHelpArg(arg: string): boolean {
 
 export function r2jadxListConfig(): void {
 	for (const key of Object.keys(r2jadxConfigHandlers)) {
-		console.log("r2jadx -e " + key + "=" + r2jadxConfigHandlers[key].get());
+		r2log("r2jadx -e " + key + "=" + r2jadxConfigHandlers[key].get());
 	}
 }
 
@@ -109,11 +111,11 @@ export function r2jadxEvalConfig(arg: string): void {
 		return;
 	}
 	if (value === "?") {
-		console.log("true\nfalse");
+		r2log("true\nfalse");
 		return;
 	}
 	if (value === undefined) {
-		console.log(handler.get());
+		r2log(handler.get());
 		return;
 	}
 	handler.set(value);

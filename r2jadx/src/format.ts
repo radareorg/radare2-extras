@@ -56,9 +56,9 @@ function r2jadxColorLine(line: string): string {
 function r2jadxShouldColor(mode: string): boolean {
 	switch (mode) {
 	case "a":
-	case "c":
 	case "cat":
-	case "f":
+	case "d":
+	case "dc":
 	case "all":
 	case "ahl":
 	case "s":

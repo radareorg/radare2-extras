@@ -7,7 +7,7 @@ import {
 	r2jadxListConfig,
 	r2jadxWithAddr,
 } from "./config";
-import { r2cmd, r2cmdj, r2plugin, r2unload } from "./r2api";
+import { r2cmd, r2cmdj, r2log, r2plugin, r2unload } from "./r2api";
 import { r2jadxDecompile, r2jadxEnsureDecompiled } from "./jadx";
 import { r2jadxFormatOutput } from "./format";
 import { dex2path, nospace, pathJoin, runCmd } from "./util";
@@ -20,7 +20,7 @@ function r2jadxClearCache(target: string): void {
 export function r2jadxMain(argv: string[]): string | undefined {
 	const firstArg = argv[0] || "";
 	if (r2jadxIsHelpArg(firstArg)) {
-		console.error(R2JADX_HELP);
+		r2log(R2JADX_HELP);
 		return undefined;
 	}
 	if (firstArg === "-e") {
@@ -56,11 +56,11 @@ export function r2jadxMain(argv: string[]): string | undefined {
 		const searchText = argv.slice(1).join(" ").trim();
 		if (mode === "s") {
 			if (searchText.length === 0) {
-				console.error("Usage: r2jadx -s text");
+				r2log("Usage: r2jadx -s text");
 				return undefined;
 			}
 			const res = r2jadxSearch(pathJoin(r2jadxEnsureDecompiled(fileName, "s"), "hl"), searchText);
-			console.log(r2jadxFormatOutput(res, mode));
+			r2log(r2jadxFormatOutput(res, mode));
 			return res;
 		}
 		const res = r2jadxDecompile(fileName, mode, context);
@@ -71,9 +71,9 @@ export function r2jadxMain(argv: string[]): string | undefined {
 				}
 			}
 		} else if (mode.endsWith("j")) {
-			console.log(res);
+			r2log(res);
 		} else {
-			console.log(r2jadxFormatOutput(res, mode));
+			r2log(r2jadxFormatOutput(res, mode));
 		}
 		return res;
 	} catch (e) {
@@ -86,22 +86,22 @@ export function r2jadxMain(argv: string[]): string | undefined {
 function r2jadxPdCommand(cmd: string): void {
 	const flags = cmd.substring(4).trim();
 	if (flags.indexOf("?") !== -1) {
-		console.error(R2JADX_HELP);
+		r2log(R2JADX_HELP);
 		return;
 	}
 	if (flags.indexOf("j") !== -1) {
-		r2jadxMain([ "-fj" ]);
+		r2jadxMain([ "-dj" ]);
 		return;
 	}
 	if (flags.indexOf("*") !== -1) {
-		r2jadxMain([ "-f*" ]);
+		r2jadxMain([ "-d*" ]);
 		return;
 	}
 	if (flags.indexOf("=") !== -1 || flags.indexOf("a") !== -1) {
 		r2jadxMain([ "-a" ]);
 		return;
 	}
-	r2jadxWithAddr(flags.indexOf("o") !== -1, () => r2jadxMain([ "-f" ]));
+	r2jadxWithAddr(flags.indexOf("o") !== -1, () => r2jadxMain([ "-d" ]));
 }
 
 export function r2jadxBegin(): void {

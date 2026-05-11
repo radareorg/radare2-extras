@@ -64,22 +64,22 @@ function processClass(data: JadxClass, mode: string, context: R2JadxContext): st
 		return r2jadxClassMatches(data, context) ? r2jadxImportLines(data, true) : "";
 	}
 	const methods = data.methods || [];
-	if (mode === "c*") {
+	if (mode === "dc*") {
 		if (!r2jadxClassMatches(data, context)) {
 			return "";
 		}
-		return methods.map((method) => processMethod(data, "c*", context, method)).join("");
+		return methods.map((method) => processMethod(data, "dc*", context, method)).join("");
 	}
-	if (mode === "c") {
+	if (mode === "dc") {
 		return r2jadxClassMatches(data, context) ? r2jadxReadClassSource(data) : "";
 	}
 	let res = "";
 	for (const method of methods) {
 		switch (mode) {
 		case "a":
-		case "f":
-		case "fj":
-		case "f*":
+		case "d":
+		case "dj":
+		case "d*":
 		case "cat":
 		case "all":
 		case "ahl":
@@ -698,12 +698,12 @@ function r2jadxFormatMethodJson(method: JadxMethod): string {
 
 function processMethod(data: JadxClass, mode: string, context: R2JadxContext, method: JadxMethod): string {
 	function comment(addr: number, line: string): string {
-		if (mode === "c" || mode === "cat") {
+		if (mode === "dc" || mode === "cat") {
 			if (!data.source) {
 				return "";
 			}
 			const lastOffset = parseOffset(method.offset);
-			if (mode === "cat" || (mode === "c" && addr === lastOffset)) {
+			if (mode === "cat" || (mode === "dc" && addr === lastOffset)) {
 				const source = data.source.replace(".json", ".java");
 				const fileData = readFile(source);
 				return fileData.toString();
@@ -713,7 +713,7 @@ function processMethod(data: JadxClass, mode: string, context: R2JadxContext, me
 		if (line === "") {
 			return "";
 		}
-		if (mode === "f") {
+		if (mode === "d") {
 			return "";
 		}
 		line = line.replaceAll("\t", "  ");
@@ -730,13 +730,13 @@ function processMethod(data: JadxClass, mode: string, context: R2JadxContext, me
 
 	let lastOffset = parseOffset(method.offset);
 	const lines = method.lines || [];
-	if (mode === "f") {
+	if (mode === "d") {
 		return r2jadxMethodMatches(data, method, context) ? r2jadxFormatMethod(method) : "";
 	}
-	if (mode === "fj") {
+	if (mode === "dj") {
 		return r2jadxMethodMatches(data, method, context) ? r2jadxFormatMethodJson(method) : "";
 	}
-	if (mode === "f*" && !r2jadxMethodMatches(data, method, context)) {
+	if (mode === "d*" && !r2jadxMethodMatches(data, method, context)) {
 		return "";
 	}
 	if (mode === "all" || mode === "ahl") {
@@ -753,11 +753,11 @@ function processMethod(data: JadxClass, mode: string, context: R2JadxContext, me
 	if (mode === "ll" || mode === "hl") {
 		let res = "";
 		if (context.offset === lastOffset) {
-			return processMethod(data, "f*", context, method);
+			return processMethod(data, "d*", context, method);
 		}
 		for (const line of lines) {
 			if (parseOffset(line.offset) === context.offset - 16) {
-				res += processMethod(data, "f*", context, method);
+				res += processMethod(data, "d*", context, method);
 			}
 		}
 		return res;
@@ -766,7 +766,7 @@ function processMethod(data: JadxClass, mode: string, context: R2JadxContext, me
 	let res = comment(parseOffset(method.offset) + 16, method.name);
 	for (const line of lines) {
 		const addr = parseOffset(line.offset || lastOffset);
-		const code = mode === "f" ? line.code : line.code.trim();
+		const code = mode === "d" ? line.code : line.code.trim();
 		res += comment(addr, code);
 		if (line.offset) {
 			lastOffset = parseOffset(line.offset);
@@ -784,7 +784,7 @@ function r2jadxCrawlFiles(target: string, mode: string, context: R2JadxContext):
 			return r2jadxXrefLinesFromIndex(cached, context);
 		}
 	}
-	if (mode === "c" || mode === "c*" || mode === "ci" || mode === "f" || mode === "fj" || mode === "f*" || mode === "p") {
+	if (mode === "dc" || mode === "dc*" || mode === "ci" || mode === "d" || mode === "dj" || mode === "d*" || mode === "p") {
 		for (const fileName of r2jadxDirectClassFiles(target, context)) {
 			try {
 				const directRes = r2jadxProcessClassFile(fileName, mode, context);
@@ -871,18 +871,18 @@ function r2jadxCrawl(target: string, mode: string, context: R2JadxContext): stri
 	case "cn":
 	case "p":
 	case "ci":
-	case "f":
-	case "fj":
-	case "f*":
+	case "d":
+	case "dj":
+	case "d*":
 	case "x":
 		return r2jadxCrawlFiles(pathJoin(target, "hl"), mode, context);
 	case "i":
 	case "pi":
 	case "pl":
 		return r2jadxCrawlFiles(pathJoin(target, "hl"), mode, context);
-	case "c":
-		return r2jadxCrawlFiles(pathJoin(target, "hl"), "c", context);
-	case "c*":
+	case "dc":
+		return r2jadxCrawlFiles(pathJoin(target, "hl"), mode, context);
+	case "dc*":
 		return r2jadxCrawlFiles(pathJoin(target, "hl"), mode, context);
 	case "a":
 		return r2jadxCrawlFiles(pathJoin(target, "hl"), "cat", context);
@@ -909,7 +909,7 @@ function r2jadxNeedsHighJson(mode: string): boolean {
 }
 
 function r2jadxNeedsHighJava(mode: string): boolean {
-	return mode === "a" || mode === "c" || mode === "cat";
+	return mode === "a" || mode === "dc" || mode === "cat";
 }
 
 function r2jadxNeedsLowJson(mode: string): boolean {
@@ -929,7 +929,7 @@ function r2jadxHasHighJava(outdir: string): boolean {
 	return false;
 }
 
-export function r2jadxEnsureDecompiled(target: string, mode = "f"): string {
+export function r2jadxEnsureDecompiled(target: string, mode = "d"): string {
 	const outdir = dex2path(target);
 	if (r2jadxNeedsLowJson(mode) && !fileExists(r2jadxMappingFile(outdir, "ll"))) {
 		console.error("jadx: Performing the low level json decompilation...");
