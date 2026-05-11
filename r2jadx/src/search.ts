@@ -50,7 +50,7 @@ function r2jadxSearchClass(data: JadxClass, query: string): string {
 }
 
 export function r2jadxSearch(target: string, query: string): string {
-	const files = walkSync(target).filter((_) => (_.endsWith && _.endsWith(".json")));
+	const files = walkSync(target).filter((_) => (_.endsWith && _.endsWith(".json") && !_.endsWith("/mapping.json")));
 	let res = "";
 	for (const fileName of files) {
 		try {

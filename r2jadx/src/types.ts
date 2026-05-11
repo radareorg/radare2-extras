@@ -22,6 +22,7 @@ export interface JadxClass {
 	package?: string;
 	declaration?: string;
 	fields?: JadxField[];
+	imports?: string[];
 	source?: string;
 	methods?: JadxMethod[];
 	"inner-classes"?: JadxClass[];
@@ -33,14 +34,8 @@ export interface R2Info {
 	};
 }
 
-export interface R2FunctionInfo {
-	offset: number;
-	name?: string;
-	file?: string;
-}
-
 export interface R2JadxContext {
 	offset: number;
 	functionName: string;
-	fileName: string;
+	packageName?: string;
 }

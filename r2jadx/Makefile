@@ -18,3 +18,5 @@ uninstall user-uninstall::
 
 clean:
 	rm -f $(OUT)
+
+.PHONY: all clean r2jadx.r2.js

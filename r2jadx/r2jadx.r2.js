@@ -2,6 +2,7 @@
 (() => {
   // src/config.ts
   var r2jadxConfig = {
+    alias: true,
     addr: false,
     color: true,
     indent: true
@@ -9,20 +10,26 @@
   var R2JADX_HELP = `Usage: r2jadx [-mode]
 Setup: e cmd.pdc=pd:j
 Alias: pd:j, pd:jo
- -r   = import low level decompilation as comments
- -r2  = import high level decompilation as comments
- -e   = display or change plugin config
  -C   = clear jadx cache directory for the current DEX
-----------------------------------
- -cn  = show current classname
  -a   = show decompilation of all the classes
- -c   = decompile current class
- -f   = decompile current function
- -s   = search decompiled code for text
  -ahl = all high level decompilation
  -all = all low level decompilation
+ -c   = decompile current class
+ -c*  = import current class decompilation as comments
+ -ci  = list current class imports
+ -cn  = show current classname
+ -e   = display or change plugin config
+ -f   = decompile current function
+ -f*  = import current function decompilation as comments
+ -fj  = decompile current function as json
  -hl  = high level decompilation
- -ll  = low level decompilation`;
+ -i   = list all imports
+ -ll  = low level decompilation
+ -p   = show current package
+ -pi  = list current package imports
+ -pl  = list all packages
+ -s   = search decompiled code for text
+ -x   = show xrefs to current function or class`;
   function parseBoolean(value) {
     switch (value.toLowerCase()) {
       case "1":
@@ -53,6 +60,7 @@ Alias: pd:j, pd:jo
     };
   }
   var r2jadxConfigHandlers = {
+    "alias": boolConfigHandler("alias"),
     "addr": boolConfigHandler("addr"),
     "color": boolConfigHandler("color"),
     "indent": boolConfigHandler("indent")
@@ -114,6 +122,12 @@ Alias: pd:j, pd:jo
   function r2cmdj(cmd) {
     return r2.cmdj(cmd);
   }
+  function r2fdump(data, file) {
+    return r2.fdump(data, file);
+  }
+  function r2fload(file) {
+    return r2.fload(file);
+  }
   function r2plugin(type, factory) {
     r2.plugin(type, factory);
   }
@@ -128,9 +142,9 @@ Alias: pd:j, pd:jo
     }
     return d;
   }
-  function directoryExists(d) {
-    const directory = r2cmd("'!!test -d " + nospace(d) + " && echo exists").trim();
-    return directory === "exists";
+  function fileExists(f) {
+    const file = r2cmd("'!!test -f " + nospace(f) + " && echo exists").trim();
+    return file === "exists";
   }
   function runCmd(c) {
     const cmdline = c.join(" ");
@@ -148,7 +162,12 @@ Alias: pd:j, pd:jo
     return args.join("/");
   }
   function readFile(f) {
-    return r2cmd("cat " + f);
+    return r2fload(nospace(f));
+  }
+  function writeFile(f, data) {
+    if (!r2fdump(data, nospace(f))) {
+      throw new Error("Cannot write file: " + f);
+    }
   }
   function dex2path(target) {
     return target + ".d";
@@ -223,8 +242,21 @@ Alias: pd:j, pd:jo
   }
 
   // src/jadx.ts
+  var r2jadxImportCache = {};
   function processClass(data, mode, context) {
+    if (mode === "p") {
+      return r2jadxClassMatches(data, context) ? r2jadxPackageLine(data) : "";
+    }
+    if (mode === "ci") {
+      return r2jadxClassMatches(data, context) ? r2jadxImportLines(data, true) : "";
+    }
     const methods = data.methods || [];
+    if (mode === "c*") {
+      if (!r2jadxClassMatches(data, context)) {
+        return "";
+      }
+      return methods.map((method) => processMethod(data, "c*", context, method)).join("");
+    }
     if (mode === "c") {
       return r2jadxClassMatches(data, context) ? r2jadxReadClassSource(data) : "";
     }
@@ -233,9 +265,9 @@ Alias: pd:j, pd:jo
       switch (mode) {
         case "a":
         case "f":
+        case "fj":
+        case "f*":
         case "cat":
-        case "r":
-        case "r2":
         case "all":
         case "ahl":
         case "ll":
@@ -246,6 +278,359 @@ Alias: pd:j, pd:jo
           res += "Invalid mode " + mode + "\n";
           break;
       }
+    }
+    return res;
+  }
+  function r2jadxClassOffset(data) {
+    const offsets = (data.methods || []).map((method) => parseOffset(method.offset)).filter((offset) => !isNaN(offset));
+    return offsets.length > 0 ? Math.min(...offsets) : 0;
+  }
+  function r2jadxQualifiedClassName(data) {
+    const className = data.name || "";
+    const packageName = data.package || "";
+    if (packageName.length > 0 && className.indexOf(packageName + ".") === 0) {
+      return className;
+    }
+    return packageName.length > 0 && className.length > 0 ? packageName + "." + className : className;
+  }
+  function r2jadxRecord(addr, fields) {
+    let res = toPaddedHexString(addr, 8);
+    for (const key of Object.keys(fields)) {
+      res += "	" + key + "	" + String(fields[key]);
+    }
+    return res + "\n";
+  }
+  function r2jadxImportPackage(importName) {
+    const trimmed = importName.replace(/\.\*$/, "");
+    const lastDot = trimmed.lastIndexOf(".");
+    return lastDot === -1 ? "" : trimmed.slice(0, lastDot);
+  }
+  function r2jadxClassImports(data) {
+    if (data.imports) {
+      return data.imports.slice().sort();
+    }
+    if (!data.source) {
+      return [];
+    }
+    if (r2jadxImportCache[data.source]) {
+      return r2jadxImportCache[data.source];
+    }
+    const source = readFile(data.source.replace(".json", ".java")).toString();
+    const imports = /* @__PURE__ */ new Set();
+    for (const line of source.split(/\r?\n/g)) {
+      const match = line.trim().match(/^import\s+(?:static\s+)?([^;]+);$/);
+      if (match) {
+        imports.add(match[1]);
+      }
+    }
+    r2jadxImportCache[data.source] = Array.from(imports).sort();
+    return r2jadxImportCache[data.source];
+  }
+  function r2jadxPackageLine(data) {
+    return toPaddedHexString(r2jadxClassOffset(data), 8) + "	" + (data.package || "") + "	" + r2jadxQualifiedClassName(data) + "\n";
+  }
+  function r2jadxImportLines(data, brief) {
+    let res = "";
+    for (const importName of r2jadxClassImports(data)) {
+      if (brief) {
+        res += toPaddedHexString(r2jadxClassOffset(data), 8) + "	" + importName + "\n";
+        continue;
+      }
+      res += r2jadxRecord(r2jadxClassOffset(data), {
+        "kind": "import",
+        "package": data.package || "",
+        "class": r2jadxQualifiedClassName(data),
+        "import": importName,
+        "import_package": r2jadxImportPackage(importName)
+      });
+    }
+    return res;
+  }
+  function r2jadxCompactLine(line) {
+    return line.trim().replace(/\s+/g, " ");
+  }
+  function r2jadxXrefScope(data, method) {
+    return r2jadxQualifiedClassName(data) + "." + method.name;
+  }
+  function r2jadxShortClassName(data) {
+    const name = data.name || "";
+    return name.split(".").pop() || name;
+  }
+  function r2jadxMethodKey(data, method) {
+    return r2jadxQualifiedClassName(data) + "." + method.name;
+  }
+  function r2jadxClassMaps(classes) {
+    const byQualified = {};
+    const byShort = {};
+    for (const data of classes) {
+      const qualifiedName = r2jadxQualifiedClassName(data);
+      const shortName = r2jadxShortClassName(data);
+      if (qualifiedName.length > 0) {
+        byQualified[qualifiedName] = data;
+      }
+      if (shortName.length > 0) {
+        byShort[shortName] = byShort[shortName] || [];
+        byShort[shortName].push(data);
+      }
+    }
+    return { byQualified, byShort };
+  }
+  function r2jadxResolveClassName(name, source, byQualified, byShort) {
+    if (byQualified[name]) {
+      return byQualified[name];
+    }
+    for (const importName of r2jadxClassImports(source)) {
+      if (importName === name || importName.endsWith("." + name)) {
+        return byQualified[importName];
+      }
+      if (importName.endsWith(".*") && byQualified[importName.slice(0, -1) + name]) {
+        return byQualified[importName.slice(0, -1) + name];
+      }
+    }
+    const packageName = source.package || "";
+    if (packageName.length > 0 && byQualified[packageName + "." + name]) {
+      return byQualified[packageName + "." + name];
+    }
+    const matches = byShort[name] || [];
+    return matches.length === 1 ? matches[0] : void 0;
+  }
+  function r2jadxHasMethod(data, methodName) {
+    return (data.methods || []).some((method) => method.name === methodName);
+  }
+  function r2jadxAddXref(records, seen, record) {
+    const key = record.kind + "	" + record.target + "	" + record.addr + "	" + record.scope + "	" + record.line;
+    if (!seen.has(key)) {
+      seen.add(key);
+      records.push(record);
+    }
+  }
+  function r2jadxIndexClassRef(records, seen, source, target, addr, scope, line) {
+    if (source === target) {
+      return;
+    }
+    r2jadxAddXref(records, seen, {
+      kind: "class",
+      target: r2jadxQualifiedClassName(target),
+      addr,
+      scope,
+      line
+    });
+  }
+  function r2jadxIndexMethodRef(records, seen, target, methodName, addr, scope, line) {
+    if (!r2jadxHasMethod(target, methodName)) {
+      return;
+    }
+    r2jadxAddXref(records, seen, {
+      kind: "method",
+      target: r2jadxQualifiedClassName(target) + "." + methodName,
+      addr,
+      scope,
+      line
+    });
+  }
+  function r2jadxIndexXrefLine(records, seen, source, method, line, addr, byQualified, byShort) {
+    const compactLine = r2jadxCompactLine(line);
+    if (compactLine.length === 0) {
+      return;
+    }
+    const scope = r2jadxXrefScope(source, method);
+    const qualifiedClassRe = /\b(?:[a-z_$][A-Za-z0-9_$]*\.)+[A-Z_$][A-Za-z0-9_$]*\b/g;
+    const shortClassRe = /\b[A-Z_$][A-Za-z0-9_$]*\b/g;
+    const callRe = /\b((?:[A-Za-z_$][A-Za-z0-9_$]*\.)*[A-Za-z_$][A-Za-z0-9_$]*)\s*\.\s*([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
+    const bareCallRe = /(^|[^A-Za-z0-9_$\.])([A-Za-z_$][A-Za-z0-9_$]*)\s*\(/g;
+    let match;
+    while (match = qualifiedClassRe.exec(compactLine)) {
+      const target = r2jadxResolveClassName(match[0], source, byQualified, byShort);
+      if (target) {
+        r2jadxIndexClassRef(records, seen, source, target, addr, scope, compactLine);
+      }
+    }
+    while (match = shortClassRe.exec(compactLine)) {
+      const target = r2jadxResolveClassName(match[0], source, byQualified, byShort);
+      if (target) {
+        r2jadxIndexClassRef(records, seen, source, target, addr, scope, compactLine);
+      }
+    }
+    while (match = callRe.exec(compactLine)) {
+      const target = r2jadxResolveClassName(match[1], source, byQualified, byShort);
+      if (target) {
+        r2jadxIndexClassRef(records, seen, source, target, addr, scope, compactLine);
+        r2jadxIndexMethodRef(records, seen, target, match[2], addr, scope, compactLine);
+      }
+    }
+    while (match = bareCallRe.exec(compactLine)) {
+      r2jadxIndexMethodRef(records, seen, source, match[2], addr, scope, compactLine);
+    }
+  }
+  function r2jadxBuildXrefSymbols(classes) {
+    const symbols = [];
+    for (const data of classes) {
+      const classOffsets = [];
+      for (const method of data.methods || []) {
+        const range = r2jadxMethodRange(method);
+        if (!isNaN(range.min) && !isNaN(range.max)) {
+          classOffsets.push(range.min, range.max);
+        }
+      }
+      if (classOffsets.length > 0) {
+        symbols.push({
+          kind: "class",
+          target: r2jadxQualifiedClassName(data),
+          min: Math.min(...classOffsets),
+          max: Math.max(...classOffsets)
+        });
+      }
+      for (const method of data.methods || []) {
+        const range = r2jadxMethodRange(method);
+        if (!isNaN(range.min) && !isNaN(range.max)) {
+          symbols.push({
+            kind: "method",
+            target: r2jadxMethodKey(data, method),
+            min: range.min,
+            max: range.max
+          });
+        }
+      }
+    }
+    return symbols;
+  }
+  function r2jadxBuildXrefIndex(classes) {
+    const records = [];
+    const seen = /* @__PURE__ */ new Set();
+    const maps = r2jadxClassMaps(classes);
+    for (const source of classes) {
+      const scope = r2jadxQualifiedClassName(source);
+      for (const importName of r2jadxClassImports(source)) {
+        const target = maps.byQualified[importName];
+        if (target) {
+          r2jadxIndexClassRef(records, seen, source, target, r2jadxClassOffset(source), scope, "import " + importName);
+        }
+      }
+      for (const method of source.methods || []) {
+        let lastOffset = parseOffset(method.offset);
+        for (const line of method.lines || []) {
+          if (line.offset) {
+            lastOffset = parseOffset(line.offset);
+          }
+          r2jadxIndexXrefLine(records, seen, source, method, line.code || "", lastOffset, maps.byQualified, maps.byShort);
+        }
+      }
+    }
+    return {
+      version: 1,
+      symbols: r2jadxBuildXrefSymbols(classes),
+      records: records.sort((a, b) => a.target === b.target ? a.addr - b.addr : a.target.localeCompare(b.target))
+    };
+  }
+  function r2jadxXrefIndexPath(target) {
+    return pathJoin(target, "r2jadx-xrefs.json");
+  }
+  function r2jadxReadXrefIndex(indexFile) {
+    if (!fileExists(indexFile)) {
+      return void 0;
+    }
+    const data = readFile(indexFile).trim();
+    try {
+      if (data.length === 0) {
+        return void 0;
+      }
+      const parsed = JSON.parse(data);
+      return parsed.version === 1 && Array.isArray(parsed.symbols) && Array.isArray(parsed.records) ? parsed : void 0;
+    } catch (e) {
+      return void 0;
+    }
+  }
+  function r2jadxLoadXrefIndex(target, classes) {
+    const indexFile = r2jadxXrefIndexPath(target);
+    const cached = r2jadxReadXrefIndex(indexFile);
+    if (cached) {
+      return cached;
+    }
+    const records = r2jadxBuildXrefIndex(classes);
+    writeFile(indexFile, JSON.stringify(records));
+    return records;
+  }
+  function r2jadxXrefSymbol(index, context) {
+    const methods = index.symbols.filter((symbol) => symbol.kind === "method" && context.offset >= symbol.min && context.offset <= symbol.max);
+    if (methods.length > 0) {
+      return methods[0];
+    }
+    return index.symbols.find((symbol) => symbol.kind === "class" && context.offset >= symbol.min && context.offset <= symbol.max);
+  }
+  function r2jadxXrefLinesFromIndex(index, context) {
+    const target = r2jadxXrefSymbol(index, context);
+    if (!target) {
+      return "";
+    }
+    let res = "";
+    for (const record of index.records) {
+      if (record.kind === target.kind && record.target === target.target) {
+        res += toPaddedHexString(record.addr, 8) + "	" + record.scope + "	" + record.line + "\n";
+      }
+    }
+    return res;
+  }
+  function r2jadxXrefLines(target, classes, context) {
+    return r2jadxXrefLinesFromIndex(r2jadxLoadXrefIndex(target, classes), context);
+  }
+  function r2jadxMappedClassFile(target, context) {
+    const mapping = JSON.parse(readFile(pathJoin(target, "sources", "mapping.json")));
+    let best;
+    for (const klass of mapping.classes || []) {
+      for (const method of klass.methods || []) {
+        const offset = parseOffset(method.offset);
+        if (!isNaN(offset) && klass.json && offset <= context.offset && (!best || offset > best.offset)) {
+          best = { offset, file: pathJoin(target, "sources", klass.json) };
+        }
+      }
+    }
+    return best ? best.file : void 0;
+  }
+  function r2jadxMappingFile(outdir, level) {
+    return pathJoin(outdir, level, "sources", "mapping.json");
+  }
+  function r2jadxDirectClassFiles(target, context) {
+    try {
+      const mapped = r2jadxMappedClassFile(target, context);
+      if (mapped) {
+        return [mapped];
+      }
+    } catch (e) {
+    }
+    const classes = [];
+    const descriptor = context.functionName.match(/L([^;]+);/);
+    if (descriptor) {
+      classes.push(descriptor[1]);
+    }
+    const methodName = context.functionName.match(/([A-Za-z_$][A-Za-z0-9_$.]+)\.(?:method\.)?[A-Za-z_$<][A-Za-z0-9_$<>]*/);
+    if (methodName) {
+      classes.push(methodName[1].replace(/\./g, "/"));
+    }
+    const files = [];
+    for (const className of classes) {
+      const normalized = className.replace(/^L/, "").replace(/;$/, "").replace(/\./g, "/");
+      files.push(pathJoin(target, "sources", normalized + ".json"));
+      files.push(pathJoin(target, normalized + ".json"));
+    }
+    return Array.from(new Set(files)).filter(fileExists);
+  }
+  function r2jadxReadClasses(fileName) {
+    const fileData = readFile(fileName);
+    const data = JSON.parse(fileData);
+    data.source = fileName;
+    const classes = [data];
+    if (data["inner-classes"]) {
+      for (const klass of data["inner-classes"]) {
+        klass.source = fileName;
+        classes.push(klass);
+      }
+    }
+    return classes;
+  }
+  function r2jadxProcessClassFile(fileName, mode, context) {
+    let res = "";
+    for (const klass of r2jadxReadClasses(fileName)) {
+      res += processClass(klass, mode, context);
     }
     return res;
   }
@@ -268,14 +653,17 @@ Alias: pd:j, pd:jo
     }
     return offsets.filter((offset) => !isNaN(offset));
   }
-  function r2jadxMethodContainsOffset(method, offset) {
+  function r2jadxMethodRange(method) {
     const offsets = r2jadxMethodLineOffsets(method);
     if (offsets.length === 0) {
-      return false;
+      const offset = parseOffset(method.offset);
+      return { min: offset, max: offset };
     }
-    const min = Math.min(...offsets);
-    const max = Math.max(...offsets);
-    return offset >= min && offset <= max + 16;
+    return { min: Math.min(...offsets), max: Math.max(...offsets) + 16 };
+  }
+  function r2jadxMethodContainsOffset(method, offset) {
+    const range = r2jadxMethodRange(method);
+    return offset >= range.min && offset <= range.max;
   }
   function r2jadxClassMatches(data, context) {
     for (const method of data.methods || []) {
@@ -407,6 +795,30 @@ Alias: pd:j, pd:jo
     res += r2jadxDisplayAddressLine(lastOffset, "}") + "\n";
     return res;
   }
+  function r2jadxMethodLines(method) {
+    const lines = [];
+    const offset = parseOffset(method.offset);
+    const declaration = (method.declaration || method.name).trim().split("\n");
+    for (let i = 0; i < declaration.length; i++) {
+      const suffix = i === declaration.length - 1 ? " {" : "";
+      lines.push({ str: declaration[i] + suffix, offset });
+    }
+    let lastOffset = offset;
+    for (const line of method.lines || []) {
+      if (!line.code || line.code.length === 0) {
+        continue;
+      }
+      if (line.offset) {
+        lastOffset = parseOffset(line.offset);
+      }
+      lines.push({ str: r2jadxIndentLine(line.code, 1), offset: lastOffset });
+    }
+    lines.push({ str: "}" });
+    return lines;
+  }
+  function r2jadxFormatMethodJson(method) {
+    return JSON.stringify({ lines: r2jadxMethodLines(method) });
+  }
   function processMethod(data, mode, context, method) {
     function comment(addr, line) {
       if (mode === "c" || mode === "cat") {
@@ -443,6 +855,12 @@ Alias: pd:j, pd:jo
     if (mode === "f") {
       return r2jadxMethodMatches(data, method, context) ? r2jadxFormatMethod(method) : "";
     }
+    if (mode === "fj") {
+      return r2jadxMethodMatches(data, method, context) ? r2jadxFormatMethodJson(method) : "";
+    }
+    if (mode === "f*" && !r2jadxMethodMatches(data, method, context)) {
+      return "";
+    }
     if (mode === "all" || mode === "ahl") {
       let res2 = "\n" + r2jadxDisplayPrefix(parseOffset(method.offset)) + method.name + ":\n";
       for (const line of lines) {
@@ -454,17 +872,14 @@ Alias: pd:j, pd:jo
       }
       return res2;
     }
-    if (mode === "r") {
-      mode = "r2";
-    }
     if (mode === "ll" || mode === "hl") {
       let res2 = "";
       if (context.offset === lastOffset) {
-        return processMethod(data, "r2", context, method);
+        return processMethod(data, "f*", context, method);
       }
       for (const line of lines) {
         if (parseOffset(line.offset) === context.offset - 16) {
-          res2 += processMethod(data, "r2", context, method);
+          res2 += processMethod(data, "f*", context, method);
         }
       }
       return res2;
@@ -482,27 +897,90 @@ Alias: pd:j, pd:jo
   }
   function r2jadxCrawlFiles(target, mode, context) {
     const ext = "json";
-    const files = walkSync(target).filter((_) => _.endsWith && _.endsWith(ext));
+    const xrefIndexFile = r2jadxXrefIndexPath(target);
+    if (mode === "x") {
+      const cached = r2jadxReadXrefIndex(xrefIndexFile);
+      if (cached) {
+        return r2jadxXrefLinesFromIndex(cached, context);
+      }
+    }
+    if (mode === "c" || mode === "c*" || mode === "ci" || mode === "f" || mode === "fj" || mode === "f*" || mode === "p") {
+      for (const fileName of r2jadxDirectClassFiles(target, context)) {
+        try {
+          const directRes = r2jadxProcessClassFile(fileName, mode, context);
+          if (directRes.length > 0) {
+            return directRes;
+          }
+        } catch (e) {
+          console.error("" + fileName + ": " + e);
+        }
+      }
+      return "";
+    }
+    const files = walkSync(target).filter((_) => _.endsWith && _.endsWith(ext) && _ !== xrefIndexFile && !_.endsWith("/mapping.json"));
     let res = "";
+    const classes = [];
     for (const fileName of files) {
       try {
         if (mode === "cat") {
           const fileData = readFile(fileName.replace(".json", ".java"));
           res += fileData;
         } else {
-          const fileData = readFile(fileName);
-          const data = JSON.parse(fileData);
-          data.source = fileName;
-          res += processClass(data, mode, context);
-          if (data["inner-classes"]) {
-            for (const klass of data["inner-classes"]) {
-              klass.source = fileName;
-              res += processClass(klass, mode, context);
-            }
-          }
+          classes.push(...r2jadxReadClasses(fileName));
         }
       } catch (e) {
         console.error("" + fileName + ": " + e);
+      }
+    }
+    if (mode === "pl") {
+      const packages = {};
+      for (const data of classes) {
+        const packageName = data.package || "";
+        const addr = r2jadxClassOffset(data);
+        const entry = packages[packageName] || { addr, count: 0 };
+        entry.addr = Math.min(entry.addr, addr);
+        entry.count++;
+        packages[packageName] = entry;
+      }
+      for (const packageName of Object.keys(packages).sort()) {
+        res += r2jadxRecord(packages[packageName].addr, { "kind": "package", "package": packageName, "classes": packages[packageName].count });
+      }
+      return res;
+    }
+    if (mode === "pi") {
+      const current = classes.find((data) => r2jadxClassMatches(data, context));
+      context.packageName = current ? current.package || "" : context.packageName || "";
+      const packageImports = {};
+      for (const data of classes) {
+        if ((data.package || "") !== (context.packageName || "")) {
+          continue;
+        }
+        for (const importName of r2jadxClassImports(data)) {
+          const entry = packageImports[importName] || { addr: r2jadxClassOffset(data), count: 0 };
+          entry.addr = Math.min(entry.addr, r2jadxClassOffset(data));
+          entry.count++;
+          packageImports[importName] = entry;
+        }
+      }
+      for (const importName of Object.keys(packageImports).sort()) {
+        res += r2jadxRecord(packageImports[importName].addr, {
+          "kind": "package_import",
+          "package": context.packageName || "",
+          "import": importName,
+          "import_package": r2jadxImportPackage(importName),
+          "classes": packageImports[importName].count
+        });
+      }
+      return res;
+    }
+    if (mode === "x") {
+      return r2jadxXrefLines(target, classes, context);
+    }
+    for (const data of classes) {
+      if (mode === "i") {
+        res += r2jadxImportLines(data, false);
+      } else {
+        res += processClass(data, mode, context);
       }
     }
     return res;
@@ -510,16 +988,23 @@ Alias: pd:j, pd:jo
   function r2jadxCrawl(target, mode, context) {
     switch (mode) {
       case "cn":
+      case "p":
+      case "ci":
       case "f":
+      case "fj":
+      case "f*":
+      case "x":
+        return r2jadxCrawlFiles(pathJoin(target, "hl"), mode, context);
+      case "i":
+      case "pi":
+      case "pl":
         return r2jadxCrawlFiles(pathJoin(target, "hl"), mode, context);
       case "c":
         return r2jadxCrawlFiles(pathJoin(target, "hl"), "c", context);
+      case "c*":
+        return r2jadxCrawlFiles(pathJoin(target, "hl"), mode, context);
       case "a":
         return r2jadxCrawlFiles(pathJoin(target, "hl"), "cat", context);
-      case "r":
-        return r2jadxCrawlFiles(pathJoin(target, "ll"), mode, context);
-      case "r2":
-        return r2jadxCrawlFiles(pathJoin(target, "hl"), mode, context);
       case "ll":
         return r2jadxCrawlFiles(pathJoin(target, "ll"), mode, context);
       case "hl":
@@ -537,26 +1022,50 @@ Alias: pd:j, pd:jo
         return R2JADX_HELP;
     }
   }
-  function r2jadxEnsureDecompiled(target) {
+  function r2jadxNeedsHighJson(mode) {
+    return mode !== "ll" && mode !== "all";
+  }
+  function r2jadxNeedsHighJava(mode) {
+    return mode === "a" || mode === "c" || mode === "cat";
+  }
+  function r2jadxNeedsLowJson(mode) {
+    return mode === "ll" || mode === "all";
+  }
+  function r2jadxHasHighJava(outdir) {
+    try {
+      const mapping = JSON.parse(readFile(r2jadxMappingFile(outdir, "hl")));
+      for (const klass of mapping.classes || []) {
+        if (klass.json) {
+          return fileExists(pathJoin(outdir, "hl", "sources", klass.json.replace(/\.json$/, ".java")));
+        }
+      }
+    } catch (e) {
+    }
+    return false;
+  }
+  function r2jadxEnsureDecompiled(target, mode = "f") {
     const outdir = dex2path(target);
-    if (!directoryExists(outdir)) {
-      console.error("jadx: Performing the low level decompilation...");
+    if (r2jadxNeedsLowJson(mode) && !fileExists(r2jadxMappingFile(outdir, "ll"))) {
+      console.error("jadx: Performing the low level json decompilation...");
       runCmd(["r2pm", "-r", "jadx", "--output-format", "json", "-m", "simple", "-d", pathJoin(outdir, "ll"), target]);
-      runCmd(["r2pm", "-r", "jadx", "--output-format", "java", "-m", "simple", "-d", pathJoin(outdir, "ll"), target]);
+    }
+    if (r2jadxNeedsHighJava(mode) && !r2jadxHasHighJava(outdir)) {
       console.error("jadx: Performing the high level decompilation...");
       runCmd(["r2pm", "-r", "jadx", "--show-bad-code", "--output-format", "java", "-d", pathJoin(outdir, "hl"), target]);
+    }
+    if (r2jadxNeedsHighJson(mode) && !fileExists(r2jadxMappingFile(outdir, "hl"))) {
       console.error("jadx: Constructing the high level jsons...");
       runCmd(["r2pm", "-r", "jadx", "--show-bad-code", "--output-format", "json", "-d", pathJoin(outdir, "hl"), target]);
     }
     return outdir;
   }
   function r2jadxDecompile(target, mode, context) {
-    const outdir = r2jadxEnsureDecompiled(target);
+    const outdir = r2jadxEnsureDecompiled(target, mode);
     return r2jadxCrawl(outdir, mode, context);
   }
 
   // src/search.ts
-  function r2jadxQualifiedClassName(data) {
+  function r2jadxQualifiedClassName2(data) {
     const className = data.name || "";
     const packageName = data.package || "";
     if (packageName.length > 0 && className.indexOf(packageName + ".") === 0) {
@@ -574,7 +1083,7 @@ Alias: pd:j, pd:jo
   }
   function r2jadxSearchClass(data, query) {
     let res = "";
-    const className = r2jadxQualifiedClassName(data);
+    const className = r2jadxQualifiedClassName2(data);
     if (className.length === 0) {
       return "";
     }
@@ -601,7 +1110,7 @@ Alias: pd:j, pd:jo
     return res;
   }
   function r2jadxSearch(target, query) {
-    const files = walkSync(target).filter((_) => _.endsWith && _.endsWith(".json"));
+    const files = walkSync(target).filter((_) => _.endsWith && _.endsWith(".json") && !_.endsWith("/mapping.json"));
     let res = "";
     for (const fileName of files) {
       try {
@@ -635,21 +1144,17 @@ Alias: pd:j, pd:jo
       return void 0;
     }
     try {
-      r2cmd("af");
       const info = r2cmdj("ij");
       const fileName = info.core.file;
-      const fcn = r2cmdj("afij");
-      if (!fileName.endsWith(".dex")) {
-        throw new Error("Sorry, this is not a DEX file");
-      }
       if (!fileName) {
         throw new Error("Cannot find function");
       }
-      const currentFunction = fcn && fcn.length > 0 ? fcn[0] : void 0;
+      if (!fileName.endsWith(".dex")) {
+        throw new Error("Sorry, this is not a DEX file");
+      }
       const context = {
-        offset: currentFunction ? currentFunction.offset : 0,
-        functionName: currentFunction && currentFunction.name ? currentFunction.name : "",
-        fileName: currentFunction && currentFunction.file ? currentFunction.file : ""
+        offset: parseInt(r2cmd("s")),
+        functionName: r2cmd("afn.").trim()
       };
       let mode = "all";
       if (firstArg[0] === "-") {
@@ -665,17 +1170,19 @@ Alias: pd:j, pd:jo
           console.error("Usage: r2jadx -s text");
           return void 0;
         }
-        const res2 = r2jadxSearch(pathJoin(r2jadxEnsureDecompiled(fileName), "hl"), searchText);
+        const res2 = r2jadxSearch(pathJoin(r2jadxEnsureDecompiled(fileName, "s"), "hl"), searchText);
         console.log(r2jadxFormatOutput(res2, mode));
         return res2;
       }
       const res = r2jadxDecompile(fileName, mode, context);
-      if (mode.startsWith("r")) {
+      if (mode.endsWith("*")) {
         for (const line of res.split("\n")) {
           if (line.trim().length > 0) {
             r2cmd(line);
           }
         }
+      } else if (mode.endsWith("j")) {
+        console.log(res);
       } else {
         console.log(r2jadxFormatOutput(res, mode));
       }
@@ -692,8 +1199,12 @@ Alias: pd:j, pd:jo
       console.error(R2JADX_HELP);
       return;
     }
+    if (flags.indexOf("j") !== -1) {
+      r2jadxMain(["-fj"]);
+      return;
+    }
     if (flags.indexOf("*") !== -1) {
-      r2jadxMain(["-r2"]);
+      r2jadxMain(["-f*"]);
       return;
     }
     if (flags.indexOf("=") !== -1 || flags.indexOf("a") !== -1) {
@@ -706,8 +1217,9 @@ Alias: pd:j, pd:jo
     r2unload("core", "r2jadx");
     r2plugin("core", function() {
       function coreCall(cmd) {
-        if (cmd.startsWith("r2jadx")) {
-          const argv = cmd.substring(6).trim().split(" ");
+        const r2jadxCmd = r2jadxConfig.alias && cmd.startsWith("j-") ? "r2jadx" + cmd.substring(1) : cmd;
+        if (r2jadxCmd.startsWith("r2jadx")) {
+          const argv = r2jadxCmd.replace(/^r2jadx(?=-)/, "r2jadx ").substring(6).trim().split(" ");
           r2jadxMain(argv);
           return true;
         }

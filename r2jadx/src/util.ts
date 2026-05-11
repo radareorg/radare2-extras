@@ -1,5 +1,5 @@
 import type { Offset } from "./types";
-import { r2cmd } from "./r2api";
+import { r2cmd, r2fdump, r2fload } from "./r2api";
 
 export function nospace(d: string): string {
 	if (d.indexOf(" ") !== -1) {
@@ -11,6 +11,11 @@ export function nospace(d: string): string {
 export function directoryExists(d: string): boolean {
 	const directory = r2cmd("'!!test -d " + nospace(d) + " && echo exists").trim();
 	return directory === "exists";
+}
+
+export function fileExists(f: string): boolean {
+	const file = r2cmd("'!!test -f " + nospace(f) + " && echo exists").trim();
+	return file === "exists";
 }
 
 export function runCmd(c: string[]): void {
@@ -33,7 +38,13 @@ export function pathJoin(...args: string[]): string {
 }
 
 export function readFile(f: string): string {
-	return r2cmd("cat " + f);
+	return r2fload(nospace(f));
+}
+
+export function writeFile(f: string, data: string): void {
+	if (!r2fdump(data, nospace(f))) {
+		throw new Error("Cannot write file: " + f);
+	}
 }
 
 export function dex2path(target: string): string {

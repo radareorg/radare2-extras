@@ -1,6 +1,7 @@
-import type { R2FunctionInfo, R2Info, R2JadxContext } from "./types";
+import type { R2Info, R2JadxContext } from "./types";
 import {
 	R2JADX_HELP,
+	r2jadxConfig,
 	r2jadxEvalConfig,
 	r2jadxIsHelpArg,
 	r2jadxListConfig,
@@ -32,21 +33,17 @@ export function r2jadxMain(argv: string[]): string | undefined {
 		return undefined;
 	}
 	try {
-		r2cmd("af");
 		const info = r2cmdj<R2Info>("ij");
 		const fileName = info.core.file;
-		const fcn = r2cmdj<R2FunctionInfo[]>("afij");
-		if (!fileName.endsWith(".dex")) {
-			throw new Error("Sorry, this is not a DEX file");
-		}
 		if (!fileName) {
 			throw new Error("Cannot find function");
 		}
-		const currentFunction = (fcn && fcn.length > 0) ? fcn[0] : undefined;
+		if (!fileName.endsWith(".dex")) {
+			throw new Error("Sorry, this is not a DEX file");
+		}
 		const context: R2JadxContext = {
-			offset: currentFunction ? currentFunction.offset : 0,
-			functionName: currentFunction && currentFunction.name ? currentFunction.name : "",
-			fileName: currentFunction && currentFunction.file ? currentFunction.file : "",
+			offset: parseInt(r2cmd("s")),
+			functionName: r2cmd("afn.").trim(),
 		};
 		let mode = "all";
 		if (firstArg[0] === "-") {
@@ -62,17 +59,19 @@ export function r2jadxMain(argv: string[]): string | undefined {
 				console.error("Usage: r2jadx -s text");
 				return undefined;
 			}
-			const res = r2jadxSearch(pathJoin(r2jadxEnsureDecompiled(fileName), "hl"), searchText);
+			const res = r2jadxSearch(pathJoin(r2jadxEnsureDecompiled(fileName, "s"), "hl"), searchText);
 			console.log(r2jadxFormatOutput(res, mode));
 			return res;
 		}
 		const res = r2jadxDecompile(fileName, mode, context);
-		if (mode.startsWith("r")) {
+		if (mode.endsWith("*")) {
 			for (const line of res.split("\n")) {
 				if (line.trim().length > 0) {
 					r2cmd(line);
 				}
 			}
+		} else if (mode.endsWith("j")) {
+			console.log(res);
 		} else {
 			console.log(r2jadxFormatOutput(res, mode));
 		}
@@ -90,8 +89,12 @@ function r2jadxPdCommand(cmd: string): void {
 		console.error(R2JADX_HELP);
 		return;
 	}
+	if (flags.indexOf("j") !== -1) {
+		r2jadxMain([ "-fj" ]);
+		return;
+	}
 	if (flags.indexOf("*") !== -1) {
-		r2jadxMain([ "-r2" ]);
+		r2jadxMain([ "-f*" ]);
 		return;
 	}
 	if (flags.indexOf("=") !== -1 || flags.indexOf("a") !== -1) {
@@ -105,8 +108,9 @@ export function r2jadxBegin(): void {
 	r2unload("core", "r2jadx");
 	r2plugin("core", function() {
 		function coreCall(cmd: string): boolean {
-			if (cmd.startsWith("r2jadx")) {
-				const argv = cmd.substring(6).trim().split(" ");
+			const r2jadxCmd = r2jadxConfig.alias && cmd.startsWith("j-") ? "r2jadx" + cmd.substring(1) : cmd;
+			if (r2jadxCmd.startsWith("r2jadx")) {
+				const argv = r2jadxCmd.replace(/^r2jadx(?=-)/, "r2jadx ").substring(6).trim().split(" ");
 				r2jadxMain(argv);
 				return true;
 			}

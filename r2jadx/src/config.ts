@@ -1,4 +1,5 @@
 export interface R2JadxConfig {
+	alias: boolean;
 	addr: boolean;
 	color: boolean;
 	indent: boolean;
@@ -10,6 +11,7 @@ interface R2JadxConfigHandler {
 }
 
 export const r2jadxConfig: R2JadxConfig = {
+	alias: true,
 	addr: false,
 	color: true,
 	indent: true,
@@ -18,20 +20,26 @@ export const r2jadxConfig: R2JadxConfig = {
 export const R2JADX_HELP = `Usage: r2jadx [-mode]
 Setup: e cmd.pdc=pd:j
 Alias: pd:j, pd:jo
- -r   = import low level decompilation as comments
- -r2  = import high level decompilation as comments
- -e   = display or change plugin config
  -C   = clear jadx cache directory for the current DEX
-----------------------------------
- -cn  = show current classname
  -a   = show decompilation of all the classes
- -c   = decompile current class
- -f   = decompile current function
- -s   = search decompiled code for text
  -ahl = all high level decompilation
  -all = all low level decompilation
+ -c   = decompile current class
+ -c*  = import current class decompilation as comments
+ -ci  = list current class imports
+ -cn  = show current classname
+ -e   = display or change plugin config
+ -f   = decompile current function
+ -f*  = import current function decompilation as comments
+ -fj  = decompile current function as json
  -hl  = high level decompilation
- -ll  = low level decompilation`;
+ -i   = list all imports
+ -ll  = low level decompilation
+ -p   = show current package
+ -pi  = list current package imports
+ -pl  = list all packages
+ -s   = search decompiled code for text
+ -x   = show xrefs to current function or class`;
 
 function parseBoolean(value: string): boolean | undefined {
 	switch (value.toLowerCase()) {
@@ -65,6 +73,7 @@ function boolConfigHandler(key: keyof R2JadxConfig): R2JadxConfigHandler {
 }
 
 const r2jadxConfigHandlers: Record<string, R2JadxConfigHandler> = {
+	"alias": boolConfigHandler("alias"),
 	"addr": boolConfigHandler("addr"),
 	"color": boolConfigHandler("color"),
 	"indent": boolConfigHandler("indent"),
