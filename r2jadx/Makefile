@@ -1,12 +1,13 @@
 R2PM_PLUGDIR=$(shell r2pm -H R2PM_PLUGDIR)
 R2FRIDA_COMPILE=r2pm -r r2frida-compile
-SRC=src/r2jadx.ts
+ENTRY=src/r2jadx.ts
+SRC=$(wildcard src/*.ts)
 OUT=r2jadx.r2.js
 
 all: $(OUT)
 
 $(OUT): $(SRC)
-	$(R2FRIDA_COMPILE) -S -B iife -o $@ $<
+	$(R2FRIDA_COMPILE) -S -B iife -o $@ $(ENTRY)
 
 install user-install: $(OUT)
 	mkdir -p ${R2PM_PLUGDIR}

@@ -1,46 +1,11 @@
 "use strict";
 (() => {
-  // src/r2jadx.ts
+  // src/config.ts
   var r2jadxConfig = {
     addr: false,
     color: true,
     indent: true
   };
-  function nospace(d) {
-    if (d.indexOf(" ") !== -1) {
-      throw new Error("Path cant contain spaces");
-    }
-    return d;
-  }
-  function directoryExists(d) {
-    const directory = r2.cmd("'!!test -d " + nospace(d) + " && echo exists").trim();
-    return directory === "exists";
-  }
-  function runCmd(c) {
-    const cmdline = c.join(" ");
-    console.log(cmdline);
-    r2.cmd("'!" + cmdline);
-  }
-  function parseOffset(value) {
-    return parseInt(String(value));
-  }
-  function toPaddedHexString(num, len) {
-    const str = parseOffset(num).toString(16);
-    return "0x" + ("0".repeat(len - str.length) + str);
-  }
-  function pathJoin(...args) {
-    return args.join("/");
-  }
-  function readFile(f) {
-    return r2.cmd("cat " + f);
-  }
-  function dex2path(target) {
-    return target + ".d";
-  }
-  function walkSync(dir) {
-    const files = r2.cmd("!!find " + dir + " -type f").trim();
-    return files.length > 0 ? files.split(/\n/g) : [];
-  }
   var R2JADX_HELP = `Usage: r2jadx [-mode]
 Setup: e cmd.pdc=pd:j
 Alias: pd:j, pd:jo
@@ -129,6 +94,71 @@ Alias: pd:j, pd:jo
     }
     handler.set(value);
   }
+  function r2jadxWithAddr(addr, cb) {
+    const savedAddr = r2jadxConfig.addr;
+    r2jadxConfig.addr = addr;
+    try {
+      return cb();
+    } finally {
+      r2jadxConfig.addr = savedAddr;
+    }
+  }
+
+  // src/r2api.ts
+  function b64encode(data) {
+    return b64(data);
+  }
+  function r2cmd(cmd) {
+    return r2.cmd(cmd);
+  }
+  function r2cmdj(cmd) {
+    return r2.cmdj(cmd);
+  }
+  function r2plugin(type, factory) {
+    r2.plugin(type, factory);
+  }
+  function r2unload(type, name) {
+    r2.unload(type, name);
+  }
+
+  // src/util.ts
+  function nospace(d) {
+    if (d.indexOf(" ") !== -1) {
+      throw new Error("Path cant contain spaces");
+    }
+    return d;
+  }
+  function directoryExists(d) {
+    const directory = r2cmd("'!!test -d " + nospace(d) + " && echo exists").trim();
+    return directory === "exists";
+  }
+  function runCmd(c) {
+    const cmdline = c.join(" ");
+    console.log(cmdline);
+    r2cmd("'!" + cmdline);
+  }
+  function parseOffset(value) {
+    return parseInt(String(value));
+  }
+  function toPaddedHexString(num, len) {
+    const str = parseOffset(num).toString(16);
+    return "0x" + ("0".repeat(len - str.length) + str);
+  }
+  function pathJoin(...args) {
+    return args.join("/");
+  }
+  function readFile(f) {
+    return r2cmd("cat " + f);
+  }
+  function dex2path(target) {
+    return target + ".d";
+  }
+  function walkSync(dir) {
+    const files = r2cmd("!!find " + dir + " -type f").trim();
+    return files.length > 0 ? files.split(/\n/g) : [];
+  }
+
+  // src/format.ts
   function r2jadxDisplayLine(line) {
     line = line.replaceAll("	", "  ");
     line = line.replaceAll("\r", "");
@@ -162,7 +192,7 @@ Alias: pd:j, pd:jo
     if (code.length === 0) {
       return line;
     }
-    const colored = r2.cmd('?e "' + r2jadxEscapeQuotedArg(code) + '"~:))');
+    const colored = r2cmd('?e "' + r2jadxEscapeQuotedArg(code) + '"~:))');
     return leading + colored.replace(/\n$/, "");
   }
   function r2jadxColorLine(line) {
@@ -191,6 +221,8 @@ Alias: pd:j, pd:jo
     }
     return output.split("\n").map(r2jadxColorLine).join("\n");
   }
+
+  // src/jadx.ts
   function processClass(data, mode, context) {
     const methods = data.methods || [];
     if (mode === "c") {
@@ -400,7 +432,7 @@ Alias: pd:j, pd:jo
       line = line.replaceAll("\n", "");
       line = line.replaceAll(/[^ -~]+/g, "");
       line = line.replaceAll(/^SourceFile:\d+ /g, "");
-      const b64line = b64(line);
+      const b64line = b64encode(line);
       if (b64line.length > 2048) {
         return "CCu toolong @ " + addr + "\n";
       }
@@ -522,9 +554,8 @@ Alias: pd:j, pd:jo
     const outdir = r2jadxEnsureDecompiled(target);
     return r2jadxCrawl(outdir, mode, context);
   }
-  function r2jadxClearCache(target) {
-    runCmd(["rm", "-rf", nospace(dex2path(target))]);
-  }
+
+  // src/search.ts
   function r2jadxQualifiedClassName(data) {
     const className = data.name || "";
     const packageName = data.package || "";
@@ -583,6 +614,11 @@ Alias: pd:j, pd:jo
     }
     return res;
   }
+
+  // src/main.ts
+  function r2jadxClearCache(target) {
+    runCmd(["rm", "-rf", nospace(dex2path(target))]);
+  }
   function r2jadxMain(argv) {
     const firstArg = argv[0] || "";
     if (r2jadxIsHelpArg(firstArg)) {
@@ -599,10 +635,10 @@ Alias: pd:j, pd:jo
       return void 0;
     }
     try {
-      r2.cmd("af");
-      const info = r2.cmdj("ij");
+      r2cmd("af");
+      const info = r2cmdj("ij");
       const fileName = info.core.file;
-      const fcn = r2.cmdj("afij");
+      const fcn = r2cmdj("afij");
       if (!fileName.endsWith(".dex")) {
         throw new Error("Sorry, this is not a DEX file");
       }
@@ -637,7 +673,7 @@ Alias: pd:j, pd:jo
       if (mode.startsWith("r")) {
         for (const line of res.split("\n")) {
           if (line.trim().length > 0) {
-            r2.cmd(line);
+            r2cmd(line);
           }
         }
       } else {
@@ -648,15 +684,6 @@ Alias: pd:j, pd:jo
       const error = e;
       console.error("Oops", e, error.output ? error.output.toString() : "");
       throw e;
-    }
-  }
-  function r2jadxWithAddr(addr, cb) {
-    const savedAddr = r2jadxConfig.addr;
-    r2jadxConfig.addr = addr;
-    try {
-      return cb();
-    } finally {
-      r2jadxConfig.addr = savedAddr;
     }
   }
   function r2jadxPdCommand(cmd) {
@@ -676,8 +703,8 @@ Alias: pd:j, pd:jo
     r2jadxWithAddr(flags.indexOf("o") !== -1, () => r2jadxMain(["-f"]));
   }
   function r2jadxBegin() {
-    r2.unload("core", "r2jadx");
-    r2.plugin("core", function() {
+    r2unload("core", "r2jadx");
+    r2plugin("core", function() {
       function coreCall(cmd) {
         if (cmd.startsWith("r2jadx")) {
           const argv = cmd.substring(6).trim().split(" ");
@@ -698,5 +725,7 @@ Alias: pd:j, pd:jo
       };
     });
   }
+
+  // src/r2jadx.ts
   r2jadxBegin();
 })();
