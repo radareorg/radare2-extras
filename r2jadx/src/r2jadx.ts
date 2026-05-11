@@ -33,9 +33,16 @@ interface JadxMethod {
 	lines?: JadxLine[];
 }
 
+interface JadxField {
+	name: string;
+	declaration?: string;
+}
+
 interface JadxClass {
 	name?: string;
 	package?: string;
+	declaration?: string;
+	fields?: JadxField[];
 	source?: string;
 	methods?: JadxMethod[];
 	"inner-classes"?: JadxClass[];
@@ -132,6 +139,7 @@ Alias: pd:j, pd:jo
  -a   = show decompilation of all the classes
  -c   = decompile current class
  -f   = decompile current function
+ -s   = search decompiled code for text
  -ahl = all high level decompilation
  -all = all low level decompilation
  -hl  = high level decompilation
@@ -273,6 +281,7 @@ function r2jadxShouldColor(mode: string): boolean {
 	case "f":
 	case "all":
 	case "ahl":
+	case "s":
 		return r2jadxConfig.color;
 	}
 	return false;
@@ -621,7 +630,7 @@ function r2jadxCrawl(target: string, mode: string, context: R2JadxContext): stri
 	}
 }
 
-function r2jadxDecompile(target: string, mode: string, context: R2JadxContext): string {
+function r2jadxEnsureDecompiled(target: string): string {
 	const outdir = dex2path(target);
 	if (!directoryExists(outdir)) {
 		console.error("jadx: Performing the low level decompilation...");
@@ -632,11 +641,78 @@ function r2jadxDecompile(target: string, mode: string, context: R2JadxContext): 
 		console.error("jadx: Constructing the high level jsons...");
 		runCmd([ "r2pm", "-r", "jadx", "--show-bad-code", "--output-format", "json", "-d", pathJoin(outdir, "hl"), target ]);
 	}
+	return outdir;
+}
+
+function r2jadxDecompile(target: string, mode: string, context: R2JadxContext): string {
+	const outdir = r2jadxEnsureDecompiled(target);
 	return r2jadxCrawl(outdir, mode, context);
 }
 
 function r2jadxClearCache(target: string): void {
 	runCmd([ "rm", "-rf", nospace(dex2path(target)) ]);
+}
+
+function r2jadxQualifiedClassName(data: JadxClass): string {
+	const className = data.name || "";
+	const packageName = data.package || "";
+	if (packageName.length > 0 && className.indexOf(packageName + ".") === 0) {
+		return className;
+	}
+	return packageName.length > 0 && className.length > 0 ? packageName + "." + className : className;
+}
+
+function r2jadxSearchLine(query: string, addr: Offset, scope: string, line: string): string {
+	if (line.indexOf(query) === -1) {
+		return "";
+	}
+	const offset = parseOffset(addr);
+	const prefix = isNaN(offset) ? "            " : toPaddedHexString(offset, 8) + "  ";
+	return prefix + scope + ": " + r2jadxDisplayLine(line).trim() + "\n";
+}
+
+function r2jadxSearchClass(data: JadxClass, query: string): string {
+	let res = "";
+	const className = r2jadxQualifiedClassName(data);
+	if (className.length === 0) {
+		return "";
+	}
+	if (data.declaration) {
+		res += r2jadxSearchLine(query, undefined, className, data.declaration);
+	}
+	for (const field of data.fields || []) {
+		res += r2jadxSearchLine(query, undefined, className + "." + field.name, field.declaration || field.name);
+	}
+	for (const method of data.methods || []) {
+		const methodScope = className + "." + method.name;
+		res += r2jadxSearchLine(query, method.offset, methodScope, method.declaration || method.name);
+		let lastOffset = method.offset;
+		for (const line of method.lines || []) {
+			if (line.offset) {
+				lastOffset = line.offset;
+			}
+			res += r2jadxSearchLine(query, lastOffset, methodScope, line.code || "");
+		}
+	}
+	for (const klass of data["inner-classes"] || []) {
+		res += r2jadxSearchClass(klass, query);
+	}
+	return res;
+}
+
+function r2jadxSearch(target: string, query: string): string {
+	const files = walkSync(target).filter((_) => (_.endsWith && _.endsWith(".json")));
+	let res = "";
+	for (const fileName of files) {
+		try {
+			const fileData = readFile(fileName);
+			const data = JSON.parse(fileData) as JadxClass;
+			res += r2jadxSearchClass(data, query);
+		} catch (e) {
+			console.error("" + fileName + ": " + e);
+		}
+	}
+	return res;
 }
 
 function r2jadxMain(argv: string[]): string | undefined {
@@ -678,6 +754,16 @@ function r2jadxMain(argv: string[]): string | undefined {
 		if (mode === "C") {
 			r2jadxClearCache(fileName);
 			return undefined;
+		}
+		const searchText = argv.slice(1).join(" ").trim();
+		if (mode === "s") {
+			if (searchText.length === 0) {
+				console.error("Usage: r2jadx -s text");
+				return undefined;
+			}
+			const res = r2jadxSearch(pathJoin(r2jadxEnsureDecompiled(fileName), "hl"), searchText);
+			console.log(r2jadxFormatOutput(res, mode));
+			return res;
 		}
 		const res = r2jadxDecompile(fileName, mode, context);
 		if (mode.startsWith("r")) {
