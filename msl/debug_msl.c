@@ -8,6 +8,10 @@
 // full register file from the Current thread's Thread Context block (0x0011),
 // so stepping resumes from the real captured CPU state.
 //
+// A slice can capture several threads (one Thread Context each). `dpt` lists
+// them (with their captured PC) and `dpt=<tid>` re-seeds the register file from
+// another thread and seeks to its PC, so any captured thread can be emulated.
+//
 // Usage:  r2 -d msl://dump.msl      (or:  r2 dump.msl; e dbg.backend=msl; ood)
 //
 // Memory comes from the maps created by the bin/io plugins; this backend only
@@ -23,6 +27,7 @@
 #define MSL_BT_END_OF_CAPTURE 0x0FFF
 #define MSL_BLOCK_HEADER_SIZE 80
 #define MSL_THREAD_FLAG_CURRENT 0x1
+#define MSL_REG_FLAG_PC 0x1
 
 static inline ut64 msl_pad8(ut64 n) {
 	return (n + 7) & ~(ut64)7;
@@ -42,16 +47,22 @@ static const char *msl_arch_str(ut16 arch, int *bits) {
 	}
 }
 
-// Seed core->anal->reg from the Thread Context register file of the open
-// buffer. Prefers the Current thread; falls back to the first thread context.
-static void msl_seed_regs(RCore *core, RBuffer *b) {
+// Seed core->anal->reg from a thread's Thread Context register file. If
+// want_tid >= 0 the thread with that id is selected; if want_tid < 0 the
+// Current thread is used (falling back to the first thread context). Returns
+// true when a thread was seeded and, if out_tid is non-NULL, writes the chosen
+// thread id. The buffer is owned by the caller.
+static bool msl_seed_regs(RCore *core, RBuffer *b, int want_tid, ut64 *out_tid) {
 	RReg *reg = core->anal->reg;
 	ut8 h[16];
 	if (r_buf_read_at (b, 0, h, sizeof (h)) != sizeof (h)) {
-		return;
+		return false;
 	}
 	ut64 fsize = r_buf_size (b);
 	ut64 off = h[9];
+	// First pass: find the offset of the chosen thread's Thread Context block.
+	ut64 chosen_off = 0, chosen_tid = 0;
+	bool found = false;
 	while (off + MSL_BLOCK_HEADER_SIZE <= fsize) {
 		ut8 bh[MSL_BLOCK_HEADER_SIZE];
 		if (r_buf_read_at (b, off, bh, sizeof (bh)) != sizeof (bh) || memcmp (bh, MSL_BLOCK_MAGIC, 4)) {
@@ -65,36 +76,27 @@ static void msl_seed_regs(RCore *core, RBuffer *b) {
 		if (btype == MSL_BT_THREAD_CONTEXT) {
 			ut8 th[32];
 			if (r_buf_read_at (b, off + MSL_BLOCK_HEADER_SIZE, th, sizeof (th)) == sizeof (th)) {
+				ut64 tid = r_read_le64 (th);
 				ut16 tflags = r_read_le16 (th + 16);
-				ut32 regcount = r_read_le32 (th + 20);
-				ut16 namelen = r_read_le16 (th + 24);
-				ut64 ro = off + MSL_BLOCK_HEADER_SIZE + 32 + msl_pad8 (namelen);
-				ut32 i;
-				for (i = 0; i < regcount; i++) {
-					ut8 e[8];
-					if (r_buf_read_at (b, ro, e, sizeof (e)) != sizeof (e)) {
+				if (want_tid >= 0) {
+					if ((ut64) want_tid == tid) {
+						chosen_off = off;
+						chosen_tid = tid;
+						found = true;
 						break;
 					}
-					ut8 rnamelen = e[0];
-					ut8 width = e[1];
-					char name[64] = {0};
-					if (rnamelen > 0 && rnamelen < sizeof (name)) {
-						r_buf_read_at (b, ro + 8, (ut8 *)name, rnamelen);
-						name[sizeof (name) - 1] = 0;
+				} else {
+					if (!found) { // first thread = fallback when no Current flag
+						chosen_off = off;
+						chosen_tid = tid;
+						found = true;
 					}
-					ut8 v[8] = {0};
-					int n = (width > 8)? 8: width;
-					r_buf_read_at (b, ro + 8 + msl_pad8 (rnamelen), v, n);
-					if (*name) {
-						RRegItem *ri = r_reg_get (reg, name, -1);
-						if (ri) {
-							r_reg_set_value (reg, ri, r_read_le64 (v));
-						}
+					if (tflags & MSL_THREAD_FLAG_CURRENT) {
+						chosen_off = off;
+						chosen_tid = tid;
+						found = true;
+						break; // Current thread wins
 					}
-					ro += 8 + msl_pad8 (rnamelen) + msl_pad8 (width);
-				}
-				if (tflags & MSL_THREAD_FLAG_CURRENT) {
-					break; // Current thread wins; stop here
 				}
 			}
 		} else if (btype == MSL_BT_END_OF_CAPTURE) {
@@ -102,7 +104,45 @@ static void msl_seed_regs(RCore *core, RBuffer *b) {
 		}
 		off += blen;
 	}
-	r_unref (b);
+	if (!found) {
+		return false;
+	}
+	// Second pass: seed the register file from the chosen thread block.
+	ut8 th[32];
+	if (r_buf_read_at (b, chosen_off + MSL_BLOCK_HEADER_SIZE, th, sizeof (th)) != sizeof (th)) {
+		return false;
+	}
+	ut32 regcount = r_read_le32 (th + 20);
+	ut16 namelen = r_read_le16 (th + 24);
+	ut64 ro = chosen_off + MSL_BLOCK_HEADER_SIZE + 32 + msl_pad8 (namelen);
+	ut32 i;
+	for (i = 0; i < regcount; i++) {
+		ut8 e[8];
+		if (r_buf_read_at (b, ro, e, sizeof (e)) != sizeof (e)) {
+			break;
+		}
+		ut8 rnamelen = e[0];
+		ut8 width = e[1];
+		char name[64] = {0};
+		if (rnamelen > 0 && rnamelen < sizeof (name)) {
+			r_buf_read_at (b, ro + 8, (ut8 *)name, rnamelen);
+			name[sizeof (name) - 1] = 0;
+		}
+		ut8 v[8] = {0};
+		int n = (width > 8)? 8: width;
+		r_buf_read_at (b, ro + 8 + msl_pad8 (rnamelen), v, n);
+		if (*name) {
+			RRegItem *ri = r_reg_get (reg, name, -1);
+			if (ri) {
+				r_reg_set_value (reg, ri, r_read_le64 (v));
+			}
+		}
+		ro += 8 + msl_pad8 (rnamelen) + msl_pad8 (width);
+	}
+	if (out_tid) {
+		*out_tid = chosen_tid;
+	}
+	return true;
 }
 
 // One-time-per-core initialization: set up the ESIL VM, seed the register
@@ -179,7 +219,10 @@ static void msl_ensure(RDebug *dbg) {
 		r_reg_set_profile_string (dbg->reg, prof);
 		free (prof);
 	}
-	msl_seed_regs (core, b);
+	ut64 seeded_tid = 0;
+	if (msl_seed_regs (core, b, -1, &seeded_tid)) {
+		dbg->tid = (int) seeded_tid; // so `dpt` marks the active thread
+	}
 	r_unref (b);
 	// Seek to the captured program counter.
 	const char *pcname = r_reg_alias_getname (core->anal->reg, R_REG_ALIAS_PC);
@@ -210,6 +253,62 @@ static bool __msl_attach(RDebug *dbg, int pid) {
 }
 
 static bool __msl_detach(RDebug *dbg, int pid) {
+	return true;
+}
+
+// Switch the active thread: re-seed the register file from thread *tid*'s
+// captured Thread Context and seek to its PC. Invoked by r_debug_select, e.g.
+// `dpt=<tid>` (list captured threads with `dpt`). Returns false (leaving the
+// current thread untouched) if the slice has no thread with that id.
+static bool __msl_select(RDebug *dbg, int pid, int tid) {
+	RCore *core = dbg->coreb.core;
+	if (!core) {
+		return false;
+	}
+	msl_ensure (dbg);
+	const char *path = (core->io && core->io->desc)? core->io->desc->name: NULL;
+	if (!path) {
+		return false;
+	}
+	if (r_str_startswith (path, "msl://")) {
+		path += strlen ("msl://");
+	}
+	RBuffer *b = r_buf_new_mmap (path, R_PERM_R);
+	if (!b) {
+		return false;
+	}
+	bool ok = msl_seed_regs (core, b, tid, NULL);
+	if (ok) {
+		// r_debug_select() swaps the register arena and re-syncs from the
+		// plugin right after this returns, which would discard a seed made only
+		// into the current arena. The debugger and anal/ESIL share one RReg
+		// here, so seed the shadow arena too (a no-op when the pool has a single
+		// arena) so the new thread's registers survive the swap.
+		r_reg_arena_swap (core->anal->reg, false);
+		msl_seed_regs (core, b, tid, NULL);
+	}
+	r_unref (b);
+	if (!ok) {
+		// r2 auto-selects the whole process (pid == tid) on attach; that is
+		// not a captured thread id, so treat it as a no-op (the Current thread
+		// was already seeded by msl_ensure). Only a genuine `dpt=<tid>` for an
+		// absent thread is an error.
+		if (pid == tid) {
+			return true;
+		}
+		R_LOG_ERROR ("msl: no thread with tid %d in this slice", tid);
+		return false;
+	}
+	// Seek to the selected thread's captured PC. The ESIL/anal arena is the
+	// source of truth; r_debug_select syncs it into the debugger arena after
+	// this returns (and sets core->addr to the new PC).
+	const char *pcname = r_reg_alias_getname (core->anal->reg, R_REG_ALIAS_PC);
+	if (pcname && dbg->coreb.cmdf) {
+		RRegItem *pc = r_reg_get (core->anal->reg, pcname, -1);
+		if (pc) {
+			dbg->coreb.cmdf (core, "s 0x%"PFMT64x, r_reg_get_value (core->anal->reg, pc));
+		}
+	}
 	return true;
 }
 
@@ -339,6 +438,82 @@ static bool __msl_reg_write(RDebug *dbg, int type, const ut8 *buf, int size) {
 	return r_reg_set_bytes (reg, type, buf, size);
 }
 
+// List the captured threads (one Thread Context block each) so `dpt` shows
+// them with their captured PC. The Current thread is reported as running ('r'),
+// the rest as stopped ('s'); r_debug_thread_list marks dbg->tid with '*'.
+static RList *__msl_threads(RDebug *dbg, int pid) {
+	RCore *core = dbg->coreb.core;
+	const char *path = (core && core->io && core->io->desc)? core->io->desc->name: NULL;
+	if (!path) {
+		return NULL;
+	}
+	if (r_str_startswith (path, "msl://")) {
+		path += strlen ("msl://");
+	}
+	RBuffer *b = r_buf_new_mmap (path, R_PERM_R);
+	if (!b) {
+		return NULL;
+	}
+	RList *list = r_list_newf ((RListFree)r_debug_pid_free);
+	ut8 h[16];
+	if (r_buf_read_at (b, 0, h, sizeof (h)) != sizeof (h) || memcmp (h, MSL_FILE_MAGIC, 8)
+			|| (r_read_le32 (h + 12) & MSL_HDR_FLAG_ENCRYPTED)) {
+		r_unref (b);
+		return list;
+	}
+	ut64 fsize = r_buf_size (b);
+	ut64 off = h[9];
+	while (off + MSL_BLOCK_HEADER_SIZE <= fsize) {
+		ut8 bh[MSL_BLOCK_HEADER_SIZE];
+		if (r_buf_read_at (b, off, bh, sizeof (bh)) != sizeof (bh) || memcmp (bh, MSL_BLOCK_MAGIC, 4)) {
+			break;
+		}
+		ut16 btype = r_read_le16 (bh + 4);
+		ut32 blen = r_read_le32 (bh + 8);
+		if (blen < MSL_BLOCK_HEADER_SIZE) {
+			break;
+		}
+		if (btype == MSL_BT_THREAD_CONTEXT) {
+			ut8 th[32];
+			if (r_buf_read_at (b, off + MSL_BLOCK_HEADER_SIZE, th, sizeof (th)) == sizeof (th)) {
+				ut64 tid = r_read_le64 (th);
+				ut16 tflags = r_read_le16 (th + 16);
+				ut32 regcount = r_read_le32 (th + 20);
+				ut16 namelen = r_read_le16 (th + 24);
+				ut64 ro = off + MSL_BLOCK_HEADER_SIZE + 32 + msl_pad8 (namelen);
+				ut64 pc = 0;
+				ut32 i;
+				for (i = 0; i < regcount; i++) {
+					ut8 e[8];
+					if (r_buf_read_at (b, ro, e, sizeof (e)) != sizeof (e)) {
+						break;
+					}
+					ut8 rnamelen = e[0];
+					ut8 width = e[1];
+					ut16 rflags = r_read_le16 (e + 2);
+					if (rflags & MSL_REG_FLAG_PC) {
+						ut8 v[8] = {0};
+						int n = (width > 8)? 8: width;
+						r_buf_read_at (b, ro + 8 + msl_pad8 (rnamelen), v, n);
+						pc = r_read_le64 (v);
+					}
+					ro += 8 + msl_pad8 (rnamelen) + msl_pad8 (width);
+				}
+				char status = (tflags & MSL_THREAD_FLAG_CURRENT)? 'r': 's';
+				RDebugPid *p = r_debug_pid_new ("msl", (int) tid, 0, status, pc);
+				if (p) {
+					r_list_append (list, p);
+				}
+			}
+		} else if (btype == MSL_BT_END_OF_CAPTURE) {
+			break;
+		}
+		off += blen;
+	}
+	r_unref (b);
+	return list;
+}
+
 RDebugPlugin r_debug_plugin_msl = {
 	.meta = {
 		.name = "msl",
@@ -351,6 +526,8 @@ RDebugPlugin r_debug_plugin_msl = {
 	.canstep = 1,
 	.attach = &__msl_attach,
 	.detach = &__msl_detach,
+	.select = &__msl_select,
+	.threads = &__msl_threads,
 	.step = &__msl_step,
 	.step_over = &__msl_step_over,
 	.cont = &__msl_continue,

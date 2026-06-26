@@ -66,13 +66,21 @@ def reg(name, width, val, flags):
     e[0] = len(nm); e[1] = width
     struct.pack_into('<H', e, 2, flags)
     return bytes(e) + pad8(nm) + pad8(struct.pack('<Q', val)[:width])
-regs = reg('rip', 8, 0x1000, 1) + reg('rsp', 8, 0x2ff0, 2) + reg('rax', 8, 0x2a, 0)
-tc = bytearray(32)
-struct.pack_into('<Q', tc, 0, 7)      # ThreadID
-struct.pack_into('<H', tc, 16, 1)     # Flags: Current
-tc[18] = 3                            # ThreadState: Stopped
-struct.pack_into('<I', tc, 20, 3)     # RegCount
-d.block(0x0011, bytes(tc) + regs)
+
+def thread_block(tid, current, rip, rsp, rax):
+    regs = reg('rip', 8, rip, 1) + reg('rsp', 8, rsp, 2) + reg('rax', 8, rax, 0)
+    tc = bytearray(32)
+    struct.pack_into('<Q', tc, 0, tid)             # ThreadID
+    struct.pack_into('<H', tc, 16, 1 if current else 0)  # Flags: Current
+    tc[18] = 3                                     # ThreadState: Stopped
+    struct.pack_into('<I', tc, 20, 3)              # RegCount
+    d.block(0x0011, bytes(tc) + regs)
+
+thread_block(7, True, 0x1000, 0x2ff0, 0x2a)
+# With --mt, add a second (non-Current) thread parked further into the region,
+# to exercise thread listing (dpt) and selection (dpt=<tid>).
+if '--mt' in sys.argv:
+    thread_block(8, False, 0x1100, 0x2fe0, 0xbb)
 
 # Memory Region (0x0001): base 0x1000, size 0x2000 (2 pages), all captured.
 base, size, page = 0x1000, 0x2000, 4096
@@ -92,5 +100,8 @@ eoc = bytearray(48)
 eoc[0:32] = d.fh.digest()
 d.block(0x0FFF, bytes(eoc), feed=False)
 
-open(sys.argv[1], 'wb').write(d.out)
-print("wrote %s (%d bytes)" % (sys.argv[1], len(d.out)))
+outpath = next((a for a in sys.argv[1:] if not a.startswith('-')), None)
+if not outpath:
+    sys.exit("usage: genmsl.py [--mt] OUTPUT.msl")
+open(outpath, 'wb').write(d.out)
+print("wrote %s (%d bytes)" % (outpath, len(d.out)))

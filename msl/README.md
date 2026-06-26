@@ -97,6 +97,22 @@ Single-step and inspect with the usual debugger commands:
 *backwards*, reverting both the program counter and register/memory changes —
 useful for walking back from a fault or an interesting state in the snapshot.
 
+**Multiple threads.** A slice can capture more than one thread (one Thread
+Context block each). The backend seeds the Current thread by default, but every
+captured thread is listed and selectable:
+
+```
+[0x00401000]> dpt                   # list captured threads (PC, '*' = active)
+ * 7 r msl (0x401000)
+ - 8 s msl (0x401100)
+[0x00401000]> dpt=8                 # re-seed from thread 8 and seek to its PC
+[0x00401100]> dr rip rax            # now thread 8's captured registers
+```
+
+`dpt=<tid>` re-seeds the register file from that thread's Thread Context and
+seeks to its captured PC; stepping then continues from there. Reverse history
+resets at the switch (you cannot step back across into another thread).
+
 The backend clears `cfg.debug` after seeding so that `ds`/`dso` dispatch to the
 ESIL stepper instead of radare2's `r_debug_step` machinery (software
 breakpoints, arena swap, trace), which assumes a live ptrace process. The raw
@@ -145,6 +161,15 @@ $ python3 test/genmsl.py /tmp/sample.msl
 $ r2 -qc 'iS' /tmp/sample.msl                   # bin: region.0 @ 0x1000
 $ r2 -qc 's 0x1000; p8 8' msl:///tmp/sample.msl # io: captured bytes
 $ r2 -D msl -d msl:///tmp/sample.msl            # emulated debug; dr, ds, dsb
+```
+
+Add `--mt` to emit a second (non-Current) thread, to exercise thread listing
+and selection:
+
+```
+$ python3 test/genmsl.py --mt /tmp/mt.msl
+$ r2 -D msl -q -c 'dpt' -d msl:///tmp/mt.msl        # lists tid 7 (*) and 8
+$ r2 -D msl -q -c 'dpt=8; dr rip' -d msl:///tmp/mt.msl  # 0x1100 (thread 8's PC)
 ```
 
 ## Format reference
