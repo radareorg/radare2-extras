@@ -27,3 +27,9 @@ keep it usable for 99% of users.
 
 The recommended way to build and install those plugins for users
 is to use r2pm. See the [radare2 plugins](https://github.com/radareorg/radare2#plugins) documentation for details.
+
+## Notable plugins
+
+* [`msl`](msl/) — Memory Slice (`.msl`) support: open/emulate process memory
+  dumps (`io`/`bin`/`debug` plugins, with ESIL reverse execution) and produce
+  them from a live debug session (`dgm`/`dgma`, `core` plugin).
