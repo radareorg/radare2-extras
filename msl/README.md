@@ -11,7 +11,7 @@ This directory ships the support as loadable radare2 plugins.
 | Plugin | File | Role |
 |--------|------|------|
 | `io.msl`    | `io_msl.c`    | Exposes the virtual address space (`msl://`), and acts as a debug IO so a slice can be opened in debug mode without spawning a process. Verifies the SHA-256 integrity chain on open. |
-| `bin.msl`   | `bin_msl.c`   | Parses the slice as a CORE object: architecture/bits/OS, entrypoint (the captured PC), and one memory map per contiguous run of captured pages. |
+| `bin.msl`   | `bin_msl.c`   | Parses the slice as a CORE object: architecture/bits/OS, entrypoint (the captured PC), one memory map per contiguous run of captured pages, and symbols/libraries from the captured modules (incl. PE export tables, so call targets are named). |
 | `debug.msl` | `debug_msl.c` | Emulated debug backend: seeds the register file from the captured Thread Context and steps via ESIL, including reverse execution (`dsb`/`aesb`). |
 | `core.msl`  | `core_msl.c`  | Producer: adds `dgm`/`dgma` to write a `.msl` from a live debug session. |
 
@@ -49,9 +49,18 @@ entrypoint:
 $ r2 dump.msl
 [0x00401000]> i~type,arch,bits     # CORE, x86, 64
 [0x00401000]> iS                   # memory maps (one per captured run)
+[0x00401000]> il                   # captured modules (libraries)
+[0x00401000]> is                   # symbols: one per module + PE exports
 [0x00401000]> s entry0; pd 8       # disassemble from the captured PC
 [0x00401000]> px @ 0x7ffff000      # read captured memory
 ```
+
+Modules captured in the slice (ModuleEntry blocks) become libraries (`il`) and
+symbols (`is`): one symbol at each module base plus, for PE images whose headers
+are captured, one `FUNC` symbol per exported function at its address. radare2
+then names call targets — e.g. `call sym.kernel32.dll_CreateFileW` — instead of
+bare addresses. (ELF `.dynsym` export resolution is handled by the Python
+`memslicer` tools for now, not yet by this plugin.)
 
 For a raw virtual-address view without bin metadata, use the `msl://` URI, which
 goes straight through `io.msl`:
@@ -170,6 +179,15 @@ and selection:
 $ python3 test/genmsl.py --mt /tmp/mt.msl
 $ r2 -D msl -q -c 'dpt' -d msl:///tmp/mt.msl        # lists tid 7 (*) and 8
 $ r2 -D msl -q -c 'dpt=8; dr rip' -d msl:///tmp/mt.msl  # 0x1100 (thread 8's PC)
+```
+
+Add `--pe` to emit a module with a minimal in-memory PE export table, to
+exercise symbol/export resolution:
+
+```
+$ python3 test/genmsl.py --pe /tmp/pe.msl
+$ r2 -q -c 'is~MyExport' /tmp/pe.msl     # FUNC test.dll MyExport @ 0x10300
+$ r2 -q -c 'il' /tmp/pe.msl              # C:\Windows\System32\test.dll
 ```
 
 ## Format reference

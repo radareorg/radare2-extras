@@ -20,15 +20,25 @@
 #define MSL_HDR_FLAG_ENCRYPTED 0x4
 #define MSL_BLOCK_FLAG_COMPRESSED 0x1
 #define MSL_BT_MEMORY_REGION 0x0001
+#define MSL_BT_MODULE_ENTRY 0x0002
 #define MSL_BT_THREAD_CONTEXT 0x0011
 #define MSL_BT_END_OF_CAPTURE 0x0FFF
 #define MSL_BLOCK_HEADER_SIZE 80
 #define MSL_REG_FLAG_PC 0x1
 #define MSL_THREAD_FLAG_CURRENT 0x1
 #define MSL_MAX_PAGES (1ULL << 28)
+#define MSL_MAX_EXPORTS 65536
+#define MSL_MAX_NAME 256
+
+typedef struct {
+	ut64 base;
+	ut64 size;
+	char *path;
+} MslModule;
 
 typedef struct {
 	RList *maps;       // RBinMap*
+	RList *modules;    // MslModule*
 	ut64 entry;        // PC of the Current thread
 	bool has_entry;
 	ut16 os_type;
@@ -36,6 +46,29 @@ typedef struct {
 	int bits;
 	int compressed_skipped; // compressed regions that can't be file-mapped
 } RBinMslObj;
+
+static void msl_module_free(void *p) {
+	MslModule *m = p;
+	if (m) {
+		free (m->path);
+		free (m);
+	}
+}
+
+// Basename of a module path (handles both '\\' and '/').
+static const char *msl_basename(const char *path) {
+	if (!path) {
+		return "module";
+	}
+	const char *b = path;
+	const char *p;
+	for (p = path; *p; p++) {
+		if (*p == '/' || *p == '\\') {
+			b = p + 1;
+		}
+	}
+	return *b? b: path;
+}
 
 static inline ut64 msl_pad8(ut64 n) {
 	return (n + 7) & ~(ut64)7;
@@ -192,6 +225,122 @@ static bool msl_thread_pc(RBuffer *b, ut64 payload_off, ut64 payload_len, ut64 *
 	return false;
 }
 
+// Translate a virtual address to a file offset using the captured-run maps and
+// read *len* bytes. Reads must fall inside a single captured run.
+static bool msl_va_read(RBinMslObj *o, RBuffer *b, ut64 va, ut8 *out, int len) {
+	RListIter *it;
+	RBinMap *m;
+	r_list_foreach (o->maps, it, m) {
+		ut64 msize = (ut64)(ut32) m->size;
+		if (va >= m->addr && va + (ut64) len <= m->addr + msize) {
+			ut64 foff = m->offset + (va - m->addr);
+			return r_buf_read_at (b, foff, out, len) == len;
+		}
+	}
+	return false;
+}
+
+static ut32 msl_va_u32(RBinMslObj *o, RBuffer *b, ut64 va, bool *ok) {
+	ut8 v[4];
+	if (msl_va_read (o, b, va, v, 4)) {
+		*ok = true;
+		return r_read_le32 (v);
+	}
+	*ok = false;
+	return 0;
+}
+
+// Read a NUL-terminated ASCII string at *va* into *out* (capped). Returns its
+// length, or 0 if unreadable.
+static int msl_va_cstr(RBinMslObj *o, RBuffer *b, ut64 va, char *out, int cap) {
+	int i;
+	for (i = 0; i < cap - 1; i++) {
+		ut8 c;
+		if (!msl_va_read (o, b, va + i, &c, 1) || c == 0) {
+			break;
+		}
+		out[i] = (c >= 0x20 && c < 0x7f)? (char) c: '_';
+	}
+	out[i] = 0;
+	return i;
+}
+
+// Parse the PE export directory of a module mapped at mod->base and emplace one
+// FUNC symbol per named export. No-op (returns 0) for non-PE images.
+static int msl_pe_exports(RBinMslObj *o, RBuffer *b, MslModule *mod, RVecRBinSymbol *vec) {
+	ut64 base = mod->base;
+	ut8 mz[2];
+	if (!msl_va_read (o, b, base, mz, 2) || mz[0] != 'M' || mz[1] != 'Z') {
+		return 0;
+	}
+	bool ok;
+	ut32 lfanew = msl_va_u32 (o, b, base + 0x3c, &ok);
+	if (!ok || lfanew > 0x10000) {
+		return 0;
+	}
+	ut8 sig[4];
+	if (!msl_va_read (o, b, base + lfanew, sig, 4) || memcmp (sig, "PE\0\0", 4)) {
+		return 0;
+	}
+	ut64 opt = base + lfanew + 24;       // optional header
+	ut8 magic[2];
+	if (!msl_va_read (o, b, opt, magic, 2)) {
+		return 0;
+	}
+	ut16 omagic = r_read_le16 (magic);
+	// DataDirectory[0] (export table) lives at a magic-dependent offset.
+	ut64 dd0 = opt + ((omagic == 0x20b)? 112: 96);  // PE32+ : PE32
+	ut32 exp_rva = msl_va_u32 (o, b, dd0, &ok);
+	if (!ok || exp_rva == 0) {
+		return 0;
+	}
+	ut64 ed = base + exp_rva;            // IMAGE_EXPORT_DIRECTORY
+	ut32 n_names = msl_va_u32 (o, b, ed + 0x18, &ok);
+	if (!ok || n_names == 0 || n_names > MSL_MAX_EXPORTS) {
+		return 0;
+	}
+	ut32 funcs_rva = msl_va_u32 (o, b, ed + 0x1c, &ok); if (!ok) return 0;
+	ut32 names_rva = msl_va_u32 (o, b, ed + 0x20, &ok); if (!ok) return 0;
+	ut32 ords_rva  = msl_va_u32 (o, b, ed + 0x24, &ok); if (!ok) return 0;
+	const char *lib = msl_basename (mod->path);
+	int emitted = 0;
+	ut32 i;
+	for (i = 0; i < n_names; i++) {
+		ut32 name_rva = msl_va_u32 (o, b, base + names_rva + i * 4, &ok);
+		if (!ok || name_rva == 0) {
+			continue;
+		}
+		char name[MSL_MAX_NAME];
+		if (msl_va_cstr (o, b, base + name_rva, name, sizeof (name)) <= 0) {
+			continue;
+		}
+		ut8 ob[2];
+		if (!msl_va_read (o, b, base + ords_rva + i * 2, ob, 2)) {
+			continue;
+		}
+		ut16 ord = r_read_le16 (ob);
+		ut32 func_rva = msl_va_u32 (o, b, base + funcs_rva + (ut64) ord * 4, &ok);
+		if (!ok || func_rva == 0) {
+			continue;
+		}
+		RBinSymbol *sym = RVecRBinSymbol_emplace_back (vec);
+		if (!sym) {
+			break;
+		}
+		memset (sym, 0, sizeof (*sym));
+		sym->name = r_bin_name_new (name);
+		sym->libname = strdup (lib);
+		sym->vaddr = base + func_rva;
+		sym->paddr = base + func_rva;
+		sym->type = R_BIN_TYPE_FUNC_STR;
+		sym->bind = R_BIN_BIND_GLOBAL_STR;
+		sym->ordinal = ord;
+		sym->bits = o->bits;
+		emitted++;
+	}
+	return emitted;
+}
+
 static bool msl_parse(RBinMslObj *o, RBuffer *b) {
 	ut8 h[16];
 	if (r_buf_read_at (b, 0, h, sizeof (h)) != sizeof (h)) {
@@ -212,6 +361,7 @@ static bool msl_parse(RBinMslObj *o, RBuffer *b) {
 		o->arch_type = r_read_le16 (osarch + 2);
 	}
 	o->maps = r_list_newf (free);
+	o->modules = r_list_newf (msl_module_free);
 	bool have_current_pc = false;
 	ut64 fsize = r_buf_size (b);
 	ut64 off = header_size;
@@ -233,6 +383,27 @@ static bool msl_parse(RBinMslObj *o, RBuffer *b) {
 		ut64 payload_len = blen - MSL_BLOCK_HEADER_SIZE;
 		if (btype == MSL_BT_MEMORY_REGION) {
 			msl_region_maps (o, b, payload_off, bflags);
+		} else if (btype == MSL_BT_MODULE_ENTRY) {
+			// ModuleEntry: BaseAddr(8) ModuleSize(8) PathLen(2) VerLen(2) rsv(4)
+			// followed by the path. Used to resolve exports and label modules.
+			ut8 mh[24];
+			if (payload_len >= sizeof (mh)
+					&& r_buf_read_at (b, payload_off, mh, sizeof (mh)) == sizeof (mh)) {
+				ut16 pathlen = r_read_le16 (mh + 16);
+				MslModule *mod = R_NEW0 (MslModule);
+				if (mod) {
+					mod->base = r_read_le64 (mh);
+					mod->size = r_read_le64 (mh + 8);
+					if (pathlen > 0 && pathlen < 0x1000
+							&& 24 + (ut64) pathlen <= payload_len) {
+						mod->path = calloc (1, (size_t) pathlen + 1);
+						if (mod->path) {
+							r_buf_read_at (b, payload_off + 24, (ut8 *) mod->path, pathlen);
+						}
+					}
+					r_list_append (o->modules, mod);
+				}
+			}
 		} else if (btype == MSL_BT_THREAD_CONTEXT && !have_current_pc) {
 			ut64 pc = 0;
 			bool is_current = false;
@@ -277,6 +448,9 @@ static bool load(RBinFile *bf, RBuffer *buf, ut64 loadaddr) {
 			"plugin; open the slice as 'msl://%s' to read them (the io "
 			"plugin decompresses lz4).", o->compressed_skipped, bf->file);
 	}
+	int bits = 64;
+	msl_arch_str (o->arch_type, &bits);   // so symbols carry the right width
+	o->bits = bits;
 	bf->bo->bin_obj = o;
 	return true;
 }
@@ -285,9 +459,55 @@ static void destroy(RBinFile *bf) {
 	if (bf && bf->bo && bf->bo->bin_obj) {
 		RBinMslObj *o = bf->bo->bin_obj;
 		r_list_free (o->maps);
+		r_list_free (o->modules);
 		free (o);
 		bf->bo->bin_obj = NULL;
 	}
+}
+
+// One symbol per loaded module (at its base) plus, for PE images, one FUNC
+// symbol per exported function -- so radare2 names call targets like
+// `kernel32.dll!CreateFileW` instead of bare addresses.
+static bool symbols_vec(RBinFile *bf) {
+	R_RETURN_VAL_IF_FAIL (bf && bf->bo && bf->bo->bin_obj, false);
+	RBinMslObj *o = bf->bo->bin_obj;
+	RVecRBinSymbol *vec = &bf->bo->symbols_vec;
+	RBuffer *b = bf->buf;
+	RListIter *it;
+	MslModule *mod;
+	r_list_foreach (o->modules, it, mod) {
+		RBinSymbol *sym = RVecRBinSymbol_emplace_back (vec);
+		if (sym) {
+			memset (sym, 0, sizeof (*sym));
+			sym->name = r_bin_name_new (msl_basename (mod->path));
+			sym->vaddr = mod->base;
+			sym->paddr = mod->base;
+			sym->type = R_BIN_TYPE_OBJECT_STR;
+			sym->bind = R_BIN_BIND_GLOBAL_STR;
+			sym->size = mod->size;
+			sym->bits = o->bits;
+		}
+		msl_pe_exports (o, b, mod, vec);
+	}
+	return true;
+}
+
+// Expose captured modules as libraries (so `il` lists them).
+static RList *libs(RBinFile *bf) {
+	R_RETURN_VAL_IF_FAIL (bf && bf->bo && bf->bo->bin_obj, NULL);
+	RBinMslObj *o = bf->bo->bin_obj;
+	RList *ret = r_list_newf (free);
+	if (!ret) {
+		return NULL;
+	}
+	RListIter *it;
+	MslModule *mod;
+	r_list_foreach (o->modules, it, mod) {
+		if (mod->path) {
+			r_list_append (ret, strdup (mod->path));
+		}
+	}
+	return ret;
 }
 
 static RList *maps(RBinFile *bf) {
@@ -395,6 +615,8 @@ RBinPlugin r_bin_plugin_msl = {
 	.entries = &entries,
 	.maps = &maps,
 	.sections_vec = &sections_vec,
+	.symbols_vec = &symbols_vec,
+	.libs = &libs,
 	.info = &info,
 };
 
