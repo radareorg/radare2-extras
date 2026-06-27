@@ -12,7 +12,7 @@ This directory ships the support as loadable radare2 plugins.
 |--------|------|------|
 | `io.msl`    | `io_msl.c`    | Exposes the virtual address space (`msl://`), and acts as a debug IO so a slice can be opened in debug mode without spawning a process. Verifies the SHA-256 integrity chain on open. |
 | `bin.msl`   | `bin_msl.c`   | Parses the slice as a CORE object: architecture/bits/OS, entrypoint (the captured PC), one memory map per contiguous run of captured pages, and symbols/libraries from the captured modules (incl. PE export tables, so call targets are named). |
-| `debug.msl` | `debug_msl.c` | Emulated debug backend: seeds the register file from the captured Thread Context and steps via ESIL, including reverse execution (`dsb`/`aesb`). |
+| `debug.msl` | `debug_msl.c` | Emulated debug backend: seeds the register file from the captured Thread Context and steps via ESIL, including reverse execution (`dsb`/`aesb`). Lists and selects captured threads (`dpt` / `dpt=<tid>`). |
 | `core.msl`  | `core_msl.c`  | Producer: adds `dgm`/`dgma` to write a `.msl` from a live debug session. |
 
 **Compression:** lz4-compressed regions are decoded transparently by the
