@@ -21,7 +21,9 @@ macro_rules! static_cstr {
 /// r2c_strdup creates a new libc malloc()ed C String from a Rust string.
 unsafe fn r2c_strdup(s: &str) -> *mut c_char {
     let out_ptr = libc::malloc(s.len() + 1) as *mut c_char;
-    assert!(!out_ptr.is_null(), "malloc failed");
+    if out_ptr.is_null() {
+        return null_mut();
+    }
     let out = std::slice::from_raw_parts_mut(out_ptr, s.len() + 1);
     out[..s.len()].copy_from_slice(std::mem::transmute::<&[u8], &[c_char]>(s.as_bytes()));
     out[s.len()] = 0;
@@ -39,7 +41,7 @@ unsafe extern "C" fn init(_s: *mut RArchSession) -> bool {
 }
 
 unsafe extern "C" fn fini(_s: *mut RArchSession) -> bool {
-    REGISTER_CSTRS.clear();
+    REGISTER_CSTRS = Vec::new();
     true
 }
 
@@ -58,14 +60,19 @@ unsafe extern "C" fn mnemonics(_s: *mut RArchSession, id: c_int, json: bool) -> 
         let mnemonics = Mnemonic::values()
             .map(|m| format!("{:?}", m).to_lowercase())
             .collect::<Vec<String>>();
-        let out = serde_json::to_string(&mnemonics).unwrap();
-        r2c_strdup(&out)
+        match serde_json::to_string(&mnemonics) {
+            Ok(out) => r2c_strdup(&out),
+            Err(_) => null_mut(),
+        }
     } else {
         let mut strlen = 0usize;
         for value in Mnemonic::values() {
             strlen += format!("{:?}\n", value).len();
         }
         let str_ptr = malloc(strlen + 1) as *mut c_char;
+        if str_ptr.is_null() {
+            return null_mut();
+        }
         let mut str_slice = std::slice::from_raw_parts_mut(str_ptr as *mut u8, strlen + 1);
         for value in Mnemonic::values() {
             let value_str = format!("{:?}\n", value).to_lowercase();
@@ -82,14 +89,33 @@ unsafe extern "C" fn decode(
     op_ptr: *mut RAnalOp,
     mask: RArchDecodeMask,
 ) -> bool {
-    let session = session_ptr.as_ref().unwrap();
-    let config = session.config.as_ref().unwrap();
-    let op = op_ptr.as_mut().unwrap();
+    let session = match session_ptr.as_ref() {
+        Some(session) => session,
+        None => return false,
+    };
+    let config = match session.config.as_ref() {
+        Some(config) => config,
+        None => return false,
+    };
+    let op = match op_ptr.as_mut() {
+        Some(op) => op,
+        None => return false,
+    };
 
+    if op.bytes.is_null() || op.size <= 0 {
+        return false;
+    }
+    let bits = match selected_bits(config.bits) {
+        Some(bits) => bits,
+        None => return false,
+    };
     let data = std::slice::from_raw_parts(op.bytes, op.size as usize);
 
     let mut instruction = Instruction::default();
-    let mut decoder = Decoder::with_ip(config.bits as u32, data, op.addr, DecoderOptions::NONE);
+    let mut decoder = match Decoder::try_with_ip(bits, data, op.addr, DecoderOptions::NONE) {
+        Ok(decoder) => decoder,
+        Err(_) => return false,
+    };
     if !decoder.can_decode() {
         return false;
     }
@@ -142,10 +168,13 @@ unsafe extern "C" fn decode(
 }
 
 unsafe fn op_fillval(session: &RArchSession, op: &mut RAnalOp, instruction: &Instruction) {
-    let config = session.config.as_ref().unwrap();
-    let bits = config.bits;
+    let config = match session.config.as_ref() {
+        Some(config) => config,
+        None => return,
+    };
+    let bits = selected_bits(config.bits).unwrap_or(32);
 
-    let ret = r_list_newf(Some(std::mem::transmute(r_anal_value_free as usize)));
+    let ret = r_list_newf(Some(anal_value_free));
     if ret.is_null() {
         return;
     }
@@ -162,10 +191,10 @@ unsafe fn op_fillval(session: &RArchSession, op: &mut RAnalOp, instruction: &Ins
     *val = RAnalValue {
         type_: RArchValueType_R_ANAL_VAL_REG,
         access: R_PERM_W,
-        reg: if bits == 64 {
-            static_cstr!("rip")
-        } else {
-            static_cstr!("eip")
+        reg: match bits {
+            64 => static_cstr!("rip"),
+            16 => static_cstr!("ip"),
+            _ => static_cstr!("eip"),
         },
         ..RAnalValue::default()
     };
@@ -212,10 +241,38 @@ unsafe fn op_fillval(session: &RArchSession, op: &mut RAnalOp, instruction: &Ins
     op.access = ret;
 }
 
+unsafe extern "C" fn anal_value_free(value: *mut c_void) {
+    r_anal_value_free(value as *mut RAnalValue);
+}
+
+fn selected_bits(bits: c_int) -> Option<u32> {
+    let bits = bits as u32;
+    for selected in [64, 32, 16] {
+        for shift in [0, 8, 16, 24] {
+            if ((bits >> shift) & 0xff) == selected {
+                return Some(selected);
+            }
+        }
+    }
+    None
+}
+
 #[repr(transparent)]
 pub struct UnsafeSync<T>(pub T);
 
 unsafe impl<T> Sync for UnsafeSync<T> {}
+
+const R2_VERSION: &str = concat!(env!("R2_VERSION"), "\0");
+static R2_ABIVERSION: u32 = {
+    let bytes = env!("R2_ABIVERSION").as_bytes();
+    let mut val: u32 = 0;
+    let mut i = 0;
+    while i < bytes.len() {
+        val = val * 10 + (bytes[i] - b'0') as u32;
+        i += 1;
+    }
+    val
+};
 
 static ARCH_PLUGIN: UnsafeSync<RArchPlugin> = UnsafeSync(RArchPlugin {
     meta: RPluginMeta {
@@ -226,12 +283,12 @@ static ARCH_PLUGIN: UnsafeSync<RArchPlugin> = UnsafeSync(RArchPlugin {
         contact: null_mut(),
         copyright: null_mut(),
         license: static_cstr!("MIT") as *mut c_char,
-        status: R_PLUGIN_STATUS_BROKEN,
+        status: R_PLUGIN_STATUS_BASIC,
     },
     arch: static_cstr!("x86") as *mut c_char,
     cpus: null_mut(),
     endian: R_SYS_ENDIAN_LITTLE,
-    bits: 16 | 32 | 64,
+    bits: R_SYS_BITS_X86,
     addr_bits: 0,
     init: Some(init),
     fini: Some(fini),
@@ -243,6 +300,7 @@ static ARCH_PLUGIN: UnsafeSync<RArchPlugin> = UnsafeSync(RArchPlugin {
     mnemonics: Some(mnemonics),
     preludes: None,
     esilcb: None,
+    reset: None,
     // Unfortunately, we can't use ..RArchPlugin::default() here.
     // The Default trait is currently not const.
 });
@@ -253,8 +311,8 @@ static ARCH_PLUGIN: UnsafeSync<RArchPlugin> = UnsafeSync(RArchPlugin {
 pub static radare_plugin: UnsafeSync<RLibStruct> = UnsafeSync(RLibStruct {
     type_: R_LIB_TYPE_ARCH,
     data: &ARCH_PLUGIN.0 as *const RArchPlugin as *mut c_void,
-    version: static_cstr!("6.0.0"),
-    abiversion: 0,
+    version: R2_VERSION.as_ptr() as *const c_char,
     free: None,
     pkgname: null(),
+    abiversion: R2_ABIVERSION,
 });
