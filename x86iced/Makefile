@@ -1,10 +1,12 @@
-SOEXT=$(shell r2 -H R2_LIBEXT)
-PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
+R2 ?= radare2
+CARGO ?= cargo
+SOEXT ?= $(shell $(R2) -H R2_LIBEXT)
+PLUGDIR ?= $(shell $(R2) -H R2_USER_PLUGINS)
 NAME=x86-iced
 PLUGNAME=$(NAME).$(SOEXT)
 
 all:
-	cargo build --release
+	$(CARGO) build --release
 	mkdir -p $(PLUGDIR)
 	cp -f target/release/libx86iced.$(SOEXT) $(PLUGDIR)/$(PLUGNAME)
 

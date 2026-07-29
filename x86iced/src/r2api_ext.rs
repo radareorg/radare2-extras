@@ -4,8 +4,9 @@ use r2api::{RArchValue, RLogLevel, RPluginStatus};
 use std::ffi::c_int;
 
 pub const R_SYS_ENDIAN_LITTLE: u32 = 1;
+pub const R_SYS_BITS_X86: u64 = 16 | (32 << 8) | (64 << 16);
 
-pub const R_LIB_TYPE_ARCH: c_int = 17;
+pub const R_LIB_TYPE_ARCH: c_int = 16;
 
 pub const R_PLUGIN_STATUS_BROKEN: RPluginStatus = 0;
 pub const R_PLUGIN_STATUS_INCOMPLETE: RPluginStatus = 1;
