@@ -12,7 +12,8 @@ jobs:
     name: Build radare2 extras and r2pipe
     runs-on: ubuntu-22.04
     env:
-      BUILDS: 'asahi blackfin blessr2 keystone-lib keystone r2svd unicorn-lib vc4 x86iced'
+      EXTERNAL_BUILDS: 'keystone-lib unicorn-lib'
+      LOCAL_BUILDS: 'asahi blackfin blessr2 keystone r2svd vc4 x86iced'
       TESTS: 'keystone vc4'
     steps:
     - uses: actions/checkout@v3
@@ -20,10 +21,6 @@ jobs:
         repository: radareorg/radare2
         ref: master
         path: ./radare2
-    - name: Install dependencies
-      run: |
-        sudo apt-get --assume-yes update
-        sudo apt-get --assume-yes install libjansson-dev libboost-dev libcurl4-openssl-dev python3-wheel python3-setuptools && sudo pip3 install meson ninja
     - uses: radareorg/github-actions@v3
       with:
         from-git: true
@@ -36,11 +33,16 @@ jobs:
     - name: Compile and install plugins
       run: |
         set -e
-        for p in $BUILDS ; do
+        for p in $EXTERNAL_BUILDS ; do
           echo $p
           r2pm -i $p
         done
-        set +e
+        R2PM_GITDIR="$(r2pm -H R2PM_GITDIR)"
+        for p in $LOCAL_BUILDS ; do
+          echo $p
+          ln -s "$GITHUB_WORKSPACE/radare2-extras" "$R2PM_GITDIR/$p"
+          R2PM_OFFLINE=1 r2pm -i $p
+        done
     - name: Test plugins
       working-directory: radare2/test
       run: |
