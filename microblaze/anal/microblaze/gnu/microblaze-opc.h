@@ -411,9 +411,9 @@ static struct op_code_struct
 };
 
 /* Prefix for register names.  */
-char register_prefix[] = "r";
-char fsl_register_prefix[] = "rfsl";
-char pvr_register_prefix[] = "rpvr";
+extern char register_prefix[];
+extern char fsl_register_prefix[];
+extern char pvr_register_prefix[];
 
 
 /* #defines for valid immediate range.  */
@@ -427,4 +427,3 @@ char pvr_register_prefix[] = "rpvr";
 #define MAX_IMM5  ((int) 0x0000001f)
 
 #endif /* MICROBLAZE_OPC */
-

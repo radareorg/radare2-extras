@@ -1,8 +1,8 @@
-NAME=anal_microblaze_gnu
+NAME=arch_microblaze_gnu
 R2_PLUGIN_PATH=$(shell r2 -hh|grep R2_LIBR_PLUGINS|awk '{print $$2}')
-CFLAGS=-g -fPIC -Iinclude -Imicroblaze/gnu $(shell pkg-config --cflags r_anal)
-LDFLAGS=-shared $(shell pkg-config --libs r_anal)
-OBJS=$(NAME).o
+CFLAGS=-g -fPIC -Iinclude -Imicroblaze/gnu $(shell pkg-config --cflags r_arch)
+LDFLAGS=-shared $(shell pkg-config --libs r_arch)
+OBJS=anal_microblaze_gnu.o microblaze/gnu/microblaze-dis.o
 SO_EXT=$(shell uname|grep -q Darwin && echo dylib || echo so)
 LIB=$(NAME).$(SO_EXT)
 
@@ -12,10 +12,10 @@ clean:
 	    rm -f $(LIB) $(OBJS)
 
 $(LIB): $(OBJS)
-	    $(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $(LIB)
+	    $(CC) $(CFLAGS) $(OBJS) $(LDFLAGS) -o $(LIB)
 
 install:
-	    cp -f $(NAME).$(SO_EXT) $(R2_PLUGIN_PATH)
+	    cp -f $(LIB) $(R2_PLUGIN_PATH)
 
 uninstall:
-	    rm -f $(R2_PLUGIN_PATH)/$(NAME).$(SO_EXT)
+	    rm -f $(R2_PLUGIN_PATH)/$(LIB)

@@ -1,0 +1,76 @@
+NAME=MicroBlaze big endian disassembly and analysis
+FILE=malloc://4
+ARGS=-a microblaze -b 32 -e cfg.bigendian=true -e log.level=0
+CMDS=<<EOF
+wx 30600001
+pi 1
+aoj~{[0].size}
+aoj~{[0].type}
+EOF
+EXPECT=<<EOF
+addik    r3, r0, 1
+4
+add
+EOF
+RUN
+
+NAME=MicroBlaze little endian disassembly and analysis
+FILE=malloc://4
+ARGS=-a microblaze -b 32 -e cfg.bigendian=false -e log.level=0
+CMDS=<<EOF
+wx 01006030
+pi 1
+aoj~{[0].size}
+aoj~{[0].type}
+EOF
+EXPECT=<<EOF
+addik    r3, r0, 1
+4
+add
+EOF
+RUN
+
+NAME=MicroBlaze relative branch at a nonzero address
+FILE=malloc://4
+ARGS=-a microblaze -b 32 -e cfg.bigendian=true -e log.level=0 -m 0x1000
+CMDS=<<EOF
+wx b8000008
+pi 1
+aoj~{[0].type}
+aoj~{[0].jump}
+EOF
+EXPECT=<<EOF
+bri    8
+jmp
+4104
+EOF
+RUN
+
+NAME=MicroBlaze immediate prefix disassembly
+FILE=malloc://8
+ARGS=-a microblaze -b 32 -e cfg.bigendian=true -e log.level=0
+CMDS=<<EOF
+wx b000123430600001
+pi 2
+EOF
+EXPECT=<<EOF
+imm    4660
+addik    r3, r0, 1
+EOF
+RUN
+
+NAME=MicroBlaze unknown opcode
+FILE=malloc://4
+ARGS=-a microblaze -b 32 -e cfg.bigendian=true -e log.level=0
+CMDS=<<EOF
+wx ffffffff
+pi 1
+aoj~{[0].size}
+aoj~{[0].type}
+EOF
+EXPECT=<<EOF
+invalid
+4
+ill
+EOF
+RUN
