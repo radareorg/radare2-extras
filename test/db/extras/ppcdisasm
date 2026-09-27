@@ -1,0 +1,66 @@
+NAME=PowerPC big endian instruction
+FILE=malloc://4
+ARGS=-a ppc.disasm -b 32 -e cfg.bigendian=true -e log.level=0
+CMDS=<<EOF
+wx 38600001
+pi 1
+aoj~{[0].size}
+EOF
+EXPECT=<<EOF
+li r3,1
+4
+EOF
+RUN
+
+NAME=PowerPC little endian instruction
+FILE=malloc://4
+ARGS=-a ppc.disasm -b 32 -e cfg.bigendian=false -e log.level=0
+CMDS=<<EOF
+wx 01006038
+pi 1
+aoj~{[0].size}
+EOF
+EXPECT=<<EOF
+li r3,1
+4
+EOF
+RUN
+
+NAME=PowerPC relative branch uses instruction address
+FILE=malloc://4
+ARGS=-a ppc.disasm -b 32 -e cfg.bigendian=true -e log.level=0 -m 0x1000
+CMDS=<<EOF
+wx 48000008
+pi 1
+EOF
+EXPECT=<<EOF
+b 0x1008
+EOF
+RUN
+
+NAME=PowerPC conditional and absolute branches
+FILE=malloc://8
+ARGS=-a ppc.disasm -b 32 -e cfg.bigendian=true -e log.level=0 -m 0x1000
+CMDS=<<EOF
+wx 418200084800000a
+pi 2
+EOF
+EXPECT=<<EOF
+beq- 0x1008
+ba 0x8
+EOF
+RUN
+
+NAME=PowerPC invalid instruction
+FILE=malloc://4
+ARGS=-a ppc.disasm -b 32 -e cfg.bigendian=true -e log.level=0
+CMDS=<<EOF
+wx 00000000
+pi 1
+aoj~{[0].type}
+EOF
+EXPECT=<<EOF
+invalid
+ill
+EOF
+RUN
