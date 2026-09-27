@@ -30,6 +30,10 @@
 #include "microblaze-opc.h"
 #include "microblaze-dis.h"
 
+char register_prefix[] = "r";
+char fsl_register_prefix[] = "rfsl";
+char pvr_register_prefix[] = "rpvr";
+
 #define get_field_rd(instr)        get_field (instr, RD_MASK, RD_LOW)
 #define get_field_r1(instr)        get_field (instr, RA_MASK, RA_LOW)
 #define get_field_r2(instr)        get_field (instr, RB_MASK, RB_LOW)

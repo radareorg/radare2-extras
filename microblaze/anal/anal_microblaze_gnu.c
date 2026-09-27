@@ -1,10 +1,8 @@
 /* GPL, Copyright 2015 - tic */
 
+#include <stdarg.h>
 #include <string.h>
-#include <r_types.h>
-#include <r_lib.h>
-#include <r_asm.h>
-#include <r_anal.h>
+#include <r_arch.h>
 
 #include "microblaze-opc.h"
 #include "dis-asm.h"
@@ -26,7 +24,6 @@ struct mb_anal_ctx {
 	ut16 immval;
 	bool immfound;
 	ut32 immfound_addr;
-	RAnal *anal;
 	RAnalOp *op;
 };
 
@@ -36,12 +33,29 @@ static char *get_field(long instr, long mask, unsigned short low) {
 	return tmpstr;
 }
 
-static unsigned char bytes[4];
 static int microblaze_read_memory(bfd_vma memaddr, bfd_byte *myaddr,
                                   unsigned int length,
                                   struct disassemble_info *info) {
-	memcpy(myaddr, bytes, length);
+	if (memaddr < info->buffer_vma || length > info->buffer_length ||
+		memaddr - info->buffer_vma > info->buffer_length - length) {
+		return -1;
+	}
+	memcpy (myaddr, info->buffer + (memaddr - info->buffer_vma), length);
 	return 0;
+}
+
+static int microblaze_fprintf(void *stream, const char *format, ...) {
+	RStrBuf *sb = stream;
+	va_list ap;
+	int ret;
+	va_start (ap, format);
+	ret = r_strbuf_vappendf (sb, format, ap);
+	va_end (ap);
+	return ret;
+}
+
+static void microblaze_print_address(bfd_vma address, struct disassemble_info *info) {
+	r_strbuf_appendf (info->stream, "0x%08"PFMT64x, (ut64)address);
 }
 
 ut32 microblaze_our_get_target_address(long inst, bool immfound, int immval,
@@ -509,7 +523,7 @@ static void analyse_div_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	char *rb = get_field_r2 (insn);
 	char *rd = get_field_rd (insn);
 
-	r_strbuf_setf(&op->esil, "");
+	r_strbuf_set (&op->esil, "");
 	switch (mb_op->instr) {
 	case idiv:
 		r_strbuf_setf (&op->esil, "%s,%s,/,%s,=", ra, rb, rd);
@@ -545,7 +559,7 @@ static void analyse_branch_inst_imm(struct mb_anal_ctx *ctx, unsigned long insn,
 	char *rd = get_field_rd (insn);
 	char *imm;
 	ut32 jump_addr = 0;
-	r_strbuf_setf (&op->esil, "");
+	r_strbuf_set (&op->esil, "");
 
 	jump_addr = microblaze_our_get_target_address(
 			insn, ctx->immfound, ctx->immval, ctx->op->addr, r1, r2, &targetvalid,
@@ -693,7 +707,7 @@ static void analyse_branch_inst(struct mb_anal_ctx *ctx, unsigned long insn,
 	char *rd = get_field_rd (insn);
 	char *imm;
 	ut32 jump_addr = 0;
-	r_strbuf_setf (&op->esil, "");
+	r_strbuf_set (&op->esil, "");
 
 	jump_addr = microblaze_our_get_target_address(
 			insn, ctx->immfound, ctx->immval, ctx->op->addr, r1, r2, &targetvalid,
@@ -1088,130 +1102,137 @@ static void analyse_barrel_shift_inst(struct mb_anal_ctx *ctx, unsigned long ins
 }
 
 
-static int microblaze_op(RAnal *a, RAnalOp *op, ut64 addr, const ut8 *buf, int len, RAnalOpMask mask) {
-	int oplen = 4;
-	static struct mb_anal_ctx ctx;
-	static bool first_time = true;
-	struct disassemble_info info;
+static bool microblaze_init(RArchSession *session) {
+	session->data = R_NEW0 (struct mb_anal_ctx);
+	return session->data != NULL;
+}
+
+static bool microblaze_fini(RArchSession *session) {
+	if (session) {
+		free (session->data);
+	}
+	return true;
+}
+
+static bool microblaze_op(RArchSession *session, RAnalOp *op, RArchDecodeMask mask) {
+	struct mb_anal_ctx *ctx = session->data;
+	struct disassemble_info info = {0};
 	unsigned long insn;
 	struct op_code_struct *mb_op;
 
-	/* initialize immediate value, belongs to init,
-	 * there are some corner cases here */
-	if (len < 4) {
-		return -1;
+	if (!ctx || !op->bytes || op->size < 4) {
+		return false;
 	}
-
-	if (first_time) {
-		ctx.immval = 0;
-		ctx.immfound = false;
-		ctx.immfound_addr = 0;
-	}
-	first_time = false;
-	ctx.anal = a;
-	ctx.op = op;
-
-	/* update bytes */
-	memcpy (bytes, buf, oplen);
+	ctx->op = op;
+	info.buffer = op->bytes;
+	info.buffer_length = 4;
 	info.read_memory_func = microblaze_read_memory;
-	if (a->config->big_endian) {
+	if (R_ARCH_CONFIG_IS_BIG_ENDIAN (session->config)) {
 		info.endian = BFD_ENDIAN_BIG;
 	} else {
 		info.endian = BFD_ENDIAN_LITTLE;
 	}
-
-	if (op == NULL) {
-		return oplen;
-	}
-
-    memset (op, 0, sizeof (RAnalOp));
 	op->type = R_ANAL_OP_TYPE_NULL;
 	op->jump = op->fail = -1;
-	op->size = oplen;
+	op->size = 4;
 	op->delay = 0;
-	op->addr = addr;
-	op->ptr = op->val = -1;
+	op->ptr = -1;
+	op->val = UT64_MAX;
 	op->refptr = 0;
-	r_strbuf_init (&op->esil);
+	r_strbuf_set (&op->esil, "");
 
 	/* get microblaze insn */
 	insn = read_insn_microblaze (0, &info, &mb_op);
 
-	if (insn == 0) {
+	if (insn == 0 || !mb_op->name) {
 		op->type = R_ANAL_OP_TYPE_ILL;
-		return oplen;
+		return false;
 	}
-	if (mask & R_ANAL_OP_MASK_DISASM) {
-		op->mnemonic = strdup (mb_op->name);
+	if (mask & R_ARCH_OP_MASK_DISASM) {
+		RStrBuf *sb = r_strbuf_new (NULL);
+		if (!sb) {
+			return false;
+		}
+		info.buffer_vma = op->addr;
+		info.fprintf_func = microblaze_fprintf;
+		info.print_address_func = microblaze_print_address;
+		info.stream = sb;
+		print_insn_microblaze (op->addr, &info);
+		op->mnemonic = r_strbuf_drain (sb);
 	}
 
-	r_strbuf_setf (&op->esil, "");
-	handle_immediate_inst (&ctx, insn, mb_op);
+	handle_immediate_inst (ctx, insn, mb_op);
 
-	if (ctx.immfound_addr == ctx.op->addr - 4) ctx.immfound = true;
-	else ctx.immfound = false;
+	ctx->immfound = ctx->immfound_addr == ctx->op->addr - 4;
 
 	switch (mb_op->instr_type) {
 	case arithmetic_inst:
-		analyse_arithmetic_inst (&ctx, insn, mb_op);
+		analyse_arithmetic_inst (ctx, insn, mb_op);
 		break;
     case arithmetic_inst_imm:
-		analyse_arithmetic_inst_imm (&ctx, insn, mb_op);
+		analyse_arithmetic_inst_imm (ctx, insn, mb_op);
 		break;
 	case logical_inst:
-		analyse_logical_inst (&ctx, insn, mb_op);
+		analyse_logical_inst (ctx, insn, mb_op);
 		break;
 	case logical_inst_imm:
-		analyse_logical_inst_imm (&ctx, insn, mb_op);
+		analyse_logical_inst_imm (ctx, insn, mb_op);
 		break;
 	case mult_inst:
-		analyse_mult_inst (&ctx, insn, mb_op);
+		analyse_mult_inst (ctx, insn, mb_op);
 		break;
 	case div_inst:
-		analyse_div_inst (&ctx, insn, mb_op);
+		analyse_div_inst (ctx, insn, mb_op);
 		break;
 	case branch_inst:
-		analyse_branch_inst (&ctx, insn, mb_op);
+		analyse_branch_inst (ctx, insn, mb_op);
 		break;
 	case branch_inst_imm:
-		analyse_branch_inst_imm (&ctx, insn, mb_op);
+		analyse_branch_inst_imm (ctx, insn, mb_op);
 		break;
 	case return_inst:
-		analyse_return_inst (&ctx, insn, mb_op);
+		analyse_return_inst (ctx, insn, mb_op);
 		break;
 	case special_inst:
-		analyse_special_inst (&ctx, insn, mb_op);
+		analyse_special_inst (ctx, insn, mb_op);
 		break;
 	case memory_load_inst:
-		analyse_memory_load_inst (&ctx, insn, mb_op);
+		analyse_memory_load_inst (ctx, insn, mb_op);
 		break;
 	case memory_load_inst_imm:
-		analyse_memory_load_inst_imm (&ctx, insn, mb_op);
+		analyse_memory_load_inst_imm (ctx, insn, mb_op);
 		break;
 	case memory_store_inst:
-		analyse_memory_store_inst (&ctx, insn, mb_op);
+		analyse_memory_store_inst (ctx, insn, mb_op);
 		break;
 	case memory_store_inst_imm:
-		analyse_memory_store_inst_imm (&ctx, insn, mb_op);
+		analyse_memory_store_inst_imm (ctx, insn, mb_op);
 		break;
 	case barrel_shift_inst:
-		analyse_barrel_shift_inst (&ctx, insn, mb_op);
+		analyse_barrel_shift_inst (ctx, insn, mb_op);
 		break;
 	case anyware_inst:
-		analyse_anyware_inst (&ctx, insn, mb_op);
+		analyse_anyware_inst (ctx, insn, mb_op);
 		break;
 	default:
 		break;
 	}
 
-	return oplen;
+	return true;
 }
 
-static int archinfo(RAnal *anal, int q) {
-	return 4;
+static int archinfo(RArchSession *session, ut32 q) {
+	switch (q) {
+	case R_ARCH_INFO_MINOP_SIZE:
+	case R_ARCH_INFO_MAXOP_SIZE:
+	case R_ARCH_INFO_INVOP_SIZE:
+	case R_ARCH_INFO_CODE_ALIGN:
+		return 4;
+	}
+	return -1;
 }
 
-static int microblaze_set_reg_profile(RAnal* anal) {
+static char *microblaze_regs(RArchSession *session) {
 	const char *p =
 		"=PC	pc\n"
 		"=SP    r1\n"
@@ -1271,25 +1292,29 @@ static int microblaze_set_reg_profile(RAnal* anal) {
         //      _immf
         //              this is the temporary flag set when an imm value has been set.
         "gpr    _immf  .8       164     0\n";
-	return r_reg_set_profile_string(anal->reg, p);
+	return strdup (p);
 }
 
-struct r_anal_plugin_t r_anal_plugin_microblaze_gnu = {
-	.name = "microblaze.gnu",
-	.desc = "MICROBLAZE code analysis plugin",
-	.license = "LGPL3",
+const RArchPlugin r_arch_plugin_microblaze_gnu = {
+	.meta = {
+		.name = "microblaze.gnu",
+		.desc = "MicroBlaze GNU architecture plugin",
+		.license = "GPL-3.0-or-later",
+	},
 	.arch = "microblaze",
-	.bits = 32,
-	.esil = true,
-	.archinfo = archinfo,
-	.op = &microblaze_op,
-	.set_reg_profile = microblaze_set_reg_profile,
+	.bits = R_SYS_BITS_PACK1 (32),
+	.endian = R_SYS_ENDIAN_BIG | R_SYS_ENDIAN_LITTLE,
+	.init = microblaze_init,
+	.fini = microblaze_fini,
+	.info = archinfo,
+	.decode = microblaze_op,
+	.regs = microblaze_regs,
 };
 
-#ifndef CORELIB
-struct r_lib_struct_t radare_plugin = {
-        .type = R_LIB_TYPE_ANAL,
-        .data = &r_anal_plugin_microblaze_gnu,
-        .version = R2_VERSION
+#ifndef R2_PLUGIN_INCORE
+R_API RLibStruct radare_plugin = {
+	.type = R_LIB_TYPE_ARCH,
+	.data = (void *)&r_arch_plugin_microblaze_gnu,
+	.version = R2_VERSION
 };
 #endif
