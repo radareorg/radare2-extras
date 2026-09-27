@@ -24,6 +24,19 @@ In progress:
 and available for python imports. It is recommended to use the latest version of
  `python-idb` by cloning the repository and installing it using `python setup.py install`.
 
+Export names, functions, comments, and C-compatible local types (structs, unions,
+enums, and typedefs) from an IDB or I64 file:
+
+```
+python3 ida2r2/ida2r2.py -idb project.i64 -o project.r2
+r2 -i project.r2 -B 0x400000 program
+```
+
+Use `-nt` to omit types. The exporter reports types it cannot represent as C,
+such as C++ templates, inheritance, and bitfields. Check the image base printed
+by the exporter and use the binary's bitness when importing pointer-containing
+structures.
+
 
 ## r2ida - IDA subview to interact with radare2
 
@@ -37,5 +50,4 @@ https://www.youtube.com/watch?v=AkN3uJLdMvM
 
 ## Install
 put the plugin on ida plugins folder, and Crtl + Shift + R
-
 

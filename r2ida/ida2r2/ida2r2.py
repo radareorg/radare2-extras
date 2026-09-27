@@ -4,7 +4,7 @@
 
 $ ida2r2.py -h
 
-usage: ida2r2.py [-h] (-idb IDB_FILE | -idc IDC_FILE) -o OUT_FILE [-nc | -nf | -nn]
+usage: ida2r2.py [-h] (-idb IDB_FILE | -idc IDC_FILE) -o OUT_FILE [-nc] [-nf] [-nn] [-nt]
 
 Export IDB or IDC from IDA into a radare2 initialization script
 
@@ -19,6 +19,7 @@ optional arguments:
   -nc, --no-comments    Don't convert comments
   -nf, --no-functions   Don't convert functions
   -nn, --no-names       Don't convert names
+  -nt, --no-types       Don't convert IDB types
 
 """
 
@@ -75,7 +76,10 @@ def get_args():
                            action="store_false",
                            help="Don't convert names")
 
-    arg_parser.set_defaults(is_comments=True, is_functions=True, is_names=True)
+    arg_parser.add_argument("-nt", "--no-types", dest="is_types",
+                           action="store_false", help="Don't convert IDB types")
+
+    arg_parser.set_defaults(is_comments=True, is_functions=True, is_names=True, is_types=True)
 
     args = arg_parser.parse_args()
     return args
@@ -144,6 +148,140 @@ def idb2r2_names(api):
 			addr=str(ea)
 		))
 
+
+def c_name(name):
+    if name and (name.startswith("$") or "::$" in name):
+        name = re.sub(r"[^A-Za-z_0-9]", "_", name)
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z_0-9]*", name or ""):
+        raise ValueError("unsupported C identifier: %r" % name)
+    return name
+
+
+def c_decl(t, name=""):
+    """Render the C subset of python-idb's TIL types with the name in place."""
+    if t.is_decl_array():
+        count = t.type_details.n_elems
+        return c_decl(t.get_arr_object(), "%s[%s]" % (name, count or ""))
+    if t.is_decl_ptr():
+        obj = t.get_pointed_object()
+        ptr = "*" + name
+        if obj.is_decl_array() or obj.is_decl_func():
+            ptr = "(" + ptr + ")"
+        return c_decl(obj, ptr)
+    if t.is_decl_func():
+        args = [c_decl(arg.type, c_name(arg.name) if arg.name else "")
+                for arg in t.type_details.args]
+        return c_decl(t.type_details.rettype, "%s(%s)" % (name, ", ".join(args) or "void"))
+    if t.is_decl_typedef():
+        base = t.get_refname()
+        target = t.til.types.find_by_name(base)
+        if target and target.type.is_decl_sue():
+            kind = "enum" if target.type.is_decl_enum() else "union" if target.type.is_decl_union() else "struct"
+            base = "%s %s" % (kind, c_name(base))
+        else:
+            base = c_name(base)
+        return "%s %s" % (base, name)
+    if t.is_decl_sue():
+        ref = t.type_details.ref
+        base = ref.get_refname() if ref else t.get_name()
+        kind = "enum" if t.is_decl_enum() else "union" if t.is_decl_union() else "struct"
+        return "%s %s %s" % (kind, c_name(base), name)
+    base = t.get_typename()
+    base = re.sub(r"\bunsigned int(8|16|32|64|128)\b", r"uint\1_t", base)
+    base = re.sub(r"\bint(8|16|32|64|128)\b", r"int\1_t", base)
+    if t.is_decl_double():
+        base = "double"
+    if not re.fullmatch(r"(?:unsigned )?(?:void|bool|char|short|int|long|float|double|u?int(?:8|16|32|64|128)_t)(?: (?:int|long))?", base):
+        raise ValueError("unsupported scalar type: %r" % base)
+    return "%s %s" % (base, name)
+
+
+def type_deps(t):
+    if t.is_decl_ptr():
+        return set()  # A pointer can refer to an incomplete struct.
+    if t.is_decl_array():
+        return type_deps(t.get_arr_object())
+    if t.is_decl_func():
+        deps = type_deps(t.type_details.rettype)
+        for arg in t.type_details.args:
+            deps.update(type_deps(arg.type))
+        return deps
+    if t.is_decl_typedef():
+        return {t.get_refname()}
+    if t.is_decl_sue() and t.type_details.ref:
+        return {t.type_details.ref.get_refname()}
+    return set()
+
+
+def render_idb_type(entry):
+    name = c_name(entry.name)
+    t = entry.type
+    if t.is_decl_sue() and not t.type_details.ref:
+        if t.is_decl_enum():
+            members = ["%s = %s" % (c_name(m.name), m.value)
+                       for m in t.type_details.members]
+            return "enum %s {%s}" % (name, ", ".join(members))
+        if any(m.is_baseclass() for m in t.type_details.members):
+            raise ValueError("C++ inheritance")
+        members = []
+        for m in t.type_details.members:
+            if m.type.is_decl_bitfield():
+                raise ValueError("bitfields are not supported by r2's C type parser")
+            members.append(c_decl(m.type, c_name(m.name)) + ";")
+        kind = "union" if t.is_decl_union() else "struct"
+        return "%s %s {%s}" % (kind, name, " ".join(members))
+    return "typedef " + c_decl(t, name)
+
+
+def entry_deps(entry):
+    t = entry.type
+    if t.is_decl_enum() and not t.type_details.ref:
+        return set()
+    if t.is_decl_sue() and not t.type_details.ref:
+        return set().union(*(type_deps(m.type) for m in t.type_details.members))
+    return type_deps(t)
+
+
+def idb2r2_types(db):
+    """Import C-compatible local TIL definitions; leave unsupported C++ types out."""
+    outfile.write("\n# IDB Types\n")
+    entries = db.til.types.defs
+    names = {e.name for e in entries}
+    rendered = {}
+    deps = {}
+    for entry in entries:
+        try:
+            decl = render_idb_type(entry)
+            refs = (entry_deps(entry) & names) - {entry.name}
+            rendered[entry.name] = decl
+            deps[entry.name] = refs
+        except (AttributeError, IndexError, KeyError, NotImplementedError, RecursionError, ValueError) as e:
+            print("[-] Skipping IDB type %r: %s" % (entry.name, e), file=sys.stderr)
+    # A by-value member of a skipped type would give the wrong layout in r2.
+    while True:
+        missing = {name: refs - rendered.keys() for name, refs in deps.items() if name in rendered}
+        missing = {name: refs for name, refs in missing.items() if refs}
+        if not missing:
+            break
+        for name, refs in missing.items():
+            print("[-] Skipping IDB type %r: missing %s" % (name, ", ".join(sorted(refs))), file=sys.stderr)
+            rendered.pop(name)
+    pending = [e for e in entries if e.name in rendered]
+    pending_names = set(rendered)
+    while pending:
+        for i, entry in enumerate(pending):
+            if not (deps[entry.name] & pending_names):
+                break
+        else:
+            for entry in pending:
+                print("[-] Skipping IDB type %r: cyclic by-value types" % entry.name, file=sys.stderr)
+                rendered.pop(entry.name)
+            break
+        entry = pending.pop(i)
+        pending_names.discard(entry.name)
+        outfile.write("'td %s;\n" % rendered[entry.name])
+    print("[+] IDB types: %s imported, %s skipped" % (len(rendered), len(entries) - len(rendered)))
+
 def idb_parse(args):
     global outfile
     with idb.from_file(args.idb_file) as db:
@@ -164,6 +302,9 @@ def idb_parse(args):
 
         if args.is_names:
             idb2r2_names(api)
+
+        if args.is_types:
+            idb2r2_types(db)
 
         if args.is_comments:
             segs = idb.analysis.Segments(db).segments
