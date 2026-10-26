@@ -137,6 +137,10 @@ static bool mslw_dump(RCore *core, const char *path, bool full) {
 	RReg *reg = core->dbg->reg;
 	const char *pcname = r_reg_alias_getname (reg, R_REG_ALIAS_PC);
 	const char *spname = r_reg_alias_getname (reg, R_REG_ALIAS_SP);
+	const char *bpname = r_reg_alias_getname (reg, R_REG_ALIAS_BP);
+	const char *srname = r_reg_alias_getname (reg, R_REG_ALIAS_SR);
+	const char *lrname = r_reg_alias_getname (reg, R_REG_ALIAS_LR);
+	const bool arm64 = arch_type == 2;
 	RBuffer *regs = r_buf_new ();
 	ut32 regcount = 0;
 	RList *items = r_reg_get_list (reg, R_REG_TYPE_GPR);
@@ -145,6 +149,11 @@ static bool mslw_dump(RCore *core, const char *path, bool full) {
 	r_list_foreach (items, it, item) {
 		if (!item->name || item->size != bits) {
 			continue;  // emit canonical full-width registers only
+		}
+		// Spec Table 19g: ARM64 fp/lr are aliases of x29/x30 and MUST NOT be
+		// written; r2's profile lists both at the same offset.
+		if (arm64 && (!strcmp (item->name, "fp") || !strcmp (item->name, "lr"))) {
+			continue;
 		}
 		int width = item->size / 8;
 		if (width < 1 || width > 8) {
@@ -155,11 +164,17 @@ static bool mslw_dump(RCore *core, const char *path, bool full) {
 		ut8 e[8] = {0};
 		e[0] = (ut8)nlen;
 		e[1] = (ut8)width;
-		ut16 rflags = 0;
+		ut16 rflags = 0;  // Table 19b: PC, SP, FP, FLAGS, TLS, LR
 		if (pcname && !strcmp (item->name, pcname)) {
 			rflags |= 1;
 		} else if (spname && !strcmp (item->name, spname)) {
 			rflags |= 2;
+		} else if (bpname && !strcmp (item->name, bpname)) {
+			rflags |= 4;
+		} else if (srname && !strcmp (item->name, srname)) {
+			rflags |= 8;
+		} else if (lrname && !strcmp (item->name, lrname)) {
+			rflags |= 0x20;
 		}
 		r_write_le16 (e + 2, rflags);
 		r_buf_append_bytes (regs, e, 8);
@@ -215,7 +230,7 @@ static bool mslw_dump(RCore *core, const char *path, bool full) {
 		RBuffer *tc = r_buf_new ();
 		ut8 h[32] = {0};
 		r_write_le64 (h, (ut64)core->dbg->tid);  // ThreadID
-		r_write_le16 (h + 16, 1);                // Flags: Current
+		r_write_le16 (h + 16, 1 | 4);            // Flags: Current | Suspended (debugger-halted)
 		h[18] = 3;                               // ThreadState: Stopped
 		r_write_le32 (h + 20, regcount);
 		r_buf_append_bytes (tc, h, 32);

@@ -28,6 +28,16 @@
 #define MSL_BLOCK_HEADER_SIZE 80
 #define MSL_THREAD_FLAG_CURRENT 0x1
 #define MSL_REG_FLAG_PC 0x1
+#define MSL_ARCH_ARM64 2
+
+// Table 19a ThreadState codes.
+#define MSL_TS_RUNNING 0x01
+#define MSL_TS_SLEEPING 0x02
+#define MSL_TS_STOPPED 0x03
+#define MSL_TS_WAITING 0x04
+#define MSL_TS_UNINTERRUPTIBLE 0x05
+#define MSL_TS_HALTED 0x06
+#define MSL_TS_ZOMBIE 0x07
 
 static inline ut64 msl_pad8(ut64 n) {
 	return (n + 7) & ~(ut64)7;
@@ -44,6 +54,40 @@ static const char *msl_arch_str(ut16 arch, int *bits) {
 	case 8: *bits = 32; return "ppc";
 	case 9: *bits = 64; return "ppc";
 	default: *bits = 64; return "x86";
+	}
+}
+
+// Spec 1.1.1 consumer rule 29: files from 1.1.0 producers may carry the ARM64
+// aliases forbidden by Table 19g; map them to the canonical names. cpsr is not
+// a 1.1.0 alias but r2's arm64 profile only knows pstate.
+static const char *msl_canonical_reg(const char *name, ut16 arch) {
+	if (arch == MSL_ARCH_ARM64) {
+		if (!strcmp (name, "fp")) {
+			return "x29";
+		}
+		if (!strcmp (name, "lr")) {
+			return "x30";
+		}
+		if (!strcmp (name, "cpsr")) {
+			return "pstate";
+		}
+	}
+	return name;
+}
+
+// RDebugPid status for a Thread Context (Table 19a ThreadState). Unknown
+// state falls back to the Current flag: the resumption thread reads as
+// running, the rest as stopped.
+static char msl_thread_status(ut8 state, ut16 tflags) {
+	switch (state) {
+	case MSL_TS_RUNNING: return R_DBG_PROC_RUN;
+	case MSL_TS_SLEEPING:
+	case MSL_TS_WAITING:
+	case MSL_TS_UNINTERRUPTIBLE: return R_DBG_PROC_SLEEP;
+	case MSL_TS_STOPPED:
+	case MSL_TS_HALTED: return R_DBG_PROC_STOP;
+	case MSL_TS_ZOMBIE: return R_DBG_PROC_ZOMBIE;
+	default: return (tflags & MSL_THREAD_FLAG_CURRENT)? R_DBG_PROC_RUN: R_DBG_PROC_STOP;
 	}
 }
 
@@ -112,6 +156,12 @@ static bool msl_seed_regs(RCore *core, RBuffer *b, int want_tid, ut64 *out_tid) 
 	if (r_buf_read_at (b, chosen_off + MSL_BLOCK_HEADER_SIZE, th, sizeof (th)) != sizeof (th)) {
 		return false;
 	}
+	// Table 19a: Arch at +0x13 is this thread's mode, 0 = file header ArchType.
+	ut8 ab[2];
+	ut16 arch = th[19];
+	if (!arch && r_buf_read_at (b, 0x32, ab, sizeof (ab)) == sizeof (ab)) {
+		arch = r_read_le16 (ab);
+	}
 	ut32 regcount = r_read_le32 (th + 20);
 	ut16 namelen = r_read_le16 (th + 24);
 	ut64 ro = chosen_off + MSL_BLOCK_HEADER_SIZE + 32 + msl_pad8 (namelen);
@@ -132,7 +182,7 @@ static bool msl_seed_regs(RCore *core, RBuffer *b, int want_tid, ut64 *out_tid) 
 		int n = (width > 8)? 8: width;
 		r_buf_read_at (b, ro + 8 + msl_pad8 (rnamelen), v, n);
 		if (*name) {
-			RRegItem *ri = r_reg_get (reg, name, -1);
+			RRegItem *ri = r_reg_get (reg, msl_canonical_reg (name, arch), -1);
 			if (ri) {
 				r_reg_set_value (reg, ri, r_read_le64 (v));
 			}
@@ -499,7 +549,7 @@ static RList *__msl_threads(RDebug *dbg, int pid) {
 					}
 					ro += 8 + msl_pad8 (rnamelen) + msl_pad8 (width);
 				}
-				char status = (tflags & MSL_THREAD_FLAG_CURRENT)? 'r': 's';
+				char status = msl_thread_status (th[18], tflags);
 				RDebugPid *p = r_debug_pid_new ("msl", (int) tid, 0, status, pc);
 				if (p) {
 					r_list_append (list, p);
