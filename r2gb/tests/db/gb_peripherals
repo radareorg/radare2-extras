@@ -1,0 +1,68 @@
+NAME=Game Boy visual mode rejects noninteractive input
+FILE=malloc://0x8000
+CMDS=<<EOF
+L ./core_gb.r2so
+r2gb
+r2gb visual
+EOF
+EXPECT=<<EOF
+EOF
+EXPECT_ERR=<<EOF
+ERROR: Game Boy visual mode requires scr.interactive=true
+EOF
+RUN
+
+NAME=Game Boy help accepts trailing command names
+FILE=malloc://0x8000
+CMDS=<<EOF
+L ./core_gb.r2so
+r2gb? status~r2gb status
+EOF
+EXPECT=<<EOF
+| r2gb status   show emulated cycles and frames
+EOF
+EXPECT_ERR=<<EOF
+EOF
+RUN
+
+NAME=Game Boy peripherals use standard ESIL single stepping
+FILE=malloc://0x8000
+CMDS=<<EOF
+L ./core_gb.r2so
+wx c30001 @0x100
+r2gb
+aes 10
+r2gb status
+ar pc
+r2gb-
+e cmd.esil.step
+e cmd.esil.stepout
+EOF
+EXPECT=<<EOF
+cycles=160 frames=0 bank=1 audio=4 offset=4
+0x00000100
+
+
+EOF
+RUN
+
+NAME=Game Boy joypad is read by cartridge ESIL
+FILE=malloc://0x8000
+CMDS=<<EOF
+L ./core_gb.r2so
+wx 3e20e000f000 @0x100
+r2gb
+r2gb keys 1
+aes 3
+ar a
+r2gb keys 0
+ar pc=0x104
+aes
+ar a
+r2gb-
+EOF
+EXPECT=<<EOF
+0x000000ee
+0x000000ef
+EOF
+RUN
