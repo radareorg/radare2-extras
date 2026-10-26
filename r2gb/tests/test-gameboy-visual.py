@@ -14,7 +14,10 @@ import time
 
 
 R2 = os.environ.get("R2", "r2")
-PLUGIN = os.environ.get("R2GB_PLUGIN", str(Path(__file__).resolve().parent.parent / "core_gb.r2so"))
+PLUGIN = os.environ.get("R2GB_PLUGIN")
+if not PLUGIN:
+    extension = subprocess.check_output([R2, "-H", "R2_LIBEXT"], text=True).strip()
+    PLUGIN = str(Path(__file__).resolve().parent.parent / f"core_gb.{extension}")
 PROGRAM = "3e20e000f000ea00c03e10e000f000ea01c0c30001"
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b[78]")
 
@@ -22,7 +25,7 @@ ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b[78]")
 def visual(key, columns=80, rows=24, pattern=False, duration=0.02, events=()):
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
-    commands = [f'L "{PLUGIN}"', f"wx {PROGRAM} @0x100"]
+    commands = [f"wx {PROGRAM} @0x100"]
     if pattern:
         commands += [
             "r2gb", "wx 00 @0xff40", "wox ff @0x10000!69120",
@@ -33,7 +36,7 @@ def visual(key, columns=80, rows=24, pattern=False, duration=0.02, events=()):
         "r2gb status", "e esil.maxbacksteps", "q!",
     ]
     process = subprocess.Popen(
-        [R2, "-N", "-q", "-e", "scr.interactive=true", "-e",
+        [R2, "-N", "-q", "-i", PLUGIN, "-e", "scr.interactive=true", "-e",
          f"scr.color={3 if pattern else 0}", "-c", ";".join(commands), "malloc://0x8000"],
         stdin=slave, stdout=slave, stderr=slave, start_new_session=True,
         env=dict(os.environ, R2_NOPLUGINS="1"),

@@ -21,7 +21,7 @@ tests/test_core_gb: tests/test_core_gb.c tests/minunit.h $(SOURCES)
 
 test: $(PLUGIN) tests/test_core_gb
 	R2GB_PLUGIN="$(CURDIR)/$(PLUGIN)" ./tests/test_core_gb
-	R2R_RADARE2="$(R2)" $(R2R) -u tests/db/gb_peripherals
+	R2R_RADARE2="$(R2)" $(R2R) -u -C "$(CURDIR)" tests/db/gb_peripherals
 
 test-visual: $(PLUGIN)
 	R2="$(R2)" R2GB_PLUGIN="$(CURDIR)/$(PLUGIN)" $(PYTHON) tests/test-gameboy-visual.py

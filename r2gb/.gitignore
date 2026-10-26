@@ -1,0 +1,5 @@
+*.so
+*.dylib
+*.dll
+*.dSYM/
+/tests/test_core_gb
