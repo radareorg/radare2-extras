@@ -120,7 +120,15 @@ captured thread is listed and selectable:
 
 `dpt=<tid>` re-seeds the register file from that thread's Thread Context and
 seeks to its captured PC; stepping then continues from there. Reverse history
-resets at the switch (you cannot step back across into another thread).
+resets at the switch (you cannot step back across into another thread). The
+status letter comes from the block's `ThreadState` (`r` running, `S`
+sleeping/waiting, `s` stopped/halted, `z` zombie); when the producer left it
+Unknown, the Current thread shows `r` and the rest `s`.
+
+Register names follow spec 1.1.1 (Table 19g). Slices from 1.1.0 producers may
+still name the ARM64 frame/link registers `fp`/`lr`; the backend maps them to
+`x29`/`x30` (and `cpsr` to `pstate`) when seeding, and `dgm` never writes the
+aliases.
 
 The backend clears `cfg.debug` after seeding so that `ds`/`dso` dispatch to the
 ESIL stepper instead of radare2's `r_debug_step` machinery (software
@@ -196,4 +204,4 @@ The `.msl` binary format is specified in the
 [Memory Slice specification](https://github.com/MemorySlice). The plugins read:
 the 64/128-byte file header (`MEMSLICE` magic, OS/arch/PID), Memory Region
 blocks (`0x0001`, with the two-bit page-state map), and Thread Context blocks
-(`0x0011`, per-thread register file).
+(`0x0011`, per-thread register file, incl. the 1.1 `Arch`/`ThreadState` bytes).
