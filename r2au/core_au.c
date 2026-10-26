@@ -1396,10 +1396,10 @@ static bool au_visual(RCore *core) {
 		case 'f':
 			{
 				r_line_set_prompt (cons->line, "(freq)> ");
-				cons->line->contents = r_str_newf ("%d", toneSize);
+				cons->line->state.contents = r_str_newf ("%d", toneSize);
 				const char *buf = r_line_readline (cons);
 				waveFreq = r_num_math (core->num, buf);
-				cons->line->contents = NULL;
+				cons->line->state.contents = NULL;
 				r_core_cmdf (core, "auw%c %d", waveTypeChar, waveFreq);
 				r_core_cmd0 (core, "& au.");
 			}
@@ -1407,10 +1407,10 @@ static bool au_visual(RCore *core) {
 		case 'b':
 			{
 				r_line_set_prompt (cons->line, "audio block size> ");
-				cons->line->contents = r_str_newf ("%d", toneSize);
+				cons->line->state.contents = r_str_newf ("%d", toneSize);
 				const char *buf = r_line_readline (cons);
 				toneSize = r_num_math (core->num, buf);
-				cons->line->contents = NULL;
+				cons->line->state.contents = NULL;
 			}
 			break;
 		case 'K':
