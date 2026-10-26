@@ -25,7 +25,7 @@ arch_au.$(LIBEXT): arch_au.c
 #anal_au.$(LIBEXT): anal_au.c
 #	$(CC) $(CFLAGS) $(LDFLAGS) anal_au.c -o anal_au.$(LIBEXT)
 
-core_au.$(LIBEXT): core_au.c noise.c
+core_au.$(LIBEXT): core_au.c noise.c stream.inc.c
 	$(CC) $(CFLAGS) $(LDFLAGS) noise.c core_au.c -o core_au.$(LIBEXT)
 
 user-install install:

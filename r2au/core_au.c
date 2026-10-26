@@ -465,7 +465,6 @@ ut8 *sample_new(float freq, int form, int *size) {
 }
 
 static bool au_init(int rate, int bits, int channels, int endian) {
-	ao_initialize ();
 
 	int default_driver = ao_default_driver_id ();
 	memset (&format, 0, sizeof (format));
@@ -493,7 +492,6 @@ static bool au_init(int rate, int bits, int channels, int endian) {
 static bool au_fini() {
 	ao_close (device);
 	device = NULL;
-	ao_shutdown ();
 	return true;
 }
 
@@ -1817,6 +1815,7 @@ static int _cmd_au(RCore *core, const char *args) {
 		eprintf ("| auf       - flags per freqs associated with keys\n");
 		eprintf ("| aue       - audio effects (arpeggio, percent, ..)\n");
 		eprintf ("| aua [arpeggio] - arpeggio chords to use\n");
+		eprintf ("| auq?      - asynchronous PCM streaming\n");
 		eprintf ("| aui ([rate] [bits] [channels]) - init audio \n");
 		eprintf ("| aum       - mix from given address into current with bsize\n");
 		eprintf ("| aun [noisetype] - select [white, pink, brown]\n");
@@ -1829,6 +1828,8 @@ static int _cmd_au(RCore *core, const char *args) {
 	}
 	return false;
 }
+
+#include "stream.inc.c"
 
 static bool r_cmd_au_call(RCorePluginSession *cs, const char *input) {
 	RCore *core = cs->core;
@@ -1845,7 +1846,11 @@ RCorePlugin r_core_plugin_au = {
 		.desc = "play mustic with radare2",
 		.license = "MIT",
 	},
+	.command = "auq",
+	.call_ctx = audio_queue_call,
 	.call = r_cmd_au_call,
+	.init = audio_queue_init,
+	.fini = audio_queue_fini,
 };
 
 #ifndef CORELIB
