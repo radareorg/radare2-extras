@@ -405,3 +405,8 @@ Binary fixtures belong in `radare2-testbins`, not this repository.
 References: [Pan Docs](https://gbdev.io/pandocs/),
 [SM83 instruction descriptions](https://rgbds.gbdev.io/docs/gbz80.7),
 and [opcode tables](https://gbdev.io/gb-opcodes/optables).
+
+## Debugging notes
+
+See [the emulator notes](doc/README.md) for traced bugs, hardware details,
+and the limits of the current model.
