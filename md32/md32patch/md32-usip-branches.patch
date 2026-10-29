@@ -1,0 +1,37 @@
+diff --git a/md32/arch_md32.c b/md32/arch_md32.c
+index b12263c..e5166b0 100644
+--- a/md32/arch_md32.c
++++ b/md32/arch_md32.c
+@@ -489,6 +489,9 @@ static bool usip_decode(RAnalOp *op, RArchDecodeMask mask) {
+ 			r_strbuf_set (&sb, "ret");
+ 		} else if ((h & 0xff0f) == 0xff05) {
+ 			r_strbuf_setf (&sb, "restore 0x%x", (h >> 4) & 15);
++		} else if ((h & 0xff0f) == 0xdf05) {
++			/* forma de 16 bits de `save` (doc 19 §11.2, 260 usos) */
++			r_strbuf_setf (&sb, "save16 0x%x", (h >> 4) & 15);
+ 		} else {
+ 			r_strbuf_setf (&sb, ".hword 0x%04x", h);
+ 		}
+@@ -502,6 +505,22 @@ static bool usip_decode(RAnalOp *op, RArchDecodeMask mask) {
+ 			r_strbuf_setf (&sb, "call 0x%08"PFMT64x, op->jump);
+ 		} else if ((h & 0xff0f) == 0x5f05) {
+ 			r_strbuf_setf (&sb, "save 0x%04x, 0x%x", lo, (h >> 4) & 15);
++		} else if (h == 0x5ef9) {
++			/* ret en forma de 32 bits (doc 19 §11.2, 121 usos) */
++			op->type = R_ANAL_OP_TYPE_RET;
++			op->eob = true;
++			r_strbuf_set (&sb, "ret");
++		} else if ((h & 0xff0f) == 0x7f05) {
++			/* restore en forma de 32 bits (93 usos) */
++			r_strbuf_setf (&sb, "restore 0x%x", (h >> 4) & 15);
++		} else if ((h & 0xf1ff) == 0x400c && (lo & 0xf000) >= 0xc000) {
++			/* b<cond>: 8 condiciones en h[11:9], destino pc+(lo&0xFFE).
++			   Validado 981/985 (99,59 %) en frontera de instruccion. */
++			const unsigned cond = (h >> 9) & 7;
++			op->type = R_ANAL_OP_TYPE_CJMP;
++			op->jump = relative_target (op->addr, lo & 0xffe);
++			op->fail = relative_target (op->addr, 4);
++			r_strbuf_setf (&sb, "b%u 0x%08"PFMT64x, cond, op->jump);
+ 		} else {
+ 			r_strbuf_setf (&sb, ".word 0x%04x%04x", h, lo);
+ 		}

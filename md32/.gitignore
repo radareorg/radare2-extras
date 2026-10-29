@@ -1,0 +1,10 @@
+*.so
+*.dylib
+*.dSYM/
+__pycache__/
+test/test_md32
+test/test_parse
+tools/md32-run
+
+.pmai/
+usipdata/
