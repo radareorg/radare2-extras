@@ -33,3 +33,6 @@ is to use r2pm. See the [radare2 plugins](https://github.com/radareorg/radare2#p
 * [`msl`](msl/) — Memory Slice (`.msl`) support: open/emulate process memory
   dumps (`io`/`bin`/`debug` plugins, with ESIL reverse execution) and produce
   them from a live debug session (`dgm`/`dgma`, `core` plugin).
+
+* [`r2gg`](r2gg/) — Game Gear emulation through Z80 ESIL, with color terminal
+  display, controls, Sega cartridge banking, interrupts, and stereo PSG audio.

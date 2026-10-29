@@ -1,0 +1,4 @@
+*.dSYM/
+tests/test_core_gg
+tests/test-columns
+tests/test-sonic

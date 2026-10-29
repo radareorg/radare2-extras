@@ -26,6 +26,6 @@ copied from mapped IO; the worker only touches its queue and audio device.
   its device. Plugin unload performs the same cleanup.
 - `auq?`: help and capability probe (`$? = 1`).
 
-This interface is used by radare2's `r2gb visual` and `r2gb audio` commands.
+This interface is used by radare2's `r2gb play` and `r2gb audio` commands.
 Use `python3 test-stream.py` after building for silent streaming/lifecycle
 checks. Set `R2` to select the radare2 executable.
