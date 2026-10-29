@@ -955,7 +955,7 @@ static void gameboy_visual(RCoreGameBoy *gb, ut32 hold_ms) {
 	RCore *core = gb->core;
 	RCons *cons = core->cons;
 	if (!r_cons_is_interactive (cons)) {
-		R_LOG_ERROR ("Game Boy visual mode requires scr.interactive=true");
+		R_LOG_ERROR ("Game Boy play mode requires scr.interactive=true");
 		return;
 	}
 	ut8 *pixels = malloc (GB_FRAME_SIZE * 2);
@@ -992,6 +992,7 @@ static void gameboy_visual(RCoreGameBoy *gb, ut32 hold_ms) {
 	ut64 start = r_time_now_mono ();
 	ut64 start_cycles = gb->cycles;
 	ut64 next_render = 0;
+	ut64 sleep_us = r_config_get_i (core->config, "gb.usleep");
 	bool audio_ready = false;
 	bool failed = false;
 	while (!r_cons_is_breaked (cons) && gameboy_visual_input (gb, &input)) {
@@ -1012,9 +1013,16 @@ static void gameboy_visual(RCoreGameBoy *gb, ut32 hold_ms) {
 			}
 			next_render = now + 33333;
 		}
-		ut64 target = (now - start + (audio? 50000: 0)) * 4194304 / 1000000;
+		now = r_time_now_mono ();
+		ut64 elapsed = now - start;
+		ut64 frame_end = ((elapsed * 4194304 / 1000000) / 70224 + 1) * 70224;
+		ut64 target = frame_end + (audio? (ut64)50000 * 4194304 / 1000000: 0);
 		if (gb->cycles - start_cycles >= target) {
-			r_sys_usleep (1000);
+			ut64 deadline = (frame_end * 1000000 + 4194304 - 1) / 4194304;
+			ut64 wait = R_MIN (sleep_us, deadline - elapsed);
+			if (wait) {
+				r_sys_usleep (wait);
+			}
 			continue;
 		}
 		int i;
@@ -1061,7 +1069,8 @@ static char *gameboy_cmd(RCore *core, const char *cmd) {
 			"| r2gb keys N   held buttons: right=1 left=2 up=4 down=8 A=16 B=32 select=64 start=128\n"
 			"| r2gb screen   render the 160x144 framebuffer using scr.color\n"
 			"| r2gb audio    play pending stereo PCM through r2au (audio- stops playback)\n"
-			"| r2gb visual [hold-ms] play with hjkl, a/s, D/F, q; legacy key hold defaults to 500 ms\n"
+			"| r2gb play [hold-ms] play with hjkl, a/s, D/F, q; legacy key hold defaults to 500 ms\n"
+			"| e gb.usleep=16000 maximum frame-deadline sleep in microseconds (0 disables sleeping)\n"
 			"| r2gb maps     show runtime memory maps and active cartridge offsets\n"
 			"| r2gb status   show emulated cycles and frames\n"
 			"Use aes/aesu/aesue to execute; pri @0x10000!69120 prints the RGB framebuffer (hex.cols=160).");
@@ -1092,7 +1101,7 @@ static char *gameboy_cmd(RCore *core, const char *cmd) {
 		return strdup ("");
 	}
 	RCoreGameBoy *gb = gameboy_get (esil);
-	if (!gb && (!strcmp (input, "visual") || r_str_startswith (input, "visual "))) {
+	if (!gb && (!strcmp (input, "play") || r_str_startswith (input, "play "))) {
 		char *output = gameboy_cmd (core, "");
 		free (output);
 		gb = gameboy_get (esil);
@@ -1121,8 +1130,8 @@ static char *gameboy_cmd(RCore *core, const char *cmd) {
 		}
 	} else if (!strcmp (input, "audio-")) {
 		gameboy_audio_stop (gb);
-	} else if (!strcmp (input, "visual") || r_str_startswith (input, "visual ")) {
-		ut64 hold_ms = input[6]? r_num_math (core->num, input + 7): 500;
+	} else if (!strcmp (input, "play") || r_str_startswith (input, "play ")) {
+		ut64 hold_ms = input[4]? r_num_math (core->num, input + 5): 500;
 		if (hold_ms < 1 || hold_ms > 5000) {
 			R_LOG_ERROR ("Legacy key hold must be between 1 and 5000 ms");
 		} else {
@@ -1147,8 +1156,28 @@ static RCmdResult gameboy_call(RCmdContext *ctx) {
 	return (RCmdResult) { 0 };
 }
 
+static bool gameboy_sleep_config(void *user, void *data) {
+	RConfigNode *node = data;
+	if (node->i_value > 1000000) {
+		R_LOG_ERROR ("gb.usleep must be between 0 and 1000000 microseconds");
+		return false;
+	}
+	return true;
+}
+
+static bool gameboy_core_init(RCorePluginSession *session) {
+	RConfig *config = session->core->config;
+	bool locked = config->lock;
+	r_config_lock (config, false);
+	RConfigNode *node = r_config_set_i_cb (config, "gb.usleep", 16000, gameboy_sleep_config);
+	r_config_desc (config, "gb.usleep", "Maximum sleep in microseconds while waiting for the next emulated frame (0 busy-waits)");
+	r_config_lock (config, locked);
+	return node != NULL;
+}
+
 static bool gameboy_core_fini(RCorePluginSession *session) {
 	RCore *core = session->core;
+	r_config_rm (core->config, "gb.usleep");
 	if (core->esil.esil.libstore) {
 		r_esil_plugin_del (&core->esil.esil, "gameboy");
 	}
@@ -1165,6 +1194,7 @@ RCorePlugin r_core_plugin_gb = {
 	},
 	.command = "r2gb",
 	.call_ctx = gameboy_call,
+	.init = gameboy_core_init,
 	.fini = gameboy_core_fini,
 };
 

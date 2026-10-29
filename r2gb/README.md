@@ -99,10 +99,10 @@ The first condition leaves VBlank if already there; the second runs until
 `LY` is 144 again. The macro waits for the cartridge to enable its LCD. A
 cartridge that keeps its LCD disabled will require Ctrl-C to stop this wait.
 
-## Play in visual mode
+## Play mode
 
 ```r2
-r2gb visual
+r2gb play
 ```
 
 This initializes the cartridge if needed, continuously executes ESIL, renders
@@ -119,7 +119,7 @@ individual pixels. The view adjusts when the terminal is resized.
 | `h`, `j`, `k`, `l` | Left, Down, Up, Right |
 | `a`, `s` | A, B |
 | `D`, `F` | Select, Start |
-| `q` | Leave visual mode |
+| `q` | Leave play mode |
 
 `d`/`D` and `f`/`F` select Select and Start. Visual mode requests the Kitty
 [keyboard event protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/),
@@ -132,7 +132,7 @@ Terminals without release events show `input=timed (500 ms)`. Each press or
 repeat extends that button's hold by 500 milliseconds of real time. This
 bridges the usual initial repeat delay, but cannot exactly reproduce physical
 key releases or arbitrary simultaneous holds. Adjust the fallback duration
-with `r2gb visual 200`, for example, for shorter taps. The range is 1–5000 ms.
+with `r2gb play 200`, for example, for shorter taps. The range is 1–5000 ms.
 The hold duration does not change with emulation speed. Supporting terminals
 use real releases regardless of this fallback setting. Keyboard protocol
 settings are restored on exit.
@@ -149,6 +149,23 @@ current bytes so bank switches and self-modifying RAM code remain visible.
 Audio is submitted in chunks with roughly 50 ms of buffering to absorb
 rendering and scheduling delays.
 
+Play mode paces execution to the console's frame clock. Once the next frame's
+CPU budget is complete, it waits for that frame's wall-clock deadline instead
+of executing extra instructions. The audio producer retains its buffering lead.
+Configure the maximum wait before entering play mode:
+
+```r2
+e gb.usleep=16000
+r2gb play
+```
+
+`gb.usleep` is in microseconds, defaults to 16000, and accepts 0–1000000.
+The actual sleep is capped at the next frame deadline, so larger settings do
+not intentionally slow the console. Set 0 to disable sleeping and busy-wait
+at the same emulated speed. Input is still polled during execution batches
+and between waits. Pacing reduces idle CPU use; it cannot remove the CPU time
+needed to emulate each frame. Manual ESIL stepping is unaffected.
+
 ## Sound and music
 
 Install the r2au plugin with asynchronous PCM streaming support (`auq?`):
@@ -157,9 +174,9 @@ Install the r2au plugin with asynchronous PCM streaming support (`auq?`):
 r2pm -ci r2au
 ```
 
-`r2gb visual` opens stereo output automatically. It generates sound from the
+`r2gb play` opens stereo output automatically. It generates sound from the
 same emulated clock as the CPU and display, and queues PCM without blocking
-keyboard input. Leaving visual mode stops playback and closes its output
+keyboard input. Leaving play mode stops playback and closes its output
 device. If r2au is missing, too old, or cannot open a device, emulation
 continues without playback. Restart r2 after updating a loaded plugin.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise r2gb visual through a real terminal; no ROM fixture is required."""
+"""Exercise r2gb play through a real terminal; no ROM fixture is required."""
 
 import fcntl
 import os
@@ -22,17 +22,19 @@ PROGRAM = "3e20e000f000ea00c03e10e000f000ea01c0c30001"
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b[78]")
 
 
-def visual(key, columns=80, rows=24, pattern=False, duration=0.02, events=()):
+def visual(key, columns=80, rows=24, pattern=False, duration=0.02, events=(), sleep_us=None):
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
     commands = [f"wx {PROGRAM} @0x100"]
+    if sleep_us is not None:
+        commands += [f"e gb.usleep={sleep_us}"]
     if pattern:
         commands += [
             "r2gb", "wx 00 @0xff40", "wox ff @0x10000!69120",
             "wx 000000 @0x10000",
         ]
     commands += [
-        "r2gb visual", "?e VISUAL_DONE", "pxj 2 @0xc000",
+        "r2gb play", "?e VISUAL_DONE", "pxj 2 @0xc000",
         "r2gb status", "e esil.maxbacksteps", "q!",
     ]
     process = subprocess.Popen(
@@ -72,7 +74,7 @@ def visual(key, columns=80, rows=24, pattern=False, duration=0.02, events=()):
             if process.poll() is not None:
                 break
         if process.poll() is None:
-            raise AssertionError("visual mode failed to exit within ten seconds")
+            raise AssertionError("play mode failed to exit within ten seconds")
         output = data.decode(errors="replace")
         assert pressed and "VISUAL_DONE" in output, output[-2000:]
         assert "Game Boy stopped" not in output, output[-2000:]
@@ -139,7 +141,21 @@ def test_pixels():
     print("Native pixels, full-resolution braille, and filtered small-screen output: OK")
 
 
+def test_frame_pacing():
+    times = []
+    for sleep_us in (0, 16000, 1000000):
+        output = visual("", duration=0.4, sleep_us=sleep_us)
+        match = re.search(r"cycles=(\d+) frames=", output)
+        assert match, output[-2000:]
+        elapsed = int(match[1]) / 4194304
+        assert .35 < elapsed < .5, (sleep_us, elapsed)
+        times.append(elapsed)
+    assert max(times) - min(times) < .06, times
+    print("Frame deadlines preserve emulated speed with busy-wait, default, and long sleep caps: OK")
+
+
 if __name__ == "__main__":
     test_keys()
     test_pixels()
     test_held_buttons()
+    test_frame_pacing()
