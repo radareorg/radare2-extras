@@ -99,7 +99,29 @@ int main(void) {
 	check (a, "save w=0x0", "push_callee_saved(w=0x0)");
 	// Format-only forms, displaced tails and unmodelled operations keep their text.
 	check (a, "st.w [r0], #0x28002", "st.w [r0], #0x28002");
-	check (a, "mfcsr r15!, #0x01", "mfcsr r15!, #0x01");
+	// system, port I/O, CSR, slot and stack forms of the uSIP table.
+	check (a, "mfcsr r15!, #0x01", "r15! = csr[0x01]");
+	check (a, "mtcsr #0x20, r4!", "csr[0x20] = r4!");
+	check (a, "ior r1, [r2]", "r1 = io[r2]");
+	check (a, "iow r1, [r3]", "io[r3] = r1");
+	check (a, "jr? r2", "goto r2");
+	check (a, "ret?", "return");
+	check (a, "rti", "return_from_interrupt");
+	check (a, "cop r0", "coprocessor(r0)");
+	check (a, "nop32", "nop");
+	check (a, "addsp #-0x14", "sp -= 0x14");
+	check (a, "addsp #0x10", "sp += 0x10");
+	check (a, "ld.d? r0:r1, [r8+0x1f0]", "r0:r1 = dmem64[r8 + 0x1f0]");
+	check (a, "st.b? r0, [r11!-0x1]", "dmem8[r11! - 0x1] = r0");
+	check (a, "ldslot r0!, #0x1c", "r0! = slot[0x1c]");
+	check (a, "stslot r5, #0x3", "slot[0x3] = r5");
+	check (a, "lea? r8, [sp+0x14]", "r8 = &[sp+0x14]");
+	check (a, "call? 0x000017c0", "0x000017c0 ()");
+	check (a, "beqz.d? r4, 0x000007d4", "if (r4 == 0) goto 0x000007d4");
+	check (a, "sne r7, r7, #0x0", "r7 = (r7 != 0x0)");
+	check (a, "movhi? r9, #0x7ff00000", "r9 = 0x7ff00000");
+	check (a, "extu r10, r8!, #0xb, #0x14", "r10 = ((r8! >> 0x14) & ((1 << 0xb) - 1))");
+	check (a, "cmov r15, r14!, r0!", "r15 = (r14! != 0) ? r0! : r15");
 	check (a, ".unit 0x400a (ld.b @ 0x0000041e)", ".unit 0x400a (ld.b @ 0x0000041e)");
 	check (a, ".hword 0xffff", ".hword 0xffff");
 	check (a, ".op4imm r0, r1, #0x6", ".op4imm r0, r1, #0x6");
