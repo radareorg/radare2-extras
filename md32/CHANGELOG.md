@@ -23,4 +23,6 @@
 * `test/test_plugin.py`: uSIP packet vectors (control flow in slot 0, delay
   slots, interleaved `S S O O` layout, 48-bit forms, hardware loop, context
   rule, truncated packet); `test/test_parse.c` updated for the new mnemonics.
+* `test/test_emulator.py`: in usip mode the probe `5ef9 901a` is a delayed return,
+  so the strict stop is `unsupported_delay_slot_execution` (still zero steps).
 * Documentation: README "uSIP mode", `doc/usip.md`.
