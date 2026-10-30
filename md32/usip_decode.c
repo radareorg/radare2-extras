@@ -1,9 +1,10 @@
 /* radare2 - LGPL-3.0-only - Copyright 2026 - n0p */
 /* uSIP packet decoder: a table-driven reading of VLIW packets (parse_group, group_parses, score, parse_packet)
- * over the generated form table usip_opcodes.h.  The reading
- * chosen for a packet is deterministic: among the consistent readings the one with the fewest unknown units, then
- * the fewest instructions, then the fewest groups, then the smallest tie-break penalty; equal scores keep the first
- * enumerated reading.  No external knowledge is used. */
+ * over the generated form table usip_opcodes.h.  The reading chosen for a packet is deterministic: among the
+ * consistent readings the one with the fewest unknown units, then the fewest instructions, then the fewest groups,
+ * then the smallest tie-break penalty; equal scores keep the first enumerated reading.  The only outside knowledge
+ * is what the caller passes in UsipGuardCtx (packet starts of the function being decoded, function starts) for the
+ * forms that carry a target guard. */
 
 #include <r_util.h>
 #include "usip_opcodes.h"
@@ -20,12 +21,7 @@
 /* ---------------------------------------------------------------------------------------------------- tables */
 
 const char *usip_kind_name(int kind) {
-	static const char *const names[] = {
-		"alu", "alu32", "bit", "br", "br16", "br16d", "call", "call16", "calla", "callr", "csr", "dsp", "dspacc",
-		"fmt", "jumpa", "ld", "loop", "mem16", "mov", "mov32", "movi", "movi21", "movi32", "mul", "nop", "other",
-		"restore", "ret", "save", "st", "sys"
-	};
-	return (kind >= 0 && kind < (int)R_ARRAY_SIZE (names))? names[kind]: "?";
+	return (kind >= 0 && kind < (int)R_ARRAY_SIZE (usip_kind_names))? usip_kind_names[kind]: "?";
 }
 
 const char *usip_conf_name(int conf) {
@@ -65,6 +61,10 @@ int usip_op_field_type(const UsipOpcode *op, int i) {
 	return (op && i >= 0 && i < op->nfields)? op->fields[i].type: -1;
 }
 
+const char *usip_csr_ext_name(int csr) {
+	return (csr >= 0 && csr < 64)? usip_csr_ext[csr]: NULL;
+}
+
 /* ---------------------------------------------------------------------------------------------------- fields */
 
 static st64 sext(ut64 v, int n) {
@@ -93,9 +93,14 @@ static st64 field_value(const UsipOpcode *op, int fi, ut64 w) {
 	}
 	const int sc = f->scale? f->scale: 1;
 	switch (f->type) {
+	case USIP_A_MOVHI:
+		/* the five collected bits (op[0], t[13], u, f12[9], f12[8]) */
+		return (st64)((((raw >> 4) & 1) << 31) | (((raw >> 3) & 1) << 30) | (((raw >> 2) & 1)? 0x3fe00000ULL: 0)
+			| (((raw >> 1) & 1) << 20) | ((raw & 1) << 19));
 	case USIP_A_SIMM:
-	case USIP_A_DISP:
 		return sext (raw, nb) * sc;
+	case USIP_A_DISP:
+		return sext (raw, nb) * sc + (st32)f->base;
 	case USIP_A_ROTIMM: {
 		const int n = f->nbits? f->nbits: nb;
 		const ut64 r = ((raw >> 1) | ((raw & 1) << (n - 1))) & ((1ULL << n) - 1);
@@ -110,7 +115,8 @@ static st64 field_value(const UsipOpcode *op, int fi, ut64 w) {
 	case USIP_A_ACC:
 		return (st64)(raw & 3);
 	default:
-		return (st64)(raw * (ut64)sc);
+		/* reg, imm, flag, csr, csr_ext, accw, udisp: scaled, plus the constant of the field (rB + 1, m + 1) */
+		return (st64)(raw * (ut64)sc) + (st32)f->base;
 	}
 }
 
@@ -122,14 +128,90 @@ static inline bool is_osyl(ut16 u) {
 	return ((u >> 11) & 7) == 7;
 }
 
+/* ---------------------------------------------------------------------------------------------------- target guards */
+
+enum { TG_NONE = 0, TG_PK, TG_FN, TG_FN_OR_PK };
+
+/* the target guard of a form (every guarded form carries exactly one) */
+static int tguard(const UsipOpcode *op) {
+	int i;
+	for (i = 0; i < op->ncons; i++) {
+		switch (op->cons[i].op) {
+		case USIP_C_GUARD_TARGET_PACKET_START: return TG_PK;
+		case USIP_C_GUARD_TARGET_FUNCTION_START: return TG_FN;
+		case USIP_C_GUARD_TARGET_FN_OR_PACKET_START: return TG_FN_OR_PK;
+		default: break;
+		}
+	}
+	return TG_NONE;
+}
+
+/* Guarded forms that may be read UNVERIFIED when the guard cannot be evaluated (the function table is absent, or the
+ * forward target lies beyond the bytes the caller could see).  Measured on the sample the table was built from
+ * (doc/usip.md): the unverified readings of these forms are right in nearly every case where
+ * they compete (call with the F' = 0 tail at +2, b with the F' = 0 tail, compare-and-branch with immediate and the
+ * F' = 0 tail, beqz.d).  The other guarded forms are NOT accepted unverified: bnez.d (the cell is shared with the op C
+ * DSP pairs), the register compare-and-branch with the F' = 0 tail (shared with .ctl15), loop with the F' = 0 tail
+ * (movi || mov pairs), far b and the 16-bit call.s with bit 15 = 0 (only a small fraction of the shapes are calls). */
+static bool unverified_ok(const UsipOpcode *op) {
+	static const char *const forms[] = {
+		"call_F0", "b_F0", "beqz_d",
+		"beq_imm8_F0", "bne_imm8_F0", "ble_imm8_F0", "blt_imm8_F0", "bgtu_imm8_F0", "bge_imm8_F0", "bgt_imm8_F0",
+	};
+	size_t i;
+	for (i = 0; i < R_ARRAY_SIZE (forms); i++) {
+		if (!strcmp (op->form, forms[i])) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/* USIP_G_OK / USIP_G_UNVERIFIED when the form may be read, 0 when the pair is data (16-bit: falls through) */
+static int eval_tguard(const UsipGuardCtx *g, const UsipOpcode *op, int tg, ut64 target) {
+	int pk = -1, fn = -1;
+	if (tg == TG_PK || tg == TG_FN_OR_PK) {
+		pk = (g && g->packet_start)? g->packet_start (g->user, target): -1;
+		if (pk == 1) {
+			return USIP_G_OK;
+		}
+		if (tg == TG_PK) {
+			return (pk < 0 && unverified_ok (op))? USIP_G_UNVERIFIED: 0;
+		}
+	}
+	fn = (g && g->function_start)? g->function_start (g->user, target): -1;
+	if (fn == 1) {
+		return USIP_G_OK;
+	}
+	if (fn == 0) {
+		return 0;
+	}
+	if (tg == TG_FN_OR_PK) {
+		return (pk < 0 && unverified_ok (op))? USIP_G_UNVERIFIED: 0;
+	}
+	return unverified_ok (op)? USIP_G_UNVERIFIED: 0;
+}
+
 /* ---------------------------------------------------------------------------------------------------- matching */
 
-static const UsipOpcode *match16(ut16 u, bool first);
+static int match16_plain_idx(ut16 u, bool first, int pktlen);
 
-/* is the unit a named 16-bit op (in tail position if tail)?  Format-only shapes count, loose syllables do not. */
+/* is the unit a named 16-bit op (in tail position if tail)?  Format-only shapes count, loose syllables and the
+ * stand-alone closer forms do not (the packet length is unknown here, so their packet_len constraint fails). */
 static bool known16(ut16 u, bool tail) {
-	const UsipOpcode *f = match16 (u | 0x8000, !tail);
+	const int i = match16_plain_idx (u | 0x8000, !tail, -1);
+	const UsipOpcode *f = i < 0? NULL: &usip_opcodes[i];
 	return f && f->kind != USIP_K_OTHER && !(f->flags & USIP_F_UNKNOWN16);
+}
+
+static bool any_sub(int op, st64 v, st64 val) {
+	switch (op) {
+	case USIP_ANY_EQ: return v == val;
+	case USIP_ANY_NE: return v != val;
+	case USIP_ANY_LT: return v < val;
+	case USIP_ANY_GE: return v >= val;
+	}
+	return false;
 }
 
 static bool cons_ok(const UsipOpcode *op, ut64 w, bool first, int pktlen) {
@@ -143,6 +225,7 @@ static bool cons_ok(const UsipOpcode *op, ut64 w, bool first, int pktlen) {
 		case USIP_C_EQ: ok = v == c->vals[0]; break;
 		case USIP_C_NE: ok = v != c->vals[0]; break;
 		case USIP_C_LT: ok = v < c->vals[0]; break;
+		case USIP_C_GE: ok = v >= c->vals[0]; break;
 		case USIP_C_IN:
 			ok = false;
 			for (j = 0; j < c->nvals; j++) {
@@ -154,6 +237,13 @@ static bool cons_ok(const UsipOpcode *op, ut64 w, bool first, int pktlen) {
 				ok &= v != c->vals[j];
 			}
 			break;
+		case USIP_C_INMASK:
+		case USIP_C_NOTINMASK: {
+			const ut64 m = (ut32)c->vals[0] | ((ut64)(ut32)c->vals[1] << 32);
+			const bool in = v >= 0 && v < 64 && ((m >> v) & 1);
+			ok = c->op == USIP_C_INMASK? in: !in;
+			break;
+		}
 		case USIP_C_RANGE: ok = v >= c->vals[0] && v < c->vals[1]; break;
 		case USIP_C_RANGES:
 			ok = false;
@@ -164,13 +254,16 @@ static bool cons_ok(const UsipOpcode *op, ut64 w, bool first, int pktlen) {
 		case USIP_C_EVEN: ok = (v & 1) == 0; break;
 		case USIP_C_NOT_HI1010: ok = !is_hi1010 ((ut32)v); break;
 		case USIP_C_EQ_FIELDS: ok = v == field_value (op, c->field2, w); break;
+		case USIP_C_NE_FIELDS: ok = v != field_value (op, c->field2, w); break;
 		case USIP_C_PACKET_LEN: ok = pktlen == c->vals[0]; break;
 		case USIP_C_SLOT0_EXCLUDES_HEAD: {
 			const ut16 h = (w >> (op->width - 16)) & 0xFFFF;
 			ok = !(first && (h & (ut16)c->vals[0]) == (ut16)c->vals[1]);
 			break;
 		}
-		case USIP_C_ANY_EQ: ok = v == c->vals[0] || field_value (op, c->field2, w) == c->vals[0]; break;
+		case USIP_C_ANY2:
+			ok = any_sub (c->vals[0], v, c->vals[1]) || any_sub (c->vals[2], field_value (op, c->field2, w), c->vals[3]);
+			break;
 		case USIP_C_GUARD_SETCC_TAIL:
 			ok = !known16 (t, true);
 			for (j = 0; !ok && j < c->nvals; j++) {
@@ -189,6 +282,11 @@ static bool cons_ok(const UsipOpcode *op, ut64 w, bool first, int pktlen) {
 			}
 			break;
 		}
+		case USIP_C_GUARD_TARGET_PACKET_START:
+		case USIP_C_GUARD_TARGET_FUNCTION_START:
+		case USIP_C_GUARD_TARGET_FN_OR_PACKET_START:
+			/* deferred: evaluated with the target after the match (decode_asg / match16) */
+			break;
 		default: break;
 		}
 		if (!ok) {
@@ -198,29 +296,71 @@ static bool cons_ok(const UsipOpcode *op, ut64 w, bool first, int pktlen) {
 	return true;
 }
 
-/* first matching 16-bit form (context-only forms excluded); cached per (unit, slot) */
-static ut16 k16cache[2][0x10000];   /* 0 = unknown, 0xffff = none, else index + 1 */
+/* first matching 16-bit form WITHOUT a target guard (context-only forms excluded); cached per (packet length class,
+ * slot, unit).  The packet_len constraints only test 1 and 2 (checked by the generator), hence the three classes. */
+static ut16 k16cache[3][2][0x10000];   /* 0 = unknown, 0xffff = none, else index + 1 */
 
-static const UsipOpcode *match16(ut16 u, bool first) {
-	ut16 *slot = &k16cache[first? 1: 0][u];
+static int match16_plain_idx(ut16 u, bool first, int pktlen) {
+	const int cls = pktlen == 1? 1: pktlen == 2? 2: 0;
+	ut16 *slot = &k16cache[cls][first? 1: 0][u];
 	if (*slot) {
-		return *slot == 0xffff? NULL: &usip_opcodes[*slot - 1];
+		return *slot == 0xffff? -1: *slot - 1;
 	}
 	int i;
 	for (i = 0; i < N_OPS; i++) {
 		const UsipOpcode *f = &usip_opcodes[i];
 		if (f->nunits != 1 || (f->flags & USIP_F_CTX) || ((f->flags & USIP_F_SLOT0) && !first)
-			|| ((f->flags & USIP_F_NOTSLOT0) && first) || (u & f->mask) != f->value) {
+			|| ((f->flags & USIP_F_NOTSLOT0) && first) || (u & f->mask) != f->value || tguard (f)) {
 			continue;
 		}
-		if (f->ncons && !cons_ok (f, u, first, -1)) {
+		if (f->ncons && !cons_ok (f, u, first, pktlen)) {
 			continue;
 		}
 		*slot = i + 1;
-		return f;
+		return i;
 	}
 	*slot = 0xffff;
-	return NULL;
+	return -1;
+}
+
+/* 16-bit forms with a target guard (call.s with bit 15 = 0), in table order */
+static int guarded16[8];
+static int n_guarded16 = -1;
+
+static ut64 target_value(const UsipOpcode *f, ut64 w, ut64 pc, bool *has);
+
+/* first matching 16-bit form: a guarded form that precedes the plain match is taken when its guard validates */
+static const UsipOpcode *match16(const UsipGuardCtx *g, ut16 u, bool first, int pktlen, ut64 pc, ut8 *guard) {
+	const int ip = match16_plain_idx (u, first, pktlen);
+	const int lim = ip < 0? N_OPS: ip;
+	int i;
+	*guard = USIP_G_NONE;
+	if (n_guarded16 < 0) {
+		n_guarded16 = 0;
+		for (i = 0; i < N_OPS; i++) {
+			const UsipOpcode *f = &usip_opcodes[i];
+			if (f->nunits == 1 && !(f->flags & USIP_F_CTX) && tguard (f) && n_guarded16 < (int)R_ARRAY_SIZE (guarded16)) {
+				guarded16[n_guarded16++] = i;
+			}
+		}
+	}
+	for (i = 0; i < n_guarded16 && guarded16[i] < lim; i++) {
+		const UsipOpcode *f = &usip_opcodes[guarded16[i]];
+		if (((f->flags & USIP_F_SLOT0) && !first) || ((f->flags & USIP_F_NOTSLOT0) && first) || (u & f->mask) != f->value) {
+			continue;
+		}
+		if (f->ncons && !cons_ok (f, u, first, pktlen)) {
+			continue;
+		}
+		bool has = false;
+		const ut64 tg = target_value (f, u, pc, &has);
+		const int st = has? eval_tguard (g, f, tguard (f), tg): 0;
+		if (st) {
+			*guard = st;
+			return f;
+		}
+	}
+	return ip < 0? NULL: &usip_opcodes[ip];
 }
 
 static const UsipOpcode *match32(ut16 h, ut16 t, bool first) {
@@ -416,7 +556,8 @@ static void parse_group(const ut16 *units, int n, bool first_ok, AsgList *res) {
 		if (empty || need > sum_max || need < sum_min) {
 			continue;
 		}
-		/* itertools.product over the sorted allowed sets: the last head varies fastest */
+		/* itertools.product over the sorted allowed sets: the last head varies fastest, so the assignments where the
+		 * latest heads take the tails are enumerated first (the documented tie order) */
 		for (;;) {
 			int Ts[NU], sum = 0;
 			for (i = 0; i < k; i++) {
@@ -493,7 +634,8 @@ static void parse_group(const ut16 *units, int n, bool first_ok, AsgList *res) {
 typedef struct {
 	const ut16 *units;
 	ut64 addrs[NU];
-	int n;
+	int n;                          /* units of this parse (= the packet length for the packet_len constraints) */
+	const UsipGuardCtx *guard;
 	AsgList memo[NU + 1];
 	bool memo_done[NU + 1];
 } Ctx;
@@ -508,7 +650,9 @@ static const AsgList *group_parses(Ctx *c, int j0, bool first_ok) {
 	const int n = c->n - j0;
 	int j, i, k;
 	for (j = n; j >= 1; j--) {
-		if (j < n && (units[j] >> 15)) {
+		/* a group cannot start at a unit with bit 15 = 1, except the last one (rule R0: the final closer may be its
+		 * own group even without a named reading) */
+		if (j < n && (units[j] >> 15) && j != n - 1) {
 			continue;
 		}
 		AsgList heads = { 0 };
@@ -554,6 +698,7 @@ typedef struct {
 	ut8 head, nt;
 	ut8 t[2];
 	ut8 pseudo;
+	ut8 guard;
 	const UsipOpcode *op;
 	ut8 kind;
 	const char *mnem;
@@ -567,33 +712,35 @@ typedef struct {
 	int n;
 } DecList;
 
-static void set_target(Dec *d, ut64 pc) {
-	const UsipOpcode *f = d->op;
+static ut64 target_value(const UsipOpcode *f, ut64 w, ut64 pc, bool *has) {
 	int i;
-	d->has_target = false;
-	if (!f) {
-		return;
-	}
+	*has = false;
 	for (i = 0; i < f->nfields; i++) {
 		const int t = f->fields[i].type;
 		if (t == USIP_A_DISP || t == USIP_A_UDISP) {
-			d->target = (pc + (ut64)field_value (f, i, d->w)) & UT32_MAX;
-			d->has_target = true;
-			return;
+			*has = true;
+			return (pc + (ut64)field_value (f, i, w)) & UT32_MAX;
 		}
 		if (t == USIP_A_ABSADDR && !strcmp (f->fields[i].name, "target")) {
-			d->target = (ut64)field_value (f, i, d->w);
-			d->has_target = true;
-			return;
+			*has = true;
+			return (ut64)field_value (f, i, w);
 		}
+	}
+	return 0;
+}
+
+static void set_target(Dec *d, ut64 pc) {
+	d->has_target = false;
+	if (d->op) {
+		d->target = target_value (d->op, d->w, pc, &d->has_target);
 	}
 }
 
-static Dec dec16(ut64 pc, ut16 u, bool first) {
+static Dec dec16(const UsipGuardCtx *g, ut64 pc, ut16 u, bool first, int pktlen) {
 	Dec d = { 0 };
 	d.nt = 0;
 	d.w = u;
-	d.op = match16 (u, first);
+	d.op = match16 (g, u, first, pktlen, pc, &d.guard);
 	if (!d.op) {
 		d.pseudo = USIP_P_HWORD;
 		d.kind = USIP_K_OTHER;
@@ -602,9 +749,6 @@ static Dec dec16(ut64 pc, ut16 u, bool first) {
 	}
 	d.kind = d.op->kind;
 	d.mnem = d.op->name;
-	if ((d.op->flags & USIP_F_XBYTE) && ((u >> 8) & 1)) {
-		d.mnem = d.op->name[0] == 'l'? "ld.b": "st.b";
-	}
 	set_target (&d, pc);
 	return d;
 }
@@ -651,7 +795,27 @@ static inline bool is_ctrl_kind(int kind) {
 	return kind == USIP_K_BR || kind == USIP_K_CALL || kind == USIP_K_LOOP;
 }
 
-/* decode one assignment into instructions, applying the adjacency rules and the context rules (decode_asg) */
+/* kinds whose instructions carry a control-flow target */
+static inline bool is_ctrl_tgt(int kind) {
+	switch (kind) {
+	case USIP_K_BR: case USIP_K_BR16: case USIP_K_BR16D: case USIP_K_CALL: case USIP_K_CALL16:
+	case USIP_K_CALLA: case USIP_K_JUMPA: case USIP_K_LOOP:
+		return true;
+	}
+	return false;
+}
+
+static void make_word(Dec *d) {
+	d->pseudo = USIP_P_WORD_CTRL;
+	d->op = NULL;
+	d->kind = USIP_K_OTHER;
+	d->mnem = ".word";
+	d->has_target = false;
+	d->guard = USIP_G_NONE;
+}
+
+/* decode one assignment into instructions, applying the adjacency rules, the target guards and the context rules
+ * (decode_asg) */
 static void decode_asg(const Ctx *c, const Asg *asg, bool first_ok, DecList *out) {
 	const ut16 *units = c->units;
 	int m;
@@ -664,7 +828,7 @@ static void decode_asg(const Ctx *c, const Asg *asg, bool first_ok, DecList *out
 		Dec d;
 		Dec *prev = out->n? &out->d[out->n - 1]: NULL;
 		if (asg->nt[m] == 0) {
-			d = dec16 (pc, h, first);
+			d = dec16 (c->guard, pc, h, first, c->n);
 			/* ext_after_ldst: a final fX?7 (16-bit movi r8-15) two units after a ld/st whose single tail has S = 0 */
 			if (d.op && !strcmp (d.mnem, "movi") && (h & 0xF10F) == 0xF007 && prev && (prev->kind == USIP_K_LD || prev->kind == USIP_K_ST)
 				&& prev->nt == 1 && (units[prev->t[0]] >> 15) == 0 && prev->head == i - 2) {
@@ -708,21 +872,32 @@ static void decode_asg(const Ctx *c, const Asg *asg, bool first_ok, DecList *out
 			const int S = t >> 15;
 			d = dec32 (pc, h, t, first);
 			if (d.op && (d.op->flags & USIP_F_ADJ1) && dist > 1) {
-				/* adjacency violated: two 16-bit units instead */
-				Dec a = dec16 (pc, h, first);
-				Dec b = dec16 (c->addrs[ti], t, false);
+				/* immediate set-on-compare / add with rot12: tail adjacent only -> two 16-bit units instead */
+				Dec a = dec16 (c->guard, pc, h, first, c->n);
+				Dec b = dec16 (c->guard, c->addrs[ti], t, false, c->n);
 				a.head = i;
 				b.head = ti;
 				out->d[out->n++] = a;
 				out->d[out->n++] = b;
 				continue;
 			}
-			if (d.op && (d.op->flags & USIP_F_ADJCTRL) && is_ctrl_kind (d.op->kind) && (dist > 2 || (S == 1 && dist > 1))) {
-				d.pseudo = USIP_P_WORD_CTRL;
-				d.op = NULL;
-				d.kind = USIP_K_OTHER;
-				d.mnem = ".word";
-				d.has_target = false;
+			if (d.op && (d.op->flags & USIP_F_ADJ2) && dist != 2) {
+				/* control tail with F' = 0: valid EXACTLY at +2 */
+				make_word (&d);
+			} else if (d.op && (d.op->flags & USIP_F_ADJCTRL) && is_ctrl_kind (d.op->kind)
+				&& (dist > 2 || (S == 1 && dist > 1 && strcmp (d.op->form, "loop_F0")))) {
+				make_word (&d);
+			} else if (d.op) {
+				const int tg = tguard (d.op);
+				if (tg) {
+					/* target guard of the 32-bit forms: evaluated after the match, a failure is data (no fall-through) */
+					const int st = d.has_target? eval_tguard (c->guard, d.op, tg, d.target): 0;
+					if (st) {
+						d.guard = st;
+					} else {
+						make_word (&d);
+					}
+				}
 			}
 			d.t[0] = ti;
 		} else {
@@ -749,6 +924,44 @@ static bool mn_in_fam48(const char *mn) {
 static bool ends_with(const char *s, const char *suffix) {
 	const size_t ls = strlen (s), lx = strlen (suffix);
 	return ls >= lx && !strcmp (s + ls - lx, suffix);
+}
+
+/* rule R7: the context form of a bare first-slot unit (bit 15 = 0) read as .hword when the rest of the packet is
+ * named: ldslot_S0 / stslot_S0 (slot family) or lea_sp_S0 (when no other instruction of the packet has a tail) */
+static const UsipOpcode *r7_form(ut16 u, const DecList *dec) {
+	static const int forms[3] = { USIP_FORM_LEA_SP_S0, USIP_FORM_LDSLOT_S0, USIP_FORM_STSLOT_S0 };
+	int i, k;
+	for (i = 0; i < 3; i++) {
+		const UsipOpcode *f = &usip_opcodes[forms[i]];
+		if ((u & f->mask) != f->value || (f->ncons && !cons_ok (f, u, true, -1))) {
+			continue;
+		}
+		if (forms[i] == USIP_FORM_LEA_SP_S0) {
+			bool tails = false;
+			for (k = 1; k < dec->n; k++) {
+				tails |= dec->d[k].nt > 0;
+			}
+			if (tails) {
+				continue;
+			}
+		}
+		return f;
+	}
+	return NULL;
+}
+
+/* the first instruction of the reading is a bare unit 0 without a name and every other instruction is named */
+static bool r7_shape(const DecList *dec, bool first_ok) {
+	int k;
+	if (!first_ok || dec->n < 2 || dec->d[0].head != 0 || dec->d[0].nt || dec->d[0].kind != USIP_K_OTHER) {
+		return false;
+	}
+	for (k = 1; k < dec->n; k++) {
+		if (!is_named (&dec->d[k])) {
+			return false;
+		}
+	}
+	return true;
 }
 
 typedef struct {
@@ -801,6 +1014,14 @@ static Score score_reading(const Ctx *c, const Asg *asg, int ngroups, bool first
 		if (!d->nt && units[d->head] == 0x4000) {
 			pen += Q (0.5);
 		}
+		if (d->op && d->has_target && is_ctrl_tgt (d->kind) && tguard (d->op)) {
+			/* control reading whose target guard was accepted: breaks the exact ties against op16 || pair readings */
+			pen -= Q (0.5);
+		}
+		if (d->nt == 1 && (units[d->head] & 0xFF0F) == 0x1D06 && known16 (units[d->t[0]], true)) {
+			/* 1dX6 (16-bit st.w rB,[sp+4] shape) paired with a tail that is itself a named 16-bit op */
+			pen += Q (0.5);
+		}
 		for (j = 0; j < d->nt; j++) {
 			const ut16 u = units[d->t[j]];
 			if ((u >> 14) == 0 && (u & 7) == 7 && ((u >> 8) & 1) == 0) {
@@ -812,6 +1033,10 @@ static Score score_reading(const Ctx *c, const Asg *asg, int ngroups, bool first
 		if (is_osyl (units[j]) && !(tails_of7 & (1 << j))) {
 			pen += Q (0.75);
 		}
+	}
+	if (r7_shape (dec, first_ok) && r7_form (units[0], dec)) {
+		/* rule R7: the bare first-slot slot/lea? unit counts as named when the rest of the packet is named */
+		unnamed--;
 	}
 	s.score = Q (unnamed) + pen;
 	s.ninsn = dec->n;
@@ -828,7 +1053,7 @@ static void fallback(const Ctx *c, bool first_ok, DecList *out) {
 		const ut16 h = units[i];
 		const bool first = i == 0 && first_ok;
 		if ((h >> 15) || i + 1 >= c->n) {
-			Dec d = dec16 (c->addrs[i], h, first);
+			Dec d = dec16 (c->guard, c->addrs[i], h, first, c->n);
 			d.head = i;
 			out->d[out->n++] = d;
 			i++;
@@ -836,7 +1061,7 @@ static void fallback(const Ctx *c, bool first_ok, DecList *out) {
 		}
 		Dec d = dec32 (c->addrs[i], h, units[i + 1], first);
 		if (!is_named (&d)) {
-			Dec d16 = dec16 (c->addrs[i], h, first);
+			Dec d16 = dec16 (c->guard, c->addrs[i], h, first, c->n);
 			if (is_named (&d16)) {
 				d16.head = i;
 				out->d[out->n++] = d16;
@@ -881,14 +1106,14 @@ static bool abs_prefix(const Ctx *c, int *hi, int *lo) {
 	return f && (f->kind == USIP_K_CALLA || f->kind == USIP_K_JUMPA);
 }
 
-static bool parse_packet(const ut16 *units, const ut64 *addrs, int n, bool first_ok, DecList *best);
+static bool parse_packet(const UsipGuardCtx *g, const ut16 *units, const ut64 *addrs, int n, bool first_ok, DecList *best);
 
 /* the whole packet: enumerate the readings, score them, apply the packet-level context rules (parse_packet) */
-static bool parse_packet(const ut16 *units, const ut64 *addrs, int n, bool first_ok, DecList *best) {
+static bool parse_packet(const UsipGuardCtx *g, const ut16 *units, const ut64 *addrs, int n, bool first_ok, DecList *best) {
 	int i, k;
 	best->n = 0;
 	if (n == 1) {
-		Dec d = dec16 (addrs[0], units[0], first_ok);
+		Dec d = dec16 (g, addrs[0], units[0], first_ok, 1);
 		d.head = 0;
 		best->d[best->n++] = d;
 		return false;
@@ -896,6 +1121,7 @@ static bool parse_packet(const ut16 *units, const ut64 *addrs, int n, bool first
 	Ctx c = { 0 };
 	c.units = units;
 	c.n = n;
+	c.guard = g;
 	memcpy (c.addrs, addrs, n * sizeof (ut64));
 	if (first_ok) {
 		int hi, lo;
@@ -919,7 +1145,7 @@ static bool parse_packet(const ut16 *units, const ut64 *addrs, int n, bool first
 			bool amb = false;
 			if (nr > 1) {
 				DecList sub;
-				amb = parse_packet (ru, ra, nr, false, &sub);
+				amb = parse_packet (g, ru, ra, nr, false, &sub);
 				for (i = 0; i < sub.n; i++) {
 					Dec d = sub.d[i];
 					d.head = ri[d.head];
@@ -929,7 +1155,7 @@ static bool parse_packet(const ut16 *units, const ut64 *addrs, int n, bool first
 					best->d[best->n++] = d;
 				}
 			} else if (nr == 1) {
-				Dec d = dec16 (ra[0], ru[0], false);
+				Dec d = dec16 (g, ra[0], ru[0], false, n);
 				d.head = ri[0];
 				best->d[best->n++] = d;
 			}
@@ -995,11 +1221,24 @@ static bool parse_packet(const ut16 *units, const ut64 *addrs, int n, bool first
 			d0.mnem = f->name;
 			d0.w = units[0];
 			set_target (&d0, addrs[0]);
-			Dec d1 = dec16 (addrs[1], units[1], false);
+			Dec d1 = dec16 (g, addrs[1], units[1], false, 2);
 			d1.head = 1;
 			best->n = 0;
 			best->d[best->n++] = d0;
 			best->d[best->n++] = d1;
+		}
+	}
+	/* context rules slot_S0_R7 / lea_sp_S0: bare first-slot .hword unit, every other instruction named */
+	if (r7_shape (best, first_ok) && !strcmp (best->d[0].mnem, ".hword")) {
+		const UsipOpcode *f = r7_form (units[0], best);
+		if (f) {
+			Dec *d0 = &best->d[0];
+			memset (d0, 0, sizeof (*d0));
+			d0->head = 0;
+			d0->op = f;
+			d0->kind = f->kind;
+			d0->mnem = f->name;
+			d0->w = units[0];
 		}
 	}
 	/* context rule be79_prefix: bare [0][0][imm14] without a reading followed by be79 */
@@ -1015,6 +1254,7 @@ static bool parse_packet(const ut16 *units, const ut64 *addrs, int n, bool first
 			a->t[0] = b->head;
 			a->w = ((ut64)units[a->head] << 16) | units[b->head];
 			a->has_target = false;
+			a->guard = USIP_G_NONE;
 			memmove (&best->d[k + 1], &best->d[k + 2], (best->n - k - 2) * sizeof (Dec));
 			best->n--;
 			break;
@@ -1042,13 +1282,13 @@ int usip_scan_units(const ut8 *buf, int len, ut16 *units, bool *truncated) {
 static inline bool kind_delays(int kind) {
 	switch (kind) {
 	case USIP_K_BR: case USIP_K_BR16: case USIP_K_BR16D: case USIP_K_CALL: case USIP_K_CALL16:
-	case USIP_K_CALLA: case USIP_K_JUMPA: case USIP_K_RET: case USIP_K_CALLR:
+	case USIP_K_CALLA: case USIP_K_JUMPA: case USIP_K_RET: case USIP_K_CALLR: case USIP_K_JR:
 		return true;
 	}
 	return false;
 }
 
-void usip_decode_packet(UsipPacket *pk, ut64 addr, const ut16 *units, int n, bool truncated) {
+void usip_decode_packet(UsipPacket *pk, ut64 addr, const ut16 *units, int n, bool truncated, const UsipGuardCtx *g) {
 	ut64 addrs[NU];
 	DecList dec;
 	int i, k;
@@ -1061,7 +1301,7 @@ void usip_decode_packet(UsipPacket *pk, ut64 addr, const ut16 *units, int n, boo
 	for (i = 0; i < n; i++) {
 		addrs[i] = addr + 2 * (ut64)i;
 	}
-	pk->ambiguous = parse_packet (units, addrs, n, true, &dec);
+	pk->ambiguous = parse_packet (g, units, addrs, n, true, &dec);
 	memset (pk->owner, 0xff, sizeof (pk->owner));
 	for (i = 0; i < dec.n; i++) {
 		const Dec *d = &dec.d[i];
@@ -1071,6 +1311,7 @@ void usip_decode_packet(UsipPacket *pk, ut64 addr, const ut16 *units, int n, boo
 		in->tails[0] = d->t[0];
 		in->tails[1] = d->t[1];
 		in->pseudo = d->pseudo;
+		in->guard = d->guard;
 		in->op = d->op;
 		in->kind = d->kind;
 		in->mnem = d->mnem;
@@ -1174,6 +1415,9 @@ static void format_operands(const UsipInsn *in, ut64 pc, RStrBuf *sb) {
 		case USIP_A_ABSADDR:
 			r_strbuf_appendf (&ob, "0x%08"PFMT64x, (ut64)v);
 			break;
+		case USIP_A_MOVHI:
+			r_strbuf_appendf (&ob, "0x%08"PFMT64x, (ut64)v & UT32_MAX);
+			break;
 		case USIP_A_FLAG:
 			r_strbuf_appendf (&ob, "%d", (int)v);
 			break;
@@ -1207,6 +1451,10 @@ void usip_insn_text(const UsipPacket *pk, int i, RStrBuf *sb) {
 	switch (in->pseudo) {
 	case USIP_P_FORM:
 		r_strbuf_append (sb, in->mnem);
+		if (in->guard == USIP_G_UNVERIFIED) {
+			/* target guard accepted without the function table */
+			r_strbuf_append (sb, "?");
+		}
 		if (in->kind == USIP_K_OTHER && !usip_op_nargs (in->op)) {
 			/* raw forms (.hword, .word, .alu16, .fill...): show the units */
 			r_strbuf_appendf (sb, " 0x%0*"PFMT64x, 4 * (in->ntails + 1), in->w);
