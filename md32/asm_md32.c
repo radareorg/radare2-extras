@@ -136,6 +136,144 @@ static char *memory_pseudo(const char *name, char **args, int nargs) {
 	return r_strbuf_drain (sb);
 }
 
+/* uSIP mnemonics: immediates carry a '#', memory operands are [base+off], [base]+, [sp+off], [#addr] */
+static const Md32PseudoRule usip_rules[] = {
+	{ "movi", 2, "$1 = $2" },
+	{ "mov", 2, "$1 = $2" },
+	{ "mov32", 2, "$1 = $2" },
+	{ "lea", 2, "$1 = &$2" },
+	{ "add", 2, "$1 += $2" },
+	{ "add", 3, "$1 = ($2 + $3)" },
+	{ "addi", 3, "$1 = ($2 + $3)" },
+	{ "inc", 2, "$1 = ($2 + 1)" },
+	{ "dec", 2, "$1 = ($2 - 1)" },
+	{ "sub", 2, "$1 -= $2" },
+	{ "sub", 3, "$1 = ($2 - $3)" },
+	{ "rsub", 3, "$1 = ($3 - $2)" },
+	{ "neg", 2, "$1 = -$2" },
+	{ "and", 3, "$1 = ($2 & $3)" },
+	{ "or", 3, "$1 = ($2 | $3)" },
+	{ "xor", 3, "$1 = ($2 ^ $3)" },
+	{ "lsl", 3, "$1 = ($2 << $3)" },
+	{ "lsr", 3, "$1 = ((uint32_t)$2 >> $3)" },
+	{ "asr", 3, "$1 = ((int32_t)$2 >> $3)" },
+	{ "seq", 3, "$1 = ($2 == $3)" },
+	{ "slt", 3, "$1 = ((int32_t)$2 < (int32_t)$3)" },
+	{ "sltu", 3, "$1 = ((uint32_t)$2 < (uint32_t)$3)" },
+	{ "sgt", 3, "$1 = ((int32_t)$2 > (int32_t)$3)" },
+	{ "cmov", 3, "$1 = ($2 != 0) ? $3 : $1" },
+	{ "clz", 2, "$1 = clz32($2)" },
+	{ "min", 3, "$1 = min_s32($2, $3)" },
+	{ "max", 3, "$1 = max_s32($2, $3)" },
+	{ "beq", 3, "if ($1 == $2) goto $3" },
+	{ "bne", 3, "if ($1 != $2) goto $3" },
+	{ "blt", 3, "if ((int32_t)$1 < (int32_t)$2) goto $3" },
+	{ "ble", 3, "if ((int32_t)$1 <= (int32_t)$2) goto $3" },
+	{ "bgt", 3, "if ((int32_t)$1 > (int32_t)$2) goto $3" },
+	{ "bge", 3, "if ((int32_t)$1 >= (int32_t)$2) goto $3" },
+	{ "bltu", 3, "if ((uint32_t)$1 < (uint32_t)$2) goto $3" },
+	{ "bleu", 3, "if ((uint32_t)$1 <= (uint32_t)$2) goto $3" },
+	{ "bgtu", 3, "if ((uint32_t)$1 > (uint32_t)$2) goto $3" },
+	{ "bgeu", 3, "if ((uint32_t)$1 >= (uint32_t)$2) goto $3" },
+	{ "beqz", 2, "if ($1 == 0) goto $2" },
+	{ "bnez", 2, "if ($1 != 0) goto $2" },
+	{ "bz", 2, "if ($1 == 0) goto $2" },
+	{ "bnz", 2, "if ($1 != 0) goto $2" },
+	{ "b", 1, "goto $1" },
+	{ "call", 1, "$1 ()" },
+	{ "ret", 0, "return" },
+	{ "loop", 2, "repeat $1 times until $2" },
+	{ "nop", 0, "nop" },
+	{ "sys", 1, "system($1)" },
+	{ "save", 1, "push_callee_saved($1)" },
+	{ "restore", 1, "pop_callee_saved($1)" },
+};
+
+/* ld.w r1, [r2+0x4] -> r1 = dmem32[r2 + 0x4]; st.b r1, [r2]+ -> dmem8[r2] = r1; r2 += 1 */
+static char *usip_memory_pseudo(const char *name, char **args, int nargs) {
+	const bool load = !strncmp (name, "ld.", 3);
+	if (nargs != 2 || (!load && strncmp (name, "st.", 3))) {
+		return NULL;
+	}
+	const char w = name[3];
+	const int bits = w == 'w'? 32: w == 'h'? 16: w == 'b'? 8: 0;
+	if (!bits) {
+		return NULL;
+	}
+	const bool sign = load && !name[4] && w != 'w';   /* ld.h / ld.b: signed; ld.hu, ld.bu, ld.h?...: left as is */
+	const char *mem = strchr (args[1], '[');
+	const char *close = mem? strchr (mem, ']'): NULL;
+	if (!mem || !close || mem != args[1]) {
+		return NULL;
+	}
+	char *inner = r_str_ndup (mem + 1, close - mem - 1);
+	const bool post = close[1] == '+';
+	RStrBuf *sb = r_strbuf_new ("");
+	if (*inner == '#') {
+		memmove (inner, inner + 1, strlen (inner));
+	}
+	char *plus = strchr (inner, '+');
+	char *minus = strchr (inner, '-');
+	if (plus) {
+		*plus = 0;
+		r_strbuf_setf (sb, "%s + %s", inner, plus + 1);
+	} else if (minus) {
+		*minus = 0;
+		r_strbuf_setf (sb, "%s - %s", inner, minus + 1);
+	} else {
+		r_strbuf_set (sb, inner);
+	}
+	char *addr = r_strbuf_drain (sb);
+	sb = r_strbuf_new ("");
+	if (load) {
+		r_strbuf_appendf (sb, "%s = %sdmem%d[%s]%s", args[0], sign? (bits == 8? "sext8(": "sext16("): "", bits, addr, sign? ")": "");
+	} else {
+		r_strbuf_appendf (sb, "dmem%d[%s] = %s", bits, addr, args[0]);
+	}
+	if (post) {
+		r_strbuf_appendf (sb, "; %s += %d", inner, bits / 8);
+	}
+	free (addr);
+	free (inner);
+	return r_strbuf_drain (sb);
+}
+
+static char *usip_pseudo(const char *name, char **args, int nargs) {
+	int i;
+	for (i = 0; i < nargs; i++) {
+		if (args[i][0] == '#') {
+			args[i]++;
+		}
+	}
+	char *result = usip_memory_pseudo (name, args, nargs);
+	if (result) {
+		return result;
+	}
+	/* strip the variant suffix: beq.d -> beq, bz.s -> bz, ret.d -> ret, add.2 -> add */
+	char base[32];
+	r_str_ncpy (base, name, sizeof (base));
+	char *dot = strchr (base, '.');
+	if (dot) {
+		*dot = 0;
+	}
+	size_t k;
+	for (k = 0; k < R_ARRAY_SIZE (usip_rules); k++) {
+		if (usip_rules[k].nargs == nargs && !strcmp (usip_rules[k].name, base)) {
+			const char *text = usip_rules[k].text;
+			RStrBuf *sb = r_strbuf_new ("");
+			for (; *text; text++) {
+				if (*text == '$' && text[1] >= '1' && text[1] <= '4') {
+					r_strbuf_append (sb, args[*++text - '1']);
+				} else {
+					r_strbuf_append_n (sb, text, 1);
+				}
+			}
+			return r_strbuf_drain (sb);
+		}
+	}
+	return NULL;
+}
+
 static char *parse_single(RAsmPluginSession *aps, const char *data) {
 	char *copy = r_str_trim_dup (data);
 	if (!copy) {
@@ -181,6 +319,17 @@ static char *parse_single(RAsmPluginSession *aps, const char *data) {
 	if (depth) {
 		goto fallback;
 	}
+	if (usip_cpu (aps)) {
+		if (name[0] == '.') {
+			goto fallback;
+		}
+		char *result = usip_pseudo (name, args, nargs);
+		if (result) {
+			free (copy);
+			return result;
+		}
+		goto fallback;
+	}
 	// Keep delay and DSP suffixes intact. Only remove the scalar width suffix.
 	const size_t len = strlen (name);
 	if (len > 2 && !strcmp (name + len - 2, "16")) {
@@ -199,14 +348,10 @@ static char *parse_single(RAsmPluginSession *aps, const char *data) {
 		return result;
 	}
 	const char *text = NULL;
-	if (nargs == 1 && !strcmp (name, "j") && !strcmp (args[0], "r15") && !usip_cpu (aps)) {
+	if (nargs == 1 && !strcmp (name, "j") && !strcmp (args[0], "r15")) {
 		text = "return";
 	} else if (!nargs && !strcmp (name, "ret")) {
-		text = usip_cpu (aps)? "return /* uSIP extension semantics unresolved */": "return";
-	} else if (usip_cpu (aps) && nargs == 1 && name[0] == 'b' && name[1] >= '0' && name[1] <= '7' && !name[2]) {
-		result = r_str_newf ("if (condition_%c) goto %s", name[1], args[0]);
-		free (copy);
-		return result;
+		text = "return";
 	} else {
 		size_t i;
 		for (i = 0; i < R_ARRAY_SIZE (rules); i++) {
@@ -258,7 +403,7 @@ static char *parse(RAsmPluginSession *aps, const char *data) {
 RAsmPlugin r_asm_plugin_md32 = {
 	.meta = {
 		.name = "md32",
-		.desc = "MediaTek MD32 pseudo syntax",
+		.desc = "MediaTek MD32 / uSIP pseudo syntax",
 		.author = "pancake",
 		.license = "LGPL-3.0-only",
 	},
