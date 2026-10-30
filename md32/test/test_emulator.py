@@ -68,9 +68,10 @@ def boundaries():
     assert out['stop_reason'] == 'unmapped_data_read'
     out = execute('98119822', '--entry', '1')
     assert out['completed_steps'] == 0 and out['stop_reason'] == 'unaligned_instruction_fetch'
-    # No invented semantics for unresolved uSIP extensions or delayed branches.
+    # No invented semantics for delayed branches: in usip mode 5ef9 is ret.d with the rest of the
+    # packet as its delay slot, so the strict stop is the delay-slot one (zero steps), as for MS15E30.
     out = execute('5ef9901a', '--cpu', 'usip')
-    assert out['completed_steps'] == 0 and out['stop_reason'] == 'unsupported_instruction_semantics'
+    assert out['completed_steps'] == 0 and out['stop_reason'] == 'unsupported_delay_slot_execution'
     out = execute('a02f80008000', '--reg', 'r15=0')
     assert out['completed_steps'] == 0 and out['stop_reason'] == 'unsupported_delay_slot_execution'
     # An unsupported pair that contains NOP is not silently skipped either.

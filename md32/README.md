@@ -12,8 +12,8 @@ CPU for these (`e asm.cpu=usip`); see [uSIP mode](#usip-mode).
 ## Build and use
 
 Requires radare2 development headers/libraries, `pkg-config`, a C compiler, and
-make. Tested with radare2 6.2.5 on macOS arm64 and 6.2.2 on Linux x86-64
-(against 6.2.2 the optional `tools/md32-run` runner does not build because
+make. Tested with radare2 6.2.5 on macOS arm64 and on Linux x86-64 (`make test`),
+and 6.2.2 on Linux x86-64 (against 6.2.2 the optional `tools/md32-run` runner does not build because
 `r_esil_set_fault` is missing from that release: build the two plugins with
 `make arch_md32.so asm_md32.so`).
 
