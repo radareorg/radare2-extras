@@ -23,6 +23,9 @@ static st32 md32_sign(ut32 value, unsigned bits) {
 }
 
 #include "md32_opcodes.h"
+#define USIP_OPCODES_NO_TABLE
+#include "usip_opcodes.h"
+#include "usip_decode.h"
 
 static const char *const gpregs[] = {
 	"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
@@ -486,103 +489,412 @@ static void fill_opex(RAnalOp *op, const Md32Insn *insn, unsigned count) {
 	pj_free (pj);
 }
 
-static bool usip_decode(RAnalOp *op, RArchDecodeMask mask) {
-	const ut16 h = r_read_be16 (op->bytes);
-	const bool short_op = (h & 0x8000) != 0;
-	const int available = op->size;
-	op->size = short_op? 2: 4;
-	if (available < op->size) {
-		op->type = R_ANAL_OP_TYPE_ILL;
-		return false;
+/* ------------------------------------------------------------------------------------------------ uSIP (VLIW packets) */
+/* The uSIP instruction stream is a VLIW packet stream of 16-bit units whose instructions may interleave
+ * (see usip_decode.h).  A decode at the first unit of a packet parses the whole packet and caches it in the session,
+ * so that the following decodes inside the same packet (linear disassembly and analysis) see the same reading:
+ * every head is emitted as an instruction whose size covers its own adjacent units, and a unit that is the tail of
+ * an instruction whose head lies elsewhere in the packet is emitted as `.unit` naming its instruction.  A decode at
+ * an address that is not cached is treated as a packet start (branch targets and function starts always are). */
+
+#define USIP_CACHE_SIZE 64
+
+typedef struct {
+	UsipPacket pk[USIP_CACHE_SIZE];
+	int next;
+} UsipState;
+
+static bool md32_init(RArchSession *s) {
+	if (s) {
+		s->data = R_NEW0 (UsipState);
 	}
-	RStrBuf sb;
-	r_strbuf_init (&sb);
-	op->type = R_ANAL_OP_TYPE_UNK;
-	if (short_op) {
-		if (h == 0xdef9) {
-			op->type = R_ANAL_OP_TYPE_RET;
-			op->eob = true;
-			r_strbuf_set (&sb, "ret");
-		} else if ((h & 0xff0f) == 0xff05) {
-			r_strbuf_setf (&sb, "restore 0x%x", (h >> 4) & 15);
-		} else if ((h & 0xff0f) == 0xdf05) {
-			/* forma de 16 bits de `save` (doc 19 §11.2, 260 usos) */
-			r_strbuf_setf (&sb, "save16 0x%x", (h >> 4) & 15);
-		} else {
-			r_strbuf_setf (&sb, ".hword 0x%04x", h);
+	return true;
+}
+
+static bool md32_fini(RArchSession *s) {
+	/* r_arch_plugin_remove calls fini (NULL) when the plugin is unloaded */
+	if (s) {
+		R_FREE (s->data);
+	}
+	return true;
+}
+
+static bool usip_cpu(RArchSession *s) {
+	return s && s->config && s->config->cpu && !strcmp (s->config->cpu, "usip");
+}
+
+/* the cached packet containing addr whose units still match the bytes at hand */
+static UsipPacket *usip_cached_packet(UsipState *st, ut64 addr, const ut8 *bytes, int len) {
+	int i;
+	if (!st) {
+		return NULL;
+	}
+	for (i = 0; i < USIP_CACHE_SIZE; i++) {
+		UsipPacket *pk = &st->pk[i];
+		if (!pk->nunits || addr < pk->addr || addr >= pk->addr + 2 * (ut64)pk->nunits) {
+			continue;
 		}
-	} else {
-		const ut16 lo = r_read_be16 (op->bytes + 2);
-		if ((h == 0x000e && (lo & 0xf000) == 0x7000)
-			|| (h == 0x400e && (lo & 0xf000) == 0xf000)) {
-			op->type = R_ANAL_OP_TYPE_CALL;
-			op->jump = relative_target (op->addr, lo & 0xffe);
-			op->fail = relative_target (op->addr, 4);
-			r_strbuf_setf (&sb, "call 0x%08"PFMT64x, op->jump);
-		} else if ((h == 0x000e && (lo & 0xf000) == 0x6000)
-			|| (h == 0x400e && (lo & 0xf000) == 0xe000)) {
-			// Vector stubs and independent function bodies agree on this
-			// near relative jump. Do not extend the rule to other tags.
-			op->type = R_ANAL_OP_TYPE_JMP;
-			op->jump = relative_target (op->addr, lo & 0xffe);
-			op->eob = true;
-			r_strbuf_setf (&sb, "j 0x%08"PFMT64x, op->jump);
-			if (mask & R_ARCH_OP_MASK_ESIL) {
-				r_strbuf_setf (&op->esil, "0x%08"PFMT64x",pc,=", op->jump);
+		const int u0 = (int)((addr - pk->addr) / 2);
+		int u;
+		bool same = true;
+		for (u = u0; u < pk->nunits && 2 * (u - u0 + 1) <= len; u++) {
+			if (r_read_be16 (bytes + 2 * (u - u0)) != pk->units[u]) {
+				same = false;
+				break;
 			}
-		} else if ((h & 0xff0f) == 0x5f05) {
-			r_strbuf_setf (&sb, "save 0x%04x, 0x%x", lo, (h >> 4) & 15);
-		} else if (h == 0x5ef9) {
-			/* ret en forma de 32 bits (doc 19 §11.2, 121 usos) */
-			op->type = R_ANAL_OP_TYPE_RET;
-			op->eob = true;
-			r_strbuf_set (&sb, "ret");
-		} else if ((h & 0xff0f) == 0x7f05) {
-			/* restore en forma de 32 bits (93 usos) */
-			r_strbuf_setf (&sb, "restore 0x%x", (h >> 4) & 15);
-		} else if ((h & 0xf1ff) == 0x400c
-			&& (lo & 0xf000) >= 0xc000 && (lo & 0xf000) <= 0xe000) {
-			/* Corpus-derived numeric condition and target, still provisional.
-			 * The supplied rule covers C/D/E only, not every tag >= C. */
-			const unsigned cond = (h >> 9) & 7;
-			op->cond = R_ANAL_CONDTYPE_ERR;
-			op->type = R_ANAL_OP_TYPE_CJMP;
-			op->jump = relative_target (op->addr, lo & 0xffe);
-			op->fail = relative_target (op->addr, 4);
-			r_strbuf_setf (&sb, "b%u 0x%08"PFMT64x, cond, op->jump);
-		} else {
-			r_strbuf_setf (&sb, ".word 0x%04x%04x", h, lo);
+		}
+		if (!same) {
+			pk->nunits = 0;
+			continue;
+		}
+		if (pk->truncated && len > 2 * (pk->nunits - u0)) {
+			/* more of the packet is visible now: complete the units from the cache and re-decode */
+			ut16 units[USIP_MAX_UNITS];
+			bool truncated;
+			int n = u0;
+			memcpy (units, pk->units, u0 * sizeof (ut16));
+			n += usip_scan_units (bytes, R_MIN (len, 2 * (USIP_MAX_UNITS - u0)), units + u0, &truncated);
+			usip_decode_packet (pk, pk->addr, units, n, truncated);
+		}
+		return pk;
+	}
+	return NULL;
+}
+
+static bool usip_name_is(const char *mn, const char *name) {
+	const size_t len = strlen (name);
+	return !strncmp (mn, name, len) && (!mn[len] || mn[len] == '.');
+}
+
+static int usip_alu_type(const char *mn) {
+	static const struct { const char *name; int type; } table[] = {
+		{ "add", R_ANAL_OP_TYPE_ADD }, { "addi", R_ANAL_OP_TYPE_ADD }, { "inc", R_ANAL_OP_TYPE_ADD }, { "lea", R_ANAL_OP_TYPE_LEA },
+		{ "L_add", R_ANAL_OP_TYPE_ADD }, { "sub", R_ANAL_OP_TYPE_SUB }, { "dec", R_ANAL_OP_TYPE_SUB }, { "rsub", R_ANAL_OP_TYPE_SUB },
+		{ "neg", R_ANAL_OP_TYPE_SUB }, { "L_sub", R_ANAL_OP_TYPE_SUB }, { "and", R_ANAL_OP_TYPE_AND }, { "band", R_ANAL_OP_TYPE_AND },
+		{ "bclr", R_ANAL_OP_TYPE_AND }, { "or", R_ANAL_OP_TYPE_OR }, { "bset", R_ANAL_OP_TYPE_OR }, { "xor", R_ANAL_OP_TYPE_XOR },
+		{ "binv", R_ANAL_OP_TYPE_XOR }, { "lsl", R_ANAL_OP_TYPE_SHL }, { "shl", R_ANAL_OP_TYPE_SHL }, { "L_shl", R_ANAL_OP_TYPE_SHL },
+		{ "lsr", R_ANAL_OP_TYPE_SHR }, { "shr", R_ANAL_OP_TYPE_SHR }, { "L_shr", R_ANAL_OP_TYPE_SHR }, { "bext", R_ANAL_OP_TYPE_SHR },
+		{ "asr", R_ANAL_OP_TYPE_SAR }, { "asr16", R_ANAL_OP_TYPE_SAR }, { "mov", R_ANAL_OP_TYPE_MOV }, { "cmov", R_ANAL_OP_TYPE_CMOV },
+		{ "seq", R_ANAL_OP_TYPE_CMP }, { "slt", R_ANAL_OP_TYPE_CMP }, { "sltu", R_ANAL_OP_TYPE_CMP }, { "sgt", R_ANAL_OP_TYPE_CMP },
+		{ "sext", R_ANAL_OP_TYPE_CAST }, { "zext", R_ANAL_OP_TYPE_CAST }, { "sext16", R_ANAL_OP_TYPE_CAST }, { "zext16", R_ANAL_OP_TYPE_CAST },
+		{ "mul", R_ANAL_OP_TYPE_MUL }, { "mul16", R_ANAL_OP_TYPE_MUL }, { "mulu16", R_ANAL_OP_TYPE_MUL }, { "mult", R_ANAL_OP_TYPE_MUL },
+		{ "mac", R_ANAL_OP_TYPE_MUL }, { "L_mult", R_ANAL_OP_TYPE_MUL }, { "L_mac", R_ANAL_OP_TYPE_MUL }, { "Mpy_32_16", R_ANAL_OP_TYPE_MUL },
+		{ "Mpy_32_32", R_ANAL_OP_TYPE_MUL }, { "mul3216", R_ANAL_OP_TYPE_MUL }, { "muls64", R_ANAL_OP_TYPE_MUL }, { "mulu64", R_ANAL_OP_TYPE_MUL },
+		{ "divs", R_ANAL_OP_TYPE_DIV }, { "divu", R_ANAL_OP_TYPE_DIV }, { "abs_s", R_ANAL_OP_TYPE_ABS }, { "L_abs", R_ANAL_OP_TYPE_ABS },
+		{ "mfacc", R_ANAL_OP_TYPE_MOV },
+	};
+	size_t i;
+	for (i = 0; i < R_ARRAY_SIZE (table); i++) {
+		if (usip_name_is (mn, table[i].name)) {
+			return table[i].type;
 		}
 	}
-	if (mask & R_ARCH_OP_MASK_DISASM) {
-		op->mnemonic = r_strbuf_drain_nofree (&sb);
+	return R_ANAL_OP_TYPE_UNK;
+}
+
+static int usip_optype(const UsipInsn *in) {
+	const char *mn = in->mnem;
+	switch (in->kind) {
+	case USIP_K_BR:
+		return !strcmp (mn, "b")? R_ANAL_OP_TYPE_JMP: R_ANAL_OP_TYPE_CJMP;
+	case USIP_K_BR16:
+	case USIP_K_BR16D:
+		return !strcmp (mn, "b.s")? R_ANAL_OP_TYPE_JMP: R_ANAL_OP_TYPE_CJMP;
+	case USIP_K_CALL:
+	case USIP_K_CALL16:
+	case USIP_K_CALLA:
+		return R_ANAL_OP_TYPE_CALL;
+	case USIP_K_CALLR:
+		return R_ANAL_OP_TYPE_RCALL;
+	case USIP_K_JUMPA:
+		return R_ANAL_OP_TYPE_JMP;
+	case USIP_K_RET:
+		return R_ANAL_OP_TYPE_RET;
+	case USIP_K_NOP:
+		return R_ANAL_OP_TYPE_NOP;
+	case USIP_K_SYS:
+		return R_ANAL_OP_TYPE_SWI;
+	case USIP_K_SAVE:
+		return R_ANAL_OP_TYPE_RPUSH;
+	case USIP_K_RESTORE:
+		return R_ANAL_OP_TYPE_POP;
+	case USIP_K_LD:
+		return usip_name_is (mn, "lea")? R_ANAL_OP_TYPE_LEA: R_ANAL_OP_TYPE_LOAD;
+	case USIP_K_ST:
+		return R_ANAL_OP_TYPE_STORE;
+	case USIP_K_MEM16:
+		return mn[0] == 'l'? R_ANAL_OP_TYPE_LOAD: R_ANAL_OP_TYPE_STORE;
+	case USIP_K_MOV:
+	case USIP_K_MOV32:
+	case USIP_K_MOVI:
+	case USIP_K_MOVI21:
+	case USIP_K_MOVI32:
+	case USIP_K_CSR:
+		return R_ANAL_OP_TYPE_MOV;
+	case USIP_K_ALU:
+	case USIP_K_ALU32:
+	case USIP_K_BIT:
+	case USIP_K_MUL:
+	case USIP_K_DSP:
+	case USIP_K_DSPACC:
+		return usip_alu_type (mn);
 	}
-	if (mask & R_ARCH_OP_MASK_OPEX) {
-		PJ *pj = pj_new ();
-		if (pj) {
-			pj_o (pj);
-			pj_ks (pj, "encoding", "usip");
-			pj_ki (pj, "width", op->size * 8);
-			pj_ki (pj, "hw1", h);
-			pj_ki (pj, "opcode_without_width_bit", h & 0x7fff);
-			pj_kb (pj, "provisional", true);
-			if (!short_op) {
-				const ut16 extension = r_read_be16 (op->bytes + 2);
-				pj_ki (pj, "extension", extension);
-				pj_ki (pj, "tag", extension >> 12);
-				if (h == 0x5ef9) {
-					pj_kb (pj, "extension_semantics_unresolved", true);
+	return R_ANAL_OP_TYPE_UNK;
+}
+
+static void usip_branch_cond(RAnalOp *op, const char *mn) {
+	static const struct { const char *name; int cond; bool sign; } table[] = {
+		{ "beq", R_ANAL_CONDTYPE_EQ, false }, { "bne", R_ANAL_CONDTYPE_NE, false }, { "blt", R_ANAL_CONDTYPE_LT, true },
+		{ "ble", R_ANAL_CONDTYPE_LE, true }, { "bgt", R_ANAL_CONDTYPE_GT, true }, { "bge", R_ANAL_CONDTYPE_GE, true },
+		{ "bltu", R_ANAL_CONDTYPE_LO, false }, { "bleu", R_ANAL_CONDTYPE_LS, false }, { "bgtu", R_ANAL_CONDTYPE_HI, false },
+		{ "bgeu", R_ANAL_CONDTYPE_HS, false }, { "beqz", R_ANAL_CONDTYPE_EQ, false }, { "bnez", R_ANAL_CONDTYPE_NE, false },
+		{ "bz", R_ANAL_CONDTYPE_EQ, false }, { "bnz", R_ANAL_CONDTYPE_NE, false },
+	};
+	size_t i;
+	for (i = 0; i < R_ARRAY_SIZE (table); i++) {
+		if (usip_name_is (mn, table[i].name)) {
+			op->cond = table[i].cond;
+			op->sign = table[i].sign;
+			return;
+		}
+	}
+}
+
+/* decoded field value by name (the format fields come first in op->fields) */
+static bool usip_field(const UsipInsn *in, const char *name, st64 *value) {
+	int i;
+	for (i = 0; i < in->nvals; i++) {
+		const char *nm = usip_op_field_name (in->op, i);
+		if (nm && !strcmp (nm, name)) {
+			*value = in->vals[i];
+			return true;
+		}
+	}
+	return false;
+}
+
+static int usip_nruns(const UsipPacket *pk) {
+	int u, runs = 0;
+	for (u = 0; u < pk->nunits; u++) {
+		if (!u || pk->owner[u] != pk->owner[u - 1]) {
+			runs++;
+		}
+	}
+	return runs;
+}
+
+static void usip_analyze(RAnalOp *op, const UsipPacket *pk, int k) {
+	const UsipInsn *in = &pk->insn[k];
+	const ut64 pkt_end = pk->addr + 2 * (ut64)pk->nunits;
+	st64 v;
+	op->type = usip_optype (in);
+	switch (in->kind) {
+	case USIP_K_BR:
+	case USIP_K_BR16:
+	case USIP_K_BR16D:
+		if (in->has_target) {
+			op->jump = in->target;
+		}
+		if (op->type == R_ANAL_OP_TYPE_CJMP) {
+			op->fail = pkt_end;
+			usip_branch_cond (op, in->mnem);
+		} else {
+			op->eob = true;
+		}
+		break;
+	case USIP_K_CALL:
+	case USIP_K_CALL16:
+	case USIP_K_CALLA:
+		if (in->has_target) {
+			op->jump = in->target;
+		}
+		op->fail = pkt_end;
+		break;
+	case USIP_K_CALLR:
+		if (usip_field (in, "rB", &v)) {
+			op->reg = gpregs[v & 15];
+		}
+		op->fail = pkt_end;
+		break;
+	case USIP_K_JUMPA:
+		if (in->has_target) {
+			op->jump = in->target;
+		}
+		op->eob = true;
+		break;
+	case USIP_K_RET:
+		op->eob = true;
+		op->reg = "r15";
+		break;
+	case USIP_K_LOOP:
+		/* The loop setup does not branch: the back edge is at the (inclusive) loop end. */
+		if (in->has_target) {
+			op->ptr = in->target;
+			op->direction = R_ANAL_OP_DIR_REF;
+		}
+		if (usip_field (in, "rX", &v)) {
+			op->reg = gpregs[v & 15];
+		}
+		break;
+	case USIP_K_LD:
+	case USIP_K_ST:
+	case USIP_K_MEM16:
+		if (op->type == R_ANAL_OP_TYPE_LOAD || op->type == R_ANAL_OP_TYPE_STORE) {
+			const char *mn = in->mnem;
+			const char *dot = strchr (mn, '.');
+			const char w = dot? dot[1]: 'w';
+			op->refptr = w == 'w'? 4: w == 'h'? 2: w == 'b'? 1: 0;
+			op->ptrsize = op->refptr;
+			op->sign = dot && (dot[2] == 0 || dot[2] == '?') && (w == 'h' || w == 'b');
+			op->direction = op->type == R_ANAL_OP_TYPE_LOAD? R_ANAL_OP_DIR_READ: R_ANAL_OP_DIR_WRITE;
+			if (usip_field (in, "rA", &v)) {
+				op->ireg = gpregs[v & 15];
+				if ((v & 15) == 14) {
+					op->stackop = op->type == R_ANAL_OP_TYPE_LOAD? R_ANAL_STACK_GET: R_ANAL_STACK_SET;
 				}
+			} else if (usip_name_is (mn, "ld.sp") || usip_name_is (mn, "st.sp")) {
+				op->ireg = "r14";
+				op->stackop = op->type == R_ANAL_OP_TYPE_LOAD? R_ANAL_STACK_GET: R_ANAL_STACK_SET;
 			}
-			if (op->type == R_ANAL_OP_TYPE_CJMP) {
-				pj_ki (pj, "condition_index", (h >> 9) & 7);
+			if (usip_field (in, "off", &v) || usip_field (in, "off12", &v) || usip_field (in, "off11", &v) || usip_field (in, "imm", &v)) {
+				op->disp = (ut64)v;
+			}
+			if (usip_field (in, "addr", &v) || usip_field (in, "imm27", &v)) {
+				op->ptr = v;
+			}
+		}
+		break;
+	default:
+		break;
+	}
+	if (op->type == R_ANAL_OP_TYPE_MOV || in->kind == USIP_K_MOV32) {
+		if (usip_field (in, "V", &v) || usip_field (in, "val", &v) || usip_field (in, "imm", &v) || usip_field (in, "addr", &v)) {
+			op->val = (ut64)v;
+		}
+	}
+	if (k == pk->owner[0] && pk->delay) {
+		/* the rest of the packet executes before the transfer: one op per run of units */
+		op->delay = usip_nruns (pk) - 1;
+	}
+}
+
+static void usip_opex(RAnalOp *op, const UsipPacket *pk, int k, int unit) {
+	const UsipInsn *in = &pk->insn[k];
+	PJ *pj = pj_new ();
+	int i;
+	if (!pj) {
+		return;
+	}
+	pj_o (pj);
+	pj_ks (pj, "encoding", "usip");
+	if (in->head != unit) {
+		pj_kb (pj, "tail", true);
+		pj_kn (pj, "insn_addr", usip_unit_addr (pk, in->head));
+	}
+	pj_ks (pj, "mnemonic", in->mnem);
+	if (in->op) {
+		pj_ks (pj, "form", usip_op_form (in->op));
+		pj_ks (pj, "confidence", usip_conf_name (usip_op_conf (in->op)));
+	}
+	pj_ks (pj, "kind", usip_kind_name (in->kind));
+	pj_ki (pj, "slot", k);
+	pj_ka (pj, "units");
+	pj_n (pj, usip_unit_addr (pk, in->head));
+	for (i = 0; i < in->ntails; i++) {
+		pj_n (pj, usip_unit_addr (pk, in->tails[i]));
+	}
+	pj_end (pj);
+	pj_kb (pj, "delay_slot", pk->delay && k != pk->owner[0]);
+	pj_ko (pj, "packet");
+	pj_kn (pj, "addr", pk->addr);
+	pj_ki (pj, "units", pk->nunits);
+	pj_ki (pj, "insns", pk->ninsn);
+	pj_kb (pj, "ambiguous", pk->ambiguous);
+	pj_kb (pj, "truncated", pk->truncated);
+	pj_kb (pj, "delay", pk->delay);
+	pj_end (pj);
+	if (in->op) {
+		pj_ka (pj, "operands");
+		for (i = 0; i < usip_op_nargs (in->op) && i < in->nvals; i++) {
+			const int t = usip_op_field_type (in->op, i);
+			pj_o (pj);
+			pj_ks (pj, "name", usip_op_field_name (in->op, i));
+			if (t == USIP_A_REG) {
+				pj_ks (pj, "type", "reg");
+				pj_ks (pj, "value", gpregs[in->vals[i] & 15]);
+			} else if (t == USIP_A_FLAG) {
+				pj_ks (pj, "type", "flag");
+				pj_kN (pj, "value", in->vals[i]);
+			} else if (t == USIP_A_DISP || t == USIP_A_UDISP || t == USIP_A_ABSADDR) {
+				pj_ks (pj, "type", "addr");
+				pj_kn (pj, "value", t == USIP_A_ABSADDR? (ut64)in->vals[i]: (usip_unit_addr (pk, in->head) + (ut64)in->vals[i]) & UT32_MAX);
+			} else {
+				pj_ks (pj, "type", "imm");
+				pj_kN (pj, "value", in->vals[i]);
 			}
 			pj_end (pj);
-			r_strbuf_set (&op->opex, pj_string (pj));
-			pj_free (pj);
 		}
+		pj_end (pj);
 	}
-	r_strbuf_fini (&sb);
+	pj_end (pj);
+	r_strbuf_set (&op->opex, pj_string (pj));
+	pj_free (pj);
+}
+
+static bool usip_decode(RArchSession *s, RAnalOp *op, RArchDecodeMask mask) {
+	const int available = op->size;
+	UsipState *st = s? (UsipState *)s->data: NULL;
+	UsipPacket local;
+	UsipPacket *pk = usip_cached_packet (st, op->addr, op->bytes, available);
+	if (!pk) {
+		ut16 units[USIP_MAX_UNITS];
+		bool truncated;
+		const int n = usip_scan_units (op->bytes, available, units, &truncated);
+		if (n < 1) {
+			op->type = R_ANAL_OP_TYPE_ILL;
+			op->size = 2;
+			return false;
+		}
+		if (st) {
+			pk = &st->pk[st->next];
+			st->next = (st->next + 1) % USIP_CACHE_SIZE;
+		} else {
+			pk = &local;
+		}
+		usip_decode_packet (pk, op->addr, units, n, truncated);
+	}
+	const int unit = (int)((op->addr - pk->addr) / 2);
+	const int k = pk->owner[unit];
+	const UsipInsn *in = &pk->insn[k];
+	int run = 1;
+	while (unit + run < pk->nunits && pk->owner[unit + run] == k) {
+		run++;
+	}
+	op->size = 2 * run;
+	op->type = R_ANAL_OP_TYPE_UNK;
+	op->id = in->op? usip_op_index (in->op) + 1: 0;
+	if (in->head == unit) {
+		usip_analyze (op, pk, k);
+	}
+	if (mask & R_ARCH_OP_MASK_DISASM) {
+		RStrBuf sb;
+		r_strbuf_init (&sb);
+		if (in->head == unit) {
+			usip_insn_text (pk, k, &sb);
+		} else {
+			int i;
+			r_strbuf_append (&sb, ".unit 0x");
+			for (i = 0; i < run; i++) {
+				r_strbuf_appendf (&sb, "%04x", pk->units[unit + i]);
+			}
+			r_strbuf_appendf (&sb, " (%s @ 0x%08"PFMT64x")", in->mnem, usip_unit_addr (pk, in->head));
+		}
+		op->mnemonic = r_strbuf_drain_nofree (&sb);
+		r_strbuf_fini (&sb);
+	}
+	if (mask & R_ARCH_OP_MASK_OPEX) {
+		usip_opex (op, pk, k, unit);
+	}
 	return true;
 }
 
@@ -596,9 +908,9 @@ static bool decode(RArchSession *s, RAnalOp *op, RArchDecodeMask mask) {
 	if (available < 2 || !op->bytes) {
 		return false;
 	}
-	if (s->config->cpu && !strcmp (s->config->cpu, "usip")) {
+	if (usip_cpu (s)) {
 		op->size = available;
-		return usip_decode (op, mask);
+		return usip_decode (s, op, mask);
 	}
 	const ut16 h = r_read_be16 (op->bytes);
 	const unsigned top = h >> 13;
@@ -690,7 +1002,8 @@ static int info(RArchSession *s, ut32 query) {
 	case R_ARCH_INFO_FUNC_ALIGN:
 		return 2;
 	case R_ARCH_INFO_MAXOP_SIZE:
-		return 4;
+		/* A uSIP decode needs the whole packet (up to 8 units) even though one op covers at most 3 of them. */
+		return usip_cpu (s)? 2 * USIP_MAX_UNITS: 4;
 	case R_ARCH_INFO_DATA_ALIGN:
 		return 1;
 	}
@@ -698,9 +1011,26 @@ static int info(RArchSession *s, ut32 query) {
 }
 
 static char *regs(RArchSession *s) {
-	// The uSIP ABI is not established by the supplied material.
-	if (s->config->cpu && !strcmp (s->config->cpu, "usip")) {
-		return strdup ("=PC pc\ngpr pc .32 0 0\n");
+	if (usip_cpu (s)) {
+		// uSIP ABI (reverse-engineered): r14 = SP, r15 = LR, arguments r0-r7, return r0 (r0:r1), callee-saved
+		// r8-r10, r12, r13 (save/restore sets); the second register bank (rN!) and the 72-bit accumulators are
+		// exposed as plain 32-bit words.
+		return strdup (
+			"=PC pc\n=SP r14\n=LR r15\n=A0 r0\n=A1 r1\n=A2 r2\n=A3 r3\n=A4 r4\n=A5 r5\n=A6 r6\n=A7 r7\n=R0 r0\n=R1 r1\n"
+			"gpr r0 .32 0 0\ngpr r1 .32 4 0\ngpr r2 .32 8 0\ngpr r3 .32 12 0\n"
+			"gpr r4 .32 16 0\ngpr r5 .32 20 0\ngpr r6 .32 24 0\ngpr r7 .32 28 0\n"
+			"gpr r8 .32 32 0\ngpr r9 .32 36 0\ngpr r10 .32 40 0\ngpr r11 .32 44 0\n"
+			"gpr r12 .32 48 0\ngpr r13 .32 52 0\ngpr r14 .32 56 0\ngpr r15 .32 60 0\n"
+			"gpr pc .32 64 0\ngpr sr .32 68 0\ngpr ipc .32 72 0\ngpr isr .32 76 0\n"
+			"gpr lf .32 80 0\ngpr ls0 .32 84 0\ngpr le0 .32 88 0\ngpr lc0 .32 92 0\n"
+			"gpr ls1 .32 96 0\ngpr le1 .32 100 0\ngpr lc1 .32 104 0\n"
+			"gpr ls2 .32 108 0\ngpr le2 .32 112 0\ngpr lc2 .32 116 0\n"
+			"gpr r8h .32 120 0\ngpr r9h .32 124 0\ngpr r10h .32 128 0\ngpr r11h .32 132 0\n"
+			"gpr r12h .32 136 0\ngpr r13h .32 140 0\ngpr r14h .32 144 0\ngpr r15h .32 148 0\n"
+			"gpr a0lo .32 152 0\ngpr a0hi .32 156 0\ngpr a0ext .32 160 0\n"
+			"gpr a1lo .32 164 0\ngpr a1hi .32 168 0\ngpr a1ext .32 172 0\n"
+			"gpr a2lo .32 176 0\ngpr a2hi .32 180 0\ngpr a2ext .32 184 0\n"
+			"gpr a3lo .32 188 0\ngpr a3hi .32 192 0\ngpr a3ext .32 196 0\n");
 	}
 	return strdup (
 		"=PC pc\n=SP r14\n=LR r15\n=A0 r3\n=A1 r4\n=A2 r5\n=A3 r6\n=A4 r7\n=A5 r8\n=A6 r9\n=A7 r10\n=R0 r1\n=R1 r2\n"
@@ -718,7 +1048,7 @@ static char *regs(RArchSession *s) {
 RArchPlugin r_arch_plugin_md32 = {
 	.meta = {
 		.name = "md32",
-		.desc = "MediaTek MD32 (MS15E30) and experimental uSIP",
+		.desc = "MediaTek MD32 (MS15E30) and uSIP (VLIW packets)",
 		.author = "pancake",
 		.license = "LGPL-3.0-only",
 	},
@@ -727,6 +1057,8 @@ RArchPlugin r_arch_plugin_md32 = {
 	.bits = R_SYS_BITS_PACK1 (32),
 	.addr_bits = R_SYS_BITS_PACK1 (32),
 	.endian = R_SYS_ENDIAN_BIG,
+	.init = md32_init,
+	.fini = md32_fini,
 	.decode = decode,
 	.info = info,
 	.regs = regs,
