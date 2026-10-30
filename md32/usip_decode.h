@@ -8,7 +8,9 @@
  * group split and head/tail assignment allowed by the form table (usip_opcodes.h) and keeps the reading with the
  * fewest unknown units, then the fewest instructions, then the fewest groups, then the documented tie-break
  * penalties.  Only slot 0 (the first unit) can hold control flow and, when the control instruction does not close
- * the packet, the rest of the packet is its delay slot.  See README.md "uSIP mode". */
+ * the packet, the rest of the packet is its delay slot.  Some control forms carry a target guard (the target must be
+ * a packet start of the same function or a function start): the caller supplies that knowledge through UsipGuardCtx,
+ * the decoder applies the documented fallback when it is missing.  See README.md "uSIP mode". */
 
 #ifndef USIP_DECODE_H
 #define USIP_DECODE_H
@@ -17,7 +19,7 @@
 #include <r_util.h>
 
 #define USIP_MAX_UNITS 8
-#define USIP_MAX_VALS 8
+#define USIP_MAX_VALS 10
 
 typedef struct usip_opcode_t UsipOpcode;
 
@@ -25,11 +27,18 @@ enum usip_pseudo {
 	USIP_P_FORM = 0,   /* a table form (UsipInsn.op) */
 	USIP_P_HWORD,      /* 16-bit unit without a reading */
 	USIP_P_WORD,       /* head + tail without a reading */
-	USIP_P_WORD_CTRL,  /* control-flow form whose tail is too far away (not control flow) */
+	USIP_P_WORD_CTRL,  /* control-flow form whose tail is at the wrong distance or whose target guard failed (data) */
 	USIP_P_W48,        /* head + hi + lo without a reading */
 	USIP_P_LO,         /* context rule lo_after_hi */
 	USIP_P_EXT,        /* context rule ext_after_ldst */
 	USIP_P_BE79,       /* context rule be79_prefix (2 units) */
+};
+
+/* target-guard status of an instruction */
+enum usip_guard {
+	USIP_G_NONE = 0,   /* the form has no target guard (or it was not evaluated: greedy fallback) */
+	USIP_G_OK,         /* the guard validated (target at a packet start of the function / at a function start) */
+	USIP_G_UNVERIFIED, /* accepted by the fallback: the function table was not available (printed with a trailing ?) */
 };
 
 typedef struct {
@@ -37,6 +46,7 @@ typedef struct {
 	ut8 ntails;             /* 0, 1 or 2 */
 	ut8 tails[2];           /* unit indices of the tails (hi, lo) */
 	ut8 pseudo;             /* enum usip_pseudo */
+	ut8 guard;              /* enum usip_guard */
 	const UsipOpcode *op;   /* NULL when pseudo != USIP_P_FORM */
 	ut8 kind;               /* enum usip_kind (USIP_K_OTHER / USIP_K_FMT for the pseudo forms) */
 	const char *mnem;       /* mnemonic */
@@ -59,12 +69,26 @@ typedef struct {
 	bool delay;                     /* slot 0 is control flow and the rest of the packet is its delay slot */
 } UsipPacket;
 
+/* What the decoder may ask about branch targets (the target guards of the table).  Each callback answers
+ * 1 = yes, 0 = no, -1 = unknown; a NULL callback means unknown.  Semantics of the answers:
+ *   packet_start: the address is the start of a packet of the function being decoded;
+ *   function_start: the address is the start of a function.
+ * When the answer is unknown, a few forms are still read, marked USIP_G_UNVERIFIED (printed with a trailing ?): the
+ * call / b / compare-and-branch-with-immediate forms whose F' = 0 tail sits at +2 and beqz.d (their unverified
+ * readings are right in 90-100 % of the cases, see unverified_ok in usip_decode.c); the others (loop, far b, bnez.d,
+ * the register compare-and-branch, the 16-bit call.s) are data / fall through, as when the guard fails. */
+typedef struct {
+	void *user;
+	int (*packet_start)(void *user, ut64 addr);
+	int (*function_start)(void *user, ut64 addr);
+} UsipGuardCtx;
+
 /* Collect the units of the packet that starts at buf (len bytes available).  Returns the number of units (0 when
  * len < 2) and sets *truncated when the close bit was not reached. */
 int usip_scan_units(const ut8 *buf, int len, ut16 *units, bool *truncated);
 
-/* Decode a whole packet (n units, 1..USIP_MAX_UNITS) starting at addr. */
-void usip_decode_packet(UsipPacket *pk, ut64 addr, const ut16 *units, int n, bool truncated);
+/* Decode a whole packet (n units, 1..USIP_MAX_UNITS) starting at addr; g may be NULL (no target knowledge). */
+void usip_decode_packet(UsipPacket *pk, ut64 addr, const ut16 *units, int n, bool truncated, const UsipGuardCtx *g);
 
 /* Mnemonic and operands of instruction i of the packet. */
 void usip_insn_text(const UsipPacket *pk, int i, RStrBuf *sb);
@@ -85,5 +109,6 @@ unsigned usip_op_flags(const UsipOpcode *op);
 int usip_op_nargs(const UsipOpcode *op);
 const char *usip_op_field_name(const UsipOpcode *op, int i);
 int usip_op_field_type(const UsipOpcode *op, int i);
+const char *usip_csr_ext_name(int csr);
 
 #endif

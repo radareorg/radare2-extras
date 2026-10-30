@@ -3,73 +3,110 @@
 
     python3 tools/gen_usip_tables.py [isa/usip_isa.json] [-o usip_opcodes.h]
 
-Compared with a plain mask/value table this header also carries
-everything the C packet decoder (usip_decode.c) needs: every operand field referenced by the format string OR by a
-constraint, the constraints as structured data (not strings), 16-bit flags and the indices of the context-only forms.
+Compared with a plain mask/value table this header also carries everything the C packet decoder (usip_decode.c)
+needs: every operand field referenced by the format string OR by a constraint, the constraints as structured data
+(not strings), 16-bit flags, the indices of the context-only forms and the auxiliary tables of the ISA description
+(must-pair heads, save/restore sets, sys-shape names, CSR names).  The output is deterministic: regenerating from the
+same JSON gives a byte-identical header.
 
-Table layout (see README.md "uSIP mode"):
+Table layout (see README.md "uSIP mode" and doc/usip.md):
   UsipOpcode { name, form, value, mask, width, nunits, flags, kind, conf, fmt, nargs, nfields, fields[], ncons, cons[] }
   * value/mask are over the big-endian concatenation of the units (bit width-1 = bit 15 of the head); 16-bit forms are
-    matched with bit 15 masked out unless the mask says otherwise (the bit is the packet-close bit);
+    matched with the mask as given (bit 15 is the packet-close bit: forms whose mask includes it match only closers);
   * fields[]: operand fields; the first nargs are the ones used by fmt, in order of first use; each one = type + up to
     7 [hi,lo] bit ranges (MSB first, concatenated), USIP_BITS_ZERO(n) = n implicit zero bits; nbits/scale/base for the
-    value transform;
+    value transform (base = segment base for absaddr, pc offset for disp, a constant added to the field for the other
+    integer types);
   * fmt: operand template with {N} = fields[N] (rendered by type), {N:text} = text if the flag field N is set;
-  * cons[]: constraints that are not mask/value (register/address windows, guards, packet rules).
+  * cons[]: constraints that are not mask/value (register/address windows, guards, packet rules); the target guards
+    (guard_target_*) are evaluated by the decoder after the match, with the packet/function context it has.
 """
-import json, os, sys, re, collections
+import json, os, sys, collections
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
-TYPES = ['reg', 'imm', 'simm', 'rotimm', 'urot', 'disp', 'udisp', 'absaddr', 'acc', 'accw', 'csr', 'csr_ext', 'flag']
+TYPES = ['reg', 'imm', 'simm', 'rotimm', 'urot', 'disp', 'udisp', 'absaddr', 'acc', 'accw', 'csr', 'csr_ext', 'flag', 'movhi']
 CONF = {'high': 'USIP_CONF_HIGH', 'medium-high': 'USIP_CONF_HIGH', 'medium': 'USIP_CONF_MEDIUM',
         'low-medium': 'USIP_CONF_MEDIUM', 'low': 'USIP_CONF_LOW', 'format-only': 'USIP_CONF_FORMAT'}
-CONS_OPS = ['eq', 'ne', 'lt', 'in', 'notin', 'range', 'ranges', 'even', 'not_hi1010', 'eq_fields', 'packet_len',
-            'slot0_excludes_head', 'any_eq', 'guard_setcc_tail', 'guard_tail_not_named16', 'guard_or2_tail']
-MAXFIELDS = 8
-MAXCONS = 3
+CONS_OPS = ['eq', 'ne', 'lt', 'ge', 'in', 'notin', 'inmask', 'notinmask', 'range', 'ranges', 'even', 'not_hi1010',
+            'eq_fields', 'ne_fields', 'packet_len', 'slot0_excludes_head', 'any2',
+            'guard_setcc_tail', 'guard_tail_not_named16', 'guard_or2_tail',
+            'guard_target_packet_start', 'guard_target_function_start', 'guard_target_fn_or_packet_start']
+ANY_OPS = {'eq': 0, 'ne': 1, 'lt': 2, 'ge': 3}
+GUARDS = {'setcc_tail': 'guard_setcc_tail', 'tail_not_named16': 'guard_tail_not_named16', 'or2_tail': 'guard_or2_tail',
+          'target_packet_start_same_function': 'guard_target_packet_start',
+          'target_function_start': 'guard_target_function_start',
+          'target_fn_or_packet_start_same_function': 'guard_target_fn_or_packet_start'}
+MAXFIELDS = 10
+MAXCONS = 8
 MAXVALS = 6
-# 16-bit ld/st forms whose x bit (head bit 8) selects a byte access: the decoder renames .w -> .b
-XBYTE_FORMS = ('ld_E_3', 'ld_E_b', 'st_E_7', 'st_E_f')
+SAVE_SET = ['r8,r9,r10,LR', 'r12,r8!,r9!,r10!', 'r11!,r12!,r13!,r14!', None, 'r8', 'r12,r8!', 'r11!,r12!', None]
 
 
 def cstr(s):
     return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
 
 
+def simple_cons(c):
+    """(op, value) of a one-field comparison"""
+    for op in ('eq', 'ne', 'lt', 'ge'):
+        if op in c:
+            return op, c[op]
+    raise SystemExit('unsupported sub-constraint %r' % c)
+
+
+def set_cons(op, f, vals):
+    """in/notin: a value list when it fits, else a 64-bit membership mask (all values in 0..63)"""
+    vals = list(vals)
+    if len(vals) <= MAXVALS:
+        return (op, f, 0xff, vals)
+    if all(isinstance(v, int) and 0 <= v < 64 for v in vals):
+        m = 0
+        for v in vals:
+            m |= 1 << v
+        return (op + 'mask', f, 0xff, [m & 0xffffffff, m >> 32])
+    raise SystemExit('set constraint too large: %r' % vals)
+
+
 def cons_entries(c, fidx):
-    """one constraint dict -> (op, field, field2, [vals]); 'any' is only used as (F' == 0 || S == 0)"""
+    """one constraint dict -> (op, field, field2, [vals])"""
     if 'any' in c:
         alts = c['any']
-        if len(alts) != 2 or any('eq' not in a or 'field' not in a for a in alts) or alts[0]['eq'] != alts[1]['eq']:
+        if len(alts) != 2 or any('field' not in a for a in alts):
             raise SystemExit('unsupported any-constraint: %r' % c)
-        return ('any_eq', fidx[alts[0]['field']], fidx[alts[1]['field']], [alts[0]['eq']])
+        (o1, v1), (o2, v2) = simple_cons(alts[0]), simple_cons(alts[1])
+        return ('any2', fidx[alts[0]['field']], fidx[alts[1]['field']], [ANY_OPS[o1], v1, ANY_OPS[o2], v2])
     if 'guard' in c:
         gd = c['guard']
+        if gd not in GUARDS:
+            raise SystemExit('unknown guard %s' % gd)
         if gd == 'setcc_tail':
-            return ('guard_setcc_tail', 0xff, 0xff, c.get('small', [0, 2, 4, 0xFFE, 0xFFF]))
-        if gd == 'tail_not_named16':
-            return ('guard_tail_not_named16', 0xff, 0xff, [])
+            return (GUARDS[gd], 0xff, 0xff, c.get('small', [0, 2, 4, 0xFFE, 0xFFF]))
         if gd == 'or2_tail':
-            return ('guard_or2_tail', fidx['u12'], 0xff, [])
-        raise SystemExit('unknown guard %s' % gd)
+            return (GUARDS[gd], fidx['u12'], 0xff, [])
+        return (GUARDS[gd], 0xff, 0xff, [])
     if 'eq_fields' in c:
         a, b = c['eq_fields']
         return ('eq_fields', fidx[a], fidx[b], [])
+    if 'ne_fields' in c:
+        a, b = c['ne_fields']
+        return ('ne_fields', fidx[a], fidx[b], [])
     if 'packet_len' in c:
+        if c['packet_len'] not in (1, 2):
+            raise SystemExit('packet_len %r: the decoder caches 16-bit matches by packet length class 1 / 2 / other' % c['packet_len'])
         return ('packet_len', 0xff, 0xff, [c['packet_len']])
     if 'slot0_excludes_head' in c:
         m, v = c['slot0_excludes_head']
         return ('slot0_excludes_head', 0xff, 0xff, [m, v])
     f = fidx[c['field']]
-    for op in ('eq', 'ne', 'lt'):
+    for op in ('eq', 'ne', 'lt', 'ge'):
         if op in c:
             return (op, f, 0xff, [c[op]])
     if 'in' in c:
-        return ('in', f, 0xff, list(c['in']))
+        return set_cons('in', f, c['in'])
     if 'notin' in c:
-        return ('notin', f, 0xff, list(c['notin']))
+        return set_cons('notin', f, c['notin'])
     if 'range' in c:
         return ('range', f, 0xff, list(c['range']))
     if 'ranges' in c:
@@ -88,11 +125,13 @@ def cons_fields(c):
         return ['u12'] if c['guard'] == 'or2_tail' else []
     if 'eq_fields' in c:
         return list(c['eq_fields'])
+    if 'ne_fields' in c:
+        return list(c['ne_fields'])
     return [c['field']] if 'field' in c else []
 
 
 def exported_fields(form):
-    """(template with {N}, [field dicts]): format fields first (order of first use), then constraint-only fields"""
+    """(template with {N}, nargs, [field dicts]): format fields first (order of first use), then constraint-only fields"""
     fmt = form['format']; fields = {f['name']: f for f in form['fields']}
     names = []; out = []; i = 0
     while i < len(fmt):
@@ -115,6 +154,15 @@ def exported_fields(form):
             if nm not in names:
                 names.append(nm)
     return ''.join(out), nargs, [fields[n] for n in names]
+
+
+def field_base(a):
+    """UsipField.base: segment base (absaddr), pc offset (disp) or the constant added to the field value"""
+    if a['type'] == 'absaddr':
+        return '0x%08x' % (a.get('seg', 0) << 26)
+    if a['type'] == 'disp':
+        return str(a.get('pc_offset', 0))
+    return str(a.get('offset', 0))
 
 
 def emit(isa, out_path):
@@ -146,16 +194,19 @@ def emit(isa, out_path):
         A('\tUSIP_C_%s,' % op.upper())
     A('};')
     A('')
+    A('/* sub-operations of USIP_C_ANY2: vals = { op1, v1, op2, v2 } over field and field2 */')
+    A('enum usip_any_op { USIP_ANY_EQ, USIP_ANY_NE, USIP_ANY_LT, USIP_ANY_GE };')
+    A('')
     A('#define USIP_F_SLOT0     0x001  /* only valid as the first unit of a packet */')
     A('#define USIP_F_NOTSLOT0  0x002  /* never the first unit of a packet */')
-    A('#define USIP_F_CTX       0x004  /* context rule: never matched directly (bz.s P4) */')
+    A('#define USIP_F_CTX       0x004  /* context rule: never matched directly (bz.s P4, the R7 slot forms) */')
     A('#define USIP_F_DELAY     0x008  /* rest of the packet is a delay slot when the instruction does not close it */')
     A('#define USIP_F_ADJ1      0x010  /* tail must be the next unit */')
     A('#define USIP_F_ADJCTRL   0x020  /* tail at +1 (S=1) or +2 (S=0) */')
     A('#define USIP_F_NAMED     0x040  /* operation known (not format-only) */')
     A('#define USIP_F_NOTAIL    0x080  /* 16-bit op that never takes a tail (ret/save/restore) */')
-    A('#define USIP_F_UNKNOWN16 0x100  /* 16-bit shape that does not count as a named 16-bit op (loose syllables, .hword) */')
-    A('#define USIP_F_XBYTE     0x200  /* 16-bit ld/st: head bit 8 selects a byte access (.w -> .b) */')
+    A("#define USIP_F_ADJ2      0x100  /* control tail with F' = 0 EXACTLY at +2 (the unit in between is the delay slot); any other distance = .word */")
+    A('#define USIP_F_UNKNOWN16 0x200  /* 16-bit shape that does not count as a named 16-bit op (loose syllables, .hword, stand-alone closers) */')
     A('')
     A('#define USIP_BITS_ZERO(n)  { 0xff, (n) }   /* n implicit zero bits in the operand value */')
     A('#define USIP_MAXRANGES 7')
@@ -171,16 +222,17 @@ def emit(isa, out_path):
     A('\tut8 nranges;')
     A('\tUsipBits r[USIP_MAXRANGES];  /* MSB first, concatenated */')
     A('\tut8 nbits;          /* rotimm/urot: rotation width; 0 = total bits */')
-    A('\tut8 scale;          /* disp/udisp: multiplier (2 = halfword units) */')
-    A('\tut32 base;          /* absaddr: OR-ed segment base */')
+    A('\tut8 scale;          /* imm/simm/disp/udisp: multiplier (2 = halfword units, 4 = words) */')
+    A('\tut32 base;          /* absaddr: OR-ed segment base; disp: pc offset of the target; reg/imm/udisp/...: constant ADDED to the field value */')
     A('} UsipField;')
     A('')
     A('typedef struct {')
     A('\tut8 op;             /* enum usip_cons_op */')
     A('\tut8 field, field2;  /* indices into UsipOpcode.fields (USIP_NOFIELD when unused) */')
     A('\tut8 nvals;')
-    A('\tst32 vals[USIP_MAXVALS];  /* eq/ne/lt: [v]; in/notin: set; range: [lo, hi); ranges: pairs; slot0_excludes_head: [mask, value];')
-    A('\t                           * packet_len: [n]; any_eq: [v] (field == v || field2 == v); guard_setcc_tail: the small set */')
+    A('\tst32 vals[USIP_MAXVALS];  /* eq/ne/lt/ge: [v]; in/notin: set; inmask/notinmask: [lo32, hi32] of a 64-bit membership mask;')
+    A('\t                           * range: [lo, hi); ranges: pairs; slot0_excludes_head: [mask, value]; packet_len: [n];')
+    A('\t                           * any2: [op1, v1, op2, v2] (field op1 v1 || field2 op2 v2); guard_setcc_tail: the small set */')
     A('} UsipCons;')
     A('')
     A('typedef struct usip_opcode_t {')
@@ -203,7 +255,9 @@ def emit(isa, out_path):
     A('')
     A('#ifndef USIP_OPCODES_NO_TABLE  /* define it to get the types and enums only */')
     A('/* The table is ORDERED: the first entry of the right width whose (units & mask) == value, whose flags allow the slot')
-    A(' * and whose constraints hold is the reading. */')
+    A(' * and whose constraints hold is the reading.  The target guards (USIP_C_GUARD_TARGET_*) are evaluated by the decoder')
+    A(' * AFTER the match: for 32-bit entries a failing guard makes the pair .word (no fall-through), for 16-bit entries it')
+    A(' * falls through to the next entry; USIP_C_PACKET_LEN needs the real packet length (unknown = the constraint fails). */')
     A('static const UsipOpcode usip_opcodes[] = {')
     ctx_index = {}
     for idx, f in enumerate(forms):
@@ -217,8 +271,8 @@ def emit(isa, out_path):
         if f.get('tail_adjacency') == 'ctrl': fl.append('USIP_F_ADJCTRL')
         if f.get('named'): fl.append('USIP_F_NAMED')
         if f['width'] == 16 and 'never takes a tail' in f.get('packet_rules', ''): fl.append('USIP_F_NOTAIL')
+        if f.get('tail_adjacency') == 2: fl.append('USIP_F_ADJ2')
         if not f.get('known16', True): fl.append('USIP_F_UNKNOWN16')
-        if f['name'] in XBYTE_FORMS: fl.append('USIP_F_XBYTE')
         flags = ' | '.join(fl) if fl else '0'
         tmpl, nargs, fields = exported_fields(f)
         if len(fields) > MAXFIELDS:
@@ -238,8 +292,7 @@ def emit(isa, out_path):
                 rs.append('USIP_BITS_ZERO(%d)' % r[1] if r[0] == 'z' else '{%d, %d}' % (r[0], r[1]))
             if len(rs) > 7:
                 raise SystemExit('%s/%s: too many ranges' % (f['name'], a['name']))
-            base = '0x%08x' % (a.get('seg', 0) << 26) if a['type'] == 'absaddr' else '0'
-            A('\t\t{ %s, USIP_A_%s, %d, { %s }, %d, %d, %s },' % (cstr(a['name']), a['type'].upper(), len(rs), ', '.join(rs), a.get('nbits', 0), a.get('scale', 1), base))
+            A('\t\t{ %s, USIP_A_%s, %d, { %s }, %d, %d, %s },' % (cstr(a['name']), a['type'].upper(), len(rs), ', '.join(rs), a.get('nbits', 0), a.get('scale', 1), field_base(a)))
         if cons:
             A('\t  }, %d, {' % len(cons))
             for op, fi, fi2, vals in cons:
@@ -252,6 +305,9 @@ def emit(isa, out_path):
             A('\t  }, 0, { { 0, 0, 0, 0, { 0 } } } },')
     A('};')
     A('')
+    A('/* kind names, in enum usip_kind order */')
+    A('static const char *const usip_kind_names[] = { ' + ', '.join(cstr(k) for k in kinds) + ' };')
+    A('')
     A('/* context-only forms (matched by the packet decoder only) */')
     for nm, idx in sorted(ctx_index.items()):
         A('#define USIP_FORM_%s %d' % (nm.upper(), idx))
@@ -260,12 +316,22 @@ def emit(isa, out_path):
     A('static const char *const usip_cond_imm8[3][4] = { /* op 9 */ {"ne", "eq", "le", "lt"}, /* op 8 */ {"ne.u8", "eq.u8", "leu", "ltu"}, /* op a */ {"geu", "gtu", "ge", "gt"} };')
     A('static const char *const usip_cond_reg[2][4] = { /* op d */ {"ne", "eq", "le", "lt"}, /* op c: t2 0/1 = zero forms */ {"nez", "eqz", "leu", "ltu"} };')
     A('')
-    csr = isa['structure']['registers']['csr_classic']
+    regs = isa['structure']['registers']
+    csr = regs['csr_classic']
+    A('/* classic CSR names (the md32 csr field type; no uSIP form uses it) */')
     A('static const char *const usip_csr_classic[16] = { ' + ', '.join(cstr(x) for x in csr) + ' };')
+    names = regs.get('csr_extended_names', {})
+    A('/* extended CSR names (mfcsr/mtcsr number): index = CSR number 0x00-0x3f, NULL = unnamed */')
+    A('static const char *const usip_csr_ext[64] = { ' + ', '.join(cstr(names['0x%02x' % i].split(' ')[0]) if '0x%02x' % i in names else 'NULL' for i in range(64)) + ' };')
     A('static const ut32 usip_seg[8] = { 0x00000000, 0x04000000, 0x08000000, 0x0c000000, 0x10000000, 0x14000000, 0x18000000, 0x1c000000 }; /* SEG[A] = A << 26; only A = 0, 6, 7 observed */')
     A('')
-    A('/* save/restore register sets: index = w */')
-    A('static const char *const usip_save_set[8] = { "r8,r9,r10,LR", "r12,r8!,r9!,r10!", "r11!,r12!,r13!,r14!,r13", NULL, "r8", "r12,r8!", "r11!,r12!", NULL };')
+    A('/* save/restore register sets: index = w (w = 2 is four words) */')
+    A('static const char *const usip_save_set[8] = { ' + ', '.join(cstr(x) if x else 'NULL' for x in SAVE_SET) + ' };')
+    A('')
+    sysops = isa['structure'].get('sys_ops', {}).get('fld_4', {})
+    A('/* names of the `sys` shape [0][1][00][rrr][x][B][1111] + d000 (tail field fld = 4) by B; NULL = plain sys #n.')
+    A(' * fld 0: B = 15 ret / jr? rB; fld 1: call rB; fld 2: ret? (B = 15) */')
+    A('static const char *const usip_sys_fld4[16] = { ' + ', '.join(cstr(sysops[str(i)].split(' ')[0]) if str(i) in sysops else 'NULL' for i in range(16)) + ' };')
     A('')
     A('/* heads that must take a tail (structure.packet.must_pair): mask, value, allowed tail counts (bit n = n tails) */')
     A('typedef struct { ut16 mask, value; ut8 tails; } UsipMustPair;')

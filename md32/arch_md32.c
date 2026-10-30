@@ -508,11 +508,102 @@ static void fill_opex(RAnalOp *op, const Md32Insn *insn, unsigned count) {
  * an address that is not cached is treated as a packet start (branch targets and function starts always are). */
 
 #define USIP_CACHE_SIZE 64
+#define USIP_SEEN_BITS 15
 
 typedef struct {
 	UsipPacket pk[USIP_CACHE_SIZE];
 	int next;
+	/* packet starts decoded in this session (open-addressing set of addr + 1; 0 = empty): the "packet starts of the
+	 * current function" that the target guards of the table ask about, as far as the linear decode has seen them */
+	ut64 seen[1 << USIP_SEEN_BITS];
+	int nseen;
 } UsipState;
+
+static ut32 usip_seen_slot(ut64 addr) {
+	return (ut32)(((addr >> 1) * 2654435761ULL) & UT32_MAX) >> (32 - USIP_SEEN_BITS);
+}
+
+static void usip_seen_add(UsipState *st, ut64 addr) {
+	if (!st) {
+		return;
+	}
+	if (st->nseen * 2 >= (1 << USIP_SEEN_BITS)) {
+		memset (st->seen, 0, sizeof (st->seen));
+		st->nseen = 0;
+	}
+	ut32 h = usip_seen_slot (addr);
+	for (;;) {
+		if (!st->seen[h]) {
+			st->seen[h] = addr + 1;
+			st->nseen++;
+			return;
+		}
+		if (st->seen[h] == addr + 1) {
+			return;
+		}
+		h = (h + 1) & ((1 << USIP_SEEN_BITS) - 1);
+	}
+}
+
+static bool usip_seen_has(const UsipState *st, ut64 addr) {
+	if (!st) {
+		return false;
+	}
+	ut32 h = usip_seen_slot (addr);
+	for (;;) {
+		if (!st->seen[h]) {
+			return false;
+		}
+		if (st->seen[h] == addr + 1) {
+			return true;
+		}
+		h = (h + 1) & ((1 << USIP_SEEN_BITS) - 1);
+	}
+}
+
+/* Target guards (see usip_decode.h).  Packet starts come from the stream itself: the packets decoded so far in the
+ * session (backward targets, and forward targets of a region decoded earlier) and a scan of the bytes at hand past
+ * the current packet (forward targets up to the 64 bytes radare2 passes); a forward target beyond both is unknown.
+ * Function starts are not available to an arch plugin (radare2 gives it no typed access to RAnal), so that callback
+ * is absent and the decoder applies its documented fallback. */
+typedef struct {
+	UsipState *st;
+	ut64 pk_addr;       /* start of the packet being decoded */
+	int pk_units;
+	ut64 base;          /* address of bytes[0] */
+	const ut8 *bytes;
+	int len;
+} UsipGuardUser;
+
+static int usip_guard_packet_start(void *user, ut64 a) {
+	const UsipGuardUser *u = (const UsipGuardUser *)user;
+	ut64 p = u->pk_addr + 2 * (ut64)u->pk_units;
+	if (a == u->pk_addr) {
+		return 1;
+	}
+	if (a < u->pk_addr) {
+		return usip_seen_has (u->st, a)? 1: 0;
+	}
+	if (a < p) {
+		return 0;
+	}
+	while (p < a) {
+		const st64 off = (st64)(p - u->base);
+		ut16 units[USIP_MAX_UNITS];
+		bool truncated;
+		if (off < 0 || off + 2 > u->len) {
+			/* beyond the bytes at hand (radare2 passes at most 64): known only if an earlier decode of that
+			 * region in this session (analysis, a previous listing) recorded the target as a packet start */
+			return usip_seen_has (u->st, a)? 1: -1;
+		}
+		const int n = usip_scan_units (u->bytes + off, (int)R_MIN (u->len - off, 2 * USIP_MAX_UNITS), units, &truncated);
+		if (n < 1 || truncated) {
+			return usip_seen_has (u->st, a)? 1: -1;
+		}
+		p += 2 * (ut64)n;
+	}
+	return p == a? 1: 0;
+}
 
 static bool md32_init(RArchSession *s) {
 	if (s) {
@@ -564,8 +655,11 @@ static UsipPacket *usip_cached_packet(UsipState *st, ut64 addr, const ut8 *bytes
 			int n = u0;
 			memcpy (units, pk->units, u0 * sizeof (ut16));
 			n += usip_scan_units (bytes, R_MIN (len, 2 * (USIP_MAX_UNITS - u0)), units + u0, &truncated);
-			usip_decode_packet (pk, pk->addr, units, n, truncated);
+			UsipGuardUser gu = { st, pk->addr, n, addr, bytes, len };
+			UsipGuardCtx g = { &gu, usip_guard_packet_start, NULL };
+			usip_decode_packet (pk, pk->addr, units, n, truncated, &g);
 		}
+		usip_seen_add (st, pk->addr);
 		return pk;
 	}
 	return NULL;
@@ -804,7 +898,11 @@ static void usip_opex(RAnalOp *op, const UsipPacket *pk, int k, int unit) {
 	pj_ks (pj, "mnemonic", in->mnem);
 	if (in->op) {
 		pj_ks (pj, "form", usip_op_form (in->op));
-		pj_ks (pj, "confidence", usip_conf_name (usip_op_conf (in->op)));
+		/* a target guard accepted without the function table downgrades the form to medium */
+		pj_ks (pj, "confidence", in->guard == USIP_G_UNVERIFIED? "medium": usip_conf_name (usip_op_conf (in->op)));
+	}
+	if (in->guard != USIP_G_NONE) {
+		pj_ks (pj, "target_guard", in->guard == USIP_G_OK? "validated": "unverified");
 	}
 	pj_ks (pj, "kind", usip_kind_name (in->kind));
 	pj_ki (pj, "slot", k);
@@ -871,7 +969,10 @@ static bool usip_decode(RArchSession *s, RAnalOp *op, RArchDecodeMask mask) {
 		} else {
 			pk = &local;
 		}
-		usip_decode_packet (pk, op->addr, units, n, truncated);
+		UsipGuardUser gu = { st, op->addr, n, op->addr, op->bytes, available };
+		UsipGuardCtx g = { &gu, usip_guard_packet_start, NULL };
+		usip_decode_packet (pk, op->addr, units, n, truncated, &g);
+		usip_seen_add (st, op->addr);
 	}
 	const int unit = (int)((op->addr - pk->addr) / 2);
 	const int k = pk->owner[unit];
