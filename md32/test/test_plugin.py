@@ -35,9 +35,9 @@ def integration():
     assert 'parallel { r0 ^= r0; return; }' in text
     # uSIP packets: slot-0 control flow, delay slot, interleaved S S O O layout.
     text = '\n'.join(r2('e asm.cpu=usip;e asm.pseudo=true;wx 7e0cc00c5c3907f0541c805c@0x40c;pD 12@0x40c', 0x8000))
-    assert 'if (r15 != 0) goto 0x00000418' in text and 'goto 0x0000041e' in text and 'r15 = 0x1d07005c' in text
+    assert 'if (r15 != 0) goto 0x00000418' in text and 'goto 0x0000041e' in text and 'r15! = 0x1d07005c' in text
     text = '\n'.join(r2('e asm.cpu=usip;e asm.pseudo=true;wx 3e015000400ac000def9@0x41e;pD 10@0x41e', 0x8000))
-    assert 'r0 = sext8(dmem8[r15 + 0xa])' in text and 'r0 = dmem32[r8 + 0x0]' in text and 'return' in text
+    assert 'r0 = sext8(dmem8[r15! + 0xa])' in text and 'r0 = dmem32[r8 + 0x0]' in text and 'return' in text
     assert '.unit 0x400a (ld.b @ 0x0000041e)' in text and '.unit 0xc000 (ld.w @ 0x00000420)' in text
     ops = json.loads(r2('wx 981198220400e321a03f;aoj 4')[0])
     assert [o['size'] for o in ops] == [2, 2, 4, 2]
@@ -70,7 +70,7 @@ def integration():
     ops = json.loads(r2('e asm.cpu=usip;wx 5c3907f0541c805c@0x410;aoj 2@0x410', 0x8000)[0])
     assert [o['size'] for o in ops] == [2, 6] and [o['type'] for o in ops] == ['jmp', 'mov']
     assert ops[0]['jump'] == 0x41e and ops[0]['delay'] == 1 and ops[0]['opex']['packet']['delay']
-    assert ops[1]['opcode'] == 'mov32 r15, #0x1d07005c' and ops[1]['opex']['delay_slot'] and ops[1]['val'] == 0x1d07005c
+    assert ops[1]['opcode'] == 'mov32 r15!, #0x1d07005c' and ops[1]['opex']['delay_slot'] and ops[1]['val'] == 0x1d07005c
     # call with S = 0 tail at +2 (S S O O): call, the parallel op, then the two tails as .unit; delay = 3 ops.
     ops = json.loads(r2('e asm.cpu=usip;wx 400e40a07052c0fc@0xf18;aoj 4@0xf18', 0x8000)[0])
     assert [o['size'] for o in ops] == [2, 2, 2, 2] and ops[0]['type'] == 'call'
@@ -101,6 +101,46 @@ def integration():
     ops = json.loads(r2('e asm.cpu=usip;wx 5f059ef9ff45ffff;aoj 4', 0x8000)[0])
     assert [o['opcode'] for o in ops] == ['save w=0x0', 'ret', 'restore w=0x4', '.fill 0xffff']
     assert [o['type'] for o in ops] == ['rpush', 'ret', 'pop', 'unk'] and [o['size'] for o in ops] == [2, 2, 2, 2]
+    # Table update: port I/O, the 32-bit ret of the sys shape, nop32, register jump.
+    ops = json.loads(r2('e asm.cpu=usip;wx 0000c674001ac0024014c00040ffc000@0x1000;aoj 4@0x1000', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['add r0, r0, #0x33a', 'movi r1, #0x1', 'iow r1, [r0]', 'ret']
+    assert [o['type'] for o in ops] == ['add', 'mov', 'io', 'ret'] and ops[2]['ireg'] == 'r0' and ops[3]['opex']['form'] == 'ret32'
+    ops = json.loads(r2('e asm.cpu=usip;wx 0030c7004007fac04614c000@0x1100;aoj 3@0x1100', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['add r3, r0, #0x380', 'nop32', 'iow r1, [r3]'] and ops[1]['type'] == 'nop'
+    ops = json.loads(r2('e asm.cpu=usip;wx 4414c400@0x524;aoj 1@0x524', 0x8000)[0])
+    assert ops[0]['opcode'] == 'ior r1, [r2]' and ops[0]['type'] == 'io' and ops[0]['opex']['form'] == 'ior'
+    ops = json.loads(r2('e asm.cpu=usip;wx 402fc000@0x5d6;aoj 1@0x5d6', 0x8000)[0])
+    assert ops[0]['opcode'] == 'jr? r2' and ops[0]['type'] == 'rjmp' and ops[0]['reg'] == 'r2'
+    # Stack adjust (16-bit closer, scaled signed immediate) and the 64-bit pair load (rB:rB+1, 2 * off11).
+    ops = json.loads(r2('e asm.cpu=usip;wx bdd8@0x100;aoj 1@0x100', 0x8000)[0])
+    assert ops[0]['opcode'] == 'addsp #-0x14' and ops[0]['type'] == 'add' and ops[0]['size'] == 2
+    ops = json.loads(r2('e asm.cpu=usip;wx 5005c0f8@0x1200;aoj 1@0x1200', 0x8000)[0])
+    assert ops[0]['opcode'] == 'ld.d? r0:r1, [r8+0x1f0]' and ops[0]['type'] == 'load' and ops[0]['refptr'] == 8 and ops[0]['disp'] == 0x1f0
+    # First-slot context forms (rule R7 / lea?) and the movhi? value.
+    ops = json.loads(r2('e asm.cpu=usip;wx 5d004b074fe3f867@0xebc;aoj 1@0xebc', 0x8000)[0])
+    assert ops[0]['opcode'] == 'ldslot r0!, #0x1c' and ops[0]['type'] == 'load' and ops[0]['opex']['form'] == 'ldslot_S0'
+    ops = json.loads(r2('e asm.cpu=usip;wx 1028b425@0x16f6;aoj 1@0x16f6', 0x8000)[0])
+    assert ops[0]['opcode'] == 'lea? r8, [sp+0x14]' and ops[0]['type'] == 'lea' and ops[0]['opex']['form'] == 'lea_sp_S0'
+    ops = json.loads(r2('e asm.cpu=usip;wx 3f980381fe015f05@0x4da8;aoj 1@0x4da8', 0x8000)[0])
+    assert ops[0]['opcode'] == 'movhi? r9, #0x7ff00000' and ops[0]['val'] == 0x7ff00000 and ops[0]['opex']['units'] == [0x4da8, 0x4dac]
+    # 48-bit control packets [head][op16][tail] with the tail at +2 and a target guard: the loop end at the next
+    # packet validates; beqz.d validates when the forward target is a packet start (scan of the bytes at hand) and
+    # is data when it is not; the call with the F' = 0 tail needs the function table, so it is read unverified (call?).
+    ops = json.loads(r2('e asm.cpu=usip;wx 4a0f5e0db0060fb34563166cc400@0x1300;aoj 1@0x1300', 0x8000)[0])
+    assert ops[0]['opcode'] == 'loop r5, last=0x00001306' and ops[0]['ptr'] == 0x1306 and ops[0]['opex']['form'] == 'loop_F0'
+    assert ops[0]['opex']['units'] == [0x1300, 0x1304] and ops[0]['opex']['target_guard'] == 'validated'
+    pk = 'wx 240c2132501800046520d0026730c0007ffe4f336ff1d0044871d000@0x752;'
+    ops = json.loads(r2('e asm.cpu=usip;' + pk + 'aoj 1@0x752', 0x8000)[0])
+    assert ops[0]['opcode'] == 'beqz.d r2, 0x0000076a' and ops[0]['type'] == 'cjmp' and ops[0]['jump'] == 0x76a and ops[0]['delay'] == 4
+    assert ops[0]['opex']['units'] == [0x752, 0x756] and ops[0]['opex']['target_guard'] == 'validated'
+    ops = json.loads(r2('e asm.cpu=usip;' + pk + 'wx 4f33@0x768;aoj 1@0x752', 0x8000)[0])
+    assert ops[0]['opcode'].startswith('.dsp') and 'jump' not in ops[0]
+    ops = json.loads(r2('e asm.cpu=usip;wx 7ffe557ebcd1@0x1af0;aoj 2@0x1af0', 0x8000)[0])
+    assert ops[0]['opcode'] == 'call? 0x000017c0' and ops[0]['type'] == 'call' and ops[0]['jump'] == 0x17c0 and ops[0]['delay'] == 2
+    assert ops[0]['opex']['form'] == 'call_F0' and ops[0]['opex']['target_guard'] == 'unverified' and ops[0]['opex']['confidence'] == 'medium'
+    assert ops[1]['opcode'] == 'st.w r7, [r10+20]' and ops[1]['opex']['delay_slot']
+    text = '\n'.join(r2('e asm.cpu=usip;e asm.pseudo=true;wx 0000c674001ac0024014c00040ffc000@0x1000;pD 16@0x1000;wx 5005c0f8@0x1200;pD 4@0x1200;wx bdd8@0x100;pD 2@0x100', 0x8000))
+    assert 'io[r0] = r1' in text and 'r0:r1 = dmem64[r8 + 0x1f0]' in text and 'sp -= 0x14' in text
     # Function analysis: the delay slot stays in the branch's basic block.
     bbs = json.loads(r2('e asm.cpu=usip;wx 7e0cc00c5c3907f0541c805c07f0141cc06c3e015000400ac000def9@0x40c;af@0x40c;afbj@0x40c', 0x8000)[0])
     bb = {b['addr']: b for b in bbs}
