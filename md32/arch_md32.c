@@ -665,14 +665,16 @@ static UsipPacket *usip_cached_packet(UsipState *st, ut64 addr, const ut8 *bytes
 	return NULL;
 }
 
+/* mnemonic test ignoring the variant suffix (.d, .s, .2 ...) and the uncertainty marker (lea?, ld.d?) */
 static bool usip_name_is(const char *mn, const char *name) {
 	const size_t len = strlen (name);
-	return !strncmp (mn, name, len) && (!mn[len] || mn[len] == '.');
+	return !strncmp (mn, name, len) && (!mn[len] || mn[len] == '.' || mn[len] == '?');
 }
 
 static int usip_alu_type(const char *mn) {
 	static const struct { const char *name; int type; } table[] = {
-		{ "add", R_ANAL_OP_TYPE_ADD }, { "addi", R_ANAL_OP_TYPE_ADD }, { "inc", R_ANAL_OP_TYPE_ADD }, { "lea", R_ANAL_OP_TYPE_LEA },
+		{ "add", R_ANAL_OP_TYPE_ADD }, { "addi", R_ANAL_OP_TYPE_ADD }, { "addsp", R_ANAL_OP_TYPE_ADD }, { "inc", R_ANAL_OP_TYPE_ADD },
+		{ "lea", R_ANAL_OP_TYPE_LEA },
 		{ "L_add", R_ANAL_OP_TYPE_ADD }, { "sub", R_ANAL_OP_TYPE_SUB }, { "dec", R_ANAL_OP_TYPE_SUB }, { "rsub", R_ANAL_OP_TYPE_SUB },
 		{ "neg", R_ANAL_OP_TYPE_SUB }, { "L_sub", R_ANAL_OP_TYPE_SUB }, { "and", R_ANAL_OP_TYPE_AND }, { "band", R_ANAL_OP_TYPE_AND },
 		{ "bclr", R_ANAL_OP_TYPE_AND }, { "or", R_ANAL_OP_TYPE_OR }, { "bset", R_ANAL_OP_TYPE_OR }, { "xor", R_ANAL_OP_TYPE_XOR },
@@ -680,7 +682,9 @@ static int usip_alu_type(const char *mn) {
 		{ "lsr", R_ANAL_OP_TYPE_SHR }, { "shr", R_ANAL_OP_TYPE_SHR }, { "L_shr", R_ANAL_OP_TYPE_SHR }, { "bext", R_ANAL_OP_TYPE_SHR },
 		{ "asr", R_ANAL_OP_TYPE_SAR }, { "asr16", R_ANAL_OP_TYPE_SAR }, { "mov", R_ANAL_OP_TYPE_MOV }, { "cmov", R_ANAL_OP_TYPE_CMOV },
 		{ "seq", R_ANAL_OP_TYPE_CMP }, { "slt", R_ANAL_OP_TYPE_CMP }, { "sltu", R_ANAL_OP_TYPE_CMP }, { "sgt", R_ANAL_OP_TYPE_CMP },
+		{ "sne", R_ANAL_OP_TYPE_CMP }, { "scmp", R_ANAL_OP_TYPE_CMP },
 		{ "sext", R_ANAL_OP_TYPE_CAST }, { "zext", R_ANAL_OP_TYPE_CAST }, { "sext16", R_ANAL_OP_TYPE_CAST }, { "zext16", R_ANAL_OP_TYPE_CAST },
+		{ "extu", R_ANAL_OP_TYPE_CAST },
 		{ "mul", R_ANAL_OP_TYPE_MUL }, { "mul16", R_ANAL_OP_TYPE_MUL }, { "mulu16", R_ANAL_OP_TYPE_MUL }, { "mult", R_ANAL_OP_TYPE_MUL },
 		{ "mac", R_ANAL_OP_TYPE_MUL }, { "L_mult", R_ANAL_OP_TYPE_MUL }, { "L_mac", R_ANAL_OP_TYPE_MUL }, { "Mpy_32_16", R_ANAL_OP_TYPE_MUL },
 		{ "Mpy_32_32", R_ANAL_OP_TYPE_MUL }, { "mul3216", R_ANAL_OP_TYPE_MUL }, { "muls64", R_ANAL_OP_TYPE_MUL }, { "mulu64", R_ANAL_OP_TYPE_MUL },
@@ -712,12 +716,17 @@ static int usip_optype(const UsipInsn *in) {
 		return R_ANAL_OP_TYPE_RCALL;
 	case USIP_K_JUMPA:
 		return R_ANAL_OP_TYPE_JMP;
+	case USIP_K_JR:
+		return R_ANAL_OP_TYPE_RJMP;
 	case USIP_K_RET:
 		return R_ANAL_OP_TYPE_RET;
 	case USIP_K_NOP:
 		return R_ANAL_OP_TYPE_NOP;
+	case USIP_K_IO:
+		return R_ANAL_OP_TYPE_IO;
 	case USIP_K_SYS:
-		return R_ANAL_OP_TYPE_SWI;
+		/* the sys shape by its tail field: rti returns, trap? traps, the rest (cop, ieon/ieoff, isync?, lpexit?, idle, sys #n) are system ops */
+		return usip_name_is (mn, "rti")? R_ANAL_OP_TYPE_RET: usip_name_is (mn, "trap")? R_ANAL_OP_TYPE_TRAP: R_ANAL_OP_TYPE_SWI;
 	case USIP_K_SAVE:
 		return R_ANAL_OP_TYPE_RPUSH;
 	case USIP_K_RESTORE:
@@ -830,6 +839,25 @@ static void usip_analyze(RAnalOp *op, const UsipPacket *pk, int k) {
 		op->eob = true;
 		op->reg = "r15";
 		break;
+	case USIP_K_JR:
+		/* jr? rB (sys shape, tail field 0): register jump, delay slot like ret */
+		if (usip_field (in, "rB", &v)) {
+			op->reg = gpregs[v & 15];
+		}
+		op->eob = true;
+		break;
+	case USIP_K_SYS:
+		if (op->type == R_ANAL_OP_TYPE_RET) {
+			op->eob = true;
+		}
+		break;
+	case USIP_K_IO:
+		/* ior rB, [rA] / iow rB, [rA]: rA holds the port number */
+		if (usip_field (in, "rA", &v)) {
+			op->ireg = gpregs[v & 15];
+		}
+		op->direction = in->mnem[1] == 'o'? R_ANAL_OP_DIR_READ: R_ANAL_OP_DIR_WRITE;
+		break;
 	case USIP_K_LOOP:
 		/* The loop setup does not branch: the back edge is at the (inclusive) loop end. */
 		if (in->has_target) {
@@ -847,7 +875,7 @@ static void usip_analyze(RAnalOp *op, const UsipPacket *pk, int k) {
 			const char *mn = in->mnem;
 			const char *dot = strchr (mn, '.');
 			const char w = dot? dot[1]: 'w';
-			op->refptr = w == 'w'? 4: w == 'h'? 2: w == 'b'? 1: 0;
+			op->refptr = w == 'w'? 4: w == 'h'? 2: w == 'b'? 1: w == 'd'? 8: 0;
 			op->ptrsize = op->refptr;
 			op->sign = dot && (dot[2] == 0 || dot[2] == '?') && (w == 'h' || w == 'b');
 			op->direction = op->type == R_ANAL_OP_TYPE_LOAD? R_ANAL_OP_DIR_READ: R_ANAL_OP_DIR_WRITE;
@@ -936,6 +964,13 @@ static void usip_opex(RAnalOp *op, const UsipPacket *pk, int k, int unit) {
 			} else if (t == USIP_A_DISP || t == USIP_A_UDISP || t == USIP_A_ABSADDR) {
 				pj_ks (pj, "type", "addr");
 				pj_kn (pj, "value", t == USIP_A_ABSADDR? (ut64)in->vals[i]: (usip_unit_addr (pk, in->head) + (ut64)in->vals[i]) & UT32_MAX);
+			} else if (t == USIP_A_CSR_EXT) {
+				const char *nm = usip_csr_ext_name ((int)in->vals[i]);
+				pj_ks (pj, "type", "csr");
+				pj_kN (pj, "value", in->vals[i]);
+				if (nm) {
+					pj_ks (pj, "csr", nm);
+				}
 			} else {
 				pj_ks (pj, "type", "imm");
 				pj_kN (pj, "value", in->vals[i]);

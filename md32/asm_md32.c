@@ -184,9 +184,29 @@ static const Md32PseudoRule usip_rules[] = {
 	{ "ret", 0, "return" },
 	{ "loop", 2, "repeat $1 times until $2" },
 	{ "nop", 0, "nop" },
+	{ "nop32", 0, "nop" },
 	{ "sys", 1, "system($1)" },
 	{ "save", 1, "push_callee_saved($1)" },
 	{ "restore", 1, "pop_callee_saved($1)" },
+	{ "jr", 1, "goto $1" },
+	{ "ior", 2, "$1 = io[$2]" },
+	{ "iow", 2, "io[$2] = $1" },
+	{ "mfcsr", 2, "$1 = csr[$2]" },
+	{ "mtcsr", 2, "csr[$1] = $2" },
+	{ "ldslot", 2, "$1 = slot[$2]" },
+	{ "stslot", 2, "slot[$2] = $1" },
+	{ "sne", 3, "$1 = ($2 != $3)" },
+	{ "scmp", 3, "$1 = cmp($2, $3)" },
+	{ "movhi", 2, "$1 = $2" },
+	{ "extu", 4, "$1 = (($2 >> $4) & ((1 << $3) - 1))" },
+	{ "cop", 1, "coprocessor($1)" },
+	{ "rti", 0, "return_from_interrupt" },
+	{ "ieon", 0, "interrupts_on()" },
+	{ "ieoff", 0, "interrupts_off()" },
+	{ "idle", 0, "idle()" },
+	{ "isync", 0, "isync()" },
+	{ "lpexit", 0, "loop_exit()" },
+	{ "trap", 0, "trap()" },
 };
 
 /* ld.w r1, [r2+0x4] -> r1 = dmem32[r2 + 0x4]; st.b r1, [r2]+ -> dmem8[r2] = r1; r2 += 1 */
@@ -196,7 +216,7 @@ static char *usip_memory_pseudo(const char *name, char **args, int nargs) {
 		return NULL;
 	}
 	const char w = name[3];
-	const int bits = w == 'w'? 32: w == 'h'? 16: w == 'b'? 8: 0;
+	const int bits = w == 'w'? 32: w == 'h'? 16: w == 'b'? 8: w == 'd'? 64: 0;
 	if (!bits) {
 		return NULL;
 	}
@@ -249,12 +269,28 @@ static char *usip_pseudo(const char *name, char **args, int nargs) {
 	if (result) {
 		return result;
 	}
-	/* strip the variant suffix: beq.d -> beq, bz.s -> bz, ret.d -> ret, add.2 -> add */
+	/* strip the variant suffix and the uncertainty marker: beq.d -> beq, bz.s -> bz, ret.d -> ret, add.2 -> add,
+	 * lea? -> lea, jr? -> jr, call? -> call */
 	char base[32];
 	r_str_ncpy (base, name, sizeof (base));
 	char *dot = strchr (base, '.');
 	if (dot) {
 		*dot = 0;
+	}
+	size_t blen = strlen (base);
+	if (blen > 1 && base[blen - 1] == '?') {
+		base[blen - 1] = 0;
+	}
+	if (nargs == 1 && !strcmp (base, "addsp")) {
+		/* addsp #-0x14 -> sp -= 0x14 */
+		return args[0][0] == '-'? r_str_newf ("sp -= %s", args[0] + 1): r_str_newf ("sp += %s", args[0]);
+	}
+	if (nargs == 2 && (!strcmp (base, "ior") || !strcmp (base, "iow")) && args[1][0] == '[') {
+		/* ior rB, [rA]: rA holds the port number */
+		char *close = strchr (++args[1], ']');
+		if (close) {
+			*close = 0;
+		}
 	}
 	size_t k;
 	for (k = 0; k < R_ARRAY_SIZE (usip_rules); k++) {
