@@ -83,7 +83,7 @@ means they are not a validated boot memory map.
 
 `e asm.cpu=usip` selects the decoder for the **uSIP** variant of the MD32 family
 (VLIW execute packets of 16-bit units). The instruction set is described by the
-table `isa/usip_isa.json` (386 forms, generated into `usip_opcodes.h` by
+table `isa/usip_isa.json` (475 forms, generated into `usip_opcodes.h` by
 `tools/gen_usip_tables.py`) and by the packet model implemented in
 `usip_decode.c`. The table is an empirical description, not a vendor
 specification: every form carries a confidence level (`high`, `medium`, `low`,
@@ -104,10 +104,19 @@ specification: every form carries a confidence level (`high`, `medium`, `low`,
   then the fewest groups, then the documented tie-break penalties; ties keep the
   first enumerated reading (`opex.packet.ambiguous` tells when a tie existed).
 * Only **slot 0** (the first unit) can be control flow: `b<cond>`, `b`, `call`,
-  `loop`, `ret`, the 16-bit `bz.s`/`bnz.s`/`b.s`/`call.s`, `call.abs`/`b.abs`.
+  `loop`, `ret`, the 16-bit `bz.s`/`bnz.s`/`b.s`/`call.s`, `call.abs`/`b.abs`
+  (the 32-bit `ret`/`ret?`, `jr? rB` and `call rB` of the `sys` shape may sit
+  anywhere). The tail of a branch/call/loop is at +1 or +2; the control tails with
+  F' = 0 (`call`/`b`/`b<cond>` with a 16-bit op in between) sit exactly at +2.
   When the control instruction does not close the packet, the **rest of the
   packet is its delay slot** (both paths execute it). The plugin reports
   `delay` = number of ops that follow in the packet and `fail` = the next packet.
+* Some control forms carry a **target guard**: `loop`, `b<cond>` and `beqz.d`/
+  `bnez.d` with the F' = 0 tail need a target at a packet start of the same
+  function, `call` with the F' = 0 tail and the open-packet `call.s` need a
+  function start, far `b` either. A 32-bit pair whose guard fails is data
+  (`.word`); the 16-bit `call.s` falls through to the plain reading. See
+  [target guards](#target-guards) for what the plugin can check.
 * Hardware loops: `loop rX, last=ADDR` repeats the following instructions up to
   `ADDR` (inclusive) `rX` times; it is reported as a reference (`ptr`), not a
   branch.
@@ -130,37 +139,73 @@ packet.
 
 ### Mnemonics and operands
 
-Registers `r0-r15` (`r14` = SP, `r15` = LR), the second bank is written `rN!`,
-accumulators `A0-A3` (`mfacc rA, Ak.{lo,hi,ext}`), classic CSRs by name
-(`mfcr`/`mtcr`), extended CSRs by number (`mfcsr`/`mtcsr`). Immediates carry a
-`#`; memory operands are `[rA+off]`, `[rA]+`, `[sp+off]`, `[#addr]`. Branch
-targets and `loop` ends are printed absolute. Forms whose operation is unknown
-but whose grouping is established are **format-only** and start with `.`
-(`.hword`, `.word`, `.w48`, `.dsp`, `.op4imm`, `.hi`/`.lo`/`.ext` ...) or end with
-`?` (`ld.w?`, `clr.a?`): they are grouped correctly so that the packet and delay
-slot model stays right, and reported with the `unk` type. `.lo`, `.ext`, `.be79`
-and the 2-unit `bz.s` come from context rules, not table entries.
+Registers `r0-r15` (`r14` = SP, `r15` = LR); the second bank is written `rN!`
+on the operand it applies to (bit `x` = the data/destination register, bit `m` =
+the source/base register, `ss & 2` = the first source of the three-register ALU
+forms). Accumulators `A0-A3` (`mfacc rA, Ak.{lo,hi,ext}`), port I/O
+`ior rB, [rA]`/`iow rB, [rA]` (`rA` holds the port number; there is no classic
+CSR bank on this core), extended CSRs by number (`mfcsr rB, #nn`,
+`mtcsr #nn, rA`), the system shape by name (`cop rA`, `rti`, `ieon`, `ieoff`,
+`idle`, `lpexit?`, `isync?`, `trap?`, `sys #n`), `nop32`, `addsp #imm` (SP
+adjust), `lea? rA, [sp+off]`, `ldslot`/`stslot rB, #k` (stack-slot access, base
+open), `ld.d?`/`st.d? rB:rB+1, [rA+off]` (64-bit pairs), `sne`, `scmp?`, `movhi?`,
+`extu rB, rA, #w, #pos`. Immediates carry a `#`; memory operands are `[rA+off]`,
+`[rA]+`, `[sp+off]`, `[#addr]`. Branch targets and `loop` ends are printed
+absolute. Forms whose operation is unknown but whose grouping is established are
+**format-only** and start with `.` (`.hword`, `.word`, `.w48`, `.dsp`, `.op4imm`,
+`.slot?`, `.hi`/`.lo`/`.ext` ...) or end with `?` (`ld.w?`, `clr.a?`): they are
+grouped correctly so that the packet and delay slot model stays right, and
+reported with the `unk` type. `.lo`, `.ext`, `.be79`, the 2-unit `bz.s` and the
+first-slot `ldslot`/`stslot`/`lea?` come from context rules, not table entries.
+A control instruction printed with a trailing `?` (`call?`, `beqz.d?`) is one
+whose target guard could not be evaluated (see below).
+
+### Target guards
+
+The guarded forms need to know whether the target is a packet start of the
+current function or a function start. The plugin derives **packet starts from
+the stream**: the packets decoded earlier in the session (backward targets, and
+forward targets of a region already decoded, e.g. after `aa` or on a second
+`pd`) and a scan of the bytes radare2 hands the decoder past the current packet
+(at most 64 bytes of lookahead). A forward target farther away is unknown.
+**Function starts are not available** to an arch plugin (radare2 gives it no
+typed access to RAnal). When a guard cannot be evaluated the plugin applies a
+fallback measured on the sample the table was built from: the forms whose
+unverified readings are right in nearly every case are read anyway, printed
+with a trailing `?`, confidence `medium` and `opex.target_guard = "unverified"`
+(`call` with the F' = 0 tail at +2, `b` with the F' = 0 tail, `b<cond> rA, #imm`
+with the F' = 0 tail, `beqz.d`); the others are treated as a failed guard
+(`loop` with the F' = 0 tail, far `b`, `bnez.d`, the register `b<cond>` with the
+F' = 0 tail, the open-packet `call.s`), i.e. `.word` or the plain 16-bit reading.
+A validated guard reports `opex.target_guard = "validated"`.
 
 ### Analysis
 
 Operation types: `cjmp` with `cond` for the compare-and-branch forms (there are
-no flags on this core), `jmp`, `call`/`rcall`, `ret`, `load`/`store` with
-`refptr`/`ireg`/`disp` (`stackop` on `r14`), `mov` with `val` for the immediate
-moves, `add`/`sub`/`and`/`or`/`xor`/`shl`/`shr`/`sar`/`mul`/`div`/`cmp`/`cmov`,
-`rpush`/`pop` for `save`/`restore`, `swi` for `sys`. `opex` carries the form id,
-confidence, kind, slot, unit addresses, the delay-slot flag and the operands.
+no flags on this core), `jmp`, `call`/`rcall`, `ret` (also `rti`), `rjmp` for
+`jr? rB`, `io` for `ior`/`iow` (`ireg` = the port register), `load`/`store` with
+`refptr`/`ireg`/`disp` (`stackop` on `r14`; `refptr` 8 for `ld.d?`/`st.d?`),
+`mov` with `val` for the immediate moves (`movi`, `mov32`, `movhi?`),
+`add`/`sub`/`and`/`or`/`xor`/`shl`/`shr`/`sar`/`mul`/`div`/`cmp`/`cmov`/`cast`,
+`lea` for `lea`/`lea?`, `nop` for `nop32`, `rpush`/`pop` for `save`/`restore`,
+`trap` for `trap?`, `swi` for the other system ops. `opex` carries the form id,
+confidence, kind, slot, unit addresses, the delay-slot flag, the target-guard
+status and the operands.
 The register profile exposes the ABI (`SP=r14`, `LR=r15`, arguments `r0-r7`,
 return `r0`). No ESIL is produced for uSIP.
 
 ### Limitations
 
-* The reading is table-driven and deterministic. Two kinds of packets can read
+* The reading is table-driven and deterministic. Three kinds of packets can read
   differently from the intended one: `S S O O` packets where several head/tail
-  assignments have the same cost (ties, flagged by `opex.packet.ambiguous`), and
+  assignments have the same cost (ties, flagged by `opex.packet.ambiguous`),
   control flow in open packets (`call`/`b`/`loop` followed by delay-slot ops)
-  when the branch reading is not the cheapest one. A disassembler that knows the
-  function table can prefer the reading whose target is a function start or a
-  packet boundary.
+  when the branch reading is not the cheapest one, and the guarded forms whose
+  target the plugin cannot check (far `b` to another function, the open-packet
+  `call.s`, `loop`/`bnez.d` with a forward target beyond the lookahead). A
+  disassembler that knows the function table can prefer the reading whose target
+  is a function start or a packet boundary; `UsipGuardCtx` in `usip_decode.h` is
+  the hook for that knowledge.
 * Open points of the ISA: the size of the second register bank, bit 13 (`m`) of
   the 32-bit forms and bit 8 (`x`) outside the validated places, the exact
   `save w` frame size, the sign of the half/byte loads of the 48-bit family,
