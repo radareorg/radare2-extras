@@ -180,6 +180,12 @@ static int insn_type(const Md32Insn *insn) {
 	if (is_name (insn, "udiv") || is_name (insn, "sdiv")) {
 		return R_ANAL_OP_TYPE_DIV;
 	}
+	if (is_name (insn, "rem")) {
+		return R_ANAL_OP_TYPE_MOD;
+	}
+	if (is_name (insn, "cmulcr") || is_name (insn, "cmulci") || is_name (insn, "cmulr") || is_name (insn, "cmuli")) {
+		return R_ANAL_OP_TYPE_MUL;
+	}
 	if (is_name (insn, "lb") || is_name (insn, "lbu") || is_name (insn, "lh")
 		|| is_name (insn, "lhu") || is_name (insn, "lw")) {
 		return R_ANAL_OP_TYPE_LOAD;
@@ -279,6 +285,10 @@ static void insn_esil(RAnalOp *op, const Md32Insn *insn) {
 		r_strbuf_setf (sb, "0x%x,%s,=", (ut32)a[1].value << 16, a[0].reg);
 	} else if (is_name (insn, "clz")) {
 		r_strbuf_setf (sb, "32,%s,CLZ,%s,=", a[1].reg, a[0].reg);
+	} else if (is_name (insn, "rem")) {
+		// rem16 rn, rm: rn = rn mod rm. Every observed use is a non-negative modulo-N wrap; the sign
+		// convention for negative dividends is not established, unsigned is assumed here.
+		r_strbuf_setf (sb, "%s,%s,%%,%s,=", a[1].reg, a[0].reg, a[0].reg);
 	} else if (is_name (insn, "clb")) {
 		r_strbuf_setf (sb, "32,%s,DUP,31,SWAP,>>,?{,0xffffffff,^,},CLZ,%s,=", a[1].reg, a[0].reg);
 	} else if (is_name (insn, "cinv")) {

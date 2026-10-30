@@ -319,6 +319,13 @@ static const Md32Opcode md32_opcodes[] = {
 	{ "rndu16", 0x0000ce00, 0x0000fe00, 5, 0, 3, { { MD32_R_C3U, 0 }, { MD32_R_C3U, 3 }, { MD32_R_C3U, 6 } } },
 	{ "xtd16", 0x0000c000, 0x0000ffc0, 5, 0, 3, { { MD32_R_C3U, 0 }, { MD32_R_C3U, 3 }, { MD32_I_C8, -1 } } },
 	{ "xtd16", 0x0000c040, 0x0000ffc0, 5, 0, 3, { { MD32_R_C3U, 0 }, { MD32_R_C3U, 3 }, { MD32_I_C16, -1 } } },
+	/* Group-5 16-bit forms absent from the public MS15E30 table (names and semantics inferred from usage). 0xDA00 = cross-sum term (Im(rs*rt) if hi=re), 0xDC00 = straight-difference term (Re(rs*rt)): names per the semantic verification. */
+	{ "rem16", 0x0000ca80, 0x0000ffc0, 5, 0, 2, { { MD32_R_C3U, 0 }, { MD32_R_C3U, 3 } } },
+	{ "ctz16", 0x0000cb00, 0x0000ff00, 5, 0, 2, { { MD32_R_C4U, 0 }, { MD32_R_C4U, 4 } } },
+	{ "cmulcr16", 0x0000d800, 0x0000fe00, 5, 0, 3, { { MD32_R_C3U, 6 }, { MD32_R_C3U, 3 }, { MD32_R_C3U, 0 } } },
+	{ "cmuli16", 0x0000da00, 0x0000fe00, 5, 0, 3, { { MD32_R_C3U, 6 }, { MD32_R_C3U, 3 }, { MD32_R_C3U, 0 } } },
+	{ "cmulr16", 0x0000dc00, 0x0000fe00, 5, 0, 3, { { MD32_R_C3U, 6 }, { MD32_R_C3U, 3 }, { MD32_R_C3U, 0 } } },
+	{ "cmulci16", 0x0000de00, 0x0000fe00, 5, 0, 3, { { MD32_R_C3U, 6 }, { MD32_R_C3U, 3 }, { MD32_R_C3U, 0 } } },
 	{ "ior16", 0x0000f300, 0x0000ff00, 7, 1, 3, { { MD32_R_C3U, 3 }, { MD32_I_C2U_0706, 6 }, { MD32_R_C3U, 0 } } },
 	{ "iow16", 0x0000f200, 0x0000ff00, 7, 1, 3, { { MD32_R_C3U, 3 }, { MD32_I_C2U_0706, 6 }, { MD32_R_C3U, 0 } } },
 	{ "lb16", 0x0000fc00, 0x0000fe00, 7, 3, 3, { { MD32_R_C3U, 0 }, { MD32_R_C3U, 3 }, { MD32_I_C3S_0806, 6 } } },
