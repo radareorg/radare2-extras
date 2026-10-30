@@ -33,11 +33,12 @@ def integration():
     assert 'r2 = dmem8[r1 - 0x1]' in text
     assert 'r2 = dmem32[r1]; r1 += 0x8' in text
     assert 'parallel { r0 ^= r0; return; }' in text
-    text = '\n'.join(r2('e asm.cpu=usip;e asm.pseudo=true;wx 400ee010400cd0105ef9901a;pD 12'))
-    assert 'goto 0x00000010' in text and 'if (condition_0) goto 0x00000014' in text
-    assert 'uSIP extension semantics unresolved' in text
-    text = '\n'.join(r2('e asm.pseudo=true;wx 400fd5c0;e asm.cpu=usip;pD 4'))
-    assert '.word 0x400fd5c0' in text
+    # uSIP packets: slot-0 control flow, delay slot, interleaved S S O O layout.
+    text = '\n'.join(r2('e asm.cpu=usip;e asm.pseudo=true;wx 7e0cc00c5c3907f0541c805c@0x40c;pD 12@0x40c', 0x8000))
+    assert 'if (r15 != 0) goto 0x00000418' in text and 'goto 0x0000041e' in text and 'r15 = 0x1d07005c' in text
+    text = '\n'.join(r2('e asm.cpu=usip;e asm.pseudo=true;wx 3e015000400ac000def9@0x41e;pD 10@0x41e', 0x8000))
+    assert 'r0 = sext8(dmem8[r15 + 0xa])' in text and 'r0 = dmem32[r8 + 0x0]' in text and 'return' in text
+    assert '.unit 0x400a (ld.b @ 0x0000041e)' in text and '.unit 0xc000 (ld.w @ 0x00000420)' in text
     ops = json.loads(r2('wx 981198220400e321a03f;aoj 4')[0])
     assert [o['size'] for o in ops] == [2, 2, 4, 2]
     assert [o['type'] for o in ops] == ['mov', 'mov', 'add', 'ret']
@@ -60,28 +61,50 @@ def integration():
     # Delay-slot fallthrough must skip a two-byte instruction, not a fixed 4.
     bbs = json.loads(r2('wx 14000621800005000000a03fa03f;af;afbj', 14)[0])
     assert bbs[0]['size'] == 6 and bbs[0]['jump'] == 12 and bbs[0]['fail'] == 6
-    ops = json.loads(r2('e asm.cpu=usip;wx 5f051e90000e78aaff05def9;aoj 4')[0])
-    assert [o['size'] for o in ops] == [4, 4, 2, 2]
-    assert ops[1]['jump'] == 0x8ae and ops[3]['type'] == 'ret'
-    # uSIP condition numbers are decoded without assigning comparison names.
-    ops = json.loads(r2('e asm.cpu=usip;wx 400cd010;aoj 1')[0])
-    assert ops[0]['type'] == 'cjmp' and ops[0]['opcode'] == 'b0 0x00000010'
-    assert ops[0]['jump'] == 0x10 and ops[0]['fail'] == 4
-    ops = json.loads(r2('e asm.cpu=usip;wx 5f051e90000e78aa460ce030def9;aoj 4')[0])
-    assert ops[2]['opcode'] == 'b3 0x00000038'
-    assert ops[2]['jump'] == 0x38 and ops[2]['fail'] == 12
-    ops = json.loads(r2('e asm.cpu=usip;wx df355ef900007f45abcd;aoj 3')[0])
-    assert [o['size'] for o in ops] == [2, 4, 4]
-    assert [o['opcode'] for o in ops] == ['save16 0x3', 'ret', 'restore 0x4']
-    assert ops[1]['type'] == 'ret'
-    # Tag F was accidentally accepted by the former >= C test. It is not
-    # part of the supplied C/D/E branch rule and includes counterexamples.
-    ops = json.loads(r2('e asm.cpu=usip;wx 400cfe72;aoj 1')[0])
-    assert ops[0]['type'] == 'unk' and 'jump' not in ops[0]
-    assert ops[0]['opex']['extension'] == 0xfe72
-    ops = json.loads(r2('e asm.cpu=usip;wx 5ef9901a;aoj 1')[0])
-    assert ops[0]['opex']['extension_semantics_unresolved']
-    assert ops[0]['opex']['provisional'] and not ops[0].get('esil')
+    # bnez: conditional branch with its tail adjacent; fail = next packet.
+    ops = json.loads(r2('e asm.cpu=usip;wx 7e0cc00c@0x40c;aoj 1@0x40c', 0x8000)[0])
+    assert ops[0]['size'] == 4 and ops[0]['type'] == 'cjmp' and ops[0]['opcode'] == 'bnez r15, 0x00000418'
+    assert ops[0]['jump'] == 0x418 and ops[0]['fail'] == 0x410 and ops[0]['cond'] == 'ne'
+    assert ops[0]['opex']['form'] == 'bnez' and ops[0]['opex']['units'] == [0x40c, 0x40e]
+    # b.s with the packet open: the 48-bit mov32 that follows is its delay slot (one op).
+    ops = json.loads(r2('e asm.cpu=usip;wx 5c3907f0541c805c@0x410;aoj 2@0x410', 0x8000)[0])
+    assert [o['size'] for o in ops] == [2, 6] and [o['type'] for o in ops] == ['jmp', 'mov']
+    assert ops[0]['jump'] == 0x41e and ops[0]['delay'] == 1 and ops[0]['opex']['packet']['delay']
+    assert ops[1]['opcode'] == 'mov32 r15, #0x1d07005c' and ops[1]['opex']['delay_slot'] and ops[1]['val'] == 0x1d07005c
+    # call with S = 0 tail at +2 (S S O O): call, the parallel op, then the two tails as .unit; delay = 3 ops.
+    ops = json.loads(r2('e asm.cpu=usip;wx 400e40a07052c0fc@0xf18;aoj 4@0xf18', 0x8000)[0])
+    assert [o['size'] for o in ops] == [2, 2, 2, 2] and ops[0]['type'] == 'call'
+    assert ops[0]['jump'] == 0xf6a and ops[0]['fail'] == 0xf20 and ops[0]['delay'] == 3
+    assert ops[2]['opcode'].startswith('.unit 0x7052 (call @ 0x00000f18)') and ops[2]['opex']['tail']
+    assert ops[0]['opex']['units'] == [0xf18, 0xf1c]
+    # 48-bit absolute call (x008 X hi lo X' lo'): hi/lo by rule R at +2/+3, one 4-byte .unit; 5 ops in the packet.
+    ops = json.loads(r2('e asm.cpu=usip;wx 0608110b733769b012079407@0x1058;aoj 5@0x1058', 0x8000)[0])
+    assert ops[0]['opcode'] == 'call.abs 0x1ccde9b0' and ops[0]['jump'] == 0x1ccde9b0 and ops[0]['size'] == 2
+    assert ops[0]['opex']['units'] == [0x1058, 0x105c, 0x105e] and ops[0]['delay'] == 4 and ops[0]['fail'] == 0x1064
+    assert [o['size'] for o in ops] == [2, 2, 4, 2, 2]
+    assert ops[2]['opcode'] == '.unit 0x733769b0 (call.abs @ 0x00001058)'
+    # hardware loop: the end address is a reference, not a branch.
+    ops = json.loads(r2('e asm.cpu=usip;wx 060f02277010786028104390c100@0x2478;aoj 1@0x2478', 0x8000)[0])
+    assert ops[0]['opcode'] == 'loop r3, last=0x00002488' and ops[0]['ptr'] == 0x2488 and 'jump' not in ops[0]
+    # ret.d: the next op is its delay slot; ret closes a packet by itself.
+    ops = json.loads(r2('e asm.cpu=usip;wx 5ef9a10ddef9@0x10a2;aoj 3@0x10a2', 0x8000)[0])
+    assert ops[0]['opcode'] == 'ret.d' and ops[0]['type'] == 'ret' and ops[0]['delay'] == 1
+    assert ops[2]['opcode'] == 'ret' and ops[2]['type'] == 'ret' and ops[2]['size'] == 2
+    # 2-unit packet opened by 4X?d without a named pairing: context rule bz.s (P4).
+    ops = json.loads(r2('e asm.cpu=usip;wx 44cd8207@0x4d46;aoj 1@0x4d46', 0x8000)[0])
+    assert ops[0]['opcode'] == 'bz.s r2, 0x00004d78' and ops[0]['type'] == 'cjmp' and ops[0]['jump'] == 0x4d78
+    # The maintainer's original call vector at the end of the buffer: a truncated packet still yields the call
+    # (aoj would see r2's 0xff padding as a closing unit, so use the disassembly path, which gets the exact bytes).
+    text = '\n'.join(r2('e asm.cpu=usip;wx 000e78aa@0x7ffc;pD 4@0x7ffc', 0x8000))
+    assert 'call 0x000088a6' in text
+    # save/restore/ret 16-bit forms and an unknown unit.
+    ops = json.loads(r2('e asm.cpu=usip;wx 5f059ef9ff45ffff;aoj 4', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['save w=0x0', 'ret', 'restore w=0x4', '.fill 0xffff']
+    assert [o['type'] for o in ops] == ['rpush', 'ret', 'pop', 'unk'] and [o['size'] for o in ops] == [2, 2, 2, 2]
+    # Function analysis: the delay slot stays in the branch's basic block.
+    bbs = json.loads(r2('e asm.cpu=usip;wx 7e0cc00c5c3907f0541c805c07f0141cc06c3e015000400ac000def9@0x40c;af@0x40c;afbj@0x40c', 0x8000)[0])
+    bb = {b['addr']: b for b in bbs}
+    assert bb[0x410]['size'] == 8 and bb[0x410]['jump'] == 0x41e and bb[0x40c]['jump'] == 0x418 and bb[0x40c]['fail'] == 0x410
     ops = json.loads(r2('wx 0f123401;aoj 1')[0])
     assert ops[0]['val'] == 0x12340000
     print('Plugin loading, analysis, delay slots, operands and ESIL passed')
