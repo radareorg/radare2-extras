@@ -153,11 +153,13 @@ static const Md32PseudoRule usip_rules[] = {
 	{ "neg", 2, "$1 = -$2" },
 	{ "and", 3, "$1 = ($2 & $3)" },
 	{ "or", 3, "$1 = ($2 | $3)" },
+	{ "xor", 2, "$1 ^= $2" },
 	{ "xor", 3, "$1 = ($2 ^ $3)" },
 	{ "lsl", 3, "$1 = ($2 << $3)" },
 	{ "lsr", 3, "$1 = ((uint32_t)$2 >> $3)" },
 	{ "asr", 3, "$1 = ((int32_t)$2 >> $3)" },
 	{ "seq", 3, "$1 = ($2 == $3)" },
+	{ "sle", 3, "$1 = ((int32_t)$2 <= (int32_t)$3)" },
 	{ "slt", 3, "$1 = ((int32_t)$2 < (int32_t)$3)" },
 	{ "sltu", 3, "$1 = ((uint32_t)$2 < (uint32_t)$3)" },
 	{ "sgt", 3, "$1 = ((int32_t)$2 > (int32_t)$3)" },
@@ -175,6 +177,8 @@ static const Md32PseudoRule usip_rules[] = {
 	{ "bleu", 3, "if ((uint32_t)$1 <= (uint32_t)$2) goto $3" },
 	{ "bgtu", 3, "if ((uint32_t)$1 > (uint32_t)$2) goto $3" },
 	{ "bgeu", 3, "if ((uint32_t)$1 >= (uint32_t)$2) goto $3" },
+	{ "bequ", 3, "if ((uint32_t)$1 == (uint32_t)$2) goto $3" },
+	{ "bneu", 3, "if ((uint32_t)$1 != (uint32_t)$2) goto $3" },
 	{ "beqz", 2, "if ($1 == 0) goto $2" },
 	{ "bnez", 2, "if ($1 != 0) goto $2" },
 	{ "bz", 2, "if ($1 == 0) goto $2" },
@@ -183,6 +187,7 @@ static const Md32PseudoRule usip_rules[] = {
 	{ "call", 1, "$1 ()" },
 	{ "ret", 0, "return" },
 	{ "loop", 2, "repeat $1 times until $2" },
+	{ "loop#", 2, "repeat $1 times until $2" },
 	{ "nop", 0, "nop" },
 	{ "nop32", 0, "nop" },
 	{ "sys", 1, "system($1)" },
@@ -198,6 +203,12 @@ static const Md32PseudoRule usip_rules[] = {
 	{ "sne", 3, "$1 = ($2 != $3)" },
 	{ "scmp", 3, "$1 = cmp($2, $3)" },
 	{ "movhi", 2, "$1 = $2" },
+	{ "mfacc", 2, "$1 = $2" },
+	{ "bset", 3, "$1 = ($2 | (1U << $3))" },
+	{ "bclr", 3, "$1 = ($2 & ~(1U << $3))" },
+	{ "binv", 3, "$1 = ($2 ^ (1U << $3))" },
+	{ "bext", 3, "$1 = (($2 >> $3) & 1)" },
+	{ "osl", 3, "$1 = (($2 << $3) | $1)" },
 	{ "extu", 4, "$1 = (($2 >> $4) & ((1 << $3) - 1))" },
 	{ "cop", 1, "coprocessor($1)" },
 	{ "rti", 0, "return_from_interrupt" },
@@ -220,7 +231,7 @@ static char *usip_memory_pseudo(const char *name, char **args, int nargs) {
 	if (!bits) {
 		return NULL;
 	}
-	const bool sign = load && !name[4] && w != 'w';   /* ld.h / ld.b: signed; ld.hu, ld.bu, ld.h?...: left as is */
+	const bool sign = load && !name[4] && (w == 'h' || w == 'b');   /* ld.h / ld.b: signed; ld.w, ld.d, ld.hu, ld.bu, ld.h?...: left as is */
 	const char *mem = strchr (args[1], '[');
 	const char *close = mem? strchr (mem, ']'): NULL;
 	if (!mem || !close || mem != args[1]) {
@@ -270,7 +281,7 @@ static char *usip_pseudo(const char *name, char **args, int nargs) {
 		return result;
 	}
 	/* strip the variant suffix and the uncertainty marker: beq.d -> beq, bz.s -> bz, ret.d -> ret, add.2 -> add,
-	 * lea? -> lea, jr? -> jr, call? -> call */
+	 * bne.l -> bne, lea? -> lea, call? -> call, ble.l?? -> ble */
 	char base[32];
 	r_str_ncpy (base, name, sizeof (base));
 	char *dot = strchr (base, '.');
@@ -278,8 +289,8 @@ static char *usip_pseudo(const char *name, char **args, int nargs) {
 		*dot = 0;
 	}
 	size_t blen = strlen (base);
-	if (blen > 1 && base[blen - 1] == '?') {
-		base[blen - 1] = 0;
+	while (blen > 1 && base[blen - 1] == '?') {
+		base[--blen] = 0;
 	}
 	if (nargs == 1 && !strcmp (base, "addsp")) {
 		/* addsp #-0x14 -> sp -= 0x14 */
