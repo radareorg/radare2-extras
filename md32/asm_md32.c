@@ -210,6 +210,14 @@ static const Md32PseudoRule usip_rules[] = {
 	{ "bext", 3, "$1 = (($2 >> $3) & 1)" },
 	{ "osl", 3, "$1 = (($2 << $3) | $1)" },
 	{ "extu", 4, "$1 = (($2 >> $4) & ((1 << $3) - 1))" },
+	{ "fxtu", 4, "$1 = (($2 >> $4) & ((1 << $3) - 1))" },
+	{ "fxts", 4, "$1 = sext($3)(($2 >> $4) & ((1 << $3) - 1))" },
+	{ "fup", 4, "$1 = (($1 & ~(((1 << $3) - 1) << $4)) | (($2 & ((1 << $3) - 1)) << $4))" },
+	{ "mtacc", 2, "$1 = $2" },
+	{ "addi", 2, "$1 += $2" },
+	{ "sext16", 2, "$1 = sext16($2)" },
+	{ "zext16", 2, "$1 = ($2 & 0xffff)" },
+	{ "asr16", 3, "$1 = sext16($2 << $3) >> $3" },
 	{ "cop", 1, "coprocessor($1)" },
 	{ "rti", 0, "return_from_interrupt" },
 	{ "ieon", 0, "interrupts_on()" },
@@ -281,7 +289,7 @@ static char *usip_pseudo(const char *name, char **args, int nargs) {
 		return result;
 	}
 	/* strip the variant suffix and the uncertainty marker: beq.d -> beq, bz.s -> bz, ret.d -> ret, add.2 -> add,
-	 * bne.l -> bne, lea? -> lea, call? -> call, ble.l?? -> ble */
+	 * bne.l -> bne, nop.ctl -> nop, lea? -> lea, call? -> call, ble.l?? -> ble, fup? -> fup, movi? -> movi */
 	char base[32];
 	r_str_ncpy (base, name, sizeof (base));
 	char *dot = strchr (base, '.');
