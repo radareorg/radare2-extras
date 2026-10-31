@@ -5,12 +5,15 @@
  * bit 15 set (at most 8 units).  Inside a packet every instruction is a head (bit 15 = 0) plus 0, 1 or 2 tails that are
  * not necessarily adjacent to it: the packet is a sequence of groups, each laid out heads first and then the tails
  * dealt round-robin among the heads that take tails.  No bit selects the layout, so the decoder enumerates every
- * group split and head/tail assignment allowed by the form table (usip_opcodes.h) and keeps the reading with the
- * fewest unknown units, then the fewest instructions, then the fewest groups, then the documented tie-break
- * penalties.  Only slot 0 (the first unit) can hold control flow and, when the control instruction does not close
- * the packet, the rest of the packet is its delay slot.  Some control forms carry a target guard (the target must be
- * a packet start of the same function or a function start): the caller supplies that knowledge through UsipGuardCtx,
- * the decoder applies the documented fallback when it is missing.  See README.md "uSIP mode". */
+ * group split and head/tail assignment allowed by the form table (usip_opcodes.h), adds the explicit candidates of
+ * the packet grammar and keeps the smallest reading in the prior-free total order (s0, I, Fv, -A, K): unknown units
+ * plus the documented tie-break penalties, then the number of instructions, then the tails whose adjacency
+ * contradicts the F pattern, then (minus) the adjacent tails, then the lexicographic key of the assignment.  The
+ * 48/64-bit b<cond>.l prefix forms are matched on the first units of the packet before the layout.  Only slot 0 (the
+ * first unit) can hold control flow and, when the control instruction does not close the packet, the rest of the
+ * packet is its delay slot.  Some control forms carry a target guard (the target must be a packet start of the same
+ * function or a function start): the caller supplies that knowledge through UsipGuardCtx, the decoder applies the
+ * documented fallback when it is missing.  See README.md "uSIP mode". */
 
 #ifndef USIP_DECODE_H
 #define USIP_DECODE_H
@@ -19,7 +22,8 @@
 #include <r_util.h>
 
 #define USIP_MAX_UNITS 8
-#define USIP_MAX_VALS 10
+#define USIP_MAX_VALS 12
+#define USIP_MAX_TAILS 3   /* 48-bit forms have two tails; the 64-bit packet-prefix forms three */
 
 typedef struct usip_opcode_t UsipOpcode;
 
@@ -38,13 +42,13 @@ enum usip_pseudo {
 enum usip_guard {
 	USIP_G_NONE = 0,   /* the form has no target guard (or it was not evaluated: greedy fallback) */
 	USIP_G_OK,         /* the guard validated (target at a packet start of the function / at a function start) */
-	USIP_G_UNVERIFIED, /* accepted by the fallback: the function table was not available (printed with a trailing ?) */
+	USIP_G_UNVERIFIED, /* accepted by the fallback: the target could not be checked (printed with a trailing ?) */
 };
 
 typedef struct {
 	ut8 head;               /* unit index of the head */
-	ut8 ntails;             /* 0, 1 or 2 */
-	ut8 tails[2];           /* unit indices of the tails (hi, lo) */
+	ut8 ntails;             /* 0, 1, 2 (or 3 for the 64-bit prefix forms) */
+	ut8 tails[USIP_MAX_TAILS]; /* unit indices of the tails (hi, lo) */
 	ut8 pseudo;             /* enum usip_pseudo */
 	ut8 guard;              /* enum usip_guard */
 	const UsipOpcode *op;   /* NULL when pseudo != USIP_P_FORM */
@@ -74,9 +78,10 @@ typedef struct {
  *   packet_start: the address is the start of a packet of the function being decoded;
  *   function_start: the address is the start of a function.
  * When the answer is unknown, a few forms are still read, marked USIP_G_UNVERIFIED (printed with a trailing ?): the
- * call / b / compare-and-branch-with-immediate forms whose F' = 0 tail sits at +2 and beqz.d (their unverified
- * readings are right in 90-100 % of the cases, see unverified_ok in usip_decode.c); the others (loop, far b, bnez.d,
- * the register compare-and-branch, the 16-bit call.s) are data / fall through, as when the guard fails. */
+ * call / b / compare-and-branch-with-immediate forms whose F' = 0 tail sits at +2, beqz.d, the b<cond>.l prefix forms
+ * and loop #N (their unverified readings are right in nearly every case, see unverified_ok in usip_decode.c); the
+ * others (loop rX, far b, bnez.d, the register compare-and-branch, the 16-bit call.s) are data / fall through, as when
+ * the guard fails. */
 typedef struct {
 	void *user;
 	int (*packet_start)(void *user, ut64 addr);
