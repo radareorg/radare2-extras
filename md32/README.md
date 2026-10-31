@@ -83,7 +83,7 @@ means they are not a validated boot memory map.
 
 `e asm.cpu=usip` selects the decoder for the **uSIP** variant of the MD32 family
 (VLIW execute packets of 16-bit units). The instruction set is described by the
-table `isa/usip_isa.json` (475 forms, generated into `usip_opcodes.h` by
+table `isa/usip_isa.json` (594 forms, generated into `usip_opcodes.h` by
 `tools/gen_usip_tables.py`) and by the packet model implemented in
 `usip_decode.c`. The table is an empirical description, not a vendor
 specification: every form carries a confidence level (`high`, `medium`, `low`,
@@ -95,70 +95,103 @@ specification: every form carries a confidence level (`high`, `medium`, `low`,
   to and including the first one with bit 15 set (at most 8 units); packets start
   at 2-byte alignment and the units of a packet execute in parallel.
 * An **instruction** is a *head* (bit 15 = 0) plus 0, 1 or 2 *tails*
-  (16/32/48 bits). Tails are not necessarily adjacent to their head: a packet is
-  a sequence of groups laid out *heads first, then tails round-robin* (`S S O O`
-  is two 32-bit instructions interleaved; `x008 X hi lo hi' lo'` a 48-bit call
-  interleaved with another 48-bit op). No bit selects the layout. The decoder
-  enumerates every group split and head/tail assignment the table allows and
-  keeps the reading with the fewest unknown units, then the fewest instructions,
-  then the fewest groups, then the documented tie-break penalties; ties keep the
-  first enumerated reading (`opex.packet.ambiguous` tells when a tie existed).
+  (16/32/48 bits; the 64-bit `b<cond>.l` prefix forms have three). Tails are not
+  necessarily adjacent to their head: a packet is a sequence of groups laid out
+  *heads first, then tails round-robin* (`S S O O` is two 32-bit instructions
+  interleaved; `x008 X hi lo hi' lo'` a 48-bit call interleaved with another
+  48-bit op). No bit selects the layout. The decoder enumerates every group split
+  and head/tail assignment the table allows, adds the explicit candidates of the
+  packet grammar (the 3-unit `[head][op16][F' = 0 tail]`, the 4-unit `H H T T`
+  pair of loads/stores) and keeps the smallest reading in the **prior-free total
+  order** `(s0, I, Fv, -A, K)`: unknown units plus the documented tie-break
+  penalties, then the number of instructions, then the heads whose tail
+  adjacency contradicts the F pattern (head F = 0 and next unit bit 14 = 1 means
+  an adjacent tail, otherwise a deferred one), then minus the number of adjacent
+  tails, then the lexicographic key of the assignment. Readings tied on the first
+  four and decided by the key are reported as `opex.packet.ambiguous`.
+* The **prefix forms**: a packet whose first three (four) units are a 48-bit
+  (64-bit, with the `1e0d` extension unit) `b<cond>.l rB, #imm9 / rA, target`
+  whose target is a packet start of the same function is that instruction plus
+  its delay slot (the rest of the packet); a failing guard just means the normal
+  layout. The absolute `call.abs`/`b.abs` prefix (`x008 + hi + lo`) is the other
+  prefix rule.
 * Only **slot 0** (the first unit) can be control flow: `b<cond>`, `b`, `call`,
-  `loop`, `ret`, the 16-bit `bz.s`/`bnz.s`/`b.s`/`call.s`, `call.abs`/`b.abs`
-  (the 32-bit `ret`/`ret?`, `jr? rB` and `call rB` of the `sys` shape may sit
-  anywhere). The tail of a branch/call/loop is at +1 or +2; the control tails with
-  F' = 0 (`call`/`b`/`b<cond>` with a 16-bit op in between) sit exactly at +2.
-  When the control instruction does not close the packet, the **rest of the
-  packet is its delay slot** (both paths execute it). The plugin reports
-  `delay` = number of ops that follow in the packet and `fail` = the next packet.
-* Some control forms carry a **target guard**: `loop`, `b<cond>` and `beqz.d`/
-  `bnez.d` with the F' = 0 tail need a target at a packet start of the same
-  function, `call` with the F' = 0 tail and the open-packet `call.s` need a
-  function start, far `b` either. A 32-bit pair whose guard fails is data
-  (`.word`); the 16-bit `call.s` falls through to the plain reading. See
+  `loop rX`/`loop #N`, `ret`, the 16-bit `bz.s`/`bnz.s`/`b.s`/`call.s`,
+  `call.abs`/`b.abs`, the `b<cond>.l` prefix forms (the 32-bit `ret`/`ret?`,
+  `jr rB` and `call rB` of the `sys` shape may sit anywhere). The tail of a
+  branch/call/loop is at +1 or +2; the control tails with F' = 0 (`call`/`b`/
+  `b<cond>` with a 16-bit op in between) and `loop #N` with F = 1 and an S = 0
+  tail sit exactly at +2. When the control instruction does not close the
+  packet, the **rest of the packet is its delay slot** (both paths execute it).
+  The plugin reports `delay` = number of ops that follow in the packet and
+  `fail` = the next packet.
+* Grammar rules of the layout: `5e0d` is never a tail; the `st.h` with the
+  F' = 0 tail takes it at +2 or farther (an adjacent tail is two 16-bit ops) and
+  in the first slot loses against a `b.s` head whose target is a packet start; an
+  op 5 head on SP never takes a negative `ld.d`/`st.d` tail; the immediate
+  set-on-compare forms need an adjacent tail; an `.op8?` pair of two slot-family
+  units is two `ldslot`/`stslot` ops; the identical-bit cells `ld.w?` (k = 0),
+  `mfacc?` (k >= 2) and `add?`/`st.h?` (cell E) are selected by the position of
+  the head inside the packet.
+* Some control forms carry a **target guard**: `loop`, `loop #N`, `b<cond>` and
+  `beqz.d`/`bnez.d` with the F' = 0 tail and the `b<cond>.l` prefix forms need a
+  target at a packet start of the same function, `call` with the F' = 0 tail and
+  the open-packet `call.s` need a function start, far `b` either. A 32-bit pair
+  whose guard fails is data (`.word`); the 16-bit `call.s` falls through to the
+  plain reading; a prefix form is simply not taken. See
   [target guards](#target-guards) for what the plugin can check.
-* Hardware loops: `loop rX, last=ADDR` repeats the following instructions up to
-  `ADDR` (inclusive) `rX` times; it is reported as a reference (`ptr`), not a
-  branch.
+* Hardware loops: `loop rX, last=ADDR` / `loop# #N, last=ADDR` repeat the
+  following instructions up to `ADDR` (inclusive) `rX` / `N` times; they are
+  reported as a reference (`ptr`), not a branch (`val` = N).
 
 ### What one `pd` line is
 
 A decode is one **op per run of adjacent units that belong to the same
-instruction**: an instruction whose tails are adjacent is one op of 4 or 6 bytes;
-an interleaved instruction shows its head as a 2-byte op with the full operands
-and its displaced tails as `.unit 0xNNNN (mnemonic @ head)` ops, so that every
-address of the stream is covered exactly once and the sizes add up. The decoder
-needs the packet context: the decode at a packet start parses the whole packet
-and caches it in the session, the following decodes inside the packet (linear
-disassembly, function analysis) reuse that reading, and a decode at an address
-that is not cached is treated as a packet start — true for branch targets and
-function starts, not for an arbitrary mid-packet
-address, which may then read differently than in the linear listing.
-`R_ARCH_INFO_MAXOP_SIZE` is 16 in this mode so that `ao`/analysis see the whole
-packet.
+instruction**: an instruction whose tails are adjacent is one op of 4, 6 or 8
+bytes; an interleaved instruction shows its head as a 2-byte op with the full
+operands and its displaced tails as `.unit 0xNNNN (mnemonic @ head)` ops, so that
+every address of the stream is covered exactly once and the sizes add up. The
+decoder needs the packet context: the decode at a packet start parses the whole
+packet and caches it in the session, the following decodes inside the packet
+(linear disassembly, function analysis) reuse that reading, and a decode at an
+address that is not cached is treated as a packet start — true for branch
+targets and function starts, not for an arbitrary mid-packet address, which may
+then read differently than in the linear listing. `R_ARCH_INFO_MAXOP_SIZE` is
+16 in this mode so that `ao`/analysis see the whole packet.
 
 ### Mnemonics and operands
 
 Registers `r0-r15` (`r14` = SP, `r15` = LR); the second bank is written `rN!`
 on the operand it applies to (bit `x` = the data/destination register, bit `m` =
-the source/base register, `ss & 2` = the first source of the three-register ALU
-forms). Accumulators `A0-A3` (`mfacc rA, Ak.{lo,hi,ext}`), port I/O
-`ior rB, [rA]`/`iow rB, [rA]` (`rA` holds the port number; there is no classic
-CSR bank on this core), extended CSRs by number (`mfcsr rB, #nn`,
+the source/base register, also the compared register of the 32-bit branches and
+the destination of `movi rA!, #imm5`, `ss & 2` = the first source of the
+three-register ALU forms). Accumulators `A0-A3` (`mfacc rA, Ak.{lo,hi,ext}`),
+port I/O `ior rB, [rA]`/`iow rB, [rA]` (`rA` holds the port number; there is no
+classic CSR bank on this core), extended CSRs by number (`mfcsr rB, #nn`,
 `mtcsr #nn, rA`), the system shape by name (`cop rA`, `rti`, `ieon`, `ieoff`,
-`idle`, `lpexit?`, `isync?`, `trap?`, `sys #n`), `nop32`, `addsp #imm` (SP
-adjust), `lea? rA, [sp+off]`, `ldslot`/`stslot rB, #k` (stack-slot access, base
-open), `ld.d?`/`st.d? rB:rB+1, [rA+off]` (64-bit pairs), `sne`, `scmp?`, `movhi?`,
-`extu rB, rA, #w, #pos`. Immediates carry a `#`; memory operands are `[rA+off]`,
-`[rA]+`, `[sp+off]`, `[#addr]`. Branch targets and `loop` ends are printed
-absolute. Forms whose operation is unknown but whose grouping is established are
+`idle`, `lpexit?`, `isync?`, `sys #n`; with the F = S = 0 tail the packet stays
+open), `nop32`, `addsp #imm` (SP adjust), `lea? rA, [sp+off]`,
+`ldslot`/`stslot rB, #k` (stack-slot access, 6-bit slot, base open),
+`ld.d`/`st.d rB:rB+1, [rA+off]` (64-bit pairs, signed offset multiple of 4),
+`st.w`/`st.h [rB], #imm` (store of an immediate), `mov32 rB, #imm32` /
+`add rB, rB, #imm32` (48-bit constants), `movhi rB, #imm` (20 bits << 12),
+`movi? rB, #imm20`, the set-on-compare family `seq`/`sne`/`sle`/`slt`/`sgt rB,
+rA, #imm`, `osl rB, rs1, #1` (funnel shift), `bset`/`bclr?`/`binv?`/`bext? rd!,
+rs1, #imm5`, `extu rB, rA, #w, #pos`, `jr rB`. Immediates carry a `#`; memory
+operands are `[rA+off]`, `[rA-off]` (the closed negative bands of the half-word
+and word offsets), `[rA]+`, `[rA+rB]`, `[sp+off]`, `[#addr]`. Branch targets and
+`loop` ends are printed absolute; the 48/64-bit compare-and-branch forms are
+`b<cond>.l rB, #imm9, target` / `b<cond>.l rB, rA, target` (`bne beq ble blt bge
+bgt bgeu bgtu`, the open cells `ble.l?`, `bneu.l?`, `bequ.l?`, `bcc48?`). Forms
+whose operation is unknown but whose grouping is established are
 **format-only** and start with `.` (`.hword`, `.word`, `.w48`, `.dsp`, `.op4imm`,
 `.slot?`, `.hi`/`.lo`/`.ext` ...) or end with `?` (`ld.w?`, `clr.a?`): they are
 grouped correctly so that the packet and delay slot model stays right, and
-reported with the `unk` type. `.lo`, `.ext`, `.be79`, the 2-unit `bz.s` and the
-first-slot `ldslot`/`stslot`/`lea?` come from context rules, not table entries.
-A control instruction printed with a trailing `?` (`call?`, `beqz.d?`) is one
-whose target guard could not be evaluated (see below).
+reported with the `unk` type. `.lo`, `.ext`, `.be79`, the 2-unit `bz.s`, the
+first-slot `ldslot`/`stslot`/`lea?`, the split `ldslot`/`stslot` halves and the
+`H H T T` loads/stores come from context rules, not plain table entries.
+A control instruction printed with a trailing `?` (`call?`, `beqz.d?`, `bne.l?`,
+`loop#?`) is one whose target guard could not be evaluated (see below).
 
 ### Target guards
 
@@ -174,42 +207,50 @@ fallback measured on the sample the table was built from: the forms whose
 unverified readings are right in nearly every case are read anyway, printed
 with a trailing `?`, confidence `medium` and `opex.target_guard = "unverified"`
 (`call` with the F' = 0 tail at +2, `b` with the F' = 0 tail, `b<cond> rA, #imm`
-with the F' = 0 tail, `beqz.d`); the others are treated as a failed guard
-(`loop` with the F' = 0 tail, far `b`, `bnez.d`, the register `b<cond>` with the
-F' = 0 tail, the open-packet `call.s`), i.e. `.word` or the plain 16-bit reading.
-A validated guard reports `opex.target_guard = "validated"`.
+with the F' = 0 tail, `beqz.d`, the `b<cond>.l` prefix forms with a forward
+target, `loop #N` with F = S = 1, with F = 0 and the tail adjacent, and with
+F = 1 and the S = 0 tail at +2); the others are treated as a failed guard
+(`loop rX` with the F' = 0 tail, `loop #N` with F = 0 and the tail at +2, far
+`b`, `bnez.d`, the register `b<cond>` with the F' = 0 tail, the open-packet
+`call.s`), i.e. `.word`, the plain 16-bit reading or the normal layout. A
+validated guard reports `opex.target_guard = "validated"`.
 
 ### Analysis
 
 Operation types: `cjmp` with `cond` for the compare-and-branch forms (there are
-no flags on this core), `jmp`, `call`/`rcall`, `ret` (also `rti`), `rjmp` for
-`jr? rB`, `io` for `ior`/`iow` (`ireg` = the port register), `load`/`store` with
-`refptr`/`ireg`/`disp` (`stackop` on `r14`; `refptr` 8 for `ld.d?`/`st.d?`),
-`mov` with `val` for the immediate moves (`movi`, `mov32`, `movhi?`),
-`add`/`sub`/`and`/`or`/`xor`/`shl`/`shr`/`sar`/`mul`/`div`/`cmp`/`cmov`/`cast`,
-`lea` for `lea`/`lea?`, `nop` for `nop32`, `rpush`/`pop` for `save`/`restore`,
-`trap` for `trap?`, `swi` for the other system ops. `opex` carries the form id,
-confidence, kind, slot, unit addresses, the delay-slot flag, the target-guard
-status and the operands.
+no flags on this core; `bequ`/`bneu` are the unsigned equality cells of the
+48-bit forms), `jmp`, `call`/`rcall`, `ret` (also `rti`), `rjmp` for `jr rB`,
+`io` for `ior`/`iow` (`ireg` = the port register), `load`/`store` with
+`refptr`/`ireg`/`disp` (`stackop` on `r14`; `refptr` 8 for `ld.d`/`st.d`; the
+signed offsets also appear as the `off` operand of `opex`), `mov` with `val` for
+the immediate moves (`movi`, `movi?`, `mov32`, `movhi`),
+`add`/`sub`/`and`/`or`/`xor`/`shl`/`shr`/`sar`/`mul`/`div`/`cmp`/`cmov`/`cast`
+(`osl` is a `shl`, the set-on-compare family `cmp`), `lea` for `lea`/`lea?`,
+`nop` for `nop32`, `rpush`/`pop` for `save`/`restore`, `trap` for `trap?`,
+`swi` for the other system ops; `loop #N` carries the count in `val`. `opex`
+carries the form id, confidence, kind, slot, unit addresses, the delay-slot
+flag, the target-guard status and the operands.
 The register profile exposes the ABI (`SP=r14`, `LR=r15`, arguments `r0-r7`,
 return `r0`). No ESIL is produced for uSIP.
 
 ### Limitations
 
-* The reading is table-driven and deterministic. Three kinds of packets can read
-  differently from the intended one: `S S O O` packets where several head/tail
-  assignments have the same cost (ties, flagged by `opex.packet.ambiguous`),
-  control flow in open packets (`call`/`b`/`loop` followed by delay-slot ops)
-  when the branch reading is not the cheapest one, and the guarded forms whose
-  target the plugin cannot check (far `b` to another function, the open-packet
-  `call.s`, `loop`/`bnez.d` with a forward target beyond the lookahead). A
-  disassembler that knows the function table can prefer the reading whose target
-  is a function start or a packet boundary; `UsipGuardCtx` in `usip_decode.h` is
-  the hook for that knowledge.
-* Open points of the ISA: the size of the second register bank, bit 13 (`m`) of
-  the 32-bit forms and bit 8 (`x`) outside the validated places, the exact
-  `save w` frame size, the sign of the half/byte loads of the 48-bit family,
-  `sys #2/#4/#8`, `L_mult` vs `L_mult.e`.
+* The reading is table-driven, deterministic and prior-free. Three kinds of
+  packets can read differently from the intended one: packets where several
+  head/tail assignments tie on the first four keys of the layout order (flagged
+  by `opex.packet.ambiguous`), control flow in open packets (`call`/`b`/`loop`/
+  `b.s` followed by delay-slot ops) when the branch reading is not the cheapest
+  one, and the guarded forms whose target the plugin cannot check (far `b` to
+  another function, the open-packet `call.s`, `loop`/`bnez.d` with a forward
+  target beyond the lookahead). A disassembler that knows the function table can
+  prefer the reading whose target is a function start or a packet boundary;
+  `UsipGuardCtx` in `usip_decode.h` is the hook for that knowledge.
+* Open points of the ISA: the remaining layout ties, the sign and width of the
+  `?` forms (`ld.d?`/`st.d?` with b10, `ld.w?`/`st.w?` in the 0x800-0xeff band,
+  `seq?`/`sle?` with large immediates, `mov32?`, `lea?`, `mfacc?`, `add?`/`st.h?`
+  of cell E, `bcc48?`, `movi?`), `ld.w` vs `add` in the op 0 F = S = 1 cell, the
+  bit 4 of `loop #N`, the exact `save w` frame size, `sys #2/#4/#8`, `L_mult`
+  vs `L_mult.e`, the semantics of `5e0d`.
 * A decode in the middle of a packet without the packet cached (e.g. `ao` at an
   arbitrary address) sees a different packet than the linear listing.
 * At the end of a map, `ao` pads the read with `0xff`, which is a legal closing
