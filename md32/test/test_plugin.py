@@ -213,9 +213,11 @@ def integration():
     ops = json.loads(r2('e asm.cpu=usip;wx 44614a315000d000@0x68c;aoj 2@0x68c', 0x8000)[0])
     assert [o['opcode'] for o in ops] == ['st.w r6, [r2+0x0]', 'st.w r3, [r5+0x0]']
     assert ops[0]['opex']['units'] == [0x68c, 0x690] and ops[1]['opex']['units'] == [0x68e, 0x692]
-    # The op8 slot split, the 48-bit add trio and the system op whose F = S = 0 tail keeps the packet open.
-    ops = json.loads(r2('e asm.cpu=usip;wx 60086300f93e@0x1196;aoj 2@0x1196', 0x8000)[0])
-    assert [o['opcode'] for o in ops] == ['ldslot r0, #0x21', 'ldslot r0!, #0x22'] and [o['size'] for o in ops] == [2, 2]
+    # The op8 slot split (the two slot-family halves of an .op8? pair), the 48-bit add trio and the system op whose
+    # F = S = 0 tail keeps the packet open.
+    ops = json.loads(r2('e asm.cpu=usip;wx 004842700787d03e@0x194c;aoj 3@0x194c', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['ldslot r4, #0x1', 'ldslot r7, #0x2', 'fxtu r8!, r3, #0x1, #0xf'] and [o['size'] for o in ops] == [2, 2, 4]
+    assert ops[0]['opex']['form'] == 'ldslot_split' and ops[0]['type'] == 'load'
     ops = json.loads(r2('e asm.cpu=usip;wx 0e103fc0c000@0x4d70;aoj 1@0x4d70', 0x8000)[0])
     assert ops[0]['opcode'] == 'add r1, r1, #0x3ff00000' and ops[0]['size'] == 6
     ops = json.loads(r2('e asm.cpu=usip;wx 041f5000e2aa@0x1042;aoj 2@0x1042', 0x8000)[0])
@@ -231,6 +233,94 @@ def integration():
     assert ops[0]['opcode'] == 'osl r5, r2, #1' and ops[0]['type'] == 'shl' and ops[0]['opex']['units'] == [0x409c, 0x40a0]
     text = '\n'.join(r2('e asm.cpu=usip;e asm.pseudo=true;wx 006f600cc207021640b0c30e@0x1bfa;pD 4@0x1bfa;wx 5225c3b1@0x3054;pD 4@0x3054;wx 12361246403000205820c00c@0x1d28;pD 12@0x1d28', 0x8000))
     assert 'repeat 4 times until last=0x00001c06' in text and 'r2:r3 = dmem64[r9 - 0xa0]' in text and 'r4 = ((int32_t)r9 <= (int32_t)0x10)' in text
+    # Table update (634 forms): the 14-bit word displacement of the ld.w/st.w pairs (W14, here in the H H T T layout).
+    ops = json.loads(r2('e asm.cpu=usip;wx 5011501151c6d1ca@0x3000;aoj 2@0x3000', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['st.w r1, [r8+0x11c4]', 'st.w r1, [r8+0x11c8]'] and ops[0]['disp'] == 0x11c4
+    assert ops[0]['opex']['units'] == [0x3000, 0x3004] and dict(name='off', type='disp', value=0x11c4) in ops[0]['opex']['operands']
+    # nop.ctl: the structural no-op 5e0d (renamed after the layout; never a tail, never a head with a tail).
+    ops = json.loads(r2('e asm.cpu=usip;wx 5e0d3836020c8217@0x189c;aoj 3@0x189c', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['nop.ctl', 'add r3, r12!, #0x106', 'movi r1, #0x2']
+    assert ops[0]['type'] == 'nop' and ops[0]['size'] == 2 and ops[0]['opex']['form'] == 'nop_ctl' and ops[0]['opex']['kind'] == 'nop'
+    ops = json.loads(r2('e asm.cpu=usip;wx 5e0da487@0x19a0;aoj 2@0x19a0', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['nop.ctl', 'movi r2!, #0x10']
+    # The bit-field family: fxtu / fxts (extract), fup (insert, read-modify-write) and the fup? cell; pos = rotr5(p).
+    ops = json.loads(r2('e asm.cpu=usip;wx 0007d03e@0x2c42;aoj 1@0x2c42', 0x8000)[0])
+    assert ops[0]['opcode'] == 'fxtu r0, r0, #0x1, #0xf' and ops[0]['type'] == 'cast' and ops[0]['opex']['form'] == 'bf_fxtu' and ops[0]['size'] == 4
+    ops = json.loads(r2('e asm.cpu=usip;wx 020643d94127d5e2@0x1d1a;aoj 2@0x1d1a', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['add r0, r1, #-0x14', 'fxts r2!, r0, #0xf, #0x1'] and ops[1]['type'] == 'cast' and ops[1]['opex']['form'] == 'bf_fxts'
+    ops = json.loads(r2('e asm.cpu=usip;wx 001700079910@0x124a;aoj 2@0x124a', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['fup r1, r0, #0x8, #0x8', 'movi r0, #0x0'] and ops[0]['type'] == 'or' and ops[0]['opex']['units'] == [0x124a, 0x124e]
+    assert [op['value'] for op in ops[0]['opex']['operands'] if op['name'] in ('w', 'pos')] == [8, 8]
+    ops = json.loads(r2('e asm.cpu=usip;wx 0207db88@0x228;aoj 1@0x228', 0x8000)[0])
+    assert ops[0]['opcode'] == 'fup? r0, r1, #0x1c, #0x4' and ops[0]['opex']['form'] == 'bf_fup_q' and ops[0]['opex']['confidence'] == 'medium'
+    # mtacc? (the accumulator pair load, formerly clr.a?), movi? #-32768 and sgt with F = S = 1.
+    ops = json.loads(r2('e asm.cpu=usip;wx 1d401d50401400106547fd20@0xe10;aoj 5@0xe10', 0x8000)[0])
+    assert ops[4]['opcode'] == 'mtacc? A0, r2!:r4!' and ops[4]['opex']['form'] == 'op7d_2_mtacc_q' and ops[4]['opex']['units'] == [0xe18, 0xe1a]
+    assert ops[0]['opcode'] == 'ld.w r4!, [r14+0x14]' and ops[1]['opcode'] == 'addi r5!, r14, #0x8'
+    ops = json.loads(r2('e asm.cpu=usip;wx 10a77b004087c001@0xf20;aoj 2@0xf20', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['lsl r0, r8, #0xa', 'movi? r8, #-32768'] and ops[1]['type'] == 'mov' and ops[1]['opex']['form'] == 'movi_min16_q'
+    ops = json.loads(r2('e asm.cpu=usip;wx 1c300097410838654604ffff@0x46ba;aoj 5@0x46ba', 0x8000)[0])
+    assert ops[4]['opcode'] == 'sgt r0, r3, #-1' and ops[4]['type'] == 'cmp' and ops[4]['opex']['form'] == 'setcc_op4_t31_sgt_m1_F1S1'
+    assert [o['opcode'] for o in ops[:2]] == ['ld.w r3, [r14+0x108]', 'cmov r5, r0, r9']
+    # The register forms bset / bext rd, rs1, rB (7e X = 0 / 6, renamed from .7e after the layout).
+    ops = json.loads(r2('e asm.cpu=usip;wx 0487228abe02@0x3916;aoj 2@0x3916', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['bset r2, r2, r8', 'mul r1, r1, r8'] and ops[0]['type'] == 'or' and ops[0]['opex']['form'] == 'op7e_0_bset_r'
+    ops = json.loads(r2('e asm.cpu=usip;wx 0087fe60@0x5048;aoj 1@0x5048', 0x8000)[0])
+    assert ops[0]['opcode'] == 'bext r0, r0, r8' and ops[0]['type'] == 'shr' and ops[0]['opex']['form'] == 'op7e_6_bext_r' and ops[0]['size'] == 4
+    # b<cond>.d with the [0][1][tt] tail at +2 (S0F1): unverified when the forward target lies beyond the bytes at
+    # hand (bne / beqz are on the allow-list), validated by the session for a backward target (the register cells are
+    # not accepted unverified: without the target the units are 16-bit ops).
+    ops = json.loads(r2('e asm.cpu=usip;wx 7e096f204264cfdf@0xeb8;aoj 2@0xeb8', 0x8000)[0])
+    assert ops[0]['opcode'] == 'bne.d? r15!, #0x1, 0x00000f1c' and ops[0]['type'] == 'cjmp' and ops[0]['jump'] == 0xf1c and ops[0]['cond'] == 'ne'
+    assert ops[0]['opex']['form'] == 'bne_imm8_s0f1' and ops[0]['opex']['target_guard'] == 'unverified' and ops[0]['opex']['units'] == [0xeb8, 0xebc]
+    assert ops[1]['opcode'] == 'ld.w r2!, [r7!-0x24]' and ops[1]['opex']['delay_slot'] and ops[0]['delay'] == 3
+    ops = json.loads(r2('e asm.cpu=usip;wx 400c4d11505ed024@0x1fae;aoj 2@0x1fae', 0x8000)[0])
+    assert ops[0]['opcode'] == 'beqz.d? r0, 0x0000200c' and ops[0]['opex']['form'] == 'beqz_s0f1' and ops[1]['opcode'] == 'st.w r1!, [r6+0x24]'
+    pk = 'wx a03f@0x1704;wx 5e5d00667f832002bdd4@0x1782;'
+    ops = json.loads(r2('e asm.cpu=usip;' + pk + 'aoj 1@0x1704;aoj 3@0x1782', 0x8000)[1])
+    assert ops[0]['opcode'] == 'blt.d r15, r5, 0x00001704' and ops[0]['jump'] == 0x1704 and ops[0]['opex']['target_guard'] == 'validated'
+    assert ops[0]['opex']['form'] == 'blt_rr_s0f1' and ops[0]['opex']['units'] == [0x1782, 0x1786] and ops[1]['opcode'] == 'and r6, r0, #0x1'
+    ops = json.loads(r2('e asm.cpu=usip;' + pk + 'aoj 3@0x1782', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['.hword 0x5e5d', 'and r6, r0, #0x1', 'addi r15, #-0x10']
+    pk = 'wx a03f@0xe3c;wx 4f1c49226ff5c004@0xe48;'
+    ops = json.loads(r2('e asm.cpu=usip;' + pk + 'aoj 1@0xe3c;aoj 2@0xe48', 0x8000)[1])
+    assert ops[0]['opcode'] == 'bleu.d r7, r1, 0x00000e3c' and ops[0]['cond'] == 'ls' and ops[0]['opex']['form'] == 'bleu_rr_s0f1' and ops[1]['opcode'] == 'add.2 r2!, r4, #0x2'
+    # The loads with the fixed base r15 (renamed from .1eX0), the F' = 0 half-word load and the open-width .ldF0?.
+    ops = json.loads(r2('e asm.cpu=usip;wx 1e80515011a1b721@0x683a;aoj 3@0x683a', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['ld.h? r8, [r15+0x150]', 'mov r10!, r8', 'mov r2!, r11!'] and ops[0]['type'] == 'load' and ops[0]['ireg'] == 'r15'
+    assert ops[0]['opex']['form'] == 'x1e0_ld_h_q' and ops[0]['size'] == 4 and ops[0]['refptr'] == 2
+    ops = json.loads(r2('e asm.cpu=usip;wx 1e10424044078807@0x1e90;aoj 2@0x1e90', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['ld.w? r1, [r15+0x407]', 'addi r4, r1, #-0x3fd'] and ops[0]['opex']['form'] == 'x1e0_ld_w_q' and ops[0]['opex']['units'] == [0x1e90, 0x1e94]
+    ops = json.loads(r2('e asm.cpu=usip;wx 4200790e9008@0x1bbc;aoj 2@0x1bbc', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['ld.h? r0, [r1+0x8]', 'st.w r0, [r12+24]'] and ops[0]['opex']['form'] == 'ld_h_q_Fp0' and ops[0]['opex']['units'] == [0x1bbc, 0x1bc0]
+    ops = json.loads(r2('e asm.cpu=usip;wx 0f009240@0x2176;aoj 1@0x2176', 0x8000)[0])
+    assert ops[0]['opcode'] == '.ldF0? r0!, [r7+0x240]' and ops[0]['type'] == 'unk' and ops[0]['opex']['form'] == 'ldF0_q_t1_adj'
+    # The 48-bit constants admitted by the value table (any op 0 head), and the .3eX0? trio that is not a constant.
+    ops = json.loads(r2('e asm.cpu=usip;wx 1e301ffdffff@0x2cd6;aoj 1@0x2cd6', 0x8000)[0])
+    assert ops[0]['opcode'] == 'mov32 r3, #0x7fff7fff' and ops[0]['size'] == 6 and ops[0]['val'] == 0x7fff7fff and ops[0]['opex']['form'] == 'c48tab_mov32'
+    ops = json.loads(r2('e asm.cpu=usip;wx 1e400a495fbfbfff@0x4dc8;aoj 2@0x4dc8', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['mov32 r4, #0x7fefffff', 'add r5, r4'] and ops[0]['opex']['units'] == [0x4dc8, 0x4dcc, 0x4dce]
+    ops = json.loads(r2('e asm.cpu=usip;wx 0a5660203e606e14d000@0x7b74;aoj 2@0x7b74', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['and r5, r5, #0x10', '.3eX0? r6, 0x6e14 0xd000'] and ops[1]['size'] == 6 and ops[1]['opex']['form'] == 'x3eX0_q'
+    # The 16-bit renames: lsl with S = 0, lsl? at k >= 1 with F = 1, sext16 / zext16 with F = 1, addi #32 next to cop.
+    ops = json.loads(r2('e asm.cpu=usip;wx 144a20358338@0x128a;aoj 2@0x128a', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['movi r4, #0x519c', 'lsl r3, r0, #0x2'] and ops[1]['type'] == 'shl' and ops[1]['opex']['form'] == 'lsl16_S0'
+    ops = json.loads(r2('e asm.cpu=usip;wx 060840057337000229b08570@0x1108;aoj 2@0x1108', 0x8000)[0])
+    assert ops[0]['opcode'] == 'call.abs 0x1ccde9b0' and ops[1]['opcode'] == 'lsl? r0, r0, #0x1' and ops[1]['opex']['form'] == 'lsl16_F1_S0_k1_q'
+    ops = json.loads(r2('e asm.cpu=usip;wx 0c8778e7e43d@0x65e;aoj 2@0x65e', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['slt r7, r6, r8', 'sext16 r3, r2'] and ops[1]['type'] == 'cast' and ops[1]['opex']['form'] == 'sext16_F1_c'
+    ops = json.loads(r2('e asm.cpu=usip;wx 09077b27066a693d8a98@0x7d9e;aoj 3@0x7d9e', 0x8000)[0])
+    assert ops[2]['opcode'] == 'zext16? r3, r4' and ops[2]['opex']['form'] == 'zext16_F1_S0_q' and ops[1]['opcode'] == 'movi r6, #0x1d4c'
+    ops = json.loads(r2('e asm.cpu=usip;wx 001f5000c103@0x3338;aoj 2@0x3338', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['cop r0', 'addi r0, #32'] and ops[1]['type'] == 'add' and ops[1]['opex']['form'] == 'addi32_cop'
+    # H1: a loose hi syllable is .hi only after a head of the 48-bit family (here the ld.w); movhi with the tt = 10
+    # tail (the IEEE test); the .op4t0 shape is not a load.
+    ops = json.loads(r2('e asm.cpu=usip;wx 1bb048c435d735ffb90c@0x2352;aoj 3@0x2352', 0x8000)[0])
+    assert [o['opcode'] for o in ops] == ['ld.w r11!, [r13+0x8c4]', 'and r12, r10!, r13!', '.hi 0x35ff'] and ops[2]['opex']['form'] == 'hi1010_loose'
+    ops = json.loads(r2('e asm.cpu=usip;wx 3e094268010762f72030b811@0xcca;aoj 4@0xcca', 0x8000)[0])
+    assert ops[1]['opcode'] == 'movhi r6, #0x40818000' and ops[1]['val'] == 0x40818000 and ops[1]['opex']['form'] == 'movhi_tt10_short'
+    ops = json.loads(r2('e asm.cpu=usip;wx 0e33240750043872c819@0x7ee;aoj 3@0x7ee', 0x8000)[0])
+    assert ops[2]['opcode'] == '.op4t0 r0, [r8+0x19]' and ops[2]['type'] == 'unk' and ops[0]['opcode'] == 'addi r7, #0x6'
     # MS15E30 group-5 forms: 0xDA00 / 0xDC00 named after the little-endian layout of the data memory.
     ops = json.loads(r2('wx da49dc49d849de49ca89cb21;aoj 6')[0])
     assert [o['opcode'] for o in ops] == ['cmulr16 r2, r2, r2', 'cmuli16 r2, r2, r2', 'cmulcr16 r2, r2, r2', 'cmulci16 r2, r2, r2', 'rem16 r2, r2', 'ctz16 r1, r2']

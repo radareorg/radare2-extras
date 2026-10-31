@@ -2,6 +2,59 @@
 
 ## Unreleased
 
+### uSIP table update (634 forms), decoder rules and the K-tie cascade
+
+* `isa/usip_isa.json` / `usip_opcodes.h`: 634 forms (52 added, 12 retired,
+  103 modified). New: the 14-bit word displacement of the two-unit
+  `ld.w`/`st.w` (W14: `f12 = 2 mod 4` is `+0x1000 + (f12 & ~3)`), `nop.ctl`
+  for `5e0d`/`1e0d`/`de0d` (never a tail, never a head with a tail), the
+  bit-field family `fxtu`/`fxts`/`fup`/`fup? rB, rs1, #w, #pos`,
+  `movi? rB, #-32768`, the register forms `bset`/`bext rd, rs1, rB`, `mtacc?
+  Ak, rs1:rB` (was `clr.a?`), `sgt rB, rA, #-1` with F = S = 1, `addi rA,
+  #32` next to `cop rA`, the 16-bit `lsl`/`lsl?`/`sext16`/`zext16` variants,
+  `ld.w?`/`ld.h?`/`ld.hu? rB, [r15+off]`, `.ldF0?` and the F' = 0 `ld.h?`/
+  `ld.hu?`, `.3eX0?`, the 20 `b<cond>.d` cells with the `[0][1][tt]` tail at
+  +2, `movhi` with the tt = 10 tail (IEEE test), 16 non-canonical 48-bit
+  constants admitted by a value table, the double-class split (`.op4t0`,
+  `.movi6?`, `.st.h?`/`.st.b?`/`.ld.h?`/`.ld.b?`, `ld.sp`); retired the
+  `.hi`/`.hilo` pair entries and every `not_hi1010` constraint (H1: a
+  hi(1010)-shaped unit is an ordinary head unless a 48-bit instruction claims
+  it), `osl_0_15_2`, `clr.a?`. Twenty entries are post-layout renames
+  (`rename_from`).
+* `tools/gen_usip_tables.py`: `rename_from` lists per entry, the constraint
+  ops `tail_adjacent`, `ieee_short` and the 48-bit value table membership, the
+  `any` sub-operation `tail_adjacent`, the context conditions
+  `cop_rA_in_packet` / `not_c48_lo_follows`, `USIP_MAXVALS` 12, the tables
+  `usip_never_tail`, `usip_never_head_with_tail` and `usip_c48_table`; the
+  rename entries are exempt from the 16-bit position-class checks.
+* `usip_decode.c`: W14, the never-tail and never-head-with-tail units from the
+  tables, H1 (the forced hi(1010) decode is gone; `.hi`/`.lo` only after a
+  48-bit-family head in the packet), the 48-bit value table in the partial
+  admission, P2W (no alignment penalty for the `= 2 mod 4` word offsets in the
+  H H T T layout), callin (`UsipGuardCtx.inside_function`), the post-layout
+  renames (`apply_renames`), the K-tie cascade (`dedup` and `nowaw` over the
+  tied readings of the packet; `du2` over the neighbouring packets the caller
+  supplies through `UsipGuardCtx.packet_at` / `branch_target`, first-pass
+  readings with `USIP_GUARD_NO_CASCADE`), `UsipPacket.tiebreak`; the failed op
+  C compare-and-branch guard is printed `.dsp` (unnamed data either way).
+  Unverified fallback extended to the S0F1 cells whose unverified readings are
+  right in nearly every case (`bne`/`blt`/`bgeu`/`bgtu`/`bge` with immediate,
+  `beqz.d`/`bnez.d`, `bleu` register) and to `loop rX` with the F' = 0 tail
+  when the head has F = 1 and the S = 1 tail sits at +2.
+* `arch_md32.c`: the cascade context (packets decoded earlier in the session,
+  first-pass readings of the packets inside the bytes at hand, the branch
+  targets seen so far), `opex.packet.tiebreak`, `ireg` = `r15` for the r15-based
+  loads, types for `fxtu`/`fxts` (`cast`) and `fup` (`or`).
+* `asm_md32.c`: pseudo syntax for `fxtu`/`fxts`/`fup`, `mtacc`, the 2-operand
+  `addi`, `sext16`/`zext16`, `asr16`; `nop.ctl` reads `nop`.
+* Tests: `test/test_plugin.py` vectors for W14, `nop.ctl`, the bit-field
+  family, `mtacc?`, `movi? #-32768`, `sgt #-1`, the register `bset`/`bext`, the
+  S0F1 branches (unverified, validated by the session, not validated), the
+  r15-based loads, `.ldF0?`, the F' = 0 `ld.h?`, the 48-bit value table,
+  `.3eX0?`, the `lsl`/`sext16`/`zext16` renames, `cop ‖ addi`, `.hi`, `movhi`
+  tt = 10, `.op4t0`; the op8 slot split vector updated; `test/test_parse.c`
+  vectors for the new pseudo rules.
+
 ### uSIP table update (594 forms) and the prior-free packet parser
 
 * `isa/usip_isa.json` / `usip_opcodes.h`: 594 forms (137 added, 18 retired,
