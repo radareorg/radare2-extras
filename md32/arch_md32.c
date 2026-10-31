@@ -509,55 +509,84 @@ static void fill_opex(RAnalOp *op, const Md32Insn *insn, unsigned count) {
 
 #define USIP_CACHE_SIZE 64
 #define USIP_SEEN_BITS 15
+#define USIP_CTX_FWD 8     /* packets after the current one decoded for the du2 scan of the K-tie cascade */
+
+/* open-addressing set of addresses (addr + 1; 0 = empty), cleared when half full */
+typedef struct {
+	ut64 slot[1 << USIP_SEEN_BITS];
+	int n;
+} UsipAddrSet;
 
 typedef struct {
 	UsipPacket pk[USIP_CACHE_SIZE];
 	int next;
-	/* packet starts decoded in this session (open-addressing set of addr + 1; 0 = empty): the "packet starts of the
-	 * current function" that the target guards of the table ask about, as far as the linear decode has seen them */
-	ut64 seen[1 << USIP_SEEN_BITS];
-	int nseen;
+	/* packet starts decoded in this session: the "packet starts of the current function" that the target guards of
+	 * the table ask about, as far as the linear decode has seen them */
+	UsipAddrSet seen;
+	/* targets of the branches decoded in this session: the join points of the du2 scan */
+	UsipAddrSet btgt;
+	/* first-pass readings of the packets after the one being decoded (the forward context of du2) */
+	UsipPacket ctxpk[USIP_CTX_FWD];
+	int nctx;
 } UsipState;
 
-static ut32 usip_seen_slot(ut64 addr) {
+static ut32 usip_set_slot(ut64 addr) {
 	return (ut32)(((addr >> 1) * 2654435761ULL) & UT32_MAX) >> (32 - USIP_SEEN_BITS);
 }
 
-static void usip_seen_add(UsipState *st, ut64 addr) {
-	if (!st) {
-		return;
+static void usip_set_add(UsipAddrSet *set, ut64 addr) {
+	if (set->n * 2 >= (1 << USIP_SEEN_BITS)) {
+		memset (set->slot, 0, sizeof (set->slot));
+		set->n = 0;
 	}
-	if (st->nseen * 2 >= (1 << USIP_SEEN_BITS)) {
-		memset (st->seen, 0, sizeof (st->seen));
-		st->nseen = 0;
-	}
-	ut32 h = usip_seen_slot (addr);
+	ut32 h = usip_set_slot (addr);
 	for (;;) {
-		if (!st->seen[h]) {
-			st->seen[h] = addr + 1;
-			st->nseen++;
+		if (!set->slot[h]) {
+			set->slot[h] = addr + 1;
+			set->n++;
 			return;
 		}
-		if (st->seen[h] == addr + 1) {
+		if (set->slot[h] == addr + 1) {
 			return;
 		}
 		h = (h + 1) & ((1 << USIP_SEEN_BITS) - 1);
+	}
+}
+
+static bool usip_set_has(const UsipAddrSet *set, ut64 addr) {
+	ut32 h = usip_set_slot (addr);
+	for (;;) {
+		if (!set->slot[h]) {
+			return false;
+		}
+		if (set->slot[h] == addr + 1) {
+			return true;
+		}
+		h = (h + 1) & ((1 << USIP_SEEN_BITS) - 1);
+	}
+}
+
+static void usip_seen_add(UsipState *st, ut64 addr) {
+	if (st) {
+		usip_set_add (&st->seen, addr);
 	}
 }
 
 static bool usip_seen_has(const UsipState *st, ut64 addr) {
+	return st && usip_set_has (&st->seen, addr);
+}
+
+/* the targets of the branches of a decoded packet (join points of the du2 scan) */
+static void usip_record_targets(UsipState *st, const UsipPacket *pk) {
+	int i;
 	if (!st) {
-		return false;
+		return;
 	}
-	ut32 h = usip_seen_slot (addr);
-	for (;;) {
-		if (!st->seen[h]) {
-			return false;
+	for (i = 0; i < pk->ninsn; i++) {
+		const UsipInsn *in = &pk->insn[i];
+		if (in->has_target && (in->kind == USIP_K_BR || in->kind == USIP_K_BR16 || in->kind == USIP_K_BR16D)) {
+			usip_set_add (&st->btgt, in->target);
 		}
-		if (st->seen[h] == addr + 1) {
-			return true;
-		}
-		h = (h + 1) & ((1 << USIP_SEEN_BITS) - 1);
 	}
 }
 
@@ -565,7 +594,9 @@ static bool usip_seen_has(const UsipState *st, ut64 addr) {
  * session (backward targets, and forward targets of a region decoded earlier) and a scan of the bytes at hand past
  * the current packet (forward targets up to the 64 bytes radare2 passes); a forward target beyond both is unknown.
  * Function starts are not available to an arch plugin (radare2 gives it no typed access to RAnal), so that callback
- * is absent and the decoder applies its documented fallback. */
+ * and the callin one are absent and the decoder applies its documented fallback.  The K-tie cascade gets the packets
+ * decoded earlier in the session (the backward context of du2), the first-pass readings of the packets that follow in
+ * the bytes at hand (the forward context) and the branch targets seen so far (its join points). */
 typedef struct {
 	UsipState *st;
 	ut64 pk_addr;       /* start of the packet being decoded */
@@ -603,6 +634,52 @@ static int usip_guard_packet_start(void *user, ut64 a) {
 		p += 2 * (ut64)n;
 	}
 	return p == a? 1: 0;
+}
+
+static int usip_guard_branch_target(void *user, ut64 a) {
+	const UsipGuardUser *u = (const UsipGuardUser *)user;
+	return u->st && usip_set_has (&u->st->btgt, a)? 1: 0;
+}
+
+static const UsipPacket *usip_guard_packet_at(void *user, ut64 a, bool before) {
+	UsipGuardUser *u = (UsipGuardUser *)user;
+	UsipState *st = u->st;
+	int i;
+	if (!st) {
+		return NULL;
+	}
+	if (before) {
+		/* the packet that ends at a: decoded earlier in this session */
+		for (i = 0; i < USIP_CACHE_SIZE; i++) {
+			const UsipPacket *pk = &st->pk[i];
+			if (pk->nunits && !pk->truncated && pk->addr + 2 * (ut64)pk->nunits == a) {
+				return pk;
+			}
+		}
+		return NULL;
+	}
+	/* the packet that starts at a: the first-pass reading of the bytes at hand (no cascade of its own) */
+	for (i = 0; i < st->nctx; i++) {
+		if (st->ctxpk[i].addr == a) {
+			return &st->ctxpk[i];
+		}
+	}
+	const st64 off = (st64)(a - u->base);
+	if (a < u->base || off + 2 > u->len || st->nctx >= USIP_CTX_FWD) {
+		return NULL;
+	}
+	ut16 units[USIP_MAX_UNITS];
+	bool truncated;
+	const int n = usip_scan_units (u->bytes + off, (int)R_MIN (u->len - off, 2 * USIP_MAX_UNITS), units, &truncated);
+	if (n < 1 || truncated) {
+		return NULL;
+	}
+	UsipPacket *pk = &st->ctxpk[st->nctx++];
+	UsipGuardUser gu = { st, a, n, u->base, u->bytes, u->len };
+	UsipGuardCtx g = { &gu, usip_guard_packet_start, NULL, NULL, NULL, usip_guard_branch_target, USIP_GUARD_NO_CASCADE };
+	usip_decode_packet (pk, a, units, n, truncated, &g);
+	usip_record_targets (st, pk);
+	return pk;
 }
 
 static bool md32_init(RArchSession *s) {
@@ -656,8 +733,10 @@ static UsipPacket *usip_cached_packet(UsipState *st, ut64 addr, const ut8 *bytes
 			memcpy (units, pk->units, u0 * sizeof (ut16));
 			n += usip_scan_units (bytes, R_MIN (len, 2 * (USIP_MAX_UNITS - u0)), units + u0, &truncated);
 			UsipGuardUser gu = { st, pk->addr, n, addr, bytes, len };
-			UsipGuardCtx g = { &gu, usip_guard_packet_start, NULL };
+			UsipGuardCtx g = { &gu, usip_guard_packet_start, NULL, NULL, usip_guard_packet_at, usip_guard_branch_target, 0 };
+			st->nctx = 0;
 			usip_decode_packet (pk, pk->addr, units, n, truncated, &g);
+			usip_record_targets (st, pk);
 		}
 		usip_seen_add (st, pk->addr);
 		return pk;
@@ -684,7 +763,7 @@ static int usip_alu_type(const char *mn) {
 		{ "seq", R_ANAL_OP_TYPE_CMP }, { "slt", R_ANAL_OP_TYPE_CMP }, { "sltu", R_ANAL_OP_TYPE_CMP }, { "sgt", R_ANAL_OP_TYPE_CMP },
 		{ "sne", R_ANAL_OP_TYPE_CMP }, { "sle", R_ANAL_OP_TYPE_CMP }, { "scmp", R_ANAL_OP_TYPE_CMP }, { "osl", R_ANAL_OP_TYPE_SHL },
 		{ "sext", R_ANAL_OP_TYPE_CAST }, { "zext", R_ANAL_OP_TYPE_CAST }, { "sext16", R_ANAL_OP_TYPE_CAST }, { "zext16", R_ANAL_OP_TYPE_CAST },
-		{ "extu", R_ANAL_OP_TYPE_CAST },
+		{ "extu", R_ANAL_OP_TYPE_CAST }, { "fxtu", R_ANAL_OP_TYPE_CAST }, { "fxts", R_ANAL_OP_TYPE_CAST }, { "fup", R_ANAL_OP_TYPE_OR },
 		{ "mul", R_ANAL_OP_TYPE_MUL }, { "mul16", R_ANAL_OP_TYPE_MUL }, { "mulu16", R_ANAL_OP_TYPE_MUL }, { "mult", R_ANAL_OP_TYPE_MUL },
 		{ "mac", R_ANAL_OP_TYPE_MUL }, { "L_mult", R_ANAL_OP_TYPE_MUL }, { "L_mac", R_ANAL_OP_TYPE_MUL }, { "Mpy_32_16", R_ANAL_OP_TYPE_MUL },
 		{ "Mpy_32_32", R_ANAL_OP_TYPE_MUL }, { "mul3216", R_ANAL_OP_TYPE_MUL }, { "muls64", R_ANAL_OP_TYPE_MUL }, { "mulu64", R_ANAL_OP_TYPE_MUL },
@@ -892,6 +971,9 @@ static void usip_analyze(RAnalOp *op, const UsipPacket *pk, int k) {
 			} else if (usip_name_is (mn, "ld.sp") || usip_name_is (mn, "st.sp")) {
 				op->ireg = "r14";
 				op->stackop = op->type == R_ANAL_OP_TYPE_LOAD? R_ANAL_STACK_GET: R_ANAL_STACK_SET;
+			} else if (in->op && in->op->fmt && strstr (in->op->fmt, "[r15")) {
+				/* the loads with the fixed base r15 (ld.w? / ld.h? / ld.hu? rB, [r15+off]) */
+				op->ireg = "r15";
 			}
 			if (usip_field (in, "off", &v) || usip_field (in, "off12", &v) || usip_field (in, "off11", &v) || usip_field (in, "imm", &v)) {
 				op->disp = (ut64)v;
@@ -951,6 +1033,10 @@ static void usip_opex(RAnalOp *op, const UsipPacket *pk, int k, int unit) {
 	pj_ki (pj, "units", pk->nunits);
 	pj_ki (pj, "insns", pk->ninsn);
 	pj_kb (pj, "ambiguous", pk->ambiguous);
+	if (pk->tiebreak) {
+		static const char *const how[] = { "k", "dedup", "nowaw", "du2" };
+		pj_ks (pj, "tiebreak", pk->tiebreak < 4? how[pk->tiebreak]: "?");
+	}
 	pj_kb (pj, "truncated", pk->truncated);
 	pj_kb (pj, "delay", pk->delay);
 	pj_end (pj);
@@ -1013,9 +1099,13 @@ static bool usip_decode(RArchSession *s, RAnalOp *op, RArchDecodeMask mask) {
 			pk = &local;
 		}
 		UsipGuardUser gu = { st, op->addr, n, op->addr, op->bytes, available };
-		UsipGuardCtx g = { &gu, usip_guard_packet_start, NULL };
+		UsipGuardCtx g = { &gu, usip_guard_packet_start, NULL, NULL, usip_guard_packet_at, usip_guard_branch_target, 0 };
+		if (st) {
+			st->nctx = 0;
+		}
 		usip_decode_packet (pk, op->addr, units, n, truncated, &g);
 		usip_seen_add (st, op->addr);
+		usip_record_targets (st, pk);
 	}
 	const int unit = (int)((op->addr - pk->addr) / 2);
 	const int k = pk->owner[unit];

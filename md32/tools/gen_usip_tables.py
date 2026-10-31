@@ -23,10 +23,16 @@ Table layout (see README.md "uSIP mode" and doc/usip.md):
     has; the position/length constraints (packet_len, packet_len_ge, head_index, head_index_ge, ctx) of the 32/48-bit
     entries are deferred too: when they fail the decoder falls through to the next entry of the same cell.
 
-Operand types offh (half-word offset), offw (word offset), loopn (loop count) and movhi (collected bits << 12) have
-their own value formula in the decoder; the flags ADJDEF (tail at +2 or farther), PREFIX (packet-prefix entries matched
-on the first units of the packet before the layout), RENAME (position rename scored as the underlying reading) and HHTT
-(context entries admitted only inside the H H T T candidate) complete the packet rules of the table.
+Operand types offh (half-word offset), offw (14-bit word displacement), loopn (loop count) and movhi (collected bits << 12)
+have their own value formula in the decoder; the flags ADJDEF (tail at +2 or farther), PREFIX (packet-prefix entries
+matched on the first units of the packet before the layout), RENAME (post-layout rename: the entry is never used by the
+packet parser; once the layout is decided an instruction whose reading is one of the entry's rename_from mnemonics, or
+"@kind", and whose units match the entry and its constraints is relabelled) and HHTT (context entries admitted only
+inside the H H T T candidate) complete the packet rules of the table.  The constraints tail_adjacent (the single tail is
+or is not the next unit), ieee_short (the value is the high word of a short IEEE-754 double), the context conditions
+cop_rA_in_packet / not_c48_lo_follows and the membership in the 48-bit value table (in_c48tab) are evaluated by the
+decoder with the packet context; the auxiliary tables usip_never_tail / usip_never_head_with_tail (units that are never
+a tail / heads that never take one) and usip_c48_table (the 48-bit constants admitted by value) come from the JSON.
 """
 import json, os, sys, collections
 
@@ -42,9 +48,10 @@ CONS_OPS = ['eq', 'ne', 'lt', 'ge', 'gt', 'in', 'notin', 'inmask', 'notinmask', 
             'slot0_excludes_head', 'any',
             'guard_setcc_tail', 'guard_tail_not_named16', 'guard_or2_tail',
             'guard_target_packet_start', 'guard_target_function_start', 'guard_target_fn_or_packet_start',
-            'guard_head_not_validated_bs']
-ANY_OPS = {'eq': 0, 'ne': 1, 'lt': 2, 'ge': 3, 'gt': 4, 'inmask': 5, 'notinmask': 6}
-CTX_IDS = {'not_ext_of_op67': 0}
+            'guard_head_not_validated_bs',
+            'tail_adjacent', 'ieee_short', 'in_c48tab']
+ANY_OPS = {'eq': 0, 'ne': 1, 'lt': 2, 'ge': 3, 'gt': 4, 'inmask': 5, 'notinmask': 6, 'tail_adjacent': 7}
+CTX_IDS = {'not_ext_of_op67': 0, 'cop_rA_in_packet': 1, 'not_c48_lo_follows': 2}
 GUARDS = {'setcc_tail': 'guard_setcc_tail', 'tail_not_named16': 'guard_tail_not_named16', 'or2_tail': 'guard_or2_tail',
           'target_packet_start_same_function': 'guard_target_packet_start',
           'target_function_start': 'guard_target_function_start',
@@ -52,7 +59,7 @@ GUARDS = {'setcc_tail': 'guard_setcc_tail', 'tail_not_named16': 'guard_tail_not_
           'head_not_validated_bs': 'guard_head_not_validated_bs'}
 MAXFIELDS = 12
 MAXCONS = 8
-MAXVALS = 9
+MAXVALS = 12
 MAXRANGES = 8
 MAXANY = 3
 SAVE_SET = ['r8,r9,r10,LR', 'r12,r8!,r9!,r10!', 'r11!,r12!,r13!,r14!', None, 'LR,r8', 'r12,r8!', 'r11!,r12!', None]
@@ -62,8 +69,13 @@ def cstr(s):
     return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
 
 
+C48 = []   # the 48-bit value table (the `in` set of the c48tab entries), filled by emit()
+
+
 def simple_cons(c):
-    """(op, value) of a one-field sub-constraint of `any`: a comparison, or a set as a 31-bit membership mask"""
+    """(op, value) of a one-field sub-constraint of `any`: a comparison, a set as a 31-bit membership mask, or tail_adjacent"""
+    if 'tail_adjacent' in c:
+        return 'tail_adjacent', 1 if c['tail_adjacent'] else 0
     for op in ('eq', 'ne', 'lt', 'ge', 'gt'):
         if op in c:
             return op, c[op]
@@ -79,8 +91,10 @@ def simple_cons(c):
 
 
 def set_cons(op, f, vals):
-    """in/notin: a value list when it fits, else a 64-bit membership mask (all values in 0..63)"""
+    """in/notin: a value list when it fits, else a 64-bit membership mask (all values in 0..63); the 48-bit value table by reference"""
     vals = list(vals)
+    if op == 'in' and C48 and sorted(vals) == sorted(C48):
+        return ('in_c48tab', f, 0xff, [])
     if len(vals) <= MAXVALS:
         return (op, f, 0xff, vals)
     if all(isinstance(v, int) and 0 <= v < 64 for v in vals):
@@ -91,17 +105,22 @@ def set_cons(op, f, vals):
     raise SystemExit('set constraint too large: %r' % vals)
 
 
-def cons_entries(c, fidx, width):
-    """one constraint dict -> (op, field, field2, [vals])"""
+def cons_entries(c, fidx, width, rename=False):
+    """one constraint dict -> (op, field, field2, [vals]); rename = the entry is a post-layout rename (its position
+    constraints are evaluated with the exact head index, not through the 16-bit match cache)"""
     if 'any' in c:
         alts = c['any']
-        if not 1 <= len(alts) <= MAXANY or any('field' not in a for a in alts):
+        if not 1 <= len(alts) <= MAXANY or any('field' not in a and 'tail_adjacent' not in a for a in alts):
             raise SystemExit('unsupported any-constraint: %r' % c)
         vals = []
         for a in alts:
             op, v = simple_cons(a)
-            vals += [fidx[a['field']], ANY_OPS[op], v]
+            vals += [fidx[a['field']] if 'field' in a else 0xff, ANY_OPS[op], v]
         return ('any', 0xff, 0xff, vals)
+    if 'tail_adjacent' in c:
+        return ('tail_adjacent', 0xff, 0xff, [1 if c['tail_adjacent'] else 0])
+    if 'ieee_short' in c:
+        return ('ieee_short', fidx[c['field']], 0xff, [c['ieee_short']])
     if 'guard' in c:
         gd = c['guard']
         if gd not in GUARDS:
@@ -118,21 +137,21 @@ def cons_entries(c, fidx, width):
         a, b = c['ne_fields']
         return ('ne_fields', fidx[a], fidx[b], [])
     if 'packet_len' in c:
-        if width == 16 and c['packet_len'] not in (1, 2):
+        if width == 16 and not rename and c['packet_len'] not in (1, 2):
             raise SystemExit('packet_len %r: the decoder caches 16-bit matches by packet length class 1 / 2 / 3+' % c['packet_len'])
         return ('packet_len', 0xff, 0xff, [c['packet_len']])
     if 'packet_len_ge' in c:
-        if width == 16 and c['packet_len_ge'] != 2:
+        if width == 16 and not rename and c['packet_len_ge'] != 2:
             raise SystemExit('packet_len_ge %r: the decoder caches 16-bit matches by packet length class 1 / 2 / 3+' % c['packet_len_ge'])
         return ('packet_len_ge', 0xff, 0xff, [c['packet_len_ge']])
     if 'head_index' in c:
-        if width == 16 and c['head_index'] != 0:
+        if width == 16 and not rename and c['head_index'] != 0:
             raise SystemExit('head_index %r: the decoder caches 16-bit matches by head index class 0 / 1 / 2+' % c['head_index'])
         return ('head_index', 0xff, 0xff, [c['head_index']])
     if 'head_index_ge' in c or 'head_pos_ge' in c:
         # (head_pos_ge: the spelling of the public copy of the table)
         v = c.get('head_index_ge', c.get('head_pos_ge'))
-        if width == 16 and v != 2:
+        if width == 16 and not rename and v != 2:
             raise SystemExit('head_index_ge %r: the decoder caches 16-bit matches by head index class 0 / 1 / 2+' % v)
         return ('head_index_ge', 0xff, 0xff, [v])
     if 'ctx' in c:
@@ -165,7 +184,7 @@ def cons_entries(c, fidx, width):
 
 def cons_fields(c):
     if 'any' in c:
-        return [a['field'] for a in c['any']]
+        return [a['field'] for a in c['any'] if 'field' in a]
     if 'guard' in c:
         return ['u12'] if c['guard'] == 'or2_tail' else []
     if 'eq_fields' in c:
@@ -213,6 +232,13 @@ def field_base(a):
 def emit(isa, out_path):
     forms = isa['forms']
     kinds = sorted({f['kind'] for f in forms})
+    del C48[:]
+    for f in forms:
+        if f.get('group') == 'c48tab':
+            for c in f.get('constraints', []):
+                if c.get('field') == 'val' and 'in' in c:
+                    C48.extend(c['in'])
+            break
     L = []
     A = L.append
     A('/* usip_opcodes.h - uSIP (MD32 family, VLIW packet variant) instruction forms.')
@@ -240,11 +266,12 @@ def emit(isa, out_path):
     A('};')
     A('')
     A('/* sub-operations of USIP_C_ANY: vals = { field, op, value } triplets (up to %d), true when one of them holds;' % MAXANY)
-    A(' * inmask/notinmask: value = membership mask of the field value (bit n = value n) */')
-    A('enum usip_any_op { USIP_ANY_EQ, USIP_ANY_NE, USIP_ANY_LT, USIP_ANY_GE, USIP_ANY_GT, USIP_ANY_INMASK, USIP_ANY_NOTINMASK };')
+    A(' * inmask/notinmask: value = membership mask of the field value (bit n = value n); tail_adjacent: value = 0 / 1 (no field) */')
+    A('enum usip_any_op { USIP_ANY_EQ, USIP_ANY_NE, USIP_ANY_LT, USIP_ANY_GE, USIP_ANY_GT, USIP_ANY_INMASK, USIP_ANY_NOTINMASK, USIP_ANY_TAIL_ADJACENT };')
     A('')
-    A('/* named context conditions of USIP_C_CTX (vals[0]) */')
-    A('enum usip_ctx_cond { USIP_CTX_NOT_EXT_OF_OP67 };')
+    A('/* named context conditions of USIP_C_CTX (vals[0]): not the extension word of an op 6/7 head; some `cop rA` with the same rA in the')
+    A(' * packet; the tail is not 5ffd followed by bfff/ffff (the 48-bit constant 0x7fff7fff) */')
+    A('enum usip_ctx_cond { USIP_CTX_NOT_EXT_OF_OP67, USIP_CTX_COP_RA_IN_PACKET, USIP_CTX_NOT_C48_LO_FOLLOWS };')
     A('')
     A('#define USIP_F_SLOT0     0x001  /* only valid as the first unit of a packet */')
     A('#define USIP_F_NOTSLOT0  0x002  /* never the first unit of a packet */')
@@ -258,7 +285,7 @@ def emit(isa, out_path):
     A('#define USIP_F_UNKNOWN16 0x200  /* 16-bit shape that does not count as a named 16-bit op (loose syllables, .hword, stand-alone closers) */')
     A('#define USIP_F_ADJDEF    0x400  /* the tail must be at +2 or FARTHER; an adjacent tail undoes the pair into two 16-bit ops */')
     A('#define USIP_F_PREFIX    0x800  /* packet-prefix entry (48/64-bit b<cond>.l): matched on the first units of the packet BEFORE the layout, with its target guard; a failing guard = not taken (never .word); the rest of the packet is its delay slot */')
-    A('#define USIP_F_RENAME    0x1000 /* position rename: the layout score counts the unit as its underlying reading (an unknown unit) */')
+    A('#define USIP_F_RENAME    0x1000 /* post-layout rename: never used by the packet parser; once the layout is decided, an instruction whose reading is one of rename_from (mnemonic or @kind) and whose units match the entry and its constraints takes its name */')
     A('#define USIP_F_HHTT      0x2000 /* context entry admitted only inside the H H T T candidate of a 4-unit packet */')
     A('')
     A('#define USIP_BITS_ZERO(n)  { 0xff, (n) }   /* n implicit zero bits in the operand value */')
@@ -285,7 +312,8 @@ def emit(isa, out_path):
     A('\tut8 nvals;')
     A('\tst32 vals[USIP_MAXVALS];  /* eq/ne/lt/ge/gt: [v]; in/notin: set; inmask/notinmask: [lo32, hi32] of a 64-bit membership mask;')
     A('\t                           * range: [lo, hi); ranges: pairs; slot0_excludes_head: [mask, value]; packet_len(_ge) / head_index(_ge): [n];')
-    A('\t                           * ctx: [enum usip_ctx_cond]; any: [field, op, value] triplets (enum usip_any_op); guard_setcc_tail: the small set */')
+    A('\t                           * ctx: [enum usip_ctx_cond]; any: [field, op, value] triplets (enum usip_any_op; field = USIP_NOFIELD for tail_adjacent);')
+    A('\t                           * guard_setcc_tail: the small set; tail_adjacent: [0 | 1]; ieee_short: [significant digits]; in_c48tab: none */')
     A('} UsipCons;')
     A('')
     A('typedef struct usip_opcode_t {')
@@ -304,6 +332,8 @@ def emit(isa, out_path):
     A('\tUsipField fields[USIP_MAXFIELDS];')
     A('\tut8 ncons;')
     A('\tUsipCons cons[USIP_MAXCONS];')
+    A('\tconst char *const *rename_from;  /* USIP_F_RENAME: the readings the entry may replace (mnemonics, or "@kind") */')
+    A('\tut8 nrename_from;')
     A('} UsipOpcode;')
     A('')
     A('#ifndef USIP_OPCODES_NO_TABLE  /* define it to get the types and enums only */')
@@ -313,7 +343,11 @@ def emit(isa, out_path):
     A(' * falls through to the next entry; for the USIP_F_PREFIX entries a failing guard means the entry is not taken.  The')
     A(' * position / length constraints (USIP_C_PACKET_LEN(_GE), USIP_C_HEAD_INDEX(_GE), USIP_C_CTX) need the packet context')
     A(' * (unknown = the constraint fails) and, on the 32/48-bit entries, a failure falls through to the next entry of the cell;')
-    A(' * USIP_C_GUARD_HEAD_NOT_VALIDATED_BS undoes the pair into two 16-bit ops. */')
+    A(' * USIP_C_GUARD_HEAD_NOT_VALIDATED_BS undoes the pair into two 16-bit ops.  USIP_C_TAIL_ADJACENT, USIP_C_IEEE_SHORT, the context')
+    A(' * conditions and USIP_C_IN_C48TAB are evaluated by the decoder (see usip_decode.c). */')
+    for f in forms:
+        if f.get('rename_only'):
+            A('static const char *const usip_rename_from_%s[] = { %s };' % (f['name'], ', '.join(cstr(x) for x in f.get('rename_from', []))))
     A('static const UsipOpcode usip_opcodes[] = {')
     ctx_index = {}
     for idx, f in enumerate(forms):
@@ -338,7 +372,7 @@ def emit(isa, out_path):
         if len(fields) > MAXFIELDS:
             raise SystemExit('%s: too many fields' % f['name'])
         fidx = {x['name']: i for i, x in enumerate(fields)}
-        cons = [cons_entries(c, fidx, f['width']) for c in f.get('constraints', [])]
+        cons = [cons_entries(c, fidx, f['width'], bool(f.get('rename_only'))) for c in f.get('constraints', [])]
         if len(cons) > MAXCONS:
             raise SystemExit('%s: too many constraints' % f['name'])
         n = f['width'] // 16
@@ -353,6 +387,7 @@ def emit(isa, out_path):
             if len(rs) > MAXRANGES:
                 raise SystemExit('%s/%s: too many ranges' % (f['name'], a['name']))
             A('\t\t{ %s, USIP_A_%s, %d, { %s }, %d, %d, %s },' % (cstr(a['name']), a['type'].upper(), len(rs), ', '.join(rs), a.get('nbits', 0), a.get('scale', 1), field_base(a)))
+        rn = ('usip_rename_from_%s, %d' % (f['name'], len(f.get('rename_from', [])))) if f.get('rename_only') else 'NULL, 0'
         if cons:
             A('\t  }, %d, {' % len(cons))
             for op, fi, fi2, vals in cons:
@@ -360,9 +395,9 @@ def emit(isa, out_path):
                     raise SystemExit('%s: too many constraint values' % f['name'])
                 A('\t\t{ USIP_C_%s, %s, %s, %d, { %s } },' % (op.upper(), fi if fi != 0xff else 'USIP_NOFIELD', fi2 if fi2 != 0xff else 'USIP_NOFIELD',
                                                            len(vals), ', '.join(str(v) for v in vals) if vals else '0'))
-            A('\t  } },')
+            A('\t  }, %s },' % rn)
         else:
-            A('\t  }, 0, { { 0, 0, 0, 0, { 0 } } } },')
+            A('\t  }, 0, { { 0, 0, 0, 0, { 0 } } }, %s },' % rn)
     A('};')
     A('')
     A('/* kind names, in enum usip_kind order */')
@@ -410,6 +445,15 @@ def emit(isa, out_path):
             bits |= 1 << t
         A('\t{ 0x%04x, 0x%04x, 0x%x }, /* %s */' % (int(d['mask'], 16), int(d['value'], 16), bits, d.get('why', '')))
     A('};')
+    A('')
+    pk = isa['structure']['packet']
+    A('/* units that are never a tail, and heads that never take a tail (the grammar rejects the assignment) */')
+    A('static const ut16 usip_never_tail[] = { ' + ', '.join('0x%04x' % int(x, 16) for x in pk.get('never_tail', [])) + ' };')
+    A('static const ut16 usip_never_head_with_tail[] = { ' + ', '.join('0x%04x' % int(x, 16) for x in pk.get('never_head_with_tail', [])) + ' };')
+    A('')
+    A('/* the 48-bit constants admitted by value (USIP_C_IN_C48TAB: imm32 = head[13:9] << 27 | hi[12:0] << 14 | lo[13:0]); the head:hi partial')
+    A(' * admission of the parser compares the upper 18 bits */')
+    A('static const ut32 usip_c48_table[%d] = { ' % len(C48) + ', '.join('0x%08x' % v for v in C48) + ' };')
     A('#endif /* USIP_OPCODES_NO_TABLE */')
     A('')
     A('#endif /* USIP_OPCODES_H */')
