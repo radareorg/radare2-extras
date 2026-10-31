@@ -146,6 +146,35 @@ int main(void) {
 	check (a, ".unit 0x400a (ld.b @ 0x0000041e)", ".unit 0x400a (ld.b @ 0x0000041e)");
 	check (a, ".hword 0xffff", ".hword 0xffff");
 	check (a, ".op4imm r0, r1, #0x6", ".op4imm r0, r1, #0x6");
+	// table update (634 forms): the bit-field family, nop.ctl, mtacc?, movi? #-32768, the register bset/bext, sgt #-1,
+	// addi #32, the lsl / sext16 / zext16 renames, the r15-based loads, the S0F1 branches and the format-only readings.
+	check (a, "fxtu r0, r0, #0x1, #0xf", "r0 = ((r0 >> 0xf) & ((1 << 0x1) - 1))");
+	check (a, "fxts r2!, r0, #0xf, #0x1", "r2! = sext(0xf)((r0 >> 0x1) & ((1 << 0xf) - 1))");
+	check (a, "fup r1, r0, #0x8, #0x8", "r1 = ((r1 & ~(((1 << 0x8) - 1) << 0x8)) | ((r0 & ((1 << 0x8) - 1)) << 0x8))");
+	check (a, "fup? r0, r1, #0x1c, #0x4", "r0 = ((r0 & ~(((1 << 0x1c) - 1) << 0x4)) | ((r1 & ((1 << 0x1c) - 1)) << 0x4))");
+	check (a, "nop.ctl", "nop");
+	check (a, "mtacc? A0, r2!:r4!", "A0 = r2!:r4!");
+	check (a, "movi? r8, #-32768", "r8 = -32768");
+	check (a, "bset r2, r2, r8", "r2 = (r2 | (1U << r8))");
+	check (a, "bext r0, r0, r8", "r0 = ((r0 >> r8) & 1)");
+	check (a, "sgt r0, r3, #-1", "r0 = ((int32_t)r3 > (int32_t)-1)");
+	check (a, "addi r0, #32", "r0 += 32");
+	check (a, "lsl? r0, r0, #0x1", "r0 = (r0 << 0x1)");
+	check (a, "sext16 r3, r2", "r3 = sext16(r2)");
+	check (a, "zext16? r3, r4", "r3 = (r4 & 0xffff)");
+	check (a, "asr16 r1, r2, #10", "r1 = sext16(r2 << 10) >> 10");
+	check (a, "ld.h? r8, [r15+0x150]", "r8 = dmem16[r15 + 0x150]");
+	check (a, "ld.w? r1, [r15+0x407]", "r1 = dmem32[r15 + 0x407]");
+	check (a, "st.w r1, [r8+0x11c4]", "dmem32[r8 + 0x11c4] = r1");
+	check (a, "bne.d? r15!, #0x1, 0x00000f1c", "if (r15! != 0x1) goto 0x00000f1c");
+	check (a, "beqz.d? r0, 0x0000200c", "if (r0 == 0) goto 0x0000200c");
+	check (a, "bleu.d r7, r1, 0x00000e3c", "if ((uint32_t)r7 <= (uint32_t)r1) goto 0x00000e3c");
+	check (a, "bne.u8.d r1, #0x3, 0x1000", "if (r1 != 0x3) goto 0x1000");
+	check (a, "mov32 r3, #0x7fff7fff", "r3 = 0x7fff7fff");
+	check (a, ".ldF0? r0!, [r7+0x240]", ".ldF0? r0!, [r7+0x240]");
+	check (a, ".3eX0? r6, 0x6e14 0xd000", ".3eX0? r6, 0x6e14 0xd000");
+	check (a, ".op4t0 r0, [r8+0x19]", ".op4t0 r0, [r8+0x19]");
+	check (a, ".hi 0x35ff", ".hi 0x35ff");
 	r_asm_free (a);
 	puts ("MD32 pseudo syntax, Harvard addressing, parallel bundles and conservative fallbacks passed");
 	return 0;
