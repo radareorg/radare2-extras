@@ -682,7 +682,7 @@ static int usip_alu_type(const char *mn) {
 		{ "lsr", R_ANAL_OP_TYPE_SHR }, { "shr", R_ANAL_OP_TYPE_SHR }, { "L_shr", R_ANAL_OP_TYPE_SHR }, { "bext", R_ANAL_OP_TYPE_SHR },
 		{ "asr", R_ANAL_OP_TYPE_SAR }, { "asr16", R_ANAL_OP_TYPE_SAR }, { "mov", R_ANAL_OP_TYPE_MOV }, { "cmov", R_ANAL_OP_TYPE_CMOV },
 		{ "seq", R_ANAL_OP_TYPE_CMP }, { "slt", R_ANAL_OP_TYPE_CMP }, { "sltu", R_ANAL_OP_TYPE_CMP }, { "sgt", R_ANAL_OP_TYPE_CMP },
-		{ "sne", R_ANAL_OP_TYPE_CMP }, { "scmp", R_ANAL_OP_TYPE_CMP },
+		{ "sne", R_ANAL_OP_TYPE_CMP }, { "sle", R_ANAL_OP_TYPE_CMP }, { "scmp", R_ANAL_OP_TYPE_CMP }, { "osl", R_ANAL_OP_TYPE_SHL },
 		{ "sext", R_ANAL_OP_TYPE_CAST }, { "zext", R_ANAL_OP_TYPE_CAST }, { "sext16", R_ANAL_OP_TYPE_CAST }, { "zext16", R_ANAL_OP_TYPE_CAST },
 		{ "extu", R_ANAL_OP_TYPE_CAST },
 		{ "mul", R_ANAL_OP_TYPE_MUL }, { "mul16", R_ANAL_OP_TYPE_MUL }, { "mulu16", R_ANAL_OP_TYPE_MUL }, { "mult", R_ANAL_OP_TYPE_MUL },
@@ -725,7 +725,8 @@ static int usip_optype(const UsipInsn *in) {
 	case USIP_K_IO:
 		return R_ANAL_OP_TYPE_IO;
 	case USIP_K_SYS:
-		/* the sys shape by its tail field: rti returns, trap? traps, the rest (cop, ieon/ieoff, isync?, lpexit?, idle, sys #n) are system ops */
+		/* the sys shape by its tail field: rti returns, trap? traps, the rest (cop, ieon/ieoff, isync?, lpexit?, idle, sys #n,
+		 * also with the F = S = 0 tail that keeps the packet open) are system ops */
 		return usip_name_is (mn, "rti")? R_ANAL_OP_TYPE_RET: usip_name_is (mn, "trap")? R_ANAL_OP_TYPE_TRAP: R_ANAL_OP_TYPE_SWI;
 	case USIP_K_SAVE:
 		return R_ANAL_OP_TYPE_RPUSH;
@@ -762,6 +763,7 @@ static void usip_branch_cond(RAnalOp *op, const char *mn) {
 		{ "bltu", R_ANAL_CONDTYPE_LO, false }, { "bleu", R_ANAL_CONDTYPE_LS, false }, { "bgtu", R_ANAL_CONDTYPE_HI, false },
 		{ "bgeu", R_ANAL_CONDTYPE_HS, false }, { "beqz", R_ANAL_CONDTYPE_EQ, false }, { "bnez", R_ANAL_CONDTYPE_NE, false },
 		{ "bz", R_ANAL_CONDTYPE_EQ, false }, { "bnz", R_ANAL_CONDTYPE_NE, false },
+		{ "bequ", R_ANAL_CONDTYPE_EQ, false }, { "bneu", R_ANAL_CONDTYPE_NE, false },
 	};
 	size_t i;
 	for (i = 0; i < R_ARRAY_SIZE (table); i++) {
@@ -840,7 +842,7 @@ static void usip_analyze(RAnalOp *op, const UsipPacket *pk, int k) {
 		op->reg = "r15";
 		break;
 	case USIP_K_JR:
-		/* jr? rB (sys shape, tail field 0): register jump, delay slot like ret */
+		/* jr rB (sys shape, tail field 0): register jump, delay slot like ret */
 		if (usip_field (in, "rB", &v)) {
 			op->reg = gpregs[v & 15];
 		}
@@ -859,13 +861,16 @@ static void usip_analyze(RAnalOp *op, const UsipPacket *pk, int k) {
 		op->direction = in->mnem[1] == 'o'? R_ANAL_OP_DIR_READ: R_ANAL_OP_DIR_WRITE;
 		break;
 	case USIP_K_LOOP:
-		/* The loop setup does not branch: the back edge is at the (inclusive) loop end. */
+		/* The loop setup does not branch: the back edge is at the (inclusive) loop end; loop rX counts in a register,
+		 * loop #N carries the count. */
 		if (in->has_target) {
 			op->ptr = in->target;
 			op->direction = R_ANAL_OP_DIR_REF;
 		}
 		if (usip_field (in, "rX", &v)) {
 			op->reg = gpregs[v & 15];
+		} else if (usip_field (in, "N", &v)) {
+			op->val = (ut64)v;
 		}
 		break;
 	case USIP_K_LD:
@@ -964,6 +969,9 @@ static void usip_opex(RAnalOp *op, const UsipPacket *pk, int k, int unit) {
 			} else if (t == USIP_A_DISP || t == USIP_A_UDISP || t == USIP_A_ABSADDR) {
 				pj_ks (pj, "type", "addr");
 				pj_kn (pj, "value", t == USIP_A_ABSADDR? (ut64)in->vals[i]: (usip_unit_addr (pk, in->head) + (ut64)in->vals[i]) & UT32_MAX);
+			} else if (t == USIP_A_OFFH || t == USIP_A_OFFW) {
+				pj_ks (pj, "type", "disp");
+				pj_kN (pj, "value", in->vals[i]);
 			} else if (t == USIP_A_CSR_EXT) {
 				const char *nm = usip_csr_ext_name ((int)in->vals[i]);
 				pj_ks (pj, "type", "csr");
