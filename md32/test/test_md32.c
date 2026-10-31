@@ -61,6 +61,10 @@ static void unit_tests(void) {
 	check (0x40002000, 4, "nop16 | nop16.l", R_ANAL_OP_TYPE_UNK);
 	check (0x20002000, 4, "add r0, r0, r0, 0x1", R_ANAL_OP_TYPE_ADD);
 	check (0x05000000, 4, "nop", R_ANAL_OP_TYPE_NOP);
+	// group-5 forms absent from the objdump table: 0xDA00/0xDC00 named after the little-endian data memory
+	check (0xda49, 2, "cmulr16 r2, r2, r2", R_ANAL_OP_TYPE_MUL);
+	check (0xdc49, 2, "cmuli16 r2, r2, r2", R_ANAL_OP_TYPE_MUL);
+	check (0xca89, 2, "rem16 r2, r2", R_ANAL_OP_TYPE_MOD);
 
 	RAnalOp op;
 	const ut8 bytes[] = { 0x14, 0x00, 0x02, 0x21, 0x98, 0x11, 0x98, 0x22 };

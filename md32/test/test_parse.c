@@ -122,6 +122,27 @@ int main(void) {
 	check (a, "movhi? r9, #0x7ff00000", "r9 = 0x7ff00000");
 	check (a, "extu r10, r8!, #0xb, #0x14", "r10 = ((r8! >> 0x14) & ((1 << 0xb) - 1))");
 	check (a, "cmov r15, r14!, r0!", "r15 = (r14! != 0) ? r0! : r15");
+	// table update: immediate loops, 48/64-bit b<cond>.l, the set-on-compare family, signed 64-bit pairs, the closed
+	// negative offsets, the 16-bit first-slot st.h, movhi, jr, the high-bank bit ops and the funnel shift.
+	check (a, "loop# #4, last=0x00001c06", "repeat 4 times until last=0x00001c06");
+	check (a, "blt.l r2, #0x1, 0x00001582", "if ((int32_t)r2 < (int32_t)0x1) goto 0x00001582");
+	check (a, "beq.l? r4, #0x1, 0x00002226", "if (r4 == 0x1) goto 0x00002226");
+	check (a, "ble.l?? r4, #0x1, 0x00002226", "if ((int32_t)r4 <= (int32_t)0x1) goto 0x00002226");
+	check (a, "bneu.l? r1, #0x3, 0x1000", "if ((uint32_t)r1 != (uint32_t)0x3) goto 0x1000");
+	check (a, "sle r4, r9, #0x10", "r4 = ((int32_t)r9 <= (int32_t)0x10)");
+	check (a, "sgt r5, r0, #0x190", "r5 = ((int32_t)r0 > (int32_t)0x190)");
+	check (a, "ld.d r2:r3, [r9-0xa0]", "r2:r3 = dmem64[r9 - 0xa0]");
+	check (a, "st.d r8:r9, [r5-0x24]", "dmem64[r5 - 0x24] = r8:r9");
+	check (a, "ld.h r0, [r8-0x32]", "r0 = sext16(dmem16[r8 - 0x32])");
+	check (a, "ld.w r2, [r14-0x8]", "r2 = dmem32[r14 - 0x8]");
+	check (a, "st.h r8, [r0]", "dmem16[r0] = r8");
+	check (a, "movhi r0, #0x00020000", "r0 = 0x00020000");
+	check (a, "jr r2", "goto r2");
+	check (a, "xor r1, r8!", "r1 ^= r8!");
+	check (a, "bset r8!, r0!, #0x0", "r8! = (r0! | (1U << 0x0))");
+	check (a, "osl r5, r2, #1", "r5 = ((r2 << 1) | r5)");
+	check (a, "mfacc? r7, A0.lo", "r7 = A0.lo");
+	check (a, "ldslot r0!, #0x22", "r0! = slot[0x22]");
 	check (a, ".unit 0x400a (ld.b @ 0x0000041e)", ".unit 0x400a (ld.b @ 0x0000041e)");
 	check (a, ".hword 0xffff", ".hword 0xffff");
 	check (a, ".op4imm r0, r1, #0x6", ".op4imm r0, r1, #0x6");
