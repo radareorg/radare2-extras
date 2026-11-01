@@ -528,6 +528,9 @@ typedef struct {
 	/* first-pass readings of the packets after the one being decoded (the forward context of du2) */
 	UsipPacket ctxpk[USIP_CTX_FWD];
 	int nctx;
+	/* the lowest packet start decoded in this session: a backward target below it was never looked at (unknown to the
+	 * guards), one at or above it that is not a packet start seen so far is not one */
+	ut64 lo_seen;
 } UsipState;
 
 static ut32 usip_set_slot(ut64 addr) {
@@ -569,6 +572,7 @@ static bool usip_set_has(const UsipAddrSet *set, ut64 addr) {
 static void usip_seen_add(UsipState *st, ut64 addr) {
 	if (st) {
 		usip_set_add (&st->seen, addr);
+		st->lo_seen = R_MIN (st->lo_seen, addr);
 	}
 }
 
@@ -613,7 +617,12 @@ static int usip_guard_packet_start(void *user, ut64 a) {
 		return 1;
 	}
 	if (a < u->pk_addr) {
-		return usip_seen_has (u->st, a)? 1: 0;
+		/* backward: seen = a packet start; unseen inside the region decoded so far = not one; below it = unknown (another
+		 * function, or code this session has not listed): the decoder's documented fallback decides */
+		if (usip_seen_has (u->st, a)) {
+			return 1;
+		}
+		return (u->st && a >= u->st->lo_seen)? 0: -1;
 	}
 	if (a < p) {
 		return 0;
@@ -676,7 +685,7 @@ static const UsipPacket *usip_guard_packet_at(void *user, ut64 a, bool before) {
 	}
 	UsipPacket *pk = &st->ctxpk[st->nctx++];
 	UsipGuardUser gu = { st, a, n, u->base, u->bytes, u->len };
-	UsipGuardCtx g = { &gu, usip_guard_packet_start, NULL, NULL, NULL, usip_guard_branch_target, USIP_GUARD_NO_CASCADE };
+	UsipGuardCtx g = { .user = &gu, .packet_start = usip_guard_packet_start, .branch_target = usip_guard_branch_target, .flags = USIP_GUARD_NO_CASCADE };
 	usip_decode_packet (pk, a, units, n, truncated, &g);
 	usip_record_targets (st, pk);
 	return pk;
@@ -684,7 +693,11 @@ static const UsipPacket *usip_guard_packet_at(void *user, ut64 a, bool before) {
 
 static bool md32_init(RArchSession *s) {
 	if (s) {
-		s->data = R_NEW0 (UsipState);
+		UsipState *st = R_NEW0 (UsipState);
+		if (st) {
+			st->lo_seen = UT64_MAX;
+		}
+		s->data = st;
 	}
 	return true;
 }
@@ -733,7 +746,7 @@ static UsipPacket *usip_cached_packet(UsipState *st, ut64 addr, const ut8 *bytes
 			memcpy (units, pk->units, u0 * sizeof (ut16));
 			n += usip_scan_units (bytes, R_MIN (len, 2 * (USIP_MAX_UNITS - u0)), units + u0, &truncated);
 			UsipGuardUser gu = { st, pk->addr, n, addr, bytes, len };
-			UsipGuardCtx g = { &gu, usip_guard_packet_start, NULL, NULL, usip_guard_packet_at, usip_guard_branch_target, 0 };
+			UsipGuardCtx g = { .user = &gu, .packet_start = usip_guard_packet_start, .packet_at = usip_guard_packet_at, .branch_target = usip_guard_branch_target };
 			st->nctx = 0;
 			usip_decode_packet (pk, pk->addr, units, n, truncated, &g);
 			usip_record_targets (st, pk);
@@ -991,6 +1004,25 @@ static void usip_analyze(RAnalOp *op, const UsipPacket *pk, int k) {
 			op->val = (ut64)v;
 		}
 	}
+	if (in->kind == USIP_K_ALU || in->kind == USIP_K_ALU32) {
+		/* the stack-pointer adjustments: addsp #imm (16-bit), add r14, r14, #imm / sub r14, #imm (the frame release /
+		 * allocation pairs); stackptr is the amount the stack grows (positive = sp decreases) */
+		st64 imm;
+		const bool sp_dst = in->op && in->op->fmt && !strncmp (in->op->fmt, "r14,", 4);
+		if (usip_name_is (in->mnem, "addsp") && usip_field (in, "imm", &imm)) {
+			op->stackop = R_ANAL_STACK_INC;
+			op->stackptr = -imm;
+		} else if (sp_dst && usip_name_is (in->mnem, "sub") && usip_field (in, "imm", &imm)) {
+			op->stackop = R_ANAL_STACK_INC;
+			op->stackptr = imm;
+		} else if (sp_dst && usip_name_is (in->mnem, "add") && usip_field (in, "imm", &imm) && usip_field (in, "rA", &v) && (v & 15) == 14) {
+			st64 m = 0;
+			if (!usip_field (in, "m", &m) || !m) {
+				op->stackop = R_ANAL_STACK_INC;
+				op->stackptr = -imm;
+			}
+		}
+	}
 	if (k == pk->owner[0] && pk->delay) {
 		/* the rest of the packet executes before the transfer: one op per run of units */
 		op->delay = usip_nruns (pk) - 1;
@@ -1055,7 +1087,7 @@ static void usip_opex(RAnalOp *op, const UsipPacket *pk, int k, int unit) {
 			} else if (t == USIP_A_DISP || t == USIP_A_UDISP || t == USIP_A_ABSADDR) {
 				pj_ks (pj, "type", "addr");
 				pj_kn (pj, "value", t == USIP_A_ABSADDR? (ut64)in->vals[i]: (usip_unit_addr (pk, in->head) + (ut64)in->vals[i]) & UT32_MAX);
-			} else if (t == USIP_A_OFFH || t == USIP_A_OFFW) {
+			} else if (t == USIP_A_OFFH || t == USIP_A_OFFW || t == USIP_A_OFFB) {
 				pj_ks (pj, "type", "disp");
 				pj_kN (pj, "value", in->vals[i]);
 			} else if (t == USIP_A_CSR_EXT) {
@@ -1099,7 +1131,7 @@ static bool usip_decode(RArchSession *s, RAnalOp *op, RArchDecodeMask mask) {
 			pk = &local;
 		}
 		UsipGuardUser gu = { st, op->addr, n, op->addr, op->bytes, available };
-		UsipGuardCtx g = { &gu, usip_guard_packet_start, NULL, NULL, usip_guard_packet_at, usip_guard_branch_target, 0 };
+		UsipGuardCtx g = { .user = &gu, .packet_start = usip_guard_packet_start, .packet_at = usip_guard_packet_at, .branch_target = usip_guard_branch_target };
 		if (st) {
 			st->nctx = 0;
 		}
