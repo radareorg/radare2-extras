@@ -537,8 +537,8 @@ static char *scq16_pseudo(const char *name, char **args, int nargs) {
 		return strdup (!strcmp (base, "ret")? "return": "return_from_interrupt");
 	}
 	if (!strcmp (base, "do") && nargs == 2) {
-		/* do r3, fin=0x... (F=n) -> loop r3 times until 0x... */
-		char *fin = strstr (args[1], "fin=");
+		/* do r3, end=0x... (F=n) -> loop r3 times until 0x... */
+		char *fin = strstr (args[1], "end=");
 		char *end = fin? strchr (fin, ' '): NULL;
 		if (end) {
 			*end = 0;
