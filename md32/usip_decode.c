@@ -23,8 +23,8 @@
 #define GROUP_PARSES_LIMIT 96  /* group_parses stops enumerating splits past this many readings */
 #define DU2_W 8                /* window of the du2 scan, in packets */
 
-/* scores are quarter units: 0.25 -> 1 */
-#define Q(x) ((int)((x) * 4))
+/* scores are twentieths of a unit: 0.25 -> 5, 0.3 -> 6, 0.5 -> 10, 0.75 -> 15, 1.0 -> 20 */
+#define Q(x) ((int)((x) * 20 + 0.5))
 
 /* ---------------------------------------------------------------------------------------------------- tables */
 
@@ -118,8 +118,8 @@ static st64 field_value(const UsipOpcode *op, int fi, ut64 w) {
 		}
 		return ((raw & 3) == 3 && raw >= 0x800)? 4 * sext (raw >> 2, 10): (st64)raw;
 	case USIP_A_LOOPN:
-		/* loop #N over rrr:x:B */
-		return (st64)((raw >> 1) + ((raw & 0x1F)? 1: 0));
+		/* loop #N: the collected bits as is (head bits 13:5) */
+		return (st64)raw;
 	case USIP_A_SIMM:
 		return sext (raw, nb) * sc;
 	case USIP_A_DISP:
@@ -262,12 +262,13 @@ static bool cons_deferred(const UsipCons *c) {
 	int j;
 	switch (c->op) {
 	case USIP_C_PACKET_LEN: case USIP_C_PACKET_LEN_GE: case USIP_C_HEAD_INDEX: case USIP_C_HEAD_INDEX_GE: case USIP_C_CTX:
-	case USIP_C_TAIL_ADJACENT: case USIP_C_BR0_CELLS: case USIP_C_BR0_CELLS_LIVE:
+	case USIP_C_TAIL_ADJACENT: case USIP_C_BR0_CELLS: case USIP_C_BR0_CELLS_LIVE: case USIP_C_INSTR_INDEX:
 		return true;
 	case USIP_C_ANY:
 		for (j = 0; j + 2 < c->nvals; j += 3) {
 			switch (c->vals[j + 1]) {
 			case USIP_ANY_TAIL_ADJACENT: case USIP_ANY_PACKET_LEN: case USIP_ANY_BR0_CELLS: case USIP_ANY_BR0_CELLS_LIVE:
+			case USIP_ANY_INSTR_INDEX: case USIP_ANY_CTX:
 				return true;
 			case USIP_ANY_GUARD:
 				if (c->vals[j + 2] == USIP_GD_TARGET_PACKET_START) {
@@ -367,6 +368,9 @@ static bool unverified_ok(const UsipOpcode *op, int dist, ut64 w, ut64 pc, ut64 
 		"call_F0", "b_F0", "beqz_d",
 		"beq_imm8_F0", "bne_imm8_F0", "ble_imm8_F0", "blt_imm8_F0", "bgtu_imm8_F0", "bge_imm8_F0", "bgt_imm8_F0",
 		"loop_imm_F1S1", "loop_imm_F1S0",
+		/* the loop #N entries with the F' = 0 tail at +2 and with h = 1 (N >= 128) and the S = 1 tail are accepted; the other
+		 * h = 1 / m = 1 (N >= 256, loop #N?) entries are wrong too often when unverified and are not accepted */
+		"loop_imm_F1_Fp0", "loop_imm_h1_F1S1",
 		"bne_imm8_s0f1", "blt_imm8_s0f1", "bgeu_imm8_s0f1", "bgtu_imm8_s0f1", "bge_imm8_s0f1", "bleu_rr_s0f1", "bnez_s0f1", "beqz_s0f1",
 		/* the entries whose target guard is a validation filter (R-tgt, R-br0): they were read without a guard before the
 		 * filter existed, so without the function table the reading is kept and marked unverified; a known target that is
@@ -387,7 +391,7 @@ static bool unverified_ok(const UsipOpcode *op, int dist, ut64 w, ut64 pc, ut64 
 	if (op->flags & USIP_F_PREFIX) {
 		return true;
 	}
-	if (!strcmp (op->form, "loop_imm_F0S0")) {
+	if (!strcmp (op->form, "loop_imm_F0S0") || !strcmp (op->form, "loop_imm_h1_F0S0")) {
 		return dist == 1;
 	}
 	if (!strcmp (op->form, "loop_F0") || !strcmp (op->form, "loop_F0_ssq")
@@ -488,9 +492,11 @@ typedef struct {
 	const UsipPacket *pk;  /* the decided packet (the post-layout renames; NULL = unknown) */
 	ut32 bf_dsts;        /* registers written by the WAW-kind instructions of the packet (bit r, bit 16 + r for rN!) */
 	bool have_bf;        /* bf_dsts is known */
+	int instr_index;     /* position of the instruction inside the decoded packet (-1 = unknown) */
+	bool loop_guard;     /* R-w6h1: the first-slot unit is the head of a validated `loop rX` (ctx not_loop_reg_head fails) */
 } CtxD;
 
-#define CTXD_INIT(pl, kk, un, ii) { (pl), (kk), (un), (ii), -1, -1, -1, -1, -1, NULL, NULL, 0, false }
+#define CTXD_INIT(pl, kk, un, ii) { (pl), (kk), (un), (ii), -1, -1, -1, -1, -1, NULL, NULL, 0, false, -1, false }
 
 #define CM_FREE  1   /* context-free constraints */
 #define CM_DEFER 2   /* deferred constraints (packet_len, head_index, ctx, tail_adjacent) */
@@ -524,7 +530,9 @@ static bool br0_live_ok(const CtxD *ctxd) {
 	return !ctxd || ctxd->tail_dist < 0;
 }
 
-static bool any_sub(int op, st64 v, st64 val, ut64 w, const CtxD *ctxd) {
+static bool ctx_cond_ok(const UsipOpcode *op, ut64 w, int cond, const CtxD *ctxd);
+
+static bool any_sub(const UsipOpcode *f, int op, st64 v, st64 val, ut64 w, const CtxD *ctxd) {
 	switch (op) {
 	case USIP_ANY_EQ: return v == val;
 	case USIP_ANY_NE: return v != val;
@@ -542,8 +550,103 @@ static bool any_sub(int op, st64 v, st64 val, ut64 w, const CtxD *ctxd) {
 	case USIP_ANY_RANGE: return v >= (val & 0xFFFF) && v < (val >> 16);
 	case USIP_ANY_BR0_CELLS: return br0_ok (v, (ut32)val, ctxd);
 	case USIP_ANY_BR0_CELLS_LIVE: return br0_live_ok (ctxd);
+	case USIP_ANY_INSTR_INDEX: return !ctxd || ctxd->instr_index < 0 || ctxd->instr_index == val;   /* unknown position: accept */
+	case USIP_ANY_CTX: return ctx_cond_ok (f, w, (int)val, ctxd);
 	}
 	return false;
+}
+
+/* a named context condition (USIP_C_CTX, USIP_ANY_CTX) with the context at hand; an unknown context accepts */
+static bool ctx_cond_ok(const UsipOpcode *op, ut64 w, int cond, const CtxD *ctxd) {
+	int j;
+	bool ok = true;
+	if (cond == USIP_CTX_NOT_LOOP_REG_HEAD) {
+		/* R-w6h1 loop guard: the first-slot unit is the head of a validated `loop rX` (match16 evaluates it with the packet) */
+		return !(ctxd && ctxd->loop_guard);
+	}
+	if (cond == USIP_CTX_TARGET_BEYOND_PACKET || cond == USIP_CTX_DELAY_SLOT_NOT_WRITING_RA || cond == USIP_CTX_OP4IMM_HEAD_MULTIUNIT
+		|| cond == USIP_CTX_SPLIT_UNIT || cond == USIP_CTX_DELAY_SLOT_OF_VALIDATED_BRANCH) {
+		/* evaluated by the explicit procedures (the bz.s context rules, the split pass, decode_asg) */
+		return true;
+	}
+	if (!ctxd || !ctxd->units) {
+		return true;
+	}
+	if (cond == USIP_CTX_NOT_EXT_OF_OP67) {
+		/* a head at unit 1 with its low byte = 0 after a unit 0 with bit 15 = 0, F = 0 and op 6/7 is the extension
+		 * word of that head */
+		const ut16 h = (w >> (op->width - 16)) & 0xFFFF, u0 = ctxd->units[0];
+		ok = !(ctxd->i == 1 && (h & 0xFF) == 0 && (u0 >> 15) == 0 && ((u0 & 0xF) == 6 || (u0 & 0xF) == 7) && ((u0 >> 14) & 1) == 0);
+	} else if (cond == USIP_CTX_COP_RA_IN_PACKET) {
+		/* some `cop rA` of the packet names the same register */
+		const int fi = field_index (op, "rA");
+		const st64 ra = fi >= 0? field_value (op, fi, w): -1;
+		ok = ctxd->cop_mask >= 0 && ra >= 0 && ra < 16 && ((ctxd->cop_mask >> ra) & 1);
+	} else if (cond == USIP_CTX_NOT_C48_LO_FOLLOWS) {
+		/* the tail is not 5ffd followed by bfff / ffff (the 48-bit constant 0x7fff7fff) */
+		const int ti = ctxd->tail_idx;
+		ok = !(ti >= 0 && ctxd->units[ti] == 0x5FFD && ti + 1 < ctxd->pktlen
+			&& (ctxd->units[ti + 1] == 0xBFFF || ctxd->units[ti + 1] == 0xFFFF));
+	} else if (cond == USIP_CTX_B111_LAYOUT) {
+		/* R-b111: the type-111 pair only in the 2-unit head + tail packet (head 0, adjacent closing tail), in the
+		 * H H T T (C) layout or in the branch + ld/st, type-111 prefix and control + store layouts of >= 5 / 4 units
+		 * (hh_asg); never an O syllable after an op 7 head */
+		const int ti = ctxd->tail_idx, i0 = ctxd->i;
+		if (ti >= 0) {
+			const bool ht2 = ti == i0 + 1 && (ctxd->units[ti] >> 15) == 1 && i0 == 0;
+			if (!(ht2 || ctxd->hh_asg > 0)) {
+				ok = false;
+			} else {
+				bool op7 = false;
+				for (j = 0; j < ti; j++) {
+					op7 |= (ctxd->units[j] >> 15) == 0 && (ctxd->units[j] & 0xF) == 7;
+				}
+				ok = !(is_osyl (ctxd->units[ti]) && op7);
+			}
+		}
+	} else if (cond == USIP_CTX_HHTT_SECOND_HEAD) {
+		/* R-hhttF0: the instruction before is a named ld/st head (op 0/1) at i - 1 whose single tail is i + 1; this tail at i + 2 */
+		const int ti = ctxd->tail_idx, i0 = ctxd->i;
+		if (ti >= 0 && ctxd->out) {
+			const Dec *p = ctxd->out->n? &ctxd->out->d[ctxd->out->n - 1]: NULL;
+			ok = ti == i0 + 2 && i0 >= 1 && p && p->head == i0 - 1 && p->nt == 1 && p->t[0] == i0 + 1
+				&& (p->kind == USIP_K_LD || p->kind == USIP_K_ST) && (ctxd->units[i0 - 1] & 0xE) == 0 && (ctxd->units[i0 - 1] >> 15) == 0;
+		}
+	} else if (cond == USIP_CTX_F0D_TRIPLE) {
+		/* R-F0d: [head][adjacent unit with bits 15:14 = 01][F' = 0 tail at +2] */
+		const int ti = ctxd->tail_idx, i0 = ctxd->i;
+		if (ti >= 0) {
+			ok = ti == i0 + 2 && i0 + 1 < ctxd->pktlen && (ctxd->units[i0 + 1] >> 14) == 1;
+		}
+	} else if (cond == USIP_CTX_BFPAIR) {
+		/* R-bfpair: the bit-field pair layout with the pairs 0 -> 2 and 1 -> 3 */
+		if (ctxd->tail_idx >= 0) {
+			ok = ctxd->bfpair_asg > 0 && ctxd->tail_idx == ctxd->i + 2;
+		}
+	} else if (cond == USIP_CTX_BF_DST_NOT_WRITTEN) {
+		/* the nowaw guardian of the bit-field renames: no WAW-kind instruction of the packet writes rB(!x) */
+		if (ctxd->have_bf) {
+			const int fb = field_index (op, "rB"), fx = field_index (op, "x");
+			const st64 rb = fb >= 0? field_value (op, fb, w): -1, x = fx >= 0? field_value (op, fx, w): 0;
+			ok = rb < 0 || !((ctxd->bf_dsts >> ((rb & 15) + (x? 16: 0))) & 1);
+		}
+	} else if (cond == USIP_CTX_BETWEEN_DSP_HEAD_AND_TAIL) {
+		/* unit 1 between a DSP head (op 7 / op c, bit 15 = 0, with tails) and its tail */
+		if (ctxd->pk) {
+			const UsipPacket *pk = ctxd->pk;
+			const UsipInsn *d0 = pk->owner[0] != 0xff? &pk->insn[pk->owner[0]]: NULL;
+			int maxt = -1;
+			if (d0) {
+				for (j = 0; j < d0->ntails; j++) {
+					maxt = R_MAX (maxt, (int)d0->tails[j]);
+				}
+			}
+			ok = ctxd->i == 1 && d0 && d0->head == 0 && d0->ntails && (pk->units[0] >> 15) == 0
+				&& ((pk->units[0] & 0xF) == 7 || (pk->units[0] & 0xF) == 0xC) && maxt > 1;
+		}
+	}
+	/* USIP_CTX_REST_NAMED_NO_Q is evaluated by r7_form with the decoded packet */
+	return ok;
 }
 
 /* the constraints of the classes in `which` hold for w; the target guards and the b.s guard are never evaluated here */
@@ -619,84 +722,8 @@ static bool cons_ok(const UsipOpcode *op, ut64 w, bool first, const CtxD *ctxd, 
 		case USIP_C_PACKET_LEN_GE: ok = ctxd && ctxd->pktlen >= 0 && ctxd->pktlen >= c->vals[0]; break;
 		case USIP_C_HEAD_INDEX: ok = ctxd && ctxd->k == c->vals[0]; break;
 		case USIP_C_HEAD_INDEX_GE: ok = ctxd && ctxd->k >= 0 && ctxd->k >= c->vals[0]; break;
-		case USIP_C_CTX:
-			/* unknown context: accept */
-			if (ctxd && ctxd->units) {
-				if (c->vals[0] == USIP_CTX_NOT_EXT_OF_OP67) {
-					/* a head at unit 1 with its low byte = 0 after a unit 0 with bit 15 = 0, F = 0 and op 6/7 is the extension
-					 * word of that head */
-					const ut16 h = (w >> (op->width - 16)) & 0xFFFF, u0 = ctxd->units[0];
-					ok = !(ctxd->i == 1 && (h & 0xFF) == 0 && (u0 >> 15) == 0 && ((u0 & 0xF) == 6 || (u0 & 0xF) == 7) && ((u0 >> 14) & 1) == 0);
-				} else if (c->vals[0] == USIP_CTX_COP_RA_IN_PACKET) {
-					/* some `cop rA` of the packet names the same register */
-					const int fi = field_index (op, "rA");
-					const st64 ra = fi >= 0? field_value (op, fi, w): -1;
-					ok = ctxd->cop_mask >= 0 && ra >= 0 && ra < 16 && ((ctxd->cop_mask >> ra) & 1);
-				} else if (c->vals[0] == USIP_CTX_NOT_C48_LO_FOLLOWS) {
-					/* the tail is not 5ffd followed by bfff / ffff (the 48-bit constant 0x7fff7fff) */
-					const int ti = ctxd->tail_idx;
-					ok = !(ti >= 0 && ctxd->units[ti] == 0x5FFD && ti + 1 < ctxd->pktlen
-						&& (ctxd->units[ti + 1] == 0xBFFF || ctxd->units[ti + 1] == 0xFFFF));
-				} else if (c->vals[0] == USIP_CTX_B111_LAYOUT) {
-					/* R-b111: the type-111 pair only in the 2-unit head + tail packet (head 0, adjacent closing tail) or in the
-					 * H H T T (C) layout; never an O syllable after an op 7 head */
-					const int ti = ctxd->tail_idx, i0 = ctxd->i;
-					if (ti >= 0) {
-						const bool ht2 = ti == i0 + 1 && (ctxd->units[ti] >> 15) == 1 && i0 == 0;
-						if (!(ht2 || ctxd->hh_asg > 0)) {
-							ok = false;
-						} else {
-							bool op7 = false;
-							for (j = 0; j < ti; j++) {
-								op7 |= (ctxd->units[j] >> 15) == 0 && (ctxd->units[j] & 0xF) == 7;
-							}
-							ok = !(is_osyl (ctxd->units[ti]) && op7);
-						}
-					}
-				} else if (c->vals[0] == USIP_CTX_HHTT_SECOND_HEAD) {
-					/* R-hhttF0: the instruction before is a named ld/st head (op 0/1) at i - 1 whose single tail is i + 1; this tail at i + 2 */
-					const int ti = ctxd->tail_idx, i0 = ctxd->i;
-					if (ti >= 0 && ctxd->out) {
-						const Dec *p = ctxd->out->n? &ctxd->out->d[ctxd->out->n - 1]: NULL;
-						ok = ti == i0 + 2 && i0 >= 1 && p && p->head == i0 - 1 && p->nt == 1 && p->t[0] == i0 + 1
-							&& (p->kind == USIP_K_LD || p->kind == USIP_K_ST) && (ctxd->units[i0 - 1] & 0xE) == 0 && (ctxd->units[i0 - 1] >> 15) == 0;
-					}
-				} else if (c->vals[0] == USIP_CTX_F0D_TRIPLE) {
-					/* R-F0d: [head][adjacent unit with bits 15:14 = 01][F' = 0 tail at +2] */
-					const int ti = ctxd->tail_idx, i0 = ctxd->i;
-					if (ti >= 0) {
-						ok = ti == i0 + 2 && i0 + 1 < ctxd->pktlen && (ctxd->units[i0 + 1] >> 14) == 1;
-					}
-				} else if (c->vals[0] == USIP_CTX_BFPAIR) {
-					/* R-bfpair: the bit-field pair layout with the pairs 0 -> 2 and 1 -> 3 */
-					if (ctxd->tail_idx >= 0) {
-						ok = ctxd->bfpair_asg > 0 && ctxd->tail_idx == ctxd->i + 2;
-					}
-				} else if (c->vals[0] == USIP_CTX_BF_DST_NOT_WRITTEN) {
-					/* the nowaw guardian of the bit-field renames: no WAW-kind instruction of the packet writes rB(!x) */
-					if (ctxd->have_bf) {
-						const int fb = field_index (op, "rB"), fx = field_index (op, "x");
-						const st64 rb = fb >= 0? field_value (op, fb, w): -1, x = fx >= 0? field_value (op, fx, w): 0;
-						ok = rb < 0 || !((ctxd->bf_dsts >> ((rb & 15) + (x? 16: 0))) & 1);
-					}
-				} else if (c->vals[0] == USIP_CTX_BETWEEN_DSP_HEAD_AND_TAIL) {
-					/* unit 1 between a DSP head (op 7 / op c, bit 15 = 0, with tails) and its tail */
-					if (ctxd->pk) {
-						const UsipPacket *pk = ctxd->pk;
-						const UsipInsn *d0 = pk->owner[0] != 0xff? &pk->insn[pk->owner[0]]: NULL;
-						int maxt = -1;
-						if (d0) {
-							for (j = 0; j < d0->ntails; j++) {
-								maxt = R_MAX (maxt, (int)d0->tails[j]);
-							}
-						}
-						ok = ctxd->i == 1 && d0 && d0->head == 0 && d0->ntails && (pk->units[0] >> 15) == 0
-							&& ((pk->units[0] & 0xF) == 7 || (pk->units[0] & 0xF) == 0xC) && maxt > 1;
-					}
-				}
-				/* USIP_CTX_REST_NAMED_NO_Q is evaluated by r7_form with the decoded packet */
-			}
-			break;
+		case USIP_C_CTX: ok = ctx_cond_ok (op, w, (int)c->vals[0], ctxd); break;
+		case USIP_C_INSTR_INDEX: ok = !ctxd || ctxd->instr_index < 0 || ctxd->instr_index == c->vals[0]; break;   /* unknown position: accept */
 		case USIP_C_SLOT0_EXCLUDES_HEAD: {
 			const ut16 h = (w >> (op->width - 16)) & 0xFFFF;
 			ok = !(first && (h & (ut16)c->vals[0]) == (ut16)c->vals[1]);
@@ -707,7 +734,7 @@ static bool cons_ok(const UsipOpcode *op, ut64 w, bool first, const CtxD *ctxd, 
 			for (j = 0; j + 2 < c->nvals; j += 3) {
 				const int fld = c->vals[j];
 				const st64 fv = fld != USIP_NOFIELD? field_value (op, fld, w): 0;
-				ok |= any_sub (c->vals[j + 1], fv, c->vals[j + 2], w, ctxd);
+				ok |= any_sub (op, c->vals[j + 1], fv, c->vals[j + 2], w, ctxd);
 			}
 			break;
 		case USIP_C_GUARD_SETCC_TAIL:
@@ -752,13 +779,12 @@ static inline int k_class(int k) {
 	return k == 0? 0: k >= 2? 2: 1;
 }
 
-static int match16_plain_idx(ut16 u, bool first, int pktlen, int k) {
-	ut16 *slot = &k16cache[pl_class (pktlen)][k_class (k)][first? 1: 0][u];
-	if (*slot) {
-		return *slot == 0xffff? -1: *slot - 1;
-	}
-	const CtxD ctxd = CTXD_INIT (pktlen, k, NULL, 0);
+/* the table scan behind the cache; lg = the unit is the head of a validated `loop rX` (R-w6h1 loop guard: the entries with
+ * ctx not_loop_reg_head do not match) */
+static int match16_scan(ut16 u, bool first, int pktlen, int k, bool lg) {
+	CtxD ctxd = CTXD_INIT (pktlen, k, NULL, 0);
 	int i;
+	ctxd.loop_guard = lg;
 	for (i = 0; i < N_OPS; i++) {
 		const UsipOpcode *f = &usip_opcodes[i];
 		if (f->nunits != 1 || !parser_form (f) || (f->flags & USIP_F_CTX) || ((f->flags & USIP_F_SLOT0) && !first)
@@ -768,12 +794,25 @@ static int match16_plain_idx(ut16 u, bool first, int pktlen, int k) {
 		if (f->ncons && !cons_ok (f, u, first, &ctxd, CM_FREE | CM_DEFER)) {
 			continue;
 		}
-		*slot = i + 1;
 		return i;
 	}
-	*slot = 0xffff;
 	return -1;
 }
+
+static int match16_plain_idx(ut16 u, bool first, int pktlen, int k) {
+	ut16 *slot = &k16cache[pl_class (pktlen)][k_class (k)][first? 1: 0][u];
+	if (*slot) {
+		return *slot == 0xffff? -1: *slot - 1;
+	}
+	const int i = match16_scan (u, first, pktlen, k, false);
+	*slot = i < 0? 0xffff: i + 1;
+	return i;
+}
+
+/* the packet being parsed (parse_packet sets it): the R-w6h1 loop guard reads the units after the head */
+typedef struct usip_parse_ctx_t Ctx;
+static const Ctx *g_cur = NULL;
+static bool loop_reg_head(const Ctx *c, ut64 pc);
 
 /* 16-bit forms with a target guard (call.s with bit 15 = 0), in table order */
 static int guarded16[8];
@@ -783,7 +822,10 @@ static ut64 target_value(const UsipOpcode *f, ut64 w, ut64 pc, bool *has);
 
 /* first matching 16-bit form: a guarded form that precedes the plain match is taken when its guard validates */
 static const UsipOpcode *match16(const UsipGuardCtx *g, ut16 u, bool first, int pktlen, int k, ut64 pc, ut8 *guard) {
-	const int ip = match16_plain_idx (u, first, pktlen, k);
+	/* R-w6h1 loop guard: a first-slot op f unit with F = 1, m = 0, h = 1, x = 0 and B in {0, 1} that is the head of a validated
+	 * `loop r{8+rrr}` is matched outside the cache, with ctx not_loop_reg_head failing */
+	const bool lg = first && (u & 0x71EF) == 0x500F && g_cur && loop_reg_head (g_cur, pc);
+	const int ip = lg? match16_scan (u, first, pktlen, k, true): match16_plain_idx (u, first, pktlen, k);
 	const int lim = ip < 0? N_OPS: ip;
 	const CtxD ctxd = CTXD_INIT (pktlen, k, NULL, 0);
 	int i;
@@ -1227,7 +1269,7 @@ static void parse_group(const ut16 *units, int n, bool first_ok, AsgList *res) {
 	asglist_fini (&tmp);
 }
 
-typedef struct {
+struct usip_parse_ctx_t {
 	const ut16 *units;
 	ut64 addrs[NU];
 	int n;                          /* units of this parse (= the packet length for the packet_len constraints) */
@@ -1235,10 +1277,37 @@ typedef struct {
 	const UsipGuardCtx *guard;
 	AsgList memo[NU + 1];
 	bool memo_done[NU + 1];
-} Ctx;
+};
 
 static inline int kidx(const Ctx *c, ut64 pc) {
 	return (int)((pc - c->pk0) / 2);
+}
+
+/* R-w6h1 loop guard: is the unit at pc followed, at +1 or +2 of the packet being parsed, by a [S][0][11][d12] tail whose
+ * end pc + d12 is a packet start of the function after pc?  Then it is the head of `loop r{8+rrr}` and the W6 h = 1 cell
+ * st.h rB, [r{8+rrr}] does not apply to it. */
+static bool loop_reg_head(const Ctx *c, ut64 pc) {
+	const UsipGuardCtx *g = c->guard;
+	int i, j;
+	if (!g || !g->packet_start) {
+		return false;
+	}
+	for (i = 0; i < c->n && c->addrs[i] != pc; i++) {
+		;
+	}
+	if (i == c->n) {
+		return false;
+	}
+	for (j = i + 1; j <= i + 2 && j < c->n; j++) {
+		const ut16 t = c->units[j];
+		if (((t >> 12) & 3) == 3 && ((t >> 14) & 1) == 0) {
+			const ut64 tg = (pc + (t & 0xFFF)) & UT32_MAX;
+			if (tg > pc && g->packet_start (g->user, tg) == 1) {
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 /* every reading of the packet suffix that starts at unit j0 as a sequence of groups (group_parses) */
@@ -1297,6 +1366,12 @@ static const AsgList *group_parses(Ctx *c, int j0, bool first_ok) {
 
 
 static void dec_text(const Dec *d, ut64 pc, RStrBuf *sb);
+static int reg_token(const char *s, bool prev_word, int *len);
+
+/* the register token at s (rN, rN!, sp, LR): its bit, -1 when s does not start with one */
+static inline int reg_token_at(const char *s, int *len) {
+	return reg_token (s, false, len);
+}
 
 /* the first operand of the instruction's text is the register `reg` followed by one of the characters of `follow` */
 static bool first_operand_is(const Dec *d, ut64 pc, const char *reg, const char *follow) {
@@ -1311,6 +1386,41 @@ static bool first_operand_is(const Dec *d, ut64 pc, const char *reg, const char 
 		}
 		const size_t n = strlen (reg);
 		r = !strncmp (sp, reg, n) && sp[n] && strchr (follow, sp[n]);
+	}
+	r_strbuf_fini (&sb);
+	return r;
+}
+
+static bool waw_kind(int kind);
+
+/* the register destination of a decided instruction by the WAW oracle: the first operand of a WAW-kind instruction when it
+ * is a register followed by a comma, stores excluded by mnemonic (every st* and, with skip_io, iow); the bit of the register
+ * (16 + r for rN!), -1 when it writes no GPR */
+static int dec_dst(const Dec *d, ut64 pc, bool skip_io) {
+	RStrBuf sb;
+	int r = -1;
+	if (!waw_kind (d->kind) || !d->mnem || !(isalpha ((unsigned char)d->mnem[0]) || d->mnem[0] == '_') || !strncmp (d->mnem, "st", 2)
+		|| (skip_io && !strcmp (d->mnem, "iow"))) {
+		return -1;
+	}
+	r_strbuf_init (&sb);
+	dec_text (d, pc, &sb);
+	const char *sp = strchr (r_strbuf_get (&sb), ' ');
+	if (sp) {
+		int len = 0;
+		while (*sp == ' ') {
+			sp++;
+		}
+		const int t = reg_token_at (sp, &len);
+		if (t >= 0) {
+			const char *q = sp + len;
+			while (*q == ' ') {
+				q++;
+			}
+			if (*q == ',') {
+				r = t;
+			}
+		}
 	}
 	r_strbuf_fini (&sb);
 	return r;
@@ -1500,20 +1610,117 @@ static Dec slot_split(ut16 u, ut64 pc) {
 	return d;
 }
 
-/* the assignment is the H H T T (C) layout: op 0/1 heads at units 0 and 1 (bit 15 = 0) with their tails at 2 and 3;
- * 4 units, or 5 with a 16-bit closer */
-static bool hhtt_asg(const Ctx *c, const Asg *asg) {
-	const ut16 *u = c->units;
-	bool t0 = false, t1 = false;
-	int m;
-	if ((c->n != 4 && c->n != 5) || (u[0] & 0xE) || (u[1] & 0xE) || (u[0] >> 15) || (u[1] >> 15)) {
-		return false;
-	}
+/* the pairs 0 -> 2 and 1 -> 3 of an assignment */
+static bool pairs_0213(const Asg *asg, bool *rest_from4) {
+	bool t0 = false, t1 = false, r4 = true;
+	int m, q;
 	for (m = 0; m < asg->n; m++) {
 		if (asg->head[m] == 0) {
 			t0 = asg->nt[m] == 1 && asg->t[m][0] == 2;
 		} else if (asg->head[m] == 1) {
 			t1 = asg->nt[m] == 1 && asg->t[m][0] == 3;
+		} else {
+			r4 &= asg->head[m] >= 4;
+			for (q = 0; q < asg->nt[m]; q++) {
+				r4 &= asg->t[m][q] >= 4;
+			}
+		}
+	}
+	if (rest_from4) {
+		*rest_from4 = r4;
+	}
+	return t0 && t1;
+}
+
+/* a branch head with F = 0 (op 8/9/a/c/d, bit 15 = 0) */
+static inline bool br_f0_head(ut16 u) {
+	const int op = u & 0xF;
+	return (u >> 15) == 0 && ((u >> 14) & 1) == 0 && (op == 8 || op == 9 || op == 0xA || op == 0xC || op == 0xD);
+}
+
+/* the assignment is the H H T T (C) layout: op 0/1 heads at units 0 and 1 (bit 15 = 0) with their tails at 2 and 3;
+ * 4 units, or 5 with a 16-bit closer.  R-brHHTT: also [branch head F = 0 at 0 -> 2][op 0/1 head at 1 -> 3] + the rest
+ * in packets of >= 5 units whose units 2 and 3 have S = 0 and F' = 1. */
+static bool hhtt_asg(const Ctx *c, const Asg *asg) {
+	const ut16 *u = c->units;
+	if (c->n >= 5 && br_f0_head (u[0]) && !(u[1] & 0xE) && !(u[1] >> 15) && !(u[2] >> 15) && ((u[2] >> 14) & 1) && !(u[3] >> 15) && ((u[3] >> 14) & 1)
+		&& pairs_0213 (asg, NULL)) {
+		return true;
+	}
+	if ((c->n != 4 && c->n != 5) || (u[0] & 0xE) || (u[1] & 0xE) || (u[0] >> 15) || (u[1] >> 15)) {
+		return false;
+	}
+	return pairs_0213 (asg, NULL);
+}
+
+/* R-b111pre: H H T T (op 0/1 heads at 0 and 1, tails at 2 and 3) as the PREFIX of a packet of >= 5 units, every other
+ * instruction in units >= 4 */
+static bool hhtt_asg_prefix(const Ctx *c, const Asg *asg) {
+	const ut16 *u = c->units;
+	bool r4 = false;
+	if (c->n < 5 || (u[0] & 0xE) || (u[1] & 0xE) || (u[0] >> 15) || (u[1] >> 15)) {
+		return false;
+	}
+	return pairs_0213 (asg, &r4) && r4;
+}
+
+/* R-b111ctl: [op e head at 0 -> tail 2][op 1 head at 1 -> tail 3] in exactly 4 units with unit 2 S = 0 and unit 3 S = 1
+ * (the round-robin of the type-111 store after a control head) */
+static bool ctl_hhtt_asg(const Ctx *c, const Asg *asg) {
+	const ut16 *u = c->units;
+	if (c->n != 4 || (u[0] >> 15) || (u[0] & 0xF) != 0xE || (u[1] >> 15) || (u[1] & 0xF) != 1 || (u[2] >> 15) != 0 || (u[3] >> 15) != 1) {
+		return false;
+	}
+	return pairs_0213 (asg, NULL);
+}
+
+/* the layouts in which the b111 context forms hold (ctx b111_layout): H H T T (C), R-brHHTT, R-b111pre, R-b111ctl */
+static inline bool b111_asg(const Ctx *c, const Asg *asg) {
+	return hhtt_asg (c, asg) || hhtt_asg_prefix (c, asg) || ctl_hhtt_asg (c, asg);
+}
+
+/* the grammar's rejections for an explicit candidate: a tail on ret / save / restore or on a head that never takes one,
+ * a unit that is never a tail */
+static bool bad_assignment(const Ctx *c, const Asg *asg) {
+	int m, q;
+	for (m = 0; m < asg->n; m++) {
+		const ut16 u = c->units[asg->head[m]];
+		if (asg->nt[m] && (never_tail_shape (u) || head_never_with_tail (u))) {
+			return true;
+		}
+		for (q = 0; q < asg->nt[m]; q++) {
+			if (unit_never_tail (c->units[asg->t[m][q]])) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+/* P2W / P2H prefix: the DECODED reading starts with H H T T (op 0/1 heads at 0 and 1 with their tails at 2 and 3) and every
+ * other instruction lies in units >= 4 */
+static bool hhtt_prefix_dec(const Ctx *c, const DecList *dec) {
+	const ut16 *u = c->units;
+	bool t0 = false, t1 = false;
+	int i, q;
+	if (c->n < 5 || (u[0] & 0xE) || (u[1] & 0xE) || (u[0] >> 15) || (u[1] >> 15)) {
+		return false;
+	}
+	for (i = 0; i < dec->n; i++) {
+		const Dec *d = &dec->d[i];
+		if (d->head == 0) {
+			t0 = d->nt == 1 && d->t[0] == 2;
+		} else if (d->head == 1) {
+			t1 = d->nt == 1 && d->t[0] == 3;
+		} else {
+			if (d->head < 4) {
+				return false;
+			}
+			for (q = 0; q < d->nt; q++) {
+				if (d->t[q] < 4) {
+					return false;
+				}
+			}
 		}
 	}
 	return t0 && t1;
@@ -1567,6 +1774,15 @@ static void decode_asg(const Ctx *c, const Asg *asg, bool first_ok, DecList *out
 		Dec *prev = out->n? &out->d[out->n - 1]: NULL;
 		if (asg->nt[m] == 0) {
 			d = dec16 (c->guard, pc, h, first, c->n, k);
+			if (!strcmp (d.mnem, ".movi6?") && first_ok && i > 0 && out->n && out->d[0].head == 0
+				&& (out->d[0].kind == USIP_K_BR || out->d[0].kind == USIP_K_BR16D) && out->d[0].has_target
+				&& c->guard && c->guard->packet_start && c->guard->packet_start (c->guard->user, out->d[0].target) == 1) {
+				/* R-movi6d: the .movi6? closer in the delay slot of a validated branch at unit 0 is movi rA, #simm6 (form
+				 * movi6_dsbr, ctx delay_slot_of_validated_branch): named in the score */
+				memset (&d, 0, sizeof (d));
+				d.w = h;
+				set_form (&d, &usip_opcodes[USIP_FORM_MOVI6_DSBR], pc);
+			}
 			/* ext_after_ldst: a final fX?7 (16-bit movi r8-15) two units after a ld/st whose single tail has S = 0 */
 			if (d.op && !strcmp (d.mnem, "movi") && (h & 0xF10F) == 0xF007 && prev && (prev->kind == USIP_K_LD || prev->kind == USIP_K_ST)
 				&& prev->nt == 1 && (units[prev->t[0]] >> 15) == 0 && prev->head == i - 2) {
@@ -1620,11 +1836,14 @@ static void decode_asg(const Ctx *c, const Asg *asg, bool first_ok, DecList *out
 			CtxD ctxd = CTXD_INIT (c->n, k, units, i);
 			ctxd.tail_dist = dist;
 			ctxd.tail_idx = ti;
-			ctxd.hh_asg = hhtt_asg (c, asg)? 1: 0;
+			ctxd.hh_asg = b111_asg (c, asg)? 1: 0;
 			ctxd.bfpair_asg = bfpair_asg (c, asg)? 1: 0;
 			ctxd.out = out;
-			/* H H T T: the two pairs of a 4-unit packet with the tails at +2 admit the hhtt context forms (and the b111 ones) */
-			const bool hh = c->n == 4 && dist == 2 && i <= 1;
+			/* H H T T: the two pairs of a 4-unit packet with the tails at +2 admit the hhtt context forms (and the b111 ones); also
+			 * the H H T T prefix of a >= 5-unit packet (R-b111pre) and the branch + ld/st prefix (R-brHHTT): the context forms are
+			 * admitted and ctx b111_layout decides */
+			const bool hh = dist == 2 && i <= 1 && (c->n == 4 || (c->n >= 5 && ((units[2] >> 14) & 1) == 1 && ((units[3] >> 14) & 1) == 1
+				&& (units[1] & 0xE) == 0 && ((units[0] & 0xE) == 0 || br_f0_head (units[0]))));
 			/* R-b111: the 2-unit head + tail packet admits the b111 context forms */
 			const bool ht2 = c->n == 2 && i == 0 && dist == 1;
 			int st;
@@ -1638,12 +1857,13 @@ static void decode_asg(const Ctx *c, const Asg *asg, bool first_ok, DecList *out
 					/* R-st1h: the F' = 0 st.h tail is deferred (+2 or farther); at +1 the pair is undone */
 					undo = true;
 				} else if ((d.op->flags & USIP_F_ADJ2) && dist != 2) {
-					if ((d.op->kind == USIP_K_LOOP && dist < 2) || d.op->kind == USIP_K_LD || d.op->kind == USIP_K_ST) {
+					if ((d.op->kind == USIP_K_LOOP && dist < 2 && Fp == 1) || d.op->kind == USIP_K_LD || d.op->kind == USIP_K_ST) {
 						/* loop #N with F = 1 and an ADJACENT S = 0 tail: two 16-bit ops; R-op1fs: the F != S ld.b / st.h of op 1
 						 * only at +2 (undone elsewhere) */
 						undo = true;
 					} else {
-						/* control tail with F' = 0 (or the S0F1 tail): valid EXACTLY at +2 */
+						/* control tail with F' = 0 (or the S0F1 tail): valid EXACTLY at +2; R-loopA: the F' = 0 loop tail at +1 or
+						 * farther is .word too */
 						make_word (&d);
 					}
 				} else if ((d.op->flags & USIP_F_ADJCTRL) && is_ctrl_kind (d.op->kind)
@@ -1720,6 +1940,16 @@ static void decode_asg(const Ctx *c, const Asg *asg, bool first_ok, DecList *out
 		const ut64 pc = c->addrs[d->head];
 		Dec d2 = dec16 (c->guard, pc, units[d->head], true, c->n, kidx (c, pc));
 		if (strcmp (d2.mnem, d->mnem) && is_named (&d2) && !is_ctrl_any (d2.kind) && !first_operand_is (&d2, pc, "r14", ", \t")) {
+			/* rf0dmidwaw: the re-read middle unit is not renamed when its destination is written by another instruction of the
+			 * packet */
+			const int dst = dec_dst (&d2, pc, false);
+			bool twice = false;
+			for (j = 0; dst >= 0 && j < out->n && !twice; j++) {
+				twice = j != m && dec_dst (&out->d[j], c->addrs[out->d[j].head], false) == dst;
+			}
+			if (twice) {
+				continue;
+			}
 			d2.head = d->head;
 			*d = d2;
 		}
@@ -1927,16 +2157,17 @@ static Score score_reading(const Ctx *c, const Asg *asg, bool first_ok, DecList 
 			bool bad_w = r4 != 0 && !(r4 == 3 && off >= 0xF00);
 			bool odd_h = ends_with (d->mnem, ".h") && (off & 1);
 			if (bad_w && r4 == 2) {
+				/* P2W: the = 2 class is exempt in H H T T / H H T T C and when H H T T is the prefix of a >= 5-unit packet */
 				if (hhtt < 0) {
-					hhtt = hhtt_layout (c, dec)? 1: 0;
+					hhtt = (hhtt_layout (c, dec) || hhtt_prefix_dec (c, dec))? 1: 0;
 				}
 				bad_w = !hhtt;
 			}
 			if (odd_h) {
-				/* P2H: the odd half-word offset (negative by R-off.h) is not penalised in H H T T / H H T T C, except
-				 * f12 = 0x001 with base sp */
+				/* P2H: the odd half-word offset (negative by R-off.h) is not penalised in H H T T / H H T T C (or the H H T T
+				 * prefix), except f12 = 0x001 with base sp */
 				if (hhtt < 0) {
-					hhtt = hhtt_layout (c, dec)? 1: 0;
+					hhtt = (hhtt_layout (c, dec) || hhtt_prefix_dec (c, dec))? 1: 0;
 				}
 				if (hhtt && !(off == 0x001 && (hu & 0x3E00) == 0x1C00)) {
 					odd_h = false;
@@ -1944,6 +2175,10 @@ static Score score_reading(const Ctx *c, const Asg *asg, bool first_ok, DecList 
 			}
 			if ((w && bad_w) || odd_h) {
 				pen += Q (0.5);
+				if (w && bad_w && (r4 == 1 || r4 == 3)) {
+					/* al1: the = 1 / = 3 (< 0xf00) word tails pay 0.8 in all, above a double write (0.75) */
+					pen += Q (0.3);
+				}
 			}
 		}
 		if (d->nt == 2 && is_hi1010 (units[d->t[0]])) {
@@ -2017,6 +2252,64 @@ static Score score_reading(const Ctx *c, const Asg *asg, bool first_ok, DecList 
 					break;
 				}
 			}
+		}
+	}
+	if (n == 4 && !(units[0] >> 15) && !(units[1] >> 15) && (units[0] & 0xF) == 0xC && (units[1] & 0xF) == 0xC
+		&& ((units[2] >> 12) & 3) == 0 && ((units[3] >> 12) & 3) == 0 && ((units[2] >> 4) & 0xFF) == 0x8C && ((units[3] >> 4) & 0xFF) == 0x8C
+		&& !(dec->n == 2 && formed (dec, 0, 1, 2, 0) && formed (dec, 1, 1, 3, 0))) {
+		/* sat40 H H T T: [op c][op c][tail (8,c)][tail (8,c)] not read as the pairs 0 -> 2, 1 -> 3: +3.0 */
+		pen += Q (3.0);
+	}
+	{
+		/* R-waw: every register written by >= 2 instructions of the reading pays 0.75 (stores excluded by mnemonic; the pair
+		 * [movi rA][16-bit op 2 rA, x = 1] of the same rrr, adjacent and both bare, is one instruction and does not count);
+		 * rf0dpen: +1.0 for the bare unit after an R-F0d head when its destination is written twice in the reading;
+		 * R-bsnext: +2.5 for a 16-bit b.s in the first slot whose target is exactly the next packet and not a function start */
+		int cnt[32] = { 0 }, cnt_all[32] = { 0 }, dst[NU];
+		bool rf0d_head[NU] = { false };
+		for (i = 0; i < dec->n; i++) {
+			const Dec *d = &dec->d[i];
+			const int hi = d->head;
+			dst[i] = dec_dst (d, c->addrs[hi], false);
+			if (dst[i] >= 0) {
+				cnt_all[dst[i]]++;
+			}
+			if (!strcmp (d->mnem, "iow")) {
+				dst[i] = -1;
+			}
+			if (d->nt && is_rf0d (d)) {
+				rf0d_head[hi] = true;
+			}
+			if (!d->nt && hi >= 1 && (units[hi] & 0x300F) == 0x0002 && ((units[hi] >> 8) & 1) == 1 && (units[hi - 1] & 0xE00F) == 0x0007
+				&& ((units[hi - 1] >> 8) & 1) == 0 && ((units[hi] >> 9) & 7) == ((units[hi - 1] >> 9) & 7)) {
+				for (j = 0; j < dec->n; j++) {
+					if (dec->d[j].head == hi - 1 && !dec->d[j].nt && !strcmp (dec->d[j].mnem, "movi")) {
+						break;
+					}
+				}
+				if (j < dec->n) {
+					continue;
+				}
+			}
+			if (dst[i] >= 0) {
+				cnt[dst[i]]++;
+			}
+		}
+		for (j = 0; j < 32; j++) {
+			if (cnt[j] >= 2) {
+				pen += Q (0.75);
+			}
+		}
+		for (i = 0; i < dec->n; i++) {
+			const Dec *d = &dec->d[i];
+			if (!d->nt && d->head >= 1 && rf0d_head[d->head - 1] && dst[i] >= 0 && cnt_all[dst[i]] >= 2) {
+				pen += Q (1.0);
+			}
+		}
+		if (first_ok && dec->n && dec->d[0].head == 0 && dec->d[0].kind == USIP_K_BR16D && !strcmp (dec->d[0].mnem, "b.s") && dec->d[0].has_target
+			&& dec->d[0].target == ((c->addrs[0] + 2 * (ut64)n) & UT32_MAX)
+			&& !(g && g->function_start && g->function_start (g->user, dec->d[0].target) == 1)) {
+			pen += Q (2.5);
 		}
 	}
 	if (n == 4) {
@@ -2301,12 +2594,146 @@ static bool same_reading(const DecList *a, const DecList *b) {
 	return true;
 }
 
-/* the packet-level context rules applied to the chosen reading (bz_s_P4, slot_S0_R7 / lea_sp_S0, be79_prefix) */
-static void post_rules(const Ctx *c, DecList *best, bool first_ok) {
+/* F-slot0: [S][0][m][h][rrr][x][B][o3 100] = stslot rB(!x), #k (k = m:h:rrr:o3); stslot? when h or m = 1 (k >= 16) or for
+ * the F = 0 head of a .op4imm pair in a multi-unit packet */
+static Dec ln_stslot_f0(const Ctx *c, int j, bool multi_op4imm) {
+	Dec d = { 0 };
+	const ut16 u = c->units[j];
+	d.w = u;
+	set_form (&d, &usip_opcodes[((u & 0x3000) || multi_op4imm)? USIP_FORM_STSLOT_F0_Q: USIP_FORM_STSLOT_F0], c->addrs[j]);
+	d.head = j;
+	return d;
+}
+
+/* S0-slot: a slot-family unit with F = 1 and S = 0 (low 12 bits > 1) = stslot rB, #k (o2 = 1) / ldslot? rB, #k (o2 = 0) */
+static Dec ln_slot_f1(const Ctx *c, int j) {
+	Dec d = { 0 };
+	const ut16 u = c->units[j];
+	d.w = u;
+	set_form (&d, &usip_opcodes[((u >> 2) & 1)? USIP_FORM_STSLOT_S0_POS1: USIP_FORM_LDSLOT_S0_POS1_Q], c->addrs[j]);
+	d.head = j;
+	return d;
+}
+
+/* the unit is a slot-family unit with F = 1, S = 0, low 12 bits > 1 and (m = 0 or op != 0) */
+static inline bool slot_f1_shape(ut16 u) {
+	return (u & 0xC003) == 0x4000 && (u & 0x0FFF) > 1 && ((u & 0x2000) == 0 || (u & 0xC) != 0);
+}
+
+/* the split-tail reading of unit j: the slot family with F = 1 and S = 0 (S0-slot), op 4 / op c with F = 0 (F-slot0), else the
+ * ordinary 16-bit reading in tail position; *named = it has a name */
+static Dec ln_tail16(const Ctx *c, int j, bool *named) {
+	const ut16 t = c->units[j];
+	*named = true;
+	if (slot_f1_shape (t)) {
+		return ln_slot_f1 (c, j);
+	}
+	if ((t & 0x4007) == 0x0004) {
+		return ln_stslot_f0 (c, j, false);
+	}
+	Dec d = dec16 (c->guard, c->addrs[j], t, false, c->n, kidx (c, c->addrs[j]));
+	d.head = j;
+	*named = is_named (&d);
+	return d;
+}
+
+/* the post-layout splits and renames of the slot family (names only, the layout is untouched): R-slot4n (a pair read
+ * .op4t0 / .op4t1 / .op4t3 with an op 4 F = 0 head and the adjacent S = 0 tail -> stslot (F-slot0) || the tail's 16-bit
+ * reading), R-op4imm (a pair read .op4imm whose F' = 0 tail has a named 16-bit reading -> stslot / stslot? || the tail),
+ * S0-slot (a bare .hword of the slot family with F = 1 and S = 0 at INSTRUCTION position 1 -> stslot / ldslot?); then the
+ * nowaw guardian: a new reading whose destination is written by another instruction of the packet returns its original
+ * entry whole */
+static void ln_rename(const Ctx *c, DecList *best) {
+	const ut16 *units = c->units;
+	const int n = c->n;
+	Dec out[2 * NU];
+	int orig[2 * NU], nout = 0, kpos, i, j;
+	bool changed = false;
+	for (kpos = 0; kpos < best->n; kpos++) {
+		const Dec *d = &best->d[kpos];
+		const ut16 h = units[d->head];
+		if (d->nt == 1) {
+			const int ti = d->t[0];
+			const ut16 t = units[ti];
+			if ((!strcmp (d->mnem, ".op4t0") || !strcmp (d->mnem, ".op4t1") || !strcmp (d->mnem, ".op4t3")) && ti == d->head + 1
+				&& (h & 0xC00F) == 0x0004 && (t >> 15) == 0 && (t & 0x0FFF) > 1 && (t & 0x7BFF) != 0x4000) {
+				bool named;
+				out[nout] = ln_stslot_f0 (c, d->head, false);
+				orig[nout++] = kpos;
+				out[nout] = ln_tail16 (c, ti, &named);
+				orig[nout++] = kpos;
+				changed = true;
+				continue;
+			}
+			if (!strcmp (d->mnem, ".op4imm") && (h & 0x800F) == 0x0004 && (t & 0x6000) == 0) {
+				bool named;
+				const Dec d2 = ln_tail16 (c, ti, &named);
+				if (named) {
+					out[nout] = ((h >> 14) & 1)? ln_slot_f1 (c, d->head): ln_stslot_f0 (c, d->head, n > 2);
+					orig[nout++] = kpos;
+					out[nout] = d2;
+					orig[nout++] = kpos;
+					changed = true;
+					continue;
+				}
+			}
+		} else if (!d->nt && !strcmp (d->mnem, ".hword") && kpos == 1 && slot_f1_shape (h)) {
+			out[nout] = ln_slot_f1 (c, d->head);
+			orig[nout++] = kpos;
+			changed = true;
+			continue;
+		}
+		out[nout] = *d;
+		orig[nout++] = -1;
+	}
+	if (!changed) {
+		return;
+	}
+	/* the nowaw guardian */
+	int cnt[32] = { 0 }, dst[2 * NU];
+	bool revert[NU] = { false };
+	for (i = 0; i < nout; i++) {
+		dst[i] = dec_dst (&out[i], c->addrs[out[i].head], true);
+		if (dst[i] >= 0) {
+			cnt[dst[i]]++;
+		}
+	}
+	for (i = 0; i < nout; i++) {
+		if (orig[i] >= 0 && dst[i] >= 0 && cnt[dst[i]] >= 2) {
+			revert[orig[i]] = true;
+		}
+	}
+	DecList res;
+	res.n = 0;
+	for (i = 0; i < nout; i++) {
+		if (orig[i] < 0) {
+			res.d[res.n++] = out[i];
+		} else if (revert[orig[i]]) {
+			for (j = 0; j < res.n && res.d[j].head != best->d[orig[i]].head; j++) {
+				;
+			}
+			if (j == res.n) {
+				res.d[res.n++] = best->d[orig[i]];
+			}
+		} else {
+			res.d[res.n++] = out[i];
+		}
+	}
+	qsort (res.d, res.n, sizeof (Dec), dec_cmp_head);
+	*best = res;
+}
+
+/* the packet-level context rules applied to the chosen reading (bz_s_P4, bz_s_P4_u4, slot_S0_R7 / lea_sp_S0, bz_s_P4_u3, S3,
+ * be79_prefix, the splits of the slot family); the bz.s rules re-parse the rest of the packet as the delay slot (its ties
+ * replace the packet's for the cascade, as in apply_bzs5) */
+static void post_rules(const Ctx *c, DecList *best, bool first_ok, TieList *ties, bool *amb) {
 	const ut16 *units = c->units;
 	const ut64 *addrs = c->addrs;
 	const int n = c->n;
+	const UsipGuardCtx *g = c->guard;
+	const Ctx *saved_cur = g_cur;
 	int k;
+	g_cur = c;
 	/* context rule bz_s_P4: a 2-unit packet opened by 4X?d/5X?d without a named reading */
 	if (n == 2 && first_ok && (units[0] & 0xE00F) == 0x400D && units[0] != 0x5E0D && best->n && !is_named (&best->d[0])) {
 		const UsipOpcode *f = &usip_opcodes[USIP_FORM_BZ_S_P4];
@@ -2323,6 +2750,25 @@ static void post_rules(const Ctx *c, DecList *best, bool first_ok) {
 			best->d[best->n++] = d1;
 		}
 	}
+	/* context rule bz_s_P4_u4 (R-p4u4): the same 4X?d (not 5cXd / 5e0d, rA not sp) opening a packet of exactly 4 units whose
+	 * best reading leaves it unnamed, with the target a packet start of the same function (d6 > 0): bz.s rA + the rest
+	 * re-parsed as its delay slot */
+	if (n == 4 && first_ok && (units[0] & 0xE00F) == 0x400D && units[0] != 0x5E0D && (units[0] & 0x1E00) != 0x1C00 && best->n
+		&& best->d[0].head == 0 && !is_named (&best->d[0]) && ((units[0] >> 3) & 0x3F) > 0) {
+		Dec d0 = { 0 };
+		d0.w = units[0];
+		set_form (&d0, &usip_opcodes[USIP_FORM_BZ_S_P4_U4], addrs[0]);
+		if (d0.has_target && g && g->packet_start && g->packet_start (g->user, d0.target) == 1) {
+			int rest[NU], nr = 0;
+			d0.guard = USIP_G_OK;
+			for (k = 1; k < n; k++) {
+				rest[nr++] = k;
+			}
+			best->n = 0;
+			best->d[best->n++] = d0;
+			*amb = rest_parse (c, rest, nr, best, ties);
+		}
+	}
 	/* context rules slot_S0_R7 / lea_sp_S0: bare first-slot .hword unit, every other instruction named */
 	if (r7_shape (best, first_ok) && !strcmp (best->d[0].mnem, ".hword")) {
 		const UsipOpcode *f = r7_form (units[0], best);
@@ -2333,6 +2779,65 @@ static void post_rules(const Ctx *c, DecList *best, bool first_ok) {
 			d0->w = units[0];
 			set_form (d0, f, addrs[0]);
 			d0->has_target = false;
+		}
+	}
+	/* context rule bz_s_P4_u3 (bzsd): 4X?d at k = 0 of a 3-unit packet, bare and unnamed, with the target a packet start of the
+	 * same function BEYOND the packet and a re-parsed delay slot that does not write rA */
+	if (n == 3 && first_ok && (units[0] & 0xE00F) == 0x400D && units[0] != 0x5E0D && (units[0] & 0x1E00) != 0x1C00 && best->n
+		&& best->d[0].head == 0 && !best->d[0].nt && !is_named (&best->d[0])) {
+		Dec d0 = { 0 };
+		d0.w = units[0];
+		set_form (&d0, &usip_opcodes[USIP_FORM_BZ_S_P4_U3], addrs[0]);
+		if (d0.has_target && d0.target >= addrs[n - 1] + 2 && g && g->packet_start && g->packet_start (g->user, d0.target) == 1) {
+			const int rA = (((units[0] >> 12) & 1) << 3) | ((units[0] >> 9) & 7);
+			const int rest[2] = { 1, 2 };
+			DecList tmp;
+			TieList tt = { 0 };
+			bool writes = false;
+			d0.guard = USIP_G_OK;
+			tmp.n = 0;
+			tmp.d[tmp.n++] = d0;
+			const bool amb3 = rest_parse (c, rest, 2, &tmp, ties? &tt: NULL);
+			for (k = 1; k < tmp.n; k++) {
+				writes |= dec_dst (&tmp.d[k], addrs[tmp.d[k].head], true) == rA;
+			}
+			if (!writes) {
+				*best = tmp;
+				*amb = amb3;
+				if (ties && tt.n) {
+					tielist_fini (ties);
+					*ties = tt;
+				} else {
+					tielist_fini (&tt);
+				}
+			} else {
+				tielist_fini (&tt);
+			}
+		}
+	}
+	if (n >= 2) {
+		/* S3 (forms ldslot_S3_F0 / stslot_S3_F0): a bare .hword unit of the slot family with m = h = 1 and F = 0: in the first
+		 * slot with S = 0 and o2 = 0 ldslot rB, #k (k = 48..63), as a closer with o2 = 1 stslot; before the split pass, no guardian */
+		for (k = 0; k < best->n; k++) {
+			Dec *d = &best->d[k];
+			const ut16 u = units[d->head];
+			if (d->nt || strcmp (d->mnem, ".hword") || (u & 0xFFF) <= 1 || (u & 3) != 0 || ((u >> 14) & 1) != 0 || ((u >> 12) & 3) != 3) {
+				continue;
+			}
+			const int o2 = (u >> 2) & 1;
+			if ((u >> 15) == 0 && d->head == 0 && o2 == 0) {
+				const int hd = d->head;
+				memset (d, 0, sizeof (*d));
+				d->head = hd;
+				d->w = u;
+				set_form (d, &usip_opcodes[USIP_FORM_LDSLOT_S3_F0], addrs[hd]);
+			} else if ((u >> 15) == 1 && o2 == 1) {
+				const int hd = d->head;
+				memset (d, 0, sizeof (*d));
+				d->head = hd;
+				d->w = u;
+				set_form (d, &usip_opcodes[USIP_FORM_STSLOT_S3_F0], addrs[hd]);
+			}
 		}
 	}
 	/* context rule be79_prefix: bare [0][0][imm14] without a reading followed by be79 */
@@ -2354,37 +2859,50 @@ static void post_rules(const Ctx *c, DecList *best, bool first_ok) {
 			break;
 		}
 	}
+	if (n > 1) {
+		ln_rename (c, best);
+	}
+	g_cur = saved_cur;
 }
 
 /* the whole packet: the prefix forms, then every reading, scored with the layout order (s0, I, Fv, -A, K), then the
  * packet-level context rules (parse_packet).  Returns the ambiguity of the chosen reading; when ties
  * is given, the readings tied on (s0, I, Fv, -A) are stored there (distinct signatures, K order) for the cascade. */
-static bool parse_packet_inner(const UsipGuardCtx *g, const ut16 *units, const ut64 *addrs, int n, bool first_ok, ut64 pk0, DecList *best, TieList *ties);
+static bool parse_packet_inner(Ctx *c, bool first_ok, DecList *best, TieList *ties);
 
 static bool parse_packet(const UsipGuardCtx *g, const ut16 *units, const ut64 *addrs, int n, bool first_ok, ut64 pk0, DecList *best, TieList *ties) {
-	/* R-b111: the packet (or delay-slot sub-packet) of exactly two units admits the b111 context forms in the grammar */
+	/* R-b111: the packet (or delay-slot sub-packet) of exactly two units admits the b111 context forms in the grammar; the
+	 * context of this parse is the one the R-w6h1 loop guard reads */
 	const bool saved = g_ht2;
-	g_ht2 = n == 2;
-	const bool amb = parse_packet_inner (g, units, addrs, n, first_ok, pk0, best, ties);
-	g_ht2 = saved;
-	return amb;
-}
-
-static bool parse_packet_inner(const UsipGuardCtx *g, const ut16 *units, const ut64 *addrs, int n, bool first_ok, ut64 pk0, DecList *best, TieList *ties) {
-	int i, k;
-	best->n = 0;
-	if (ties) {
-		ties->n = 0;
-		ties->first_ok = first_ok;
-	}
+	const Ctx *saved_cur = g_cur;
 	Ctx c = { 0 };
 	c.units = units;
 	c.n = n;
 	c.pk0 = pk0;
 	c.guard = g;
 	memcpy (c.addrs, addrs, n * sizeof (ut64));
+	g_ht2 = n == 2;
+	g_cur = &c;
+	const bool amb = parse_packet_inner (&c, first_ok, best, ties);
+	g_ht2 = saved;
+	g_cur = saved_cur;
+	return amb;
+}
+
+static bool parse_packet_inner(Ctx *cp, bool first_ok, DecList *best, TieList *ties) {
+	Ctx *c = cp;
+	const UsipGuardCtx *g = c->guard;
+	const ut16 *units = c->units;
+	const ut64 *addrs = c->addrs;
+	const int n = c->n;
+	int i, k;
+	best->n = 0;
+	if (ties) {
+		ties->n = 0;
+		ties->first_ok = first_ok;
+	}
 	if (n == 1) {
-		Dec d = dec16 (g, addrs[0], units[0], first_ok, 1, kidx (&c, addrs[0]));
+		Dec d = dec16 (g, addrs[0], units[0], first_ok, 1, kidx (c, addrs[0]));
 		d.head = 0;
 		best->d[best->n++] = d;
 		return false;
@@ -2393,7 +2911,7 @@ static bool parse_packet_inner(const UsipGuardCtx *g, const ut16 *units, const u
 		ut64 w = 0;
 		ut8 guard = USIP_G_NONE;
 		int rest[NU], nr = 0, hi, lo;
-		const UsipOpcode *pf = match_prefix (&c, &w, &guard);
+		const UsipOpcode *pf = match_prefix (c, &w, &guard);
 		if (pf) {
 			/* b<cond>.l prefix: one instruction, the rest of the packet is its delay slot */
 			Dec d0 = { 0 };
@@ -2409,9 +2927,9 @@ static bool parse_packet_inner(const UsipGuardCtx *g, const ut16 *units, const u
 			for (k = pf->nunits; k < n; k++) {
 				rest[nr++] = k;
 			}
-			return rest_parse (&c, rest, nr, best, ties);
+			return rest_parse (c, rest, nr, best, ties);
 		}
-		if (abs_prefix (&c, &hi, &lo)) {
+		if (abs_prefix (c, &hi, &lo)) {
 			CtxD ctxd = CTXD_INIT (n, 0, units, 0);
 			ctxd.tail_idx = hi;
 			Dec d0 = dec48 (g, addrs[0], units[0], units[hi], units[lo], true, &ctxd);
@@ -2424,10 +2942,10 @@ static bool parse_packet_inner(const UsipGuardCtx *g, const ut16 *units, const u
 					rest[nr++] = k;
 				}
 			}
-			return rest_parse (&c, rest, nr, best, ties);
+			return rest_parse (c, rest, nr, best, ties);
 		}
 	}
-	const AsgList *all = group_parses (&c, 0, first_ok);
+	const AsgList *all = group_parses (c, 0, first_ok);
 	/* dedup by assignment */
 	AsgList seen = { 0 };
 	for (i = 0; i < all->n; i++) {
@@ -2473,7 +2991,7 @@ static bool parse_packet_inner(const UsipGuardCtx *g, const ut16 *units, const u
 		a.head[1] = 1;
 		a.nt[1] = 1;
 		a.t[1][0] = 3;
-		decode_asg (&c, &a, first_ok, &dd);
+		decode_asg (c, &a, first_ok, &dd);
 		if (dd.n == 2 && dd.d[0].nt && dd.d[1].nt && (dd.d[0].kind == USIP_K_LD || dd.d[0].kind == USIP_K_ST)
 			&& (dd.d[1].kind == USIP_K_LD || dd.d[1].kind == USIP_K_ST)) {
 			for (k = 0; k < seen.n && memcmp (&seen.a[k], &a, sizeof (Asg)); k++) {
@@ -2484,9 +3002,162 @@ static bool parse_packet_inner(const UsipGuardCtx *g, const ut16 *units, const u
 			}
 		}
 	}
+	if (first_ok && n >= 5 && br_f0_head (units[0]) && (units[1] >> 15) == 0 && (units[1] & 0xE) == 0
+		&& (units[2] >> 15) == 0 && ((units[2] >> 14) & 1) == 1 && (units[3] >> 15) == 0 && ((units[3] >> 14) & 1) == 1) {
+		/* R-brHHTT: [branch F = 0 at 0 -> tail 2][ld/st at 1 -> tail 3] + the rest (units 4..) in packets of >= 5 units, when the
+		 * branch reads with a validated target and the second pair reads ld/st (the b111 forms admitted); the same score decides */
+		Asg a0 = { 0 };
+		CtxD cd0 = CTXD_INIT (n, 0, units, 0), cd1 = CTXD_INIT (n, 1, units, 1);
+		int st0, st1;
+		a0.n = 2;
+		a0.head[0] = 0; a0.nt[0] = 1; a0.t[0][0] = 2;
+		a0.head[1] = 1; a0.nt[1] = 1; a0.t[1][0] = 3;
+		cd0.tail_dist = cd1.tail_dist = 2;
+		cd0.tail_idx = 2; cd1.tail_idx = 3;
+		cd0.hh_asg = cd1.hh_asg = 1;
+		const Dec dB0 = dec32 (g, addrs[0], units[0], units[2], first_ok, &cd0, false, false, 2, &st0);
+		if (st0 == RS_OK && dB0.kind == USIP_K_BR && dB0.has_target && g && g->packet_start && g->packet_start (g->user, dB0.target) == 1) {
+			const Dec dB1 = dec32 (g, addrs[1], units[1], units[3], false, &cd1, true, false, 2, &st1);
+			if (st1 == RS_OK && (dB1.kind == USIP_K_LD || dB1.kind == USIP_K_ST)) {
+				const AsgList *rest = group_parses (c, 4, false);
+				const int nr = rest->n? rest->n: 1;
+				for (i = 0; i < nr; i++) {
+					Asg a = a0;
+					if (rest->n) {
+						const Asg *r = &rest->a[i];
+						int m, q;
+						for (m = 0; m < r->n; m++) {
+							a.head[a.n] = r->head[m] + 4;
+							a.nt[a.n] = r->nt[m];
+							for (q = 0; q < r->nt[m]; q++) {
+								a.t[a.n][q] = r->t[m][q] + 4;
+							}
+							a.n++;
+						}
+					}
+					for (k = 0; k < seen.n && memcmp (&seen.a[k], &a, sizeof (Asg)); k++) {
+						;
+					}
+					if (k == seen.n && !bad_assignment (c, &a)) {
+						asglist_push (&seen, &a, 0);
+					}
+				}
+			}
+		}
+	}
+	if (first_ok && n >= 2 && (units[0] >> 15) == 0 && (units[0] & 0xF) == 0xF) {
+		/* loopcand (R-loopA / R-loopB / R-loopM): the reading `loop #N` (op f head + tt = 10 tail at +1 / +2) is an explicit
+		 * candidate, like the 3-unit [head][op16][F' = 0 tail] and H H T T: the group grammar drops it when the middle unit has no
+		 * named 16-bit reading.  Only the readings `loop #N` (not `loop #N?`); the F' = 0 tail (R-loopA) only at +2. */
+		int kk;
+		for (kk = 1; kk <= 2; kk++) {
+			if (kk >= n || ((units[kk] >> 12) & 3) != 2) {
+				continue;
+			}
+			CtxD cd = CTXD_INIT (n, 0, units, 0);
+			int st;
+			cd.tail_dist = kk;
+			cd.tail_idx = kk;
+			const Dec dL = dec32 (g, addrs[0], units[0], units[kk], true, &cd, false, false, kk, &st);
+			if (st != RS_OK || !dL.op || strcmp (dL.mnem, "loop#") || ((dL.op->flags & USIP_F_ADJ2) && kk != 2)) {
+				continue;
+			}
+			Asg a0 = { 0 };
+			a0.head[a0.n] = 0; a0.nt[a0.n] = 1; a0.t[a0.n][0] = kk; a0.n++;
+			if (kk == 2) {
+				a0.head[a0.n] = 1; a0.nt[a0.n] = 0; a0.n++;
+			}
+			const AsgList *rest = kk + 1 < n? group_parses (c, kk + 1, false): NULL;
+			const int nr = rest? rest->n: 1;
+			for (i = 0; i < nr; i++) {
+				Asg a = a0;
+				if (rest) {
+					const Asg *r = &rest->a[i];
+					int m, q;
+					for (m = 0; m < r->n; m++) {
+						a.head[a.n] = r->head[m] + kk + 1;
+						a.nt[a.n] = r->nt[m];
+						for (q = 0; q < r->nt[m]; q++) {
+							a.t[a.n][q] = r->t[m][q] + kk + 1;
+						}
+						a.n++;
+					}
+				}
+				for (k = 0; k < seen.n && memcmp (&seen.a[k], &a, sizeof (Asg)); k++) {
+					;
+				}
+				if (k == seen.n && !bad_assignment (c, &a)) {
+					asglist_push (&seen, &a, 0);
+				}
+			}
+		}
+	}
+	if (first_ok && n >= 5 && (units[0] >> 15) == 0 && (units[1] >> 15) == 0 && (units[0] & 0xE) == 0 && (units[1] & 0xE) == 0
+		&& (units[2] >> 15) == 0 && ((units[2] >> 14) & 1) == 1 && ((units[3] >> 14) & 1) == 1 && (((units[2] >> 12) & 3) == 3 || ((units[3] >> 12) & 3) == 3)) {
+		/* R-b111pre: the H H T T of type 111 (st.b / ld.bu) as the PREFIX of a packet of >= 5 units, both tails S = 0; the rest
+		 * of the packet is parsed as a group; the same score decides */
+		Asg a0 = { 0 };
+		CtxD cd0 = CTXD_INIT (n, 0, units, 0), cd1 = CTXD_INIT (n, 1, units, 1);
+		int st0, st1;
+		a0.n = 2;
+		a0.head[0] = 0; a0.nt[0] = 1; a0.t[0][0] = 2;
+		a0.head[1] = 1; a0.nt[1] = 1; a0.t[1][0] = 3;
+		cd0.tail_dist = cd1.tail_dist = 2;
+		cd0.tail_idx = 2; cd1.tail_idx = 3;
+		cd0.hh_asg = cd1.hh_asg = 1;
+		const Dec d0 = dec32 (g, addrs[0], units[0], units[2], first_ok, &cd0, true, false, 2, &st0);
+		const Dec d1 = dec32 (g, addrs[1], units[1], units[3], false, &cd1, true, false, 2, &st1);
+		if (st0 == RS_OK && st1 == RS_OK && (d0.kind == USIP_K_LD || d0.kind == USIP_K_ST) && (d1.kind == USIP_K_LD || d1.kind == USIP_K_ST)) {
+			const AsgList *rest = group_parses (c, 4, false);
+			for (i = 0; i < rest->n; i++) {
+				Asg a = a0;
+				const Asg *r = &rest->a[i];
+				int m, q;
+				for (m = 0; m < r->n; m++) {
+					a.head[a.n] = r->head[m] + 4;
+					a.nt[a.n] = r->nt[m];
+					for (q = 0; q < r->nt[m]; q++) {
+						a.t[a.n][q] = r->t[m][q] + 4;
+					}
+					a.n++;
+				}
+				for (k = 0; k < seen.n && memcmp (&seen.a[k], &a, sizeof (Asg)); k++) {
+					;
+				}
+				if (k == seen.n && !bad_assignment (c, &a)) {
+					asglist_push (&seen, &a, 0);
+				}
+			}
+		}
+	}
+	if (first_ok && n == 4 && (units[0] >> 15) == 0 && (units[0] & 0xF) == 0xE && (units[1] >> 15) == 0 && (units[1] & 0xE) == 0
+		&& (units[2] >> 15) == 0 && (((units[2] >> 12) & 7) == 6 || ((units[2] >> 12) & 7) == 7) && (units[3] >> 15) == 1) {
+		/* R-b111ctl: the round-robin [b / call op e][op 1][S = 0 tag 6/7][S = 1 tt = 11] that the group grammar does not generate
+		 * after a control head: the branch / call reads with a target and the second pair reads ld/st */
+		Asg a0 = { 0 };
+		CtxD cd0 = CTXD_INIT (n, 0, units, 0), cd1 = CTXD_INIT (n, 1, units, 1);
+		int st0, st1;
+		a0.n = 2;
+		a0.head[0] = 0; a0.nt[0] = 1; a0.t[0][0] = 2;
+		a0.head[1] = 1; a0.nt[1] = 1; a0.t[1][0] = 3;
+		cd0.tail_dist = cd1.tail_dist = 2;
+		cd0.tail_idx = 2; cd1.tail_idx = 3;
+		cd0.hh_asg = cd1.hh_asg = 1;
+		const Dec d0 = dec32 (g, addrs[0], units[0], units[2], first_ok, &cd0, false, false, 2, &st0);
+		const Dec d1 = dec32 (g, addrs[1], units[1], units[3], false, &cd1, true, false, 2, &st1);
+		if (st0 == RS_OK && (d0.kind == USIP_K_BR || d0.kind == USIP_K_CALL) && d0.has_target && st1 == RS_OK
+			&& (d1.kind == USIP_K_LD || d1.kind == USIP_K_ST)) {
+			for (k = 0; k < seen.n && memcmp (&seen.a[k], &a0, sizeof (Asg)); k++) {
+				;
+			}
+			if (k == seen.n && !bad_assignment (c, &a0)) {
+				asglist_push (&seen, &a0, 0);
+			}
+		}
+	}
 	bool amb;
 	if (!seen.n) {
-		fallback (&c, first_ok, best);
+		fallback (c, first_ok, best);
 		amb = true;
 	} else {
 		/* the layout order (s0, I, Fv, -A, K): no prior, no group count */
@@ -2494,7 +3165,7 @@ static bool parse_packet_inner(const UsipGuardCtx *g, const ut16 *units, const u
 		int nbest = -1;
 		DecList cur;
 		for (k = 0; k < seen.n; k++) {
-			const Score s = score_reading (&c, &seen.a[k], first_ok, &cur);
+			const Score s = score_reading (c, &seen.a[k], first_ok, &cur);
 			int cmp = nbest < 0? -1: score_cmp (&s, &bs);
 			if (!cmp) {
 				cmp = asg_key_cmp (&seen.a[k], &seen.a[nbest]);
@@ -2511,7 +3182,7 @@ static bool parse_packet_inner(const UsipGuardCtx *g, const ut16 *units, const u
 			if (k == nbest) {
 				continue;
 			}
-			const Score s = score_reading (&c, &seen.a[k], first_ok, &cur);
+			const Score s = score_reading (c, &seen.a[k], first_ok, &cur);
 			amb = !score_cmp (&s, &bs) && !same_reading (best, &cur);
 		}
 		if (amb && ties) {
@@ -2519,7 +3190,7 @@ static bool parse_packet_inner(const UsipGuardCtx *g, const ut16 *units, const u
 			int *order = malloc (seen.n * sizeof (int)), nt = 0, m;
 			if (order) {
 				for (k = 0; k < seen.n; k++) {
-					const Score s = score_reading (&c, &seen.a[k], first_ok, &cur);
+					const Score s = score_reading (c, &seen.a[k], first_ok, &cur);
 					if (!score_cmp (&s, &bs)) {
 						for (m = nt; m > 0 && asg_key_cmp (&seen.a[k], &seen.a[order[m - 1]]) < 0; m--) {
 							order[m] = order[m - 1];
@@ -2529,7 +3200,7 @@ static bool parse_packet_inner(const UsipGuardCtx *g, const ut16 *units, const u
 					}
 				}
 				for (k = 0; k < nt; k++) {
-					score_reading (&c, &seen.a[order[k]], first_ok, &cur);
+					score_reading (c, &seen.a[order[k]], first_ok, &cur);
 					qsort (cur.d, cur.n, sizeof (Dec), dec_cmp_head);
 					for (m = 0; m < ties->n && !same_reading (&ties->d[m], &cur); m++) {
 						;
@@ -2545,12 +3216,12 @@ static bool parse_packet_inner(const UsipGuardCtx *g, const ut16 *units, const u
 	}
 	asglist_fini (&seen);
 	for (i = 0; i <= NU; i++) {
-		asglist_fini (&c.memo[i]);
+		asglist_fini (&c->memo[i]);
 	}
-	if (apply_bzs5 (&c, best, first_ok, ties, &amb)) {
+	if (apply_bzs5 (c, best, first_ok, ties, &amb)) {
 		return amb;
 	}
-	post_rules (&c, best, first_ok);
+	post_rules (c, best, first_ok, ties, &amb);
 	return amb;
 }
 
@@ -2666,10 +3337,11 @@ static void apply_renames(UsipPacket *pk) {
 		ctxd.pk = pk;
 		ctxd.bf_dsts = bf_dsts;
 		ctxd.have_bf = true;
+		ctxd.instr_index = i;
 		for (j = 0; j < N_OPS; j++) {
 			const UsipOpcode *f = &usip_opcodes[j];
 			bool from = false;
-			if (!(f->flags & USIP_F_RENAME) || f->nunits != nu || (in->w & f->mask) != f->value) {
+			if (!(f->flags & USIP_F_RENAME) || (f->flags & (USIP_F_SPLIT | USIP_F_FUSE)) || f->nunits != nu || (in->w & f->mask) != f->value) {
 				continue;
 			}
 			for (k = 0; k < f->nrename_from && !from; k++) {
@@ -2707,8 +3379,56 @@ static inline bool kind_delays(int kind) {
 	return false;
 }
 
+/* post-layout fusion (the USIP_F_FUSE entries): two ADJACENT one-unit instructions whose readings are the entry's two
+ * rename_from mnemonics (the head's by name, the tail's by shape) and whose units match the entry (+ its constraints: the same
+ * rrr) become ONE two-unit instruction (movi rA, #2b || asr? rA, #b' = op72? rA, #2b, asr#b') */
+static void fuse_pairs(UsipPacket *pk) {
+	int i, j, k;
+	for (i = 0; i + 1 < pk->ninsn; i++) {
+		UsipInsn *in = &pk->insn[i];
+		const UsipInsn *nx = &pk->insn[i + 1];
+		if (in->ntails || nx->ntails || nx->head != in->head + 1) {
+			continue;
+		}
+		const ut64 w = ((ut64)pk->units[in->head] << 16) | pk->units[nx->head];
+		for (j = 0; j < N_OPS; j++) {
+			const UsipOpcode *f = &usip_opcodes[j];
+			if (!(f->flags & USIP_F_FUSE) || f->nunits != 2 || (w & f->mask) != f->value || f->nrename_from < 1 || strcmp (in->mnem, f->rename_from[0])) {
+				continue;
+			}
+			if (f->ncons && !cons_ok (f, w, in->head == 0, NULL, CM_FREE | CM_DEFER)) {
+				continue;
+			}
+			in->op = f;
+			in->kind = f->kind;
+			in->mnem = f->name;
+			in->pseudo = USIP_P_FORM;
+			in->guard = USIP_G_NONE;
+			in->has_target = false;
+			in->target = 0;
+			in->ntails = 1;
+			in->tails[0] = nx->head;
+			in->w = w;
+			in->nvals = R_MIN (f->nfields, USIP_MAX_VALS);
+			for (k = 0; k < in->nvals; k++) {
+				in->vals[k] = field_value (f, k, w);
+			}
+			memmove (&pk->insn[i + 1], &pk->insn[i + 2], (pk->ninsn - i - 2) * sizeof (UsipInsn));
+			pk->ninsn--;
+			for (k = 0; k < pk->nunits; k++) {
+				if (pk->owner[k] > i) {
+					pk->owner[k]--;
+				}
+			}
+			pk->owner[in->tails[0]] = i;
+			break;
+		}
+	}
+}
+
 static void finish_packet(UsipPacket *pk) {
 	apply_renames (pk);
+	fuse_pairs (pk);
 	pk->delay = pk->ninsn > 1 && pk->owner[0] != 0xff && kind_delays (pk->insn[pk->owner[0]].kind);
 }
 
@@ -3597,7 +4317,7 @@ void usip_decode_packet(UsipPacket *pk, ut64 addr, const ut16 *units, int n, boo
 			memcpy (c.addrs, addrs, n * sizeof (ut64));
 			bool amb2 = false;
 			if (!apply_bzs5 (&c, &d2, ties.first_ok, NULL, &amb2)) {
-				post_rules (&c, &d2, ties.first_ok);
+				post_rules (&c, &d2, ties.first_ok, NULL, &amb2);
 			}
 			fill_packet (pk, &d2);
 			finish_packet (pk);

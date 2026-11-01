@@ -40,6 +40,16 @@ decoder with the packet context; the auxiliary tables usip_never_tail / usip_nev
 a tail / heads that never take one), usip_c48_table (the 48-bit constants admitted by value), usip_br0_cells /
 usip_br0_cells_weak (the R-br0 cells by (op, tt, B class, distance)) and usip_c48sym_table (the data addresses already
 formed by the 48-bit family, for the R-c48sym tie-break) come from the JSON.
+
+Table update (726 forms): the loopn operand type is the collected bits as is (loop #N = head bits 13:5, no +1: the
+formula lives in the decoder); the flag FUSE (post-layout fusion: two adjacent one-unit instructions whose readings are
+the two rename_from mnemonics, head and tail, and whose units match the entry become one two-unit instruction); the flag
+SPLIT (an entry of the post-layout split procedure of the slot family, applied by the decoder's split pass and never by
+the generic rename pass; the JSON key split_role: "either" = head or re-read tail of a split pair, "bare" = a bare unit
+renamed before the pass) with a USIP_FORM_* index for every such entry; the constraint op instr_index (the position of
+the INSTRUCTION inside the decoded packet, not the unit index); `any` with up to four alternatives, which may now be a
+context condition or an instr_index test; six new context conditions (not_loop_reg_head, delay_slot_of_validated_branch,
+target_beyond_packet, delay_slot_not_writing_rA, op4imm_head_multiunit, split_unit).
 """
 import json, os, sys, collections
 
@@ -51,7 +61,7 @@ TYPES = ['reg', 'imm', 'simm', 'rotimm', 'urot', 'disp', 'udisp', 'absaddr', 'ac
 CONF = {'high': 'USIP_CONF_HIGH', 'medium-high': 'USIP_CONF_HIGH', 'medium': 'USIP_CONF_MEDIUM',
         'low-medium': 'USIP_CONF_MEDIUM', 'low': 'USIP_CONF_LOW', 'format-only': 'USIP_CONF_FORMAT'}
 CONS_OPS = ['eq', 'ne', 'lt', 'ge', 'gt', 'in', 'notin', 'inmask', 'notinmask', 'range', 'ranges', 'even', 'odd', 'not_hi1010',
-            'eq_fields', 'ne_fields', 'packet_len', 'packet_len_ge', 'head_index', 'head_index_ge', 'ctx',
+            'eq_fields', 'ne_fields', 'packet_len', 'packet_len_ge', 'head_index', 'head_index_ge', 'ctx', 'instr_index',
             'slot0_excludes_head', 'any',
             'guard_setcc_tail', 'guard_tail_not_named16', 'guard_or2_tail',
             'guard_target_packet_start', 'guard_target_function_start', 'guard_target_fn_or_packet_start',
@@ -59,12 +69,14 @@ CONS_OPS = ['eq', 'ne', 'lt', 'ge', 'gt', 'in', 'notin', 'inmask', 'notinmask', 
             'tail_adjacent', 'ieee_short', 'in_c48tab',
             'guard_target_pk_any_or_fn', 'guard_tail_named16', 'br0_cells', 'br0_cells_live', 'bf_valid', 'in_set', 'notin_set']
 ANY_OPS = {'eq': 0, 'ne': 1, 'lt': 2, 'ge': 3, 'gt': 4, 'inmask': 5, 'notinmask': 6, 'tail_adjacent': 7,
-           'packet_len': 8, 'guard': 9, 'range': 10, 'br0_cells': 11, 'br0_cells_live': 12}
+           'packet_len': 8, 'guard': 9, 'range': 10, 'br0_cells': 11, 'br0_cells_live': 12, 'instr_index': 13, 'ctx': 14}
 # guards that may appear inside an `any` (USIP_ANY_GUARD: value = enum usip_guard_id)
 GUARD_IDS = {'tail_not_named16': 0, 'target_packet_start_same_function': 1}
 CTX_IDS = {'not_ext_of_op67': 0, 'cop_rA_in_packet': 1, 'not_c48_lo_follows': 2,
            'b111_layout': 3, 'hhtt_second_head': 4, 'f0d_triple': 5, 'bfpair': 6, 'bf_dst_not_written': 7,
-           'between_dsp_head_and_tail': 8, 'rest_named_no_q': 9}
+           'between_dsp_head_and_tail': 8, 'rest_named_no_q': 9,
+           'not_loop_reg_head': 10, 'delay_slot_of_validated_branch': 11, 'target_beyond_packet': 12,
+           'delay_slot_not_writing_rA': 13, 'op4imm_head_multiunit': 14, 'split_unit': 15}
 CTX_FIELDS = {'cop_rA_in_packet': ['rA'], 'bf_dst_not_written': ['rB', 'x']}
 GUARDS = {'setcc_tail': 'guard_setcc_tail', 'tail_not_named16': 'guard_tail_not_named16', 'or2_tail': 'guard_or2_tail',
           'target_packet_start_same_function': 'guard_target_packet_start',
@@ -79,7 +91,7 @@ MAXFIELDS = 12
 MAXCONS = 8
 MAXVALS = 12
 MAXRANGES = 8
-MAXANY = 3
+MAXANY = 4
 SAVE_SET = ['r8,r9,r10,LR', 'r12,r8!,r9!,r10!', 'r11!,r12!,r13!,r14!', None, 'LR,r8', 'r12,r8!', 'r11!,r12!', None]
 
 
@@ -125,6 +137,12 @@ def simple_cons(c):
         return 'br0_cells', br0_mask(c['br0_cells'])
     if 'br0_cells_live' in c:
         return 'br0_cells_live', br0_mask(c['br0_cells_live'])
+    if 'instr_index' in c:
+        return 'instr_index', c['instr_index']
+    if 'ctx' in c:
+        if c['ctx'] not in CTX_IDS:
+            raise SystemExit('unknown context condition inside any: %s' % c['ctx'])
+        return 'ctx', CTX_IDS[c['ctx']]
     for op in ('eq', 'ne', 'lt', 'ge', 'gt'):
         if op in c:
             return op, c[op]
@@ -221,6 +239,8 @@ def cons_entries(c, fidx, width, rename=False, ctxform=False):
         if width == 16 and not rename and not ctxform and c['head_index'] != 0:
             raise SystemExit('head_index %r: the decoder caches 16-bit matches by head index class 0 / 1 / 2+' % c['head_index'])
         return ('head_index', 0xff, 0xff, [c['head_index']])
+    if 'instr_index' in c:
+        return ('instr_index', 0xff, 0xff, [c['instr_index']])
     if 'head_index_ge' in c or 'head_pos_ge' in c:
         # (head_pos_ge: the spelling of the public copy of the table)
         v = c.get('head_index_ge', c.get('head_pos_ge'))
@@ -257,7 +277,7 @@ def cons_entries(c, fidx, width, rename=False, ctxform=False):
 
 def cons_fields(c):
     if 'any' in c:
-        return [any_field(a) for a in c['any'] if any_field(a) is not None]
+        return [any_field(a) for a in c['any'] if any_field(a) is not None] + [f for a in c['any'] if 'ctx' in a for f in CTX_FIELDS.get(a['ctx'], [])]
     if 'guard' in c:
         return ['u12'] if c['guard'] == 'or2_tail' else []
     if 'eq_fields' in c:
@@ -358,9 +378,10 @@ def emit(isa, out_path):
     A(' * inmask/notinmask: value = membership mask of the field value (bit n = value n); tail_adjacent: value = 0 / 1 (no field);')
     A(' * packet_len: value = the packet length (no field); guard: value = enum usip_guard_id (no field; a target guard inside an')
     A(' * any is evaluated by the context rule of the entry); range: value = lo | hi << 16 (lo <= field < hi);')
-    A(' * br0_cells / br0_cells_live: value = cell mask (see USIP_C_BR0_CELLS), field = rB */')
+    A(' * br0_cells / br0_cells_live: value = cell mask (see USIP_C_BR0_CELLS), field = rB; instr_index: value = the position')
+    A(' * of the instruction inside the decoded packet (no field); ctx: value = enum usip_ctx_cond (no field) */')
     A('enum usip_any_op { USIP_ANY_EQ, USIP_ANY_NE, USIP_ANY_LT, USIP_ANY_GE, USIP_ANY_GT, USIP_ANY_INMASK, USIP_ANY_NOTINMASK, USIP_ANY_TAIL_ADJACENT,')
-    A('\tUSIP_ANY_PACKET_LEN, USIP_ANY_GUARD, USIP_ANY_RANGE, USIP_ANY_BR0_CELLS, USIP_ANY_BR0_CELLS_LIVE };')
+    A('\tUSIP_ANY_PACKET_LEN, USIP_ANY_GUARD, USIP_ANY_RANGE, USIP_ANY_BR0_CELLS, USIP_ANY_BR0_CELLS_LIVE, USIP_ANY_INSTR_INDEX, USIP_ANY_CTX };')
     A('')
     A('/* guards that may appear inside USIP_C_ANY (USIP_ANY_GUARD) */')
     A('enum usip_guard_id { USIP_GD_TAIL_NOT_NAMED16, USIP_GD_TARGET_PACKET_START };')
@@ -369,10 +390,15 @@ def emit(isa, out_path):
     A(' * packet; the tail is not 5ffd followed by bfff/ffff (the 48-bit constant 0x7fff7fff); the ld.bu / st.b pair of type 111 only in')
     A(' * the 2-unit head + tail packet or in the H H T T layout (never an O syllable after an op 7 head); the second head of H H T T')
     A(' * after a named ld/st; the [head][head-shaped unit][F\' = 0 tail at +2] triple; the bit-field pair layout; no other WAW-kind')
-    A(' * instruction of the packet writes rB; unit 1 between a DSP head and its tail; the rest of the packet named without a ? */')
+    A(' * instruction of the packet writes rB; unit 1 between a DSP head and its tail; the rest of the packet named without a ?;')
+    A(' * the first-slot unit is not the head of a validated `loop rX` (a [S][0][11][d12] tail at +1 / +2 with its end a packet')
+    A(' * start of the function after it); the unit is a .movi6? closer in the delay slot of a validated branch at unit 0; the')
+    A(' * target of the 3-unit bz.s lies beyond the packet; its re-parsed delay slot does not write rA; the F = 0 head of a split')
+    A(' * .op4imm pair in a packet of more than two units; the unit is the head or the re-read tail of a split pair */')
     A('enum usip_ctx_cond { USIP_CTX_NOT_EXT_OF_OP67, USIP_CTX_COP_RA_IN_PACKET, USIP_CTX_NOT_C48_LO_FOLLOWS, USIP_CTX_B111_LAYOUT,')
     A('\tUSIP_CTX_HHTT_SECOND_HEAD, USIP_CTX_F0D_TRIPLE, USIP_CTX_BFPAIR, USIP_CTX_BF_DST_NOT_WRITTEN, USIP_CTX_BETWEEN_DSP_HEAD_AND_TAIL,')
-    A('\tUSIP_CTX_REST_NAMED_NO_Q };')
+    A('\tUSIP_CTX_REST_NAMED_NO_Q, USIP_CTX_NOT_LOOP_REG_HEAD, USIP_CTX_DELAY_SLOT_OF_VALIDATED_BRANCH, USIP_CTX_TARGET_BEYOND_PACKET,')
+    A('\tUSIP_CTX_DELAY_SLOT_NOT_WRITING_RA, USIP_CTX_OP4IMM_HEAD_MULTIUNIT, USIP_CTX_SPLIT_UNIT };')
     A('')
     A('#define USIP_F_SLOT0     0x001  /* only valid as the first unit of a packet */')
     A('#define USIP_F_NOTSLOT0  0x002  /* never the first unit of a packet */')
@@ -391,6 +417,9 @@ def emit(isa, out_path):
     A('#define USIP_F_GUARDFT   0x4000 /* a failing target guard falls through to the next entry of the cell (no entry left: two 16-bit ops), never .word */')
     A('#define USIP_F_B111      0x8000 /* context entry (ld.bu / st.b with a named 16-bit tail) admitted in the 2-unit head + tail packet and inside the H H T T candidate */')
     A("#define USIP_F_F0CTX     0x10000 /* context entry tried by the decoder when an op 0 head with its F' = 0 tail at +2 reads .word (never by the pairing) */")
+    A('#define USIP_F_FUSE      0x20000 /* post-layout FUSION: two ADJACENT one-unit instructions whose readings are the two rename_from mnemonics (head, tail) and whose units match the entry (+ its constraints) become ONE two-unit instruction of this entry; never used by the parser nor by the generic rename pass */')
+    A('#define USIP_F_SPLIT     0x40000 /* entry of the post-layout split procedure of the slot family (the decoder applies it in its split pass, by USIP_FORM_* index; never the parser nor the generic rename pass); USIP_F_SPLITBARE marks the ones applied to bare units before the pass */')
+    A('#define USIP_F_SPLITBARE 0x80000')
     A('')
     A('#define USIP_BITS_ZERO(n)  { 0xff, (n) }   /* n implicit zero bits in the operand value */')
     A('#define USIP_MAXRANGES %d' % MAXRANGES)
@@ -419,7 +448,7 @@ def emit(isa, out_path):
     A('\tut8 field, field2;  /* indices into UsipOpcode.fields (USIP_NOFIELD when unused) */')
     A('\tut8 nvals;')
     A('\tst32 vals[USIP_MAXVALS];  /* eq/ne/lt/ge/gt: [v]; in/notin: set; inmask/notinmask: [lo32, hi32] of a 64-bit membership mask;')
-    A('\t                           * range: [lo, hi); ranges: pairs; slot0_excludes_head: [mask, value]; packet_len(_ge) / head_index(_ge): [n];')
+    A('\t                           * range: [lo, hi); ranges: pairs; slot0_excludes_head: [mask, value]; packet_len(_ge) / head_index(_ge) / instr_index: [n];')
     A('\t                           * ctx: [enum usip_ctx_cond]; any: [field, op, value] triplets (enum usip_any_op; field = USIP_NOFIELD when the')
     A('\t                           * sub-operation has none); guard_setcc_tail: the small set; tail_adjacent: [0 | 1]; ieee_short: [significant digits];')
     A('\t                           * in_c48tab: none; br0_cells(_live): [cell mask] with field = rB; bf_valid: none (field = w, field2 = pos);')
@@ -456,7 +485,7 @@ def emit(isa, out_path):
     A(' * packet context (unknown = the constraint fails, except the context conditions and the R-br0 cells, which hold when the')
     A(' * layout is unknown) and, on the 32/48-bit entries, a failure falls through to the next entry of the cell;')
     A(' * USIP_C_GUARD_HEAD_NOT_VALIDATED_BS undoes the pair into two 16-bit ops.  USIP_C_TAIL_ADJACENT, USIP_C_IEEE_SHORT, USIP_C_BF_VALID,')
-    A(' * the context conditions and USIP_C_IN_C48TAB are evaluated by the decoder (see usip_decode.c). */')
+    A(' * USIP_C_INSTR_INDEX, the context conditions and USIP_C_IN_C48TAB are evaluated by the decoder (see usip_decode.c). */')
     for f in forms:
         if f.get('rename_only'):
             A('static const char *const usip_rename_from_%s[] = { %s };' % (cident(f['name']), ', '.join(cstr(x) for x in f.get('rename_from', []))))
@@ -484,6 +513,12 @@ def emit(isa, out_path):
         if f.get('guard_failure') == 'fallthrough': fl.append('USIP_F_GUARDFT')
         if f.get('group') == 'b111': fl.append('USIP_F_B111')
         if f.get('group') == 'f0ctx': fl.append('USIP_F_F0CTX')
+        if f.get('fuse_pair'):
+            fl.append('USIP_F_FUSE'); ctx_index[f['name']] = idx
+        if f.get('split_role'):
+            fl.append('USIP_F_SPLIT'); ctx_index[f['name']] = idx
+            if f['split_role'] == 'bare': fl.append('USIP_F_SPLITBARE')
+            elif f['split_role'] != 'either': raise SystemExit('%s: unknown split_role %r' % (f['name'], f['split_role']))
         flags = ' | '.join(fl) if fl else '0'
         tmpl, nargs, fields = exported_fields(f)
         if len(fields) > MAXFIELDS:
@@ -527,7 +562,7 @@ def emit(isa, out_path):
     A('/* kind names, in enum usip_kind order */')
     A('static const char *const usip_kind_names[] = { ' + ', '.join(cstr(k) for k in kinds) + ' };')
     A('')
-    A('/* context-only forms (matched by the packet decoder only) */')
+    A('/* context-only forms (matched by the packet decoder only), the post-layout split entries and the fusion entries */')
     for nm, idx in sorted(ctx_index.items()):
         A('#define USIP_FORM_%s %d' % (cident(nm).upper(), idx))
     A('')

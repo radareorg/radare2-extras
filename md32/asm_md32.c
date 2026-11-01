@@ -230,18 +230,30 @@ static const Md32PseudoRule usip_rules[] = {
 	{ "trap", 0, "trap()" },
 };
 
-/* ld.w r1, [r2+0x4] -> r1 = dmem32[r2 + 0x4]; st.b r1, [r2]+ -> dmem8[r2] = r1; r2 += 1 */
+/* ld.w r1, [r2+0x4] -> r1 = dmem32[r2 + 0x4]; st.b r1, [r2]+ -> dmem8[r2] = r1; r2 += 1; st.abs r0, [#0xe20014] -> dmem32[0xe20014] = r0;
+ * st.w [sp], #0x35 -> dmem32[sp] = 0x35 (the stores of an immediate: the memory operand comes first) */
 static char *usip_memory_pseudo(const char *name, char **args, int nargs) {
 	const bool load = !strncmp (name, "ld.", 3);
 	if (nargs != 2 || (!load && strncmp (name, "st.", 3))) {
 		return NULL;
 	}
 	const char w = name[3];
-	const int bits = w == 'w'? 32: w == 'h'? 16: w == 'b'? 8: w == 'd'? 64: 0;
+	const int bits = w == 'w'? 32: w == 'h'? 16: w == 'b'? 8: w == 'd'? 64: w == 'a'? 32: 0;   /* .abs: a word */
 	if (!bits) {
 		return NULL;
 	}
 	const bool sign = load && !name[4] && (w == 'h' || w == 'b');   /* ld.h / ld.b: signed; ld.w, ld.d, ld.hu, ld.bu, ld.h?...: left as is */
+	if (!load && args[0][0] == '[' && args[1][0] != '[') {
+		/* store of an immediate: [rB] / [sp], #imm */
+		const char *close = strchr (args[0], ']');
+		if (!close || close[1]) {
+			return NULL;
+		}
+		char *inner = r_str_ndup (args[0] + 1, close - args[0] - 1);
+		char *res = r_str_newf ("dmem%d[%s] = %s", bits, inner, args[1]);
+		free (inner);
+		return res;
+	}
 	const char *mem = strchr (args[1], '[');
 	const char *close = mem? strchr (mem, ']'): NULL;
 	if (!mem || !close || mem != args[1]) {
@@ -284,6 +296,11 @@ static char *usip_pseudo(const char *name, char **args, int nargs) {
 	for (i = 0; i < nargs; i++) {
 		if (args[i][0] == '#') {
 			args[i]++;
+			/* the uncertainty marker of a count (loop#? #256?, last=...) */
+			size_t len = strlen (args[i]);
+			if (len > 1 && args[i][len - 1] == '?') {
+				args[i][len - 1] = 0;
+			}
 		}
 	}
 	char *result = usip_memory_pseudo (name, args, nargs);
