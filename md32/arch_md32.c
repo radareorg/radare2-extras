@@ -26,6 +26,7 @@ static st32 md32_sign(ut32 value, unsigned bits) {
 #define USIP_OPCODES_NO_TABLE
 #include "usip_opcodes.h"
 #include "usip_decode.h"
+#include "scq16_arch.inc.c"
 
 static const char *const gpregs[] = {
 	"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
@@ -1195,6 +1196,10 @@ static bool decode(RArchSession *s, RAnalOp *op, RArchDecodeMask mask) {
 	if (available < 2 || !op->bytes) {
 		return false;
 	}
+	if (scq16_cpu (s)) {
+		op->size = available;
+		return scq16_decode_r2 (s, op, mask);
+	}
 	if (usip_cpu (s)) {
 		op->size = available;
 		return usip_decode (s, op, mask);
@@ -1282,6 +1287,9 @@ static bool decode(RArchSession *s, RAnalOp *op, RArchDecodeMask mask) {
 }
 
 static int info(RArchSession *s, ut32 query) {
+	if (scq16_cpu (s)) {
+		return scq16_info (s, query);
+	}
 	switch (query) {
 	case R_ARCH_INFO_MINOP_SIZE:
 	case R_ARCH_INFO_INVOP_SIZE:
@@ -1298,6 +1306,9 @@ static int info(RArchSession *s, ut32 query) {
 }
 
 static char *regs(RArchSession *s) {
+	if (scq16_cpu (s)) {
+		return scq16_regprofile (s);
+	}
 	if (usip_cpu (s)) {
 		// uSIP ABI (reverse-engineered): r14 = SP, r15 = LR, arguments r0-r7, return r0 (r0:r1), callee-saved
 		// r8-r10, r12, r13 (save/restore sets); the second register bank (rN!) and the 72-bit accumulators are
@@ -1335,12 +1346,12 @@ static char *regs(RArchSession *s) {
 RArchPlugin r_arch_plugin_md32 = {
 	.meta = {
 		.name = "md32",
-		.desc = "MediaTek MD32 (MS15E30) and uSIP (VLIW packets)",
+		.desc = "MediaTek MD32 (MS15E30), uSIP (VLIW packets) and SCQ16 (byte-granular packets)",
 		.author = "pancake",
 		.license = "LGPL-3.0-only",
 	},
 	.arch = "md32",
-	.cpus = "md32,ms15e30,usip",
+	.cpus = "md32,ms15e30,usip,scq16",
 	.bits = R_SYS_BITS_PACK1 (32),
 	.addr_bits = R_SYS_BITS_PACK1 (32),
 	.endian = R_SYS_ENDIAN_BIG,
@@ -1349,6 +1360,7 @@ RArchPlugin r_arch_plugin_md32 = {
 	.decode = decode,
 	.info = info,
 	.regs = regs,
+	.esilcb = scq16_esilcb,
 };
 
 #ifndef R2_PLUGIN_INCORE
