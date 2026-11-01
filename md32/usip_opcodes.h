@@ -23,6 +23,7 @@ enum usip_arg_type {
 	USIP_A_OFFH,
 	USIP_A_OFFW,
 	USIP_A_LOOPN,
+	USIP_A_OFFB,
 };
 
 enum usip_kind {
@@ -97,30 +98,52 @@ enum usip_cons_op {
 	USIP_C_TAIL_ADJACENT,
 	USIP_C_IEEE_SHORT,
 	USIP_C_IN_C48TAB,
+	USIP_C_GUARD_TARGET_PK_ANY_OR_FN,
+	USIP_C_GUARD_TAIL_NAMED16,
+	USIP_C_BR0_CELLS,
+	USIP_C_BR0_CELLS_LIVE,
+	USIP_C_BF_VALID,
+	USIP_C_IN_SET,
+	USIP_C_NOTIN_SET,
 };
 
 /* sub-operations of USIP_C_ANY: vals = { field, op, value } triplets (up to 3), true when one of them holds;
- * inmask/notinmask: value = membership mask of the field value (bit n = value n); tail_adjacent: value = 0 / 1 (no field) */
-enum usip_any_op { USIP_ANY_EQ, USIP_ANY_NE, USIP_ANY_LT, USIP_ANY_GE, USIP_ANY_GT, USIP_ANY_INMASK, USIP_ANY_NOTINMASK, USIP_ANY_TAIL_ADJACENT };
+ * inmask/notinmask: value = membership mask of the field value (bit n = value n); tail_adjacent: value = 0 / 1 (no field);
+ * packet_len: value = the packet length (no field); guard: value = enum usip_guard_id (no field; a target guard inside an
+ * any is evaluated by the context rule of the entry); range: value = lo | hi << 16 (lo <= field < hi);
+ * br0_cells / br0_cells_live: value = cell mask (see USIP_C_BR0_CELLS), field = rB */
+enum usip_any_op { USIP_ANY_EQ, USIP_ANY_NE, USIP_ANY_LT, USIP_ANY_GE, USIP_ANY_GT, USIP_ANY_INMASK, USIP_ANY_NOTINMASK, USIP_ANY_TAIL_ADJACENT,
+	USIP_ANY_PACKET_LEN, USIP_ANY_GUARD, USIP_ANY_RANGE, USIP_ANY_BR0_CELLS, USIP_ANY_BR0_CELLS_LIVE };
+
+/* guards that may appear inside USIP_C_ANY (USIP_ANY_GUARD) */
+enum usip_guard_id { USIP_GD_TAIL_NOT_NAMED16, USIP_GD_TARGET_PACKET_START };
 
 /* named context conditions of USIP_C_CTX (vals[0]): not the extension word of an op 6/7 head; some `cop rA` with the same rA in the
- * packet; the tail is not 5ffd followed by bfff/ffff (the 48-bit constant 0x7fff7fff) */
-enum usip_ctx_cond { USIP_CTX_NOT_EXT_OF_OP67, USIP_CTX_COP_RA_IN_PACKET, USIP_CTX_NOT_C48_LO_FOLLOWS };
+ * packet; the tail is not 5ffd followed by bfff/ffff (the 48-bit constant 0x7fff7fff); the ld.bu / st.b pair of type 111 only in
+ * the 2-unit head + tail packet or in the H H T T layout (never an O syllable after an op 7 head); the second head of H H T T
+ * after a named ld/st; the [head][head-shaped unit][F' = 0 tail at +2] triple; the bit-field pair layout; no other WAW-kind
+ * instruction of the packet writes rB; unit 1 between a DSP head and its tail; the rest of the packet named without a ? */
+enum usip_ctx_cond { USIP_CTX_NOT_EXT_OF_OP67, USIP_CTX_COP_RA_IN_PACKET, USIP_CTX_NOT_C48_LO_FOLLOWS, USIP_CTX_B111_LAYOUT,
+	USIP_CTX_HHTT_SECOND_HEAD, USIP_CTX_F0D_TRIPLE, USIP_CTX_BFPAIR, USIP_CTX_BF_DST_NOT_WRITTEN, USIP_CTX_BETWEEN_DSP_HEAD_AND_TAIL,
+	USIP_CTX_REST_NAMED_NO_Q };
 
 #define USIP_F_SLOT0     0x001  /* only valid as the first unit of a packet */
 #define USIP_F_NOTSLOT0  0x002  /* never the first unit of a packet */
-#define USIP_F_CTX       0x004  /* context rule: never matched directly (bz.s P4, the R7 slot forms) */
+#define USIP_F_CTX       0x004  /* context rule: never matched directly (bz.s P4/P5, the R7 slot forms, the hhtt / b111 / f0ctx groups) */
 #define USIP_F_DELAY     0x008  /* rest of the packet is a delay slot when the instruction does not close it */
 #define USIP_F_ADJ1      0x010  /* tail must be the next unit */
 #define USIP_F_ADJCTRL   0x020  /* tail at +1 (S=1) or +2 (S=0) */
 #define USIP_F_NAMED     0x040  /* operation known (not format-only) */
 #define USIP_F_NOTAIL    0x080  /* 16-bit op that never takes a tail (ret/save/restore) */
-#define USIP_F_ADJ2      0x100  /* control tail with F' = 0 EXACTLY at +2 (the unit in between is the delay slot); any other distance = .word (loop# with F = 1 at +1: two 16-bit ops) */
+#define USIP_F_ADJ2      0x100  /* control tail with F' = 0 EXACTLY at +2 (the unit in between is the delay slot); any other distance = .word (loop# with F = 1 at +1, and a ld/st entry: two 16-bit ops) */
 #define USIP_F_UNKNOWN16 0x200  /* 16-bit shape that does not count as a named 16-bit op (loose syllables, .hword, stand-alone closers) */
 #define USIP_F_ADJDEF    0x400  /* the tail must be at +2 or FARTHER; an adjacent tail undoes the pair into two 16-bit ops */
 #define USIP_F_PREFIX    0x800  /* packet-prefix entry (48/64-bit b<cond>.l): matched on the first units of the packet BEFORE the layout, with its target guard; a failing guard = not taken (never .word); the rest of the packet is its delay slot */
 #define USIP_F_RENAME    0x1000 /* post-layout rename: never used by the packet parser; once the layout is decided, an instruction whose reading is one of rename_from (mnemonic or @kind) and whose units match the entry and its constraints takes its name */
 #define USIP_F_HHTT      0x2000 /* context entry admitted only inside the H H T T candidate of a 4-unit packet */
+#define USIP_F_GUARDFT   0x4000 /* a failing target guard falls through to the next entry of the cell (no entry left: two 16-bit ops), never .word */
+#define USIP_F_B111      0x8000 /* context entry (ld.bu / st.b with a named 16-bit tail) admitted in the 2-unit head + tail packet and inside the H H T T candidate */
+#define USIP_F_F0CTX     0x10000 /* context entry tried by the decoder when an op 0 head with its F' = 0 tail at +2 reads .word (never by the pairing) */
 
 #define USIP_BITS_ZERO(n)  { 0xff, (n) }   /* n implicit zero bits in the operand value */
 #define USIP_MAXRANGES 8
@@ -129,6 +152,10 @@ enum usip_ctx_cond { USIP_CTX_NOT_EXT_OF_OP67, USIP_CTX_COP_RA_IN_PACKET, USIP_C
 #define USIP_MAXVALS 12
 #define USIP_NOFIELD 0xff
 
+/* USIP_C_BR0_CELLS / USIP_C_BR0_CELLS_LIVE: vals[0] = mask of the admitted (B class, tail distance) cells of the F = 0 branch head:
+ * bit 2 * class + distance - 1, class 0 = B == 0, 1 = B == 15, 2 = any other B, distance 1 / 2 (the tail at +1 or +2) */
+#define USIP_BR0_BIT(cls, dist) (1 << (2 * (cls) + (dist) - 1))
+
 typedef struct { ut8 hi, lo; } UsipBits;
 typedef struct {
 	const char *name;   /* operand name in usip_isa.json */
@@ -136,7 +163,7 @@ typedef struct {
 	ut8 nranges;
 	UsipBits r[USIP_MAXRANGES];  /* MSB first, concatenated */
 	ut8 nbits;          /* rotimm/urot: rotation width; 0 = total bits */
-	ut8 scale;          /* imm/simm/disp/udisp: multiplier (2 = halfword units, 4 = words); offh/offw/loopn/movhi have their own formula */
+	ut8 scale;          /* imm/simm/disp/udisp: multiplier (2 = halfword units, 4 = words); offh/offw/offb/loopn/movhi have their own formula */
 	ut32 base;          /* absaddr: OR-ed segment base; disp: pc offset of the target; reg/imm/udisp/...: constant ADDED to the field value */
 } UsipField;
 
@@ -146,8 +173,10 @@ typedef struct {
 	ut8 nvals;
 	st32 vals[USIP_MAXVALS];  /* eq/ne/lt/ge/gt: [v]; in/notin: set; inmask/notinmask: [lo32, hi32] of a 64-bit membership mask;
 	                           * range: [lo, hi); ranges: pairs; slot0_excludes_head: [mask, value]; packet_len(_ge) / head_index(_ge): [n];
-	                           * ctx: [enum usip_ctx_cond]; any: [field, op, value] triplets (enum usip_any_op; field = USIP_NOFIELD for tail_adjacent);
-	                           * guard_setcc_tail: the small set; tail_adjacent: [0 | 1]; ieee_short: [significant digits]; in_c48tab: none */
+	                           * ctx: [enum usip_ctx_cond]; any: [field, op, value] triplets (enum usip_any_op; field = USIP_NOFIELD when the
+	                           * sub-operation has none); guard_setcc_tail: the small set; tail_adjacent: [0 | 1]; ieee_short: [significant digits];
+	                           * in_c48tab: none; br0_cells(_live): [cell mask] with field = rB; bf_valid: none (field = w, field2 = pos);
+	                           * in_set / notin_set: [index into usip_value_sets] (the sets too large for vals) */
 } UsipCons;
 
 typedef struct usip_opcode_t {
@@ -157,7 +186,7 @@ typedef struct usip_opcode_t {
 	ut64 mask;
 	ut8 width;          /* 16, 32, 48, 64 (the 64-bit packet-prefix entries) */
 	ut8 nunits;
-	ut16 flags;         /* USIP_F_* */
+	ut32 flags;         /* USIP_F_* */
 	ut8 kind;           /* enum usip_kind */
 	ut8 conf;           /* enum usip_conf */
 	const char *fmt;    /* operand template: {N} = fields[N], {N:text} = text when flag fields[N] is 1 */
@@ -173,12 +202,14 @@ typedef struct usip_opcode_t {
 #ifndef USIP_OPCODES_NO_TABLE  /* define it to get the types and enums only */
 /* The table is ORDERED: the first entry of the right width whose (units & mask) == value, whose flags allow the slot
  * and whose constraints hold is the reading.  The target guards (USIP_C_GUARD_TARGET_*) are evaluated by the decoder
- * AFTER the match: for 32-bit entries a failing guard makes the pair .word (no fall-through), for 16-bit entries it
- * falls through to the next entry; for the USIP_F_PREFIX entries a failing guard means the entry is not taken.  The
- * position / length constraints (USIP_C_PACKET_LEN(_GE), USIP_C_HEAD_INDEX(_GE), USIP_C_CTX) need the packet context
- * (unknown = the constraint fails) and, on the 32/48-bit entries, a failure falls through to the next entry of the cell;
- * USIP_C_GUARD_HEAD_NOT_VALIDATED_BS undoes the pair into two 16-bit ops.  USIP_C_TAIL_ADJACENT, USIP_C_IEEE_SHORT, the context
- * conditions and USIP_C_IN_C48TAB are evaluated by the decoder (see usip_decode.c). */
+ * AFTER the match: for 32-bit entries a failing guard makes the pair .word (no fall-through) unless the entry carries
+ * USIP_F_GUARDFT (then the next entry of the cell is tried; none left = two 16-bit ops), for 16-bit entries it falls
+ * through to the next entry; for the USIP_F_PREFIX entries a failing guard means the entry is not taken.  The
+ * position / length constraints (USIP_C_PACKET_LEN(_GE), USIP_C_HEAD_INDEX(_GE), USIP_C_CTX, USIP_C_BR0_CELLS) need the
+ * packet context (unknown = the constraint fails, except the context conditions and the R-br0 cells, which hold when the
+ * layout is unknown) and, on the 32/48-bit entries, a failure falls through to the next entry of the cell;
+ * USIP_C_GUARD_HEAD_NOT_VALIDATED_BS undoes the pair into two 16-bit ops.  USIP_C_TAIL_ADJACENT, USIP_C_IEEE_SHORT, USIP_C_BF_VALID,
+ * the context conditions and USIP_C_IN_C48TAB are evaluated by the decoder (see usip_decode.c). */
 static const char *const usip_rename_from_ld_w16_A_k0[] = { ".sub?" };
 static const char *const usip_rename_from_nop_ctl[] = { ".ctl15", ".hword" };
 static const char *const usip_rename_from_lsl16_S0[] = { ".hword" };
@@ -194,11 +225,27 @@ static const char *const usip_rename_from_x1e0_ld_h_q[] = { ".1eX0" };
 static const char *const usip_rename_from_x1e0_ld_hu_q[] = { ".1eX0" };
 static const char *const usip_rename_from_op7e_0_bset_r[] = { ".7e" };
 static const char *const usip_rename_from_op7e_6_bext_r[] = { ".7e" };
+static const char *const usip_rename_from_bfsel_fup[] = { ".bf?" };
+static const char *const usip_rename_from_bfsel_fup_q[] = { ".bf?" };
+static const char *const usip_rename_from_bfsel_fxtu[] = { ".bf?" };
+static const char *const usip_rename_from_bfsel_fxtu_q[] = { ".bf?" };
+static const char *const usip_rename_from_bfsel_fxts_q[] = { ".bf?" };
 static const char *const usip_rename_from_ldF0_q_t1_adj[] = { ".word" };
 static const char *const usip_rename_from_ldF0_q_t2_adj[] = { ".word" };
 static const char *const usip_rename_from_ld_h_q_Fp0[] = { ".word" };
 static const char *const usip_rename_from_ld_hu_q_Fp0[] = { ".word" };
+static const char *const usip_rename_from_spfix_add_sp[] = { "ld.w" };
+static const char *const usip_rename_from_spfix_sub_sp[] = { ".ldF0?", "ld.h?" };
+static const char *const usip_rename_from_negq_ld_w_c1[] = { "ld.w" };
+static const char *const usip_rename_from_negq_ld_w_c3[] = { "ld.w" };
+static const char *const usip_rename_from_negq_st_w_c1[] = { "st.w" };
+static const char *const usip_rename_from_negq_st_w_c3[] = { "st.w" };
 static const char *const usip_rename_from_x3eX0_q[] = { "mov32", "add" };
+/* the large value sets of USIP_C_IN_SET / USIP_C_NOTIN_SET (sorted), by index */
+static const st32 usip_set_0[94] = { 2081, 2085, 2086, 2089, 2100, 2101, 2103, 2104, 2105, 2109, 2111, 2114, 2116, 2117, 2118, 2120, 2124, 2125, 2130, 2132, 2136, 2140, 2141, 2144, 2145, 2146, 2148, 2160, 2165, 2168, 2172, 2176, 2181, 2188, 2204, 2208, 2210, 2216, 2224, 2228, 2229, 2236, 2240, 2244, 2256, 2260, 2261, 2272, 2274, 2276, 2280, 2288, 2290, 2292, 2304, 2306, 2308, 2312, 2317, 2324, 2328, 2332, 2336, 2341, 2343, 2351, 2354, 2368, 2373, 2400, 2401, 2432, 2433, 2440, 2456, 2464, 2501, 2512, 2524, 2528, 2560, 2564, 2576, 2584, 2588, 2636, 2652, 2712, 2752, 2772, 2802, 2816, 2892, 3008 };
+static const st32 usip_set_1[16] = { 56, 60, 68, 72, 82, 100, 104, 112, 120, 124, 136, 144, 152, 272, 452, 524 };
+typedef struct { const st32 *v; ut16 n; } UsipValueSet;
+static const UsipValueSet usip_value_sets[2] = { { usip_set_0, 94 }, { usip_set_1, 16 } };
 static const UsipOpcode usip_opcodes[] = {
 	/* ret: return (pc = r15) */
 	{ "ret", "ret", 0x9ef9ULL, 0xbfffULL, 16, 1,
@@ -211,6 +258,14 @@ static const UsipOpcode usip_opcodes[] = {
 	/* ret_s: return with synchronisation after CSR writes */
 	{ "ret.s", "ret_s", 0x5ef1ULL, 0x7fffULL, 16, 1,
 	  USIP_F_NAMED, USIP_K_RET, USIP_CONF_MEDIUM, "", 0, 0, {
+	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	/* ret_s_d: return with synchronisation; the rest of the packet is the delay slot (1ef1 = ret.s with F = 0 and bit 15 = 0: */
+	{ "ret.s.d", "ret_s_d", 0x1ef1ULL, 0xffffULL, 16, 1,
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_NAMED, USIP_K_RET, USIP_CONF_MEDIUM, "", 0, 0, {
+	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	/* ret_s_F0: return with synchronisation, F = 0 closer */
+	{ "ret.s", "ret_s_F0", 0x9ef1ULL, 0xffffULL, 16, 1,
+	  USIP_F_SLOT0 | USIP_F_NAMED, USIP_K_RET, USIP_CONF_LOW, "", 0, 0, {
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* save: push callee-saved set w (+LR); exact frame size open */
 	{ "save", "save", 0x5f05ULL, 0x7f0fULL, 16, 1,
@@ -248,8 +303,9 @@ static const UsipOpcode usip_opcodes[] = {
 	{ "b.s", "b_s_open", 0x5c01ULL, 0xde07ULL, 16, 1,
 	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_NAMED, USIP_K_BR16D, USIP_CONF_MEDIUM, "{0}", 1, 1, {
 		{ "disp", USIP_A_DISP, 2, { {13, 13}, {8, 3} }, 0, 2, 0 },
-	  }, 1, {
+	  }, 2, {
 		{ USIP_C_NE, 0, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_FN_OR_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* call_s_S0: short call with bit 15 = 0: r15 = return address (next packet), delay slot = rest of the packet */
 	{ "call.s", "call_s_S0", 0x1c05ULL, 0x9e07ULL, 16, 1,
@@ -331,6 +387,14 @@ static const UsipOpcode usip_opcodes[] = {
 	/* movi_m1_F1: rA = -1 (16-bit closer; replaces the st.h r15, [rA] reading of the half-word class) */
 	{ "movi", "movi_m1_F1", 0xc1ffULL, 0xf1ffULL, 16, 1,
 	  USIP_F_NAMED, USIP_K_MOVI, USIP_CONF_HIGH, "{0}, #-1", 1, 2, {
+		{ "rA", USIP_A_REG, 1, { {11, 9} }, 0, 1, 0 },
+		{ "rrr", USIP_A_REG, 1, { {11, 9} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_NE, 1, USIP_NOFIELD, 1, { 7 } },
+	  }, NULL, 0 },
+	/* movi_m1_F0_S0: rA = -1 with F = 0 and bit 15 = 0 (the packet continues): the F = 0 form of movi #-1 (R-movi6F0) */
+	{ "movi", "movi_m1_F0_S0", 0x01ffULL, 0xf1ffULL, 16, 1,
+	  USIP_F_NAMED, USIP_K_MOVI, USIP_CONF_MEDIUM, "{0}, #-1", 1, 2, {
 		{ "rA", USIP_A_REG, 1, { {11, 9} }, 0, 1, 0 },
 		{ "rrr", USIP_A_REG, 1, { {11, 9} }, 0, 1, 0 },
 	  }, 1, {
@@ -546,7 +610,7 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "rA", USIP_A_REG, 2, { {12, 12}, {11, 9} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* r15_r15_ldst16_hword: ld.w/st.w r15,[r15+off] of 16 bits is not a form (R-r15): head of a short backward b/call; unnamed */
-	{ ".hword", "r15_r15_ldst16_hword", 0x3ff2ULL, 0x3ff3ULL, 16, 1,
+	{ ".hword", "r15_r15_ldst16_hword", 0x3ef2ULL, 0x3ef3ULL, 16, 1,
 	  0, USIP_K_OTHER, USIP_CONF_FORMAT, "", 0, 0, {
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* mfacc_q_C_k2: rA = word part of accumulator Ak (cell C by position: closer at unit index >= 2 with rrr > 0 and B <= 11; othe */
@@ -598,13 +662,13 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* ld_w16_a_h0x0: ld.w rB, [rA+12] */
 	{ "ld.w", "ld_w16_a_h0x0", 0x400aULL, 0x710fULL, 16, 1,
-	  USIP_F_NAMED, USIP_K_MEM16, USIP_CONF_MEDIUM, "{0}, [{1}+12]", 2, 2, {
+	  USIP_F_NAMED | USIP_F_UNKNOWN16, USIP_K_MEM16, USIP_CONF_MEDIUM, "{0}, [{1}+12]", 2, 2, {
 		{ "rB", USIP_A_REG, 1, { {7, 4} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 1, { {11, 9} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* ld_w16_a_h0x1: ld.w rB, [rA+20] */
 	{ "ld.w", "ld_w16_a_h0x1", 0x410aULL, 0x710fULL, 16, 1,
-	  USIP_F_NAMED, USIP_K_MEM16, USIP_CONF_MEDIUM, "{0}, [{1}+20]", 2, 2, {
+	  USIP_F_NAMED | USIP_F_UNKNOWN16, USIP_K_MEM16, USIP_CONF_MEDIUM, "{0}, [{1}+20]", 2, 2, {
 		{ "rB", USIP_A_REG, 1, { {7, 4} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 1, { {11, 9} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
@@ -664,13 +728,13 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* st_w16_e_h0x0: st.w rB, [rA+12] */
 	{ "st.w", "st_w16_e_h0x0", 0x400eULL, 0x710fULL, 16, 1,
-	  USIP_F_NAMED, USIP_K_MEM16, USIP_CONF_MEDIUM, "{0}, [{1}+12]", 2, 2, {
+	  USIP_F_NAMED | USIP_F_UNKNOWN16, USIP_K_MEM16, USIP_CONF_MEDIUM, "{0}, [{1}+12]", 2, 2, {
 		{ "rB", USIP_A_REG, 1, { {7, 4} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 1, { {11, 9} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* st_w16_e_h0x1: st.w rB, [rA+20] */
 	{ "st.w", "st_w16_e_h0x1", 0x410eULL, 0x710fULL, 16, 1,
-	  USIP_F_NAMED, USIP_K_MEM16, USIP_CONF_MEDIUM, "{0}, [{1}+20]", 2, 2, {
+	  USIP_F_NAMED | USIP_F_UNKNOWN16, USIP_K_MEM16, USIP_CONF_MEDIUM, "{0}, [{1}+20]", 2, 2, {
 		{ "rB", USIP_A_REG, 1, { {7, 4} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 1, { {11, 9} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
@@ -698,13 +762,38 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "rB", USIP_A_REG, 1, { {7, 4} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {12, 12}, {11, 9} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
-	/* addi4: r(rrr) += sext4(B) */
-	{ "addi", "addi4", 0x0002ULL, 0x300fULL, 16, 1,
-	  USIP_F_NAMED, USIP_K_ALU, USIP_CONF_HIGH, "{0}{1:!}, #{2}", 3, 3, {
+	/* lsl16_imm: rA = rA << B (in-place shift by immediate: the 16-bit op 2 with m = h = 0; x = direction, NOT a bank bit; R-op */
+	{ "lsl", "lsl16_imm", 0x0002ULL, 0x310fULL, 16, 1,
+	  USIP_F_NAMED, USIP_K_ALU, USIP_CONF_HIGH, "{0}, #{1}", 2, 2, {
 		{ "rA", USIP_A_REG, 1, { {11, 9} }, 0, 1, 0 },
-		{ "x", USIP_A_FLAG, 1, { {8, 8} }, 0, 1, 0 },
-		{ "imm4", USIP_A_SIMM, 1, { {7, 4} }, 0, 1, 0 },
-	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+		{ "sh", USIP_A_IMM, 1, { {7, 4} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_IN, 1, USIP_NOFIELD, 3, { 1, 2, 15 } },
+	  }, NULL, 0 },
+	/* lsl16_imm_q: rA = rA << B (the same shift in the cells without idiom: B = 0 and the double-write cells; reads ld.w r1, [rA+ */
+	{ "lsl?", "lsl16_imm_q", 0x0002ULL, 0x310fULL, 16, 1,
+	  USIP_F_NAMED, USIP_K_ALU, USIP_CONF_MEDIUM, "{0}, #{1}", 2, 2, {
+		{ "rA", USIP_A_REG, 1, { {11, 9} }, 0, 1, 0 },
+		{ "sh", USIP_A_IMM, 1, { {7, 4} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_NOTIN, 1, USIP_NOFIELD, 3, { 1, 2, 15 } },
+	  }, NULL, 0 },
+	/* asr16_imm: rA = rA >> B (arithmetic) (in-place shift by immediate: the 16-bit op 2 with m = h = 0; x = direction, NOT a b */
+	{ "asr", "asr16_imm", 0x0102ULL, 0x310fULL, 16, 1,
+	  USIP_F_NAMED, USIP_K_ALU, USIP_CONF_HIGH, "{0}, #{1}", 2, 2, {
+		{ "rA", USIP_A_REG, 1, { {11, 9} }, 0, 1, 0 },
+		{ "sh", USIP_A_IMM, 1, { {7, 4} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_IN, 1, USIP_NOFIELD, 2, { 14, 15 } },
+	  }, NULL, 0 },
+	/* asr16_imm_q: rA = rA >> B (arithmetic) (the same shift in the cells without idiom: B = 0 and the double-write cells; reads  */
+	{ "asr?", "asr16_imm_q", 0x0102ULL, 0x310fULL, 16, 1,
+	  USIP_F_NAMED, USIP_K_ALU, USIP_CONF_MEDIUM, "{0}, #{1}", 2, 2, {
+		{ "rA", USIP_A_REG, 1, { {11, 9} }, 0, 1, 0 },
+		{ "sh", USIP_A_IMM, 1, { {7, 4} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_NOTIN, 1, USIP_NOFIELD, 2, { 14, 15 } },
+	  }, NULL, 0 },
 	/* alu16_op2_open: op 2 with F=0 and (m,h) != except m=1 x=1: unnamed */
 	{ ".alu16", "alu16_op2_open", 0x0002ULL, 0x400fULL, 16, 1,
 	  0, USIP_K_OTHER, USIP_CONF_FORMAT, "", 0, 0, {
@@ -778,6 +867,15 @@ static const UsipOpcode usip_opcodes[] = {
 		{ USIP_C_PACKET_LEN, USIP_NOFIELD, USIP_NOFIELD, 1, { 2 } },
 		{ USIP_C_NOTIN, 0, USIP_NOFIELD, 2, { 14, 15 } },
 	  }, NULL, 0 },
+	/* bz_s_P5: bz.s rA, pc + 2*(d6 - 64*D): the bit-3 = 0 twin of P4 (4X?5/6X?5 with bit 15 = 0) in the first slot; delay slo */
+	{ "bz.s", "bz_s_P5", 0x4005ULL, 0xc00fULL, 16, 1,
+	  USIP_F_SLOT0 | USIP_F_CTX | USIP_F_DELAY | USIP_F_NAMED, USIP_K_BR16D, USIP_CONF_HIGH, "{0}, {1}", 2, 2, {
+		{ "rA", USIP_A_REG, 2, { {12, 12}, {11, 9} }, 0, 1, 0 },
+		{ "disp", USIP_A_DISP, 2, { {13, 13}, {8, 3} }, 0, 2, 0 },
+	  }, 2, {
+		{ USIP_C_NOTIN, 0, USIP_NOFIELD, 2, { 14, 15 } },
+		{ USIP_C_ANY, USIP_NOFIELD, USIP_NOFIELD, 6, { 255, 8, 2, 255, 9, 1 } },
+	  }, NULL, 0 },
 	/* addsp: r14 += 4 * sext7(m:x:B:o3): frame reservation (negative) / release of 68-252 bytes (addi r14, #simm7 covers <= */
 	{ "addsp", "addsp", 0x9c00ULL, 0xde07ULL, 16, 1,
 	  USIP_F_NAMED | USIP_F_UNKNOWN16, USIP_K_ALU, USIP_CONF_HIGH, "#{0}", 1, 2, {
@@ -843,6 +941,24 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "x", USIP_A_FLAG, 1, { {8, 8} }, 0, 1, 0 },
 		{ "k", USIP_A_IMM, 4, { {13, 13}, {12, 12}, {11, 9}, {3, 3} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	/* ldslot_S0_m1: ldslot rB(!x), #k with m = 1 (k >= 32) and bit 15 = 0 opening a packet whose other instructions are all named  */
+	{ "ldslot", "ldslot_S0_m1", 0x6008ULL, 0xe00fULL, 16, 1,
+	  USIP_F_SLOT0 | USIP_F_CTX | USIP_F_NAMED | USIP_F_UNKNOWN16, USIP_K_LD, USIP_CONF_MEDIUM, "{0}{1:!}, #{2}", 3, 3, {
+		{ "rB", USIP_A_REG, 1, { {7, 4} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {8, 8} }, 0, 1, 0 },
+		{ "k", USIP_A_IMM, 4, { {13, 13}, {12, 12}, {11, 9}, {3, 3} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 9 } },
+	  }, NULL, 0 },
+	/* stslot_S0_m1: stslot rB(!x), #k with m = 1 (k >= 32) and bit 15 = 0 opening a packet whose other instructions are all named  */
+	{ "stslot", "stslot_S0_m1", 0x6004ULL, 0xe007ULL, 16, 1,
+	  USIP_F_SLOT0 | USIP_F_CTX | USIP_F_NAMED | USIP_F_UNKNOWN16, USIP_K_ST, USIP_CONF_MEDIUM, "{0}{1:!}, #{2}", 3, 3, {
+		{ "rB", USIP_A_REG, 1, { {7, 4} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {8, 8} }, 0, 1, 0 },
+		{ "k", USIP_A_IMM, 4, { {13, 13}, {12, 12}, {11, 9}, {3, 3} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 9 } },
+	  }, NULL, 0 },
 	/* slot_q: slot-family closer inside a multi-unit packet: random profile, probably a tail of another head */
 	{ ".slot?", "slot_q", 0xc000ULL, 0xc003ULL, 16, 1,
 	  USIP_F_UNKNOWN16, USIP_K_FMT, USIP_CONF_FORMAT, "{0}{1:!}, #{2}", 3, 3, {
@@ -1249,76 +1365,114 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* beq_imm8_d: branch if rA == rhs; delay slot = rest of packet */
 	{ "beq.d", "beq_imm8_d", 0x00095000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 4, {
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 4, {
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
-	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* blt_imm8_d: branch if rA < rhs (signed); delay slot = rest of packet */
 	{ "blt.d", "blt_imm8_d", 0x00097000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 4, {
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 4, {
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
-	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* bltu_imm8_d: branch if rA < rhs (unsigned); delay slot = rest of packet */
 	{ "bltu.d", "bltu_imm8_d", 0x00087000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 4, {
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 4, {
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
-	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* bgtu_imm8_d: branch if rA > imm8 (unsigned); delay slot = rest of packet */
 	{ "bgtu.d", "bgtu_imm8_d", 0x000a5000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 4, {
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 4, {
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
-	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
+	/* bgt_imm8_d: branch if rA > imm8 (signed); delay slot = rest of packet */
+	{ "bgt.d", "bgt_imm8_d", 0x000a7000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 4, {
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
+		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* bne_rr_d: branch if rA != rB; delay slot */
 	{ "bne.d", "bne_rr_d", 0x000d4000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, {2}, {3}", 4, 4, {
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, {2}, {3}", 4, 4, {
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {11, 1} }, 0, 2, 0 },
-	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* beq_rr_d: branch if rA == rB; delay slot */
 	{ "beq.d", "beq_rr_d", 0x000d5000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, {2}, {3}", 4, 4, {
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, {2}, {3}", 4, 4, {
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {11, 1} }, 0, 2, 0 },
-	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* ble_rr_d: branch if rA <= rB (signed); delay slot */
 	{ "ble.d", "ble_rr_d", 0x000d6000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, {2}, {3}", 4, 4, {
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, {2}, {3}", 4, 4, {
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {11, 1} }, 0, 2, 0 },
-	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* blt_rr_d: branch if rA < rB (signed); delay slot */
 	{ "blt.d", "blt_rr_d", 0x000d7000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, {2}, {3}", 4, 4, {
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, {2}, {3}", 4, 4, {
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {11, 1} }, 0, 2, 0 },
-	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* bltu_rr_d: branch if rA < rB (unsigned) */
 	{ "bltu.d", "bltu_rr_d", 0x000c7000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, {2}, {3}", 4, 4, {
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, {2}, {3}", 4, 4, {
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {11, 1} }, 0, 2, 0 },
-	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* bnez: branch if rA != 0 */
 	{ "bnez", "bnez", 0x400cc000ULL, 0xc00ff000ULL, 32, 2,
 	  USIP_F_SLOT0 | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, {2}", 3, 3, {
@@ -1335,11 +1489,13 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* bne_d_m1: bne.d rA, #-1 (F=S=0 cell of op 9 t=00 with imm8 = -1 only) */
 	{ "bne.d", "bne_d_m1", 0x01f94e00ULL, 0xc1fffe00ULL, 32, 2,
-	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #-1, {2}", 3, 3, {
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #-1, {2}", 3, 3, {
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
-	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	  }, 1, {
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* bne_imm8_s0f1: branch if rA != rhs; delay slot = the rest of the packet (tail S = 0, F' = 1 at +2: R-bcc2) */
 	{ "bne.d", "bne_imm8_s0f1", 0x40094000ULL, 0xc00ff000ULL, 32, 2,
 	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_NAMED | USIP_F_ADJ2, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 5, {
@@ -1348,8 +1504,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* beq_imm8_s0f1: branch if rA == rhs; delay slot = the rest of the packet (tail S = 0, F' = 1 at +2: R-bcc2) */
@@ -1360,8 +1517,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* ble_imm8_s0f1: branch if rA <= rhs (signed); delay slot = the rest of the packet (tail S = 0, F' = 1 at +2: R-bcc2) */
@@ -1372,8 +1530,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* blt_imm8_s0f1: branch if rA < rhs (signed); delay slot = the rest of the packet (tail S = 0, F' = 1 at +2: R-bcc2) */
@@ -1384,8 +1543,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* bne.u8_imm8_s0f1: branch if rA != imm8 (unsigned); delay slot = the rest of the packet (tail S = 0, F' = 1 at +2: R-bcc2) */
@@ -1396,8 +1556,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "imm8", USIP_A_IMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* beq.u8_imm8_s0f1: branch if rA == imm8 (unsigned); delay slot = the rest of the packet (tail S = 0, F' = 1 at +2: R-bcc2) */
@@ -1408,8 +1569,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "imm8", USIP_A_IMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* bleu_imm8_s0f1: branch if rA <= rhs (unsigned); delay slot = the rest of the packet (tail S = 0, F' = 1 at +2: R-bcc2) */
@@ -1420,8 +1582,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* bltu_imm8_s0f1: branch if rA < rhs (unsigned); delay slot = the rest of the packet (tail S = 0, F' = 1 at +2: R-bcc2) */
@@ -1432,8 +1595,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* bgeu_imm8_s0f1: branch if rA >= imm8 (unsigned); delay slot = the rest of the packet (tail S = 0, F' = 1 at +2: R-bcc2) */
@@ -1444,8 +1608,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* bgtu_imm8_s0f1: branch if rA > imm8 (unsigned); delay slot = the rest of the packet (tail S = 0, F' = 1 at +2: R-bcc2) */
@@ -1456,8 +1621,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* bge_imm8_s0f1: branch if rA >= imm8 (signed); delay slot = the rest of the packet (tail S = 0, F' = 1 at +2: R-bcc2) */
@@ -1468,8 +1634,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* bgt_imm8_s0f1: branch if rA > imm8 (signed); delay slot = the rest of the packet (tail S = 0, F' = 1 at +2: R-bcc2) */
@@ -1480,8 +1647,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* bne_rr_s0f1: branch if rA != rB; delay slot = the rest of the packet (R-bcc2) */
@@ -1492,8 +1660,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {11, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* beq_rr_s0f1: branch if rA == rB; delay slot = the rest of the packet (R-bcc2) */
@@ -1504,8 +1673,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {11, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* ble_rr_s0f1: branch if rA <= rB (signed); delay slot = the rest of the packet (R-bcc2) */
@@ -1516,8 +1686,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {11, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* blt_rr_s0f1: branch if rA < rB (signed); delay slot = the rest of the packet (R-bcc2) */
@@ -1528,8 +1699,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {11, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* bleu_rr_s0f1: branch if rA <= rB (unsigned); delay slot = the rest of the packet (R-bcc2) */
@@ -1540,8 +1712,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {11, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* bltu_rr_s0f1: branch if rA < rB (unsigned); delay slot = the rest of the packet (R-bcc2) */
@@ -1552,8 +1725,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 2, { {0, 0}, {11, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* bnez_s0f1: branch if rA != 0; delay slot = the rest of the packet (R-bcc2; B is part of the displacement) */
@@ -1563,8 +1737,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 3, { {0, 0}, {23, 20}, {11, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 2, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* beqz_s0f1: branch if rA == 0; delay slot = the rest of the packet (R-bcc2; B is part of the displacement) */
@@ -1574,8 +1749,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "disp", USIP_A_DISP, 3, { {0, 0}, {23, 20}, {11, 1} }, 0, 2, 0 },
 		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
-	  }, 2, {
+	  }, 3, {
 		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_NE, 2, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* bne_imm8_F0: branch if rA != rhs; the unit between head and tail is the delay slot (tail F' = 0 at +2) */
@@ -1708,6 +1884,110 @@ static const UsipOpcode usip_opcodes[] = {
 		{ USIP_C_IN, 3, USIP_NOFIELD, 2, { 0, 15 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
+	/* bne_imm8_f0s0: branch if rA != rhs; delay slot = the rest of the packet (head F = 0 + tail S = 0, F' = 1 at +1/+2: R-br0) */
+	{ "bne.d", "bne_imm8_f0s0", 0x00094000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 6, {
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
+		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
+		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+	  }, 4, {
+		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_ANY, USIP_NOFIELD, USIP_NOFIELD, 6, { 5, 11, 17, 5, 12, 2 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
+	/* ble_imm8_f0s0: branch if rA <= rhs (signed); delay slot = the rest of the packet (head F = 0 + tail S = 0, F' = 1 at +1/+2: R */
+	{ "ble.d", "ble_imm8_f0s0", 0x00096000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 6, {
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
+		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
+		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+	  }, 4, {
+		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_BR0_CELLS, 5, USIP_NOFIELD, 1, { 13 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
+	/* bgeu_imm8_f0s0: branch if rA >= imm8 (unsigned); delay slot = the rest of the packet (head F = 0 + tail S = 0, F' = 1 at +1/+2 */
+	{ "bgeu.d", "bgeu_imm8_f0s0", 0x000a4000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 6, {
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
+		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
+		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+	  }, 4, {
+		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_BR0_CELLS, 5, USIP_NOFIELD, 1, { 1 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
+	/* bge_imm8_f0s0: branch if rA >= imm8 (signed); delay slot = the rest of the packet (head F = 0 + tail S = 0, F' = 1 at +1/+2:  */
+	{ "bge.d", "bge_imm8_f0s0", 0x000a6000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, #{2}, {3}", 4, 6, {
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "imm8", USIP_A_SIMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
+		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
+		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+	  }, 4, {
+		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_BR0_CELLS, 5, USIP_NOFIELD, 1, { 3 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
+	/* bne.u8_imm8_f0s0: branch if rA != imm8 (unsigned); delay slot = the rest of the packet (head F = 0 + tail S = 0, F' = 1 at +1/+2 */
+	{ "bne.u8.d", "bne.u8_imm8_f0s0", 0x00084000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_MEDIUM, "{0}{1:!}, #{2}, {3}", 4, 6, {
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "imm8", USIP_A_IMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
+		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
+		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+	  }, 4, {
+		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_ANY, USIP_NOFIELD, USIP_NOFIELD, 6, { 5, 11, 8, 5, 12, 2 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
+	/* beq.u8_imm8_f0s0: branch if rA == imm8 (unsigned); delay slot = the rest of the packet (head F = 0 + tail S = 0, F' = 1 at +1/+2 */
+	{ "beq.u8.d", "beq.u8_imm8_f0s0", 0x00085000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_MEDIUM, "{0}{1:!}, #{2}, {3}", 4, 6, {
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "imm8", USIP_A_IMM, 3, { {24, 24}, {23, 20}, {11, 9} }, 0, 1, 0 },
+		{ "disp", USIP_A_DISP, 2, { {0, 0}, {8, 1} }, 0, 2, 0 },
+		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+	  }, 4, {
+		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_ANY, USIP_NOFIELD, USIP_NOFIELD, 6, { 5, 11, 32, 5, 12, 2 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
+	/* bleu_rr_f0s0: branch if rA <= rB (unsigned); delay slot = the rest of the packet (head F = 0 + tail S = 0, F' = 1 at +1/+2:  */
+	{ "bleu.d", "bleu_rr_f0s0", 0x000c6000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED | USIP_F_GUARDFT, USIP_K_BR, USIP_CONF_HIGH, "{0}{1:!}, {2}, {3}", 4, 5, {
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "disp", USIP_A_DISP, 2, { {0, 0}, {11, 1} }, 0, 2, 0 },
+		{ "rA5", USIP_A_IMM, 1, { {29, 25} }, 0, 1, 0 },
+	  }, 4, {
+		{ USIP_C_NE, 4, USIP_NOFIELD, 1, { 14 } },
+		{ USIP_C_ANY, USIP_NOFIELD, USIP_NOFIELD, 6, { 2, 11, 32, 2, 12, 17 } },
+		{ USIP_C_NE, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* x1e0_open: 1eX0 (op 0, rA = r15, F = 0) + ONE tail: unresolved (the F' = 0 tails and tt = 00 with F' = 0: possibly add rB */
 	{ ".1eX0", "x1e0_open", 0x1e000000ULL, 0xfe0f0000ULL, 32, 2,
 	  0, USIP_K_FMT, USIP_CONF_FORMAT, "{0}", 1, 4, {
@@ -1752,8 +2032,9 @@ static const UsipOpcode usip_opcodes[] = {
 	{ "b", "b_near", 0x000e6000ULL, 0x800f7000ULL, 32, 2,
 	  USIP_F_SLOT0 | USIP_F_DELAY | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_BR, USIP_CONF_HIGH, "{0}", 1, 1, {
 		{ "disp", USIP_A_DISP, 3, { {0, 0}, {29, 20}, {11, 1} }, 0, 2, 0 },
-	  }, 1, {
+	  }, 2, {
 		{ USIP_C_RANGE, 0, USIP_NOFIELD, 2, { -4096, 4094 } },
+		{ USIP_C_GUARD_TARGET_PK_ANY_OR_FN, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* b_far: pc += disp22 (far form, mostly tail calls) */
 	{ "b", "b_far", 0x000e6000ULL, 0x800f7000ULL, 32, 2,
@@ -1776,18 +2057,60 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 1, {
 		{ USIP_C_GUARD_TARGET_FN_OR_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
+	/* loop_ssq: hardware loop with ss >= 2 (the same loop; the meaning of ss >= 2 is open: printed ?ss=N) */
+	{ "loop", "loop_ssq", 0x200f7000ULL, 0xa1ff7000ULL, 32, 2,
+	  USIP_F_SLOT0 | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_LOOP, USIP_CONF_MEDIUM, "{0}?ss={1}, last={2}", 3, 3, {
+		{ "rX", USIP_A_REG, 1, { {27, 25} }, 0, 1, 0 },
+		{ "ss", USIP_A_IMM, 1, { {29, 28} }, 0, 1, 0 },
+		{ "last", USIP_A_UDISP, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 2, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
+	/* loop_F0_ssq: hardware loop with ss >= 2 (the same loop; the meaning of ss >= 2 is open: printed ?ss=N) */
+	{ "loop", "loop_F0_ssq", 0x200f3000ULL, 0xa1ff7000ULL, 32, 2,
+	  USIP_F_SLOT0 | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_LOOP, USIP_CONF_MEDIUM, "{0}?ss={1}, last={2}", 3, 3, {
+		{ "rX", USIP_A_REG, 1, { {27, 25} }, 0, 1, 0 },
+		{ "ss", USIP_A_IMM, 1, { {29, 28} }, 0, 1, 0 },
+		{ "last", USIP_A_UDISP, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 2, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
+	/* loop_b1_q_ssq: hardware loop with ss >= 2 (B = 1: loop.b1?; the meaning of ss >= 2 is open: printed ?ss=N) */
+	{ "loop.b1?", "loop_b1_q_ssq", 0x201f3000ULL, 0xa1ff3000ULL, 32, 2,
+	  USIP_F_SLOT0 | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_LOOP, USIP_CONF_LOW, "{0}?ss={1}, last={2}", 3, 3, {
+		{ "rX", USIP_A_REG, 1, { {27, 25} }, 0, 1, 0 },
+		{ "ss", USIP_A_IMM, 1, { {29, 28} }, 0, 1, 0 },
+		{ "last", USIP_A_UDISP, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 2, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* loop: hardware loop: repeat the next instructions up to last (inclusive) rX times; body 1-16 instr., nestable */
-	{ "loop", "loop", 0x000f7000ULL, 0x81ff7000ULL, 32, 2,
+	{ "loop", "loop", 0x000f7000ULL, 0xa1ff7000ULL, 32, 2,
 	  USIP_F_SLOT0 | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_LOOP, USIP_CONF_HIGH, "{0}, last={1}", 2, 2, {
 		{ "rX", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "last", USIP_A_UDISP, 1, { {11, 0} }, 0, 1, 0 },
-	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 1, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* loop_F0: hardware loop with the F' = 0 tail (same semantics as `loop`; F' has no measured effect) */
-	{ "loop", "loop_F0", 0x000f3000ULL, 0x81ff7000ULL, 32, 2,
+	{ "loop", "loop_F0", 0x000f3000ULL, 0xa1ff7000ULL, 32, 2,
 	  USIP_F_SLOT0 | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_LOOP, USIP_CONF_MEDIUM, "{0}, last={1}", 2, 2, {
 		{ "rX", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "last", USIP_A_UDISP, 1, { {11, 0} }, 0, 1, 0 },
 	  }, 1, {
+		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
+	/* loop_b1_q: hardware loop `loop rX, last` with B = 1 (op f head with x = 0, B = 1): the meaning of B is not established (n */
+	{ "loop.b1?", "loop_b1_q", 0x001f3000ULL, 0xa1ff3000ULL, 32, 2,
+	  USIP_F_SLOT0 | USIP_F_ADJCTRL | USIP_F_NAMED, USIP_K_LOOP, USIP_CONF_MEDIUM, "{0}, last={1}", 2, 2, {
+		{ "rX", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "last", USIP_A_UDISP, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 1, USIP_NOFIELD, 1, { 0 } },
 		{ USIP_C_GUARD_TARGET_PACKET_START, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
 	/* loop_imm_F1S1: hardware loop with an immediate count: repeat the next instructions up to last (inclusive) N times */
@@ -2378,39 +2701,35 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* op7d_6_mulu64: A[k] = rs1 * rB (64 bits unsigned) */
 	{ "mulu64", "op7d_6_mulu64", 0x00073d60ULL, 0x800f3ff0ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_MUL, USIP_CONF_HIGH, "{0}, {1}{2:!}, {3}{4:!}", 5, 5, {
-		{ "Ak", USIP_A_ACC, 1, { {3, 0} }, 0, 1, 0 },
-		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
-		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+	  USIP_F_NAMED, USIP_K_MUL, USIP_CONF_HIGH, "A{0}, {1}{2:!}, {3}", 4, 4, {
+		{ "Ak", USIP_A_IMM, 1, { {3, 0} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 1, { {27, 25} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* op7d_c_divs: A[k].lo = rs1 / rB, A[k].hi = rs1 % rB (signed) */
 	{ "divs", "op7d_c_divs", 0x00073dc0ULL, 0x800f3ff0ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_MUL, USIP_CONF_HIGH, "{0}, {1}{2:!}, {3}{4:!}", 5, 5, {
-		{ "Ak", USIP_A_ACC, 1, { {3, 0} }, 0, 1, 0 },
-		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
-		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+	  USIP_F_NAMED, USIP_K_MUL, USIP_CONF_HIGH, "A{0}, {1}{2:!}, {3}", 4, 4, {
+		{ "Ak", USIP_A_IMM, 1, { {3, 0} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 1, { {27, 25} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* op7d_e_divu: A[k].lo = rs1 / rB, A[k].hi = rs1 % rB (unsigned) */
 	{ "divu", "op7d_e_divu", 0x00073de0ULL, 0x800f3ff0ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_MUL, USIP_CONF_HIGH, "{0}, {1}{2:!}, {3}{4:!}", 5, 5, {
-		{ "Ak", USIP_A_ACC, 1, { {3, 0} }, 0, 1, 0 },
-		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
-		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+	  USIP_F_NAMED, USIP_K_MUL, USIP_CONF_HIGH, "A{0}, {1}{2:!}, {3}", 4, 4, {
+		{ "Ak", USIP_A_IMM, 1, { {3, 0} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 1, { {27, 25} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
-	/* op7d_0_mul: rd = rs1 * rB (low 32 bits, 3 addresses) */
+	/* op7d_0_mul: rd = rs1 * rB */
 	{ "mul", "op7d_0_mul", 0x00073d00ULL, 0x800f3ff0ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_MUL, USIP_CONF_HIGH, "{0}, {1}{2:!}, {3}{4:!}", 5, 5, {
+	  USIP_F_NAMED, USIP_K_MUL, USIP_CONF_HIGH, "{0}, {1}{2:!}, {3}", 4, 4, {
 		{ "rd", USIP_A_REG, 1, { {3, 0} }, 0, 1, 0 },
-		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
-		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 1, { {27, 25} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* op7d_2_mtacc_q: A[k] = rs1:rB ? */
 	{ "mtacc?", "op7d_2_mtacc_q", 0x00073d20ULL, 0x800f3ff0ULL, 32, 2,
@@ -2431,28 +2750,28 @@ static const UsipOpcode usip_opcodes[] = {
 	{ "bset", "op7f_0_bset", 0x00073f00ULL, 0x800f3ff0ULL, 32, 2,
 	  USIP_F_NAMED, USIP_K_BIT, USIP_CONF_HIGH, "{0}, {1}, #{2}", 3, 3, {
 		{ "rd", USIP_A_REG, 1, { {3, 0} }, 0, 1, 0 },
-		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 1, { {27, 25} }, 0, 1, 0 },
 		{ "imm5", USIP_A_IMM, 2, { {24, 24}, {23, 20} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* op7f_2_bclr: rd = rs1 & ~(1 << imm5) */
 	{ "bclr", "op7f_2_bclr", 0x00073f20ULL, 0x800f3ff0ULL, 32, 2,
 	  USIP_F_NAMED, USIP_K_BIT, USIP_CONF_HIGH, "{0}, {1}, #{2}", 3, 3, {
 		{ "rd", USIP_A_REG, 1, { {3, 0} }, 0, 1, 0 },
-		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 1, { {27, 25} }, 0, 1, 0 },
 		{ "imm5", USIP_A_IMM, 2, { {24, 24}, {23, 20} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* op7f_4_binv: rd = rs1 ^ (1 << imm5) */
 	{ "binv", "op7f_4_binv", 0x00073f40ULL, 0x800f3ff0ULL, 32, 2,
 	  USIP_F_NAMED, USIP_K_BIT, USIP_CONF_HIGH, "{0}, {1}, #{2}", 3, 3, {
 		{ "rd", USIP_A_REG, 1, { {3, 0} }, 0, 1, 0 },
-		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 1, { {27, 25} }, 0, 1, 0 },
 		{ "imm5", USIP_A_IMM, 2, { {24, 24}, {23, 20} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* op7f_6_bext: rd = (rs1 >> imm5) & 1 */
 	{ "bext", "op7f_6_bext", 0x00073f60ULL, 0x800f3ff0ULL, 32, 2,
 	  USIP_F_NAMED, USIP_K_BIT, USIP_CONF_HIGH, "{0}, {1}, #{2}", 3, 3, {
 		{ "rd", USIP_A_REG, 1, { {3, 0} }, 0, 1, 0 },
-		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 1, { {27, 25} }, 0, 1, 0 },
 		{ "imm5", USIP_A_IMM, 2, { {24, 24}, {23, 20} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* op7f_8_band: rd = rs1 & (1 << imm5) */
@@ -2541,7 +2860,21 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
-	/* asr16_clamp: rB = (rs1 << 10) >> 10 (sign-extend from bit 5: clamp of shift counts) = fxts rB, rs1, #6, #10 (cell of the bi */
+	/* movi_m32767_q: rB(!x) = 0xffff8001 = -32767 (rot16 of the 12-bit field 003: bit 0 = sign; the sibling of movi? #-32768); scal */
+	{ "movi?", "movi_m32767_q", 0x0007c003ULL, 0x8e0fffffULL, 32, 2,
+	  USIP_F_NAMED, USIP_K_MOVI, USIP_CONF_MEDIUM, "{0}{1:!}, #-32767", 2, 2, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	/* asr16_clamp_u: rB = (rB << 10) >> 10: the unary clamp of the shift count when the tail has F' = 1 and the 3-bit rrr equals B  */
+	{ "asr16", "asr16_clamp_u", 0x000754d4ULL, 0x800f7fffULL, 32, 2,
+	  USIP_F_NAMED, USIP_K_DSP, USIP_CONF_MEDIUM, "{0}, {0}, #10", 1, 2, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "rrr", USIP_A_REG, 1, { {27, 25} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_EQ_FIELDS, 0, 1, 0, { 0 } },
+	  }, NULL, 0 },
+	/* asr16_clamp: rB = (rs1 << 10) >> 10 (sign-extend from bit 5: clamp of shift counts) = fxts rB, rs1, #6, #10 */
 	{ "asr16", "asr16_clamp", 0x000714d4ULL, 0x800f3fffULL, 32, 2,
 	  USIP_F_NAMED, USIP_K_DSP, USIP_CONF_MEDIUM, "{0}, {1}{2:!}, #10", 3, 3, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
@@ -2614,6 +2947,45 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 1, {
 		{ USIP_C_IN, 6, USIP_NOFIELD, 11, { 2080, 2088, 2305, 2320, 2321, 2531, 2561, 2832, 2922, 2982, 3012 } },
 	  }, NULL, 0 },
+	/* bfpair_fxtu: rB = (rs1 >> pos) & ((1 << w) - 1) (bit-field op named by the H H T T pair rule R-bfpair: two op 7 heads with  */
+	{ "fxtu", "bfpair_fxtu", 0x00071000ULL, 0x800f3c00ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_BIT, USIP_CONF_MEDIUM, "{0}{1:!}, {2}{3:!}, #{4}, #{5}", 6, 6, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "w", USIP_A_IMM, 1, { {9, 5} }, 0, 1, 0 },
+		{ "pos", USIP_A_IMM, 2, { {0, 0}, {4, 1} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_BF_VALID, 4, 5, 0, { 0 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 6 } },
+	  }, NULL, 0 },
+	/* bfpair_fxts: rB = sext_w(rs1 >> pos) (bit-field op named by the H H T T pair rule R-bfpair: two op 7 heads with two valid t */
+	{ "fxts", "bfpair_fxts", 0x00071400ULL, 0x800f3c00ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_BIT, USIP_CONF_MEDIUM, "{0}{1:!}, {2}{3:!}, #{4}, #{5}", 6, 6, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "w", USIP_A_IMM, 1, { {9, 5} }, 0, 1, 0 },
+		{ "pos", USIP_A_IMM, 2, { {0, 0}, {4, 1} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_BF_VALID, 4, 5, 0, { 0 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 6 } },
+	  }, NULL, 0 },
+	/* bfpair_fup: rB = (rB & ~(m << pos)) | ((rs1 & m) << pos), m = (1 << w) - 1 (bit-field op named by the H H T T pair rule R- */
+	{ "fup", "bfpair_fup", 0x00071800ULL, 0x800f3c00ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_BIT, USIP_CONF_MEDIUM, "{0}{1:!}, {2}{3:!}, #{4}, #{5}", 6, 6, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "w", USIP_A_IMM, 1, { {9, 5} }, 0, 1, 0 },
+		{ "pos", USIP_A_IMM, 2, { {0, 0}, {4, 1} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_BF_VALID, 4, 5, 0, { 0 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 6 } },
+	  }, NULL, 0 },
 	/* bf_open: bit-field family with two 5-bit immediates outside the 18 named cells (807 valid cells without validation, 102 */
 	{ ".bf?", "bf_open", 0x00071000ULL, 0x800f3000ULL, 32, 2,
 	  0, USIP_K_FMT, USIP_CONF_FORMAT, "{0}, {1}{2:!}, #{3}, #{4}, #{5}", 6, 6, {
@@ -2624,25 +2996,93 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "a", USIP_A_IMM, 1, { {9, 5} }, 0, 1, 0 },
 		{ "b", USIP_A_IMM, 1, { {4, 0} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
-	/* clz: rd = count leading zeros of rs1 (B = 0) */
-	{ "clz", "clz", 0x000739a0ULL, 0x800f3ff0ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_HIGH, "{0}, {1}{2:!}", 3, 4, {
-		{ "rd", USIP_A_REG, 1, { {3, 0} }, 0, 1, 0 },
+	/* bfsel_fup: rB = (rB & ~(m << pos)) | ((rs1 & m) << pos), m = (1 << w) - 1 (bit-field insert) — BF_SEL cell (c, a, b) name */
+	{ "fup", "bfsel_fup", 0x00071800ULL, 0x800f3c00ULL, 32, 2,
+	  USIP_F_NAMED | USIP_F_RENAME, USIP_K_BIT, USIP_CONF_MEDIUM, "{0}{1:!}, {2}{3:!}, #{4}, #{5}", 6, 7, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "w", USIP_A_IMM, 1, { {9, 5} }, 0, 1, 0 },
+		{ "pos", USIP_A_IMM, 2, { {0, 0}, {4, 1} }, 0, 1, 0 },
+		{ "f12", USIP_A_IMM, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_IN, 6, USIP_NOFIELD, 6, { 2082, 2096, 2184, 2192, 2381, 2471 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 7 } },
+	  }, usip_rename_from_bfsel_fup, 1 },
+	/* bfsel_fup_q: bit-field insert (cell named by a profile that does not beat the null: ?) — BF_SEL cell (c, a, b) named by its */
+	{ "fup?", "bfsel_fup_q", 0x00071800ULL, 0x800f3c00ULL, 32, 2,
+	  USIP_F_NAMED | USIP_F_RENAME, USIP_K_BIT, USIP_CONF_LOW, "{0}{1:!}, {2}{3:!}, #{4}, #{5}", 6, 7, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "w", USIP_A_IMM, 1, { {9, 5} }, 0, 1, 0 },
+		{ "pos", USIP_A_IMM, 2, { {0, 0}, {4, 1} }, 0, 1, 0 },
+		{ "f12", USIP_A_IMM, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_IN_SET, 6, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 7 } },
+	  }, usip_rename_from_bfsel_fup_q, 1 },
+	/* bfsel_fxtu: rB = (rs1 >> pos) & ((1 << w) - 1) (unsigned extract) — BF_SEL cell (c, a, b) named by its use-definition prof */
+	{ "fxtu", "bfsel_fxtu", 0x00071000ULL, 0x800f3c00ULL, 32, 2,
+	  USIP_F_NAMED | USIP_F_RENAME, USIP_K_BIT, USIP_CONF_MEDIUM, "{0}{1:!}, {2}{3:!}, #{4}, #{5}", 6, 7, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "w", USIP_A_IMM, 1, { {9, 5} }, 0, 1, 0 },
+		{ "pos", USIP_A_IMM, 2, { {0, 0}, {4, 1} }, 0, 1, 0 },
+		{ "f12", USIP_A_IMM, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_IN, 6, USIP_NOFIELD, 5, { 36, 40, 44, 48, 88 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 7 } },
+	  }, usip_rename_from_bfsel_fxtu, 1 },
+	/* bfsel_fxtu_q: unsigned bit-field extract (?) — BF_SEL cell (c, a, b) named by its use-definition profile after the layout */
+	{ "fxtu?", "bfsel_fxtu_q", 0x00071000ULL, 0x800f3c00ULL, 32, 2,
+	  USIP_F_NAMED | USIP_F_RENAME, USIP_K_BIT, USIP_CONF_LOW, "{0}{1:!}, {2}{3:!}, #{4}, #{5}", 6, 7, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "w", USIP_A_IMM, 1, { {9, 5} }, 0, 1, 0 },
+		{ "pos", USIP_A_IMM, 2, { {0, 0}, {4, 1} }, 0, 1, 0 },
+		{ "f12", USIP_A_IMM, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_IN_SET, 6, USIP_NOFIELD, 1, { 1 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 7 } },
+	  }, usip_rename_from_bfsel_fxtu_q, 1 },
+	/* bfsel_fxts_q: rB = sext_w(rs1 >> pos) (signed extract, ?) — BF_SEL cell (c, a, b) named by its use-definition profile after  */
+	{ "fxts?", "bfsel_fxts_q", 0x00071400ULL, 0x800f3c00ULL, 32, 2,
+	  USIP_F_NAMED | USIP_F_RENAME, USIP_K_BIT, USIP_CONF_LOW, "{0}{1:!}, {2}{3:!}, #{4}, #{5}", 6, 7, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "w", USIP_A_IMM, 1, { {9, 5} }, 0, 1, 0 },
+		{ "pos", USIP_A_IMM, 2, { {0, 0}, {4, 1} }, 0, 1, 0 },
+		{ "f12", USIP_A_IMM, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_IN, 6, USIP_NOFIELD, 6, { 1085, 1296, 1356, 1416, 1476, 1538 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 7 } },
+	  }, usip_rename_from_bfsel_fxts_q, 1 },
+	/* clz: rd = count leading zeros of rs1 (B = 0) */
+	{ "clz", "clz", 0x000739a0ULL, 0x800f3ff0ULL, 32, 2,
+	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_HIGH, "{0}, {1}", 2, 3, {
+		{ "rd", USIP_A_REG, 1, { {3, 0} }, 0, 1, 0 },
+		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 	  }, 1, {
-		{ USIP_C_EQ, 3, USIP_NOFIELD, 1, { 0 } },
+		{ USIP_C_EQ, 2, USIP_NOFIELD, 1, { 0 } },
 	  }, NULL, 0 },
 	/* ctz: rd = count trailing zeros of rs1 (B = 1) */
 	{ "ctz", "ctz", 0x000739a0ULL, 0x800f3ff0ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}, {1}{2:!}", 3, 4, {
+	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}, {1}", 2, 3, {
 		{ "rd", USIP_A_REG, 1, { {3, 0} }, 0, 1, 0 },
 		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 	  }, 1, {
-		{ USIP_C_EQ, 3, USIP_NOFIELD, 1, { 1 } },
+		{ USIP_C_EQ, 2, USIP_NOFIELD, 1, { 1 } },
 	  }, NULL, 0 },
 	/* cmov_r15: r15 = (rs1 != 0) ? r0!: r15 (conditional return address; cmov cell with rd = r15, rB = r0!) */
 	{ "cmov", "cmov_r15", 0x0107386fULL, 0x81ff3fffULL, 32, 2,
@@ -2733,10 +3173,9 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* alu_018_cls1: rd = number of leading bits equal to the sign bit, sign included (norm_l = cls1 - 1) */
 	{ "cls1", "alu_018_cls1", 0x00073980ULL, 0x800f3ff0ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_HIGH, "{0}, {1}{2:!}", 3, 3, {
+	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_HIGH, "{0}, {1}", 2, 2, {
 		{ "rd", USIP_A_REG, 1, { {3, 0} }, 0, 1, 0 },
 		{ "rs1", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* alu_100_lsl: rd = rs1 << rB */
 	{ "lsl", "alu_100_lsl", 0x00073a00ULL, 0x800f3ff0ULL, 32, 2,
@@ -3033,7 +3472,7 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "ss1", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 	  }, 2, {
 		{ USIP_C_INMASK, 0, USIP_NOFIELD, 2, { 1769472, 2147418112 } },
-		{ USIP_C_GUARD_TAIL_NOT_NAMED16, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+		{ USIP_C_ANY, USIP_NOFIELD, USIP_NOFIELD, 6, { 255, 9, 0, 0, 10, 4128816 } },
 	  }, NULL, 0 },
 	/* sgt_op7_F1S1: rB = (rA > imm) (set-on-compare with immediate; unary when B = rA: rA = (rA > imm); predicate of cmov/cmovi) */
 	{ "sgt", "sgt_op7_F1S1", 0x4007cc00ULL, 0xf10ffc00ULL, 32, 2,
@@ -3095,100 +3534,90 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* slt_op6_F1S1: rB = (rA < imm) (set-on-compare with a rotated 10-bit immediate; predicate of cmov/cmovi) */
 	{ "slt", "slt_op6_F1S1", 0x4006dc00ULL, 0xc00ffc00ULL, 32, 2,
-	  USIP_F_ADJ1 | USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_HIGH, "{0}{1:!}, {2}{3:!}, #{4}", 5, 5, {
+	  USIP_F_ADJ1 | USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_HIGH, "{0}, {1}{2:!}, #{3}", 4, 4, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
-		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "imm", USIP_A_ROTIMM, 1, { {9, 0} }, 10, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* seq_op6_F1S1: rB = (rA == imm) (set-on-compare with a rotated 10-bit immediate; predicate of cmov/cmovi) */
 	{ "seq", "seq_op6_F1S1", 0x4006d400ULL, 0xc00ffc00ULL, 32, 2,
-	  USIP_F_ADJ1 | USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}{3:!}, #{4}", 5, 5, {
+	  USIP_F_ADJ1 | USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}, #{3}", 4, 4, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "imm", USIP_A_ROTIMM, 1, { {9, 0} }, 10, 1, 0 },
 	  }, 1, {
-		{ USIP_C_RANGE, 4, USIP_NOFIELD, 2, { -256, 257 } },
+		{ USIP_C_RANGE, 3, USIP_NOFIELD, 2, { -256, 257 } },
 	  }, NULL, 0 },
 	/* seq_q_op6_F1S1: rB = (rA == imm) with |imm| > 256 */
 	{ "seq?", "seq_q_op6_F1S1", 0x4006d400ULL, 0xc00ffc00ULL, 32, 2,
-	  USIP_F_ADJ1 | USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}{3:!}, #{4}", 5, 5, {
+	  USIP_F_ADJ1 | USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}, #{3}", 4, 4, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "imm", USIP_A_ROTIMM, 1, { {9, 0} }, 10, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* sle_op6_F1S1: rB = (rA <= imm) (set-on-compare with a rotated 10-bit immediate; predicate of cmov/cmovi) */
 	{ "sle", "sle_op6_F1S1", 0x4006d800ULL, 0xc00ffc00ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}{3:!}, #{4}", 5, 5, {
+	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}, #{3}", 4, 4, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "imm", USIP_A_ROTIMM, 1, { {9, 0} }, 10, 1, 0 },
 	  }, 1, {
-		{ USIP_C_RANGE, 4, USIP_NOFIELD, 2, { -256, 257 } },
+		{ USIP_C_RANGE, 3, USIP_NOFIELD, 2, { -256, 257 } },
 	  }, NULL, 0 },
 	/* sle_q_op6_F1S1: rB = (rA <= imm) with |imm| > 256 */
 	{ "sle?", "sle_q_op6_F1S1", 0x4006d800ULL, 0xc00ffc00ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}{3:!}, #{4}", 5, 5, {
+	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}, #{3}", 4, 4, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "imm", USIP_A_ROTIMM, 1, { {9, 0} }, 10, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* slt_op6_F0S0: rB = (rA < imm) (set-on-compare with a rotated 10-bit immediate; predicate of cmov/cmovi); F = S = 0: the pack */
 	{ "slt", "slt_op6_F0S0", 0x00065c00ULL, 0xc00ffc00ULL, 32, 2,
-	  USIP_F_ADJ1 | USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_HIGH, "{0}{1:!}, {2}{3:!}, #{4}", 5, 5, {
+	  USIP_F_ADJ1 | USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_HIGH, "{0}, {1}{2:!}, #{3}", 4, 4, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
-		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "imm", USIP_A_ROTIMM, 1, { {9, 0} }, 10, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* seq_op6_F0S0: rB = (rA == imm) (set-on-compare with a rotated 10-bit immediate; predicate of cmov/cmovi); F = S = 0: the pac */
 	{ "seq", "seq_op6_F0S0", 0x00065400ULL, 0xc00ffc00ULL, 32, 2,
-	  USIP_F_ADJ1 | USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}{3:!}, #{4}", 5, 5, {
+	  USIP_F_ADJ1 | USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}, #{3}", 4, 4, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "imm", USIP_A_ROTIMM, 1, { {9, 0} }, 10, 1, 0 },
 	  }, 1, {
-		{ USIP_C_RANGE, 4, USIP_NOFIELD, 2, { -256, 257 } },
+		{ USIP_C_RANGE, 3, USIP_NOFIELD, 2, { -256, 257 } },
 	  }, NULL, 0 },
 	/* seq_q_op6_F0S0: rB = (rA == imm) with |imm| > 256 */
 	{ "seq?", "seq_q_op6_F0S0", 0x00065400ULL, 0xc00ffc00ULL, 32, 2,
-	  USIP_F_ADJ1 | USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}{3:!}, #{4}", 5, 5, {
+	  USIP_F_ADJ1 | USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}, #{3}", 4, 4, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "imm", USIP_A_ROTIMM, 1, { {9, 0} }, 10, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* sle_op6_F0S0: rB = (rA <= imm) (set-on-compare with a rotated 10-bit immediate; predicate of cmov/cmovi); F = S = 0: the pac */
 	{ "sle", "sle_op6_F0S0", 0x00065800ULL, 0xc00ffc00ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}{3:!}, #{4}", 5, 5, {
+	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}, #{3}", 4, 4, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "imm", USIP_A_ROTIMM, 1, { {9, 0} }, 10, 1, 0 },
 	  }, 1, {
-		{ USIP_C_RANGE, 4, USIP_NOFIELD, 2, { -256, 257 } },
+		{ USIP_C_RANGE, 3, USIP_NOFIELD, 2, { -256, 257 } },
 	  }, NULL, 0 },
 	/* sle_q_op6_F0S0: rB = (rA <= imm) with |imm| > 256 */
 	{ "sle?", "sle_q_op6_F0S0", 0x00065800ULL, 0xc00ffc00ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}{3:!}, #{4}", 5, 5, {
+	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {2}, #{3}", 4, 4, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
-		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "imm", USIP_A_ROTIMM, 1, { {9, 0} }, 10, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* sne_imm10: rB = (rA != imm) (imm = 0 or -1) */
@@ -4211,14 +4640,14 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
-	/* mem_ld_b_t4_F1S1: ld.b rB(!x), [rA(!m) + off12] (sext12; byte formula open) */
+	/* mem_ld_b_t4_F1S1: ld.b rB(!x), [rA(!m) + off12] */
 	{ "ld.b", "mem_ld_b_t4_F1S1", 0x4001c000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_LD, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}+{4}]", 5, 5, {
+	  USIP_F_NAMED, USIP_K_LD, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
-		{ "off", USIP_A_SIMM, 1, { {11, 0} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* mem_ld_w_q_t4_F0S0_neg: ld.w rB(!x), [rA(!m) + 4*sext10(f12 >> 2)] with f12 in 0x800-0xeff: negative word offset extrapolated from the */
 	{ "ld.w?", "mem_ld_w_q_t4_F0S0_neg", 0x00004003ULL, 0xc00ff003ULL, 32, 2,
@@ -4297,14 +4726,14 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
-	/* mem_ld_b_t4_F0S0: ld.b rB(!x), [rA(!m) + off12] (sext12; byte formula open) */
+	/* mem_ld_b_t4_F0S0: ld.b rB(!x), [rA(!m) + off12] */
 	{ "ld.b", "mem_ld_b_t4_F0S0", 0x00014000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_LD, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}+{4}]", 5, 5, {
+	  USIP_F_NAMED, USIP_K_LD, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
-		{ "off", USIP_A_SIMM, 1, { {11, 0} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* mem_ld_w_q_t4_F1S0_neg: ld.w rB(!x), [rA(!m) + 4*sext10(f12 >> 2)] with f12 in 0x800-0xeff: negative word offset extrapolated from the */
 	{ "ld.w?", "mem_ld_w_q_t4_F1S0_neg", 0x40004003ULL, 0xc00ff003ULL, 32, 2,
@@ -4345,6 +4774,24 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "off", USIP_A_OFFH, 1, { {11, 0} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	/* mem_ld_b_t4_F1S0: ld.b rB(!x), [rA(!m) + off12] with F = 1 and S = 0 (the F != S form of op 1, like st_w_op1_F1S0; R-op1fs) */
+	{ "ld.b", "mem_ld_b_t4_F1S0", 0x40014000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_NAMED | USIP_F_ADJ2, USIP_K_LD, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	/* mem_st_h_t6_F1S0: st.h rB(!x), [rA(!m) + off12] with F = 1 and S = 0 (the F != S form of op 1, like st_w_op1_F1S0; R-op1fs) */
+	{ "st.h", "mem_st_h_t6_F1S0", 0x40016000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_NAMED | USIP_F_ADJ2, USIP_K_ST, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFH, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* hhtt_ld_h_t5_F0S1: ld.h rB(!x), [rA(!m) + off12] with F != S inside the H H T T candidate (decode_memFS; same offset rules as the */
 	{ "ld.h", "hhtt_ld_h_t5_F0S1", 0x0000d000ULL, 0xc00ff000ULL, 32, 2,
 	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_LD, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
@@ -4365,21 +4812,21 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* hhtt_ld_b_t4_F1S0: ld.b rB(!x), [rA(!m) + off12] with F != S inside the H H T T candidate (decode_memFS; same offset rules as the */
 	{ "ld.b", "hhtt_ld_b_t4_F1S0", 0x40014000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_LD, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}+{4}]", 5, 5, {
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_LD, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
-		{ "off", USIP_A_SIMM, 1, { {11, 0} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* hhtt_ld_b_t4_F0S1: ld.b rB(!x), [rA(!m) + off12] with F != S inside the H H T T candidate (decode_memFS; same offset rules as the */
 	{ "ld.b", "hhtt_ld_b_t4_F0S1", 0x0001c000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_LD, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}+{4}]", 5, 5, {
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_LD, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
-		{ "off", USIP_A_SIMM, 1, { {11, 0} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* hhtt_st_w_t5_F1S0: st.w rB(!x), [rA(!m) + off12] with F != S inside the H H T T candidate (decode_memFS; same offset rules as the */
 	{ "st.w", "hhtt_st_w_t5_F1S0", 0x40015000ULL, 0xc00ff000ULL, 32, 2,
@@ -4389,7 +4836,9 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "off", USIP_A_OFFW, 1, { {11, 0} }, 0, 1, 0 },
-	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
+	  }, 1, {
+		{ USIP_C_GUARD_TAIL_NAMED16, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
 	/* hhtt_st_w_t5_F0S1: st.w rB(!x), [rA(!m) + off12] with F != S inside the H H T T candidate (decode_memFS; same offset rules as the */
 	{ "st.w", "hhtt_st_w_t5_F0S1", 0x0001d000ULL, 0xc00ff000ULL, 32, 2,
 	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_ST, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
@@ -4417,29 +4866,125 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
 		{ "off", USIP_A_OFFH, 1, { {11, 0} }, 0, 1, 0 },
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
-	/* st_b_q_F0: [rA + sext11] = rB (byte store; bit 11 of f12 = open flag) */
-	{ "st.b?", "st_b_q_F0", 0x00017000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_ST, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}+{4}]", 5, 5, {
+	/* mem_st_b_t7_F0S0: [rA + off] = rB (byte store, type; off = sext12(f12[0]:f12[10:1]:f12[11]): R-b111 + R-offb) */
+	{ "st.b", "mem_st_b_t7_F0S0", 0x00017000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_NAMED, USIP_K_ST, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
-		{ "off", USIP_A_SIMM, 1, { {10, 0} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
 	  }, 2, {
 		{ USIP_C_NE, 0, USIP_NOFIELD, 1, { 15 } },
 		{ USIP_C_GUARD_TAIL_NOT_NAMED16, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
 	  }, NULL, 0 },
-	/* st_b_q_F1: [rA + sext11] = rB (byte store; bit 11 of f12 = open flag) */
-	{ "st.b?", "st_b_q_F1", 0x4001f000ULL, 0xc00ff000ULL, 32, 2,
-	  USIP_F_NAMED, USIP_K_ST, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}+{4}]", 5, 5, {
+	/* mem_st_b_t7_F1S1: [rA + off] = rB (byte store, type; off = sext12(f12[0]:f12[10:1]:f12[11]): R-b111 + R-offb) */
+	{ "st.b", "mem_st_b_t7_F1S1", 0x4001f000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_NAMED, USIP_K_ST, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
 		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
 		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
 		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
-		{ "off", USIP_A_SIMM, 1, { {10, 0} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
 	  }, 2, {
 		{ USIP_C_NE, 0, USIP_NOFIELD, 1, { 15 } },
 		{ USIP_C_GUARD_TAIL_NOT_NAMED16, USIP_NOFIELD, USIP_NOFIELD, 0, { 0 } },
+	  }, NULL, 0 },
+	/* b111_st_b_t7_F1S1: [rA + off] = rB (byte store, type) with a tail that is also a named 16-bit op, or with F != S: admitted in the */
+	{ "st.b", "b111_st_b_t7_F1S1", 0x4001f000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_B111, USIP_K_ST, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 0, USIP_NOFIELD, 1, { 15 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 3 } },
+	  }, NULL, 0 },
+	/* b111_ld_bu_t7_F1S1: rB = zero-extended byte [rA + off] (type, the eighth entry of the ld/st table; R-b111 + R-offb) */
+	{ "ld.bu", "b111_ld_bu_t7_F1S1", 0x4000f000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_B111, USIP_K_LD, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 0, USIP_NOFIELD, 1, { 15 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 3 } },
+	  }, NULL, 0 },
+	/* b111_st_b_t7_F1S0: [rA + off] = rB (byte store, type) with a tail that is also a named 16-bit op, or with F != S: admitted in the */
+	{ "st.b", "b111_st_b_t7_F1S0", 0x40017000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_ST, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 0, USIP_NOFIELD, 1, { 15 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 3 } },
+	  }, NULL, 0 },
+	/* b111_ld_bu_t7_F1S0: rB = zero-extended byte [rA + off] (type, the eighth entry of the ld/st table; R-b111 + R-offb) */
+	{ "ld.bu", "b111_ld_bu_t7_F1S0", 0x40007000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_LD, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 0, USIP_NOFIELD, 1, { 15 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 3 } },
+	  }, NULL, 0 },
+	/* b111_st_b_t7_F0S1: [rA + off] = rB (byte store, type) with a tail that is also a named 16-bit op, or with F != S: admitted in the */
+	{ "st.b", "b111_st_b_t7_F0S1", 0x0001f000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_ST, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 0, USIP_NOFIELD, 1, { 15 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 3 } },
+	  }, NULL, 0 },
+	/* b111_ld_bu_t7_F0S1: rB = zero-extended byte [rA + off] (type, the eighth entry of the ld/st table; R-b111 + R-offb) */
+	{ "ld.bu", "b111_ld_bu_t7_F0S1", 0x0000f000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_LD, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 0, USIP_NOFIELD, 1, { 15 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 3 } },
+	  }, NULL, 0 },
+	/* b111_st_b_t7_F0S0: [rA + off] = rB (byte store, type) with a tail that is also a named 16-bit op, or with F != S: admitted in the */
+	{ "st.b", "b111_st_b_t7_F0S0", 0x00017000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_ST, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 0, USIP_NOFIELD, 1, { 15 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 3 } },
+	  }, NULL, 0 },
+	/* b111_ld_bu_t7_F0S0: rB = zero-extended byte [rA + off] (type, the eighth entry of the ld/st table; R-b111 + R-offb) */
+	{ "ld.bu", "b111_ld_bu_t7_F0S0", 0x00007000ULL, 0xc00ff000ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_HHTT, USIP_K_LD, USIP_CONF_HIGH, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFB, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_NE, 0, USIP_NOFIELD, 1, { 15 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 3 } },
 	  }, NULL, 0 },
 	/* st_w_op1_Fp0_q_F0_neg: [rA + 4*sext10(f12 >> 2)] = rB with f12 in 0x800-0xeff (F' = 0 tail; R-off.w extrapolated) */
 	{ "st.w?", "st_w_op1_Fp0_q_F0_neg", 0x00011003ULL, 0xc00ff003ULL, 32, 2,
@@ -4580,6 +5125,106 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 1, {
 		{ USIP_C_ANY, USIP_NOFIELD, USIP_NOFIELD, 6, { 5, 0, 0, 255, 7, 0 } },
 	  }, usip_rename_from_ld_hu_q_Fp0, 1 },
+	/* hhttF0_ld_h_q: ld.h rB(!x), [rA(!m) + off12] with the F' = 0 tail at +2 as the second head of an H H T T whose first head is  */
+	{ "ld.h?", "hhttF0_ld_h_q", 0x00001000ULL, 0x800f7000ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_F0CTX, USIP_K_LD, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFH, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 4 } },
+	  }, NULL, 0 },
+	/* hhttF0_ld_hu_q: ld.hu rB(!x), [rA(!m) + off12] with the F' = 0 tail at +2 as the second head of an H H T T whose first head is */
+	{ "ld.hu?", "hhttF0_ld_hu_q", 0x00002000ULL, 0x800f7000ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_F0CTX, USIP_K_LD, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFH, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 4 } },
+	  }, NULL, 0 },
+	/* rf0d_ld_h_q: ld.h rB(!x), [sp + off12]: head op 0 with F = 1 and base sp whose tail is the DEFERRED F' = 0 unit at +2 (R-F0 */
+	{ "ld.h?", "rf0d_ld_h_q", 0x5c001000ULL, 0xfe0f7000ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_F0CTX, USIP_K_LD, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFH, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_ANY, USIP_NOFIELD, USIP_NOFIELD, 6, { 0, 1, 14, 1, 0, 1 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 5 } },
+	  }, NULL, 0 },
+	/* rf0d_ld_hu_q: ld.hu rB(!x), [sp + off12]: head op 0 with F = 1 and base sp whose tail is the DEFERRED F' = 0 unit at +2 (R-F */
+	{ "ld.hu?", "rf0d_ld_hu_q", 0x5c002000ULL, 0xfe0f7000ULL, 32, 2,
+	  USIP_F_CTX | USIP_F_NAMED | USIP_F_F0CTX, USIP_K_LD, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFH, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 2, {
+		{ USIP_C_ANY, USIP_NOFIELD, USIP_NOFIELD, 6, { 0, 1, 14, 1, 0, 1 } },
+		{ USIP_C_CTX, USIP_NOFIELD, USIP_NOFIELD, 1, { 5 } },
+	  }, NULL, 0 },
+	/* spfix_add_sp: r14 = rA + f12/2 (frame release: the op 0 F = S = 1 ld.w cell with destination sp cannot be a load) */
+	{ "add", "spfix_add_sp", 0x40e0c000ULL, 0xc1fff003ULL, 32, 2,
+	  USIP_F_NAMED | USIP_F_RENAME, USIP_K_ALU32, USIP_CONF_MEDIUM, "r14, {0}{1:!}, #{2}", 3, 3, {
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "imm", USIP_A_IMM, 1, { {11, 1} }, 0, 1, 0 },
+	  }, 0, { { 0, 0, 0, 0, { 0 } } }, usip_rename_from_spfix_add_sp, 1 },
+	/* spfix_sub_sp: r14 = r14 - f12/2 (frame allocation: the op 0 pair with rA = rB = sp and the F' = 0 tt = 01 tail cannot be a l */
+	{ "sub", "spfix_sub_sp", 0x5ce09000ULL, 0xfffff000ULL, 32, 2,
+	  USIP_F_NAMED | USIP_F_RENAME, USIP_K_ALU32, USIP_CONF_MEDIUM, "r14, #{0}", 1, 1, {
+		{ "imm", USIP_A_IMM, 1, { {11, 1} }, 0, 1, 0 },
+	  }, 0, { { 0, 0, 0, 0, { 0 } } }, usip_rename_from_spfix_sub_sp, 2 },
+	/* negq_ld_w_c1: ld.w rB(!x), [rA(!m) + off12] with f12 = 1 mod 4 (two-unit word tail): probably a false pair (tail with a head */
+	{ "ld.w?", "negq_ld_w_c1", 0x00000001ULL, 0x800f0003ULL, 32, 2,
+	  USIP_F_NAMED | USIP_F_RENAME, USIP_K_LD, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFW, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 0, { { 0, 0, 0, 0, { 0 } } }, usip_rename_from_negq_ld_w_c1, 1 },
+	/* negq_ld_w_c3: ld.w rB(!x), [rA(!m) + off12] with f12 = 3 mod 4 below 0x800: probably a false pair or a negative displacement */
+	{ "ld.w?", "negq_ld_w_c3", 0x00000003ULL, 0x800f0003ULL, 32, 2,
+	  USIP_F_NAMED | USIP_F_RENAME, USIP_K_LD, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 6, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFW, 1, { {11, 0} }, 0, 1, 0 },
+		{ "off12", USIP_A_IMM, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_LT, 5, USIP_NOFIELD, 1, { 2048 } },
+	  }, usip_rename_from_negq_ld_w_c3, 1 },
+	/* negq_st_w_c1: st.w rB(!x), [rA(!m) + off12] with f12 = 1 mod 4 (two-unit word tail): probably a false pair (tail with a head */
+	{ "st.w?", "negq_st_w_c1", 0x00010001ULL, 0x800f0003ULL, 32, 2,
+	  USIP_F_NAMED | USIP_F_RENAME, USIP_K_ST, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 5, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFW, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 0, { { 0, 0, 0, 0, { 0 } } }, usip_rename_from_negq_st_w_c1, 1 },
+	/* negq_st_w_c3: st.w rB(!x), [rA(!m) + off12] with f12 = 3 mod 4 below 0x800: probably a false pair or a negative displacement */
+	{ "st.w?", "negq_st_w_c3", 0x00010003ULL, 0x800f0003ULL, 32, 2,
+	  USIP_F_NAMED | USIP_F_RENAME, USIP_K_ST, USIP_CONF_MEDIUM, "{0}{1:!}, [{2}{3:!}{4}]", 5, 6, {
+		{ "rB", USIP_A_REG, 1, { {23, 20} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {24, 24} }, 0, 1, 0 },
+		{ "rA", USIP_A_REG, 2, { {28, 28}, {27, 25} }, 0, 1, 0 },
+		{ "m", USIP_A_FLAG, 1, { {29, 29} }, 0, 1, 0 },
+		{ "off", USIP_A_OFFW, 1, { {11, 0} }, 0, 1, 0 },
+		{ "off12", USIP_A_IMM, 1, { {11, 0} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_LT, 5, USIP_NOFIELD, 1, { 2048 } },
+	  }, usip_rename_from_negq_st_w_c3, 1 },
 	/* word_op6_t1: op 6 + [S][F'][01][...] other than dcXX: no reading */
 	{ ".word", "word_op6_t1", 0x00061000ULL, 0x800f3000ULL, 32, 2,
 	  0, USIP_K_OTHER, USIP_CONF_FORMAT, "", 0, 0, {
@@ -5062,7 +5707,7 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* add32_2cX0: rB = rB + imm32 (top5 = 22, L = 1) */
 	{ "add", "add32_2cX0", 0x2c0020000000ULL, 0xbf0f20000000ULL, 48, 3,
-	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {0}, #{2}", 3, 3, {
+	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {0}{1:!}, #{2}", 3, 3, {
 		{ "rB", USIP_A_REG, 1, { {39, 36} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {40, 40} }, 0, 1, 0 },
 		{ "val", USIP_A_IMM, 3, { {45, 41}, {28, 16}, {13, 0} }, 0, 1, 0 },
@@ -5091,7 +5736,7 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* add32_3eX0: rB = rB + (0xF8000000 | imm27) (top5 = 31, L = 1; = rB + sext27 when bit 26 = 1) */
 	{ "add", "add32_3eX0", 0x3e0020000000ULL, 0xfe0fa0000000ULL, 48, 3,
-	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_HIGH, "{0}{1:!}, {0}, #{2}", 3, 5, {
+	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_HIGH, "{0}{1:!}, {0}{1:!}, #{2}", 3, 5, {
 		{ "rB", USIP_A_REG, 1, { {39, 36} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {40, 40} }, 0, 1, 0 },
 		{ "val", USIP_A_IMM, 3, { {45, 41}, {28, 16}, {13, 0} }, 0, 1, 0 },
@@ -5146,6 +5791,24 @@ static const UsipOpcode usip_opcodes[] = {
 		{ "imm27", USIP_A_IMM, 2, { {28, 16}, {13, 0} }, 0, 1, 0 },
 	  }, 1, {
 		{ USIP_C_LT, 2, USIP_NOFIELD, 1, { 262144 } },
+	  }, NULL, 0 },
+	/* stimm16_q_F1: store-of-immediate triple with L = 1 (half-word) and imm27 >= 0x10000: a half-word store cannot write 17+ bits */
+	{ ".stimm16?", "stimm16_q_F1", 0x400060000000ULL, 0xfe0fe0000000ULL, 48, 3,
+	  0, USIP_K_FMT, USIP_CONF_FORMAT, "[{0}{1:!}], #{2}", 3, 3, {
+		{ "rB", USIP_A_REG, 1, { {39, 36} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {40, 40} }, 0, 1, 0 },
+		{ "imm27", USIP_A_IMM, 2, { {28, 16}, {13, 0} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_RANGE, 2, USIP_NOFIELD, 2, { 65536, 262144 } },
+	  }, NULL, 0 },
+	/* stimm16_q_F0_x1: store-of-immediate triple with L = 1 (half-word) and imm27 >= 0x10000: a half-word store cannot write 17+ bits */
+	{ ".stimm16?", "stimm16_q_F0_x1", 0x010060000000ULL, 0xff0fe0000000ULL, 48, 3,
+	  0, USIP_K_FMT, USIP_CONF_FORMAT, "[{0}{1:!}], #{2}", 3, 3, {
+		{ "rB", USIP_A_REG, 1, { {39, 36} }, 0, 1, 0 },
+		{ "x", USIP_A_FLAG, 1, { {40, 40} }, 0, 1, 0 },
+		{ "imm27", USIP_A_IMM, 2, { {28, 16}, {13, 0} }, 0, 1, 0 },
+	  }, 1, {
+		{ USIP_C_RANGE, 2, USIP_NOFIELD, 2, { 65536, 262144 } },
 	  }, NULL, 0 },
 	/* st_h_imm: [rB(!x)] = imm27 (store of an immediate, half-word: L = 1 = width) */
 	{ "st.h", "st_h_imm", 0x400060000000ULL, 0xfe0fe0000000ULL, 48, 3,
@@ -5216,7 +5879,7 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, NULL, 0 },
 	/* add32_A0: rB(!x) = rB + imm27 (top5 = 0, L = 1; the F = 0 x = 0 cell with 4 <= imm27 < 0x400 that is neither store nor a */
 	{ "add", "add32_A0", 0x000020000000ULL, 0xbe0fa0000000ULL, 48, 3,
-	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {0}, #{2}", 3, 3, {
+	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {0}{1:!}, #{2}", 3, 3, {
 		{ "rB", USIP_A_REG, 1, { {39, 36} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {40, 40} }, 0, 1, 0 },
 		{ "val", USIP_A_IMM, 3, { {45, 41}, {28, 16}, {13, 0} }, 0, 1, 0 },
@@ -5268,7 +5931,7 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, 0, { { 0, 0, 0, 0, { 0 } } }, NULL, 0 },
 	/* add48: rX = rX + addr (L = 1: bin_at; addr in the DSP view 0x78000000 | imm27) */
 	{ "add", "add48", 0x1e0034000000ULL, 0xbe0fbe000000ULL, 48, 3,
-	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_HIGH, "{0}{1:!}, {0}, #{2}", 3, 3, {
+	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_HIGH, "{0}{1:!}, {0}{1:!}, #{2}", 3, 3, {
 		{ "rX", USIP_A_REG, 1, { {39, 36} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {40, 40} }, 0, 1, 0 },
 		{ "addr", USIP_A_ABSADDR, 2, { {28, 16}, {13, 0} }, 0, 1, 0x78000000 },
@@ -5292,7 +5955,7 @@ static const UsipOpcode usip_opcodes[] = {
 	  }, NULL, 0 },
 	/* add32_hi1010: rX = rX + ((8 + rrr) << 27 | imm27) (hi(1010) family with L = 1 and head[13:9] != 15; general formula) */
 	{ "add", "add32_hi1010", 0x100034000000ULL, 0xb00fbe000000ULL, 48, 3,
-	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {0}, #{2}", 3, 4, {
+	  USIP_F_NAMED, USIP_K_ALU32, USIP_CONF_MEDIUM, "{0}{1:!}, {0}{1:!}, #{2}", 3, 4, {
 		{ "rX", USIP_A_REG, 1, { {39, 36} }, 0, 1, 0 },
 		{ "x", USIP_A_FLAG, 1, { {40, 40} }, 0, 1, 0 },
 		{ "val", USIP_A_IMM, 3, { {45, 41}, {28, 16}, {13, 0} }, 0, 1, 0 },
@@ -5405,21 +6068,39 @@ static const UsipOpcode usip_opcodes[] = {
 static const char *const usip_kind_names[] = { "alu", "alu32", "bit", "br", "br16", "br16d", "call", "call16", "calla", "callr", "csr", "dsp", "dspacc", "fmt", "io", "jr", "jumpa", "ld", "loop", "mem16", "mov", "mov32", "movi", "movi21", "movi32", "mul", "nop", "other", "restore", "ret", "save", "st", "sys" };
 
 /* context-only forms (matched by the packet decoder only) */
-#define USIP_FORM_BZ_S_P4 96
-#define USIP_FORM_HHTT_LD_B_T4_F0S1 525
-#define USIP_FORM_HHTT_LD_B_T4_F1S0 524
-#define USIP_FORM_HHTT_LD_H_T5_F0S1 522
-#define USIP_FORM_HHTT_LD_HU_T6_F0S1 523
-#define USIP_FORM_HHTT_ST_H_T6_F0S1 529
-#define USIP_FORM_HHTT_ST_H_T6_F1S0 528
-#define USIP_FORM_HHTT_ST_W_T5_F0S1 527
-#define USIP_FORM_HHTT_ST_W_T5_F1S0 526
-#define USIP_FORM_HI1010_LOOSE 130
-#define USIP_FORM_LDSLOT_S0 103
-#define USIP_FORM_LDSLOT_SPLIT 106
-#define USIP_FORM_LEA_SP_S0 100
-#define USIP_FORM_STSLOT_S0 104
-#define USIP_FORM_STSLOT_SPLIT 107
+#define USIP_FORM_B111_LD_BU_T7_F0S0 572
+#define USIP_FORM_B111_LD_BU_T7_F0S1 570
+#define USIP_FORM_B111_LD_BU_T7_F1S0 568
+#define USIP_FORM_B111_LD_BU_T7_F1S1 566
+#define USIP_FORM_B111_ST_B_T7_F0S0 571
+#define USIP_FORM_B111_ST_B_T7_F0S1 569
+#define USIP_FORM_B111_ST_B_T7_F1S0 567
+#define USIP_FORM_B111_ST_B_T7_F1S1 565
+#define USIP_FORM_BFPAIR_FUP 349
+#define USIP_FORM_BFPAIR_FXTS 348
+#define USIP_FORM_BFPAIR_FXTU 347
+#define USIP_FORM_BZ_S_P4 102
+#define USIP_FORM_BZ_S_P5 103
+#define USIP_FORM_HHTTF0_LD_H_Q 586
+#define USIP_FORM_HHTTF0_LD_HU_Q 587
+#define USIP_FORM_HHTT_LD_B_T4_F0S1 558
+#define USIP_FORM_HHTT_LD_B_T4_F1S0 557
+#define USIP_FORM_HHTT_LD_H_T5_F0S1 555
+#define USIP_FORM_HHTT_LD_HU_T6_F0S1 556
+#define USIP_FORM_HHTT_ST_H_T6_F0S1 562
+#define USIP_FORM_HHTT_ST_H_T6_F1S0 561
+#define USIP_FORM_HHTT_ST_W_T5_F0S1 560
+#define USIP_FORM_HHTT_ST_W_T5_F1S0 559
+#define USIP_FORM_HI1010_LOOSE 139
+#define USIP_FORM_LDSLOT_S0 110
+#define USIP_FORM_LDSLOT_S0_M1 112
+#define USIP_FORM_LDSLOT_SPLIT 115
+#define USIP_FORM_LEA_SP_S0 107
+#define USIP_FORM_RF0D_LD_H_Q 588
+#define USIP_FORM_RF0D_LD_HU_Q 589
+#define USIP_FORM_STSLOT_S0 111
+#define USIP_FORM_STSLOT_S0_M1 113
+#define USIP_FORM_STSLOT_SPLIT 116
 
 /* condition codes by (op nibble, tail bits 13:12) */
 static const char *const usip_cond_imm8[3][4] = { /* op 9 */ {"ne", "eq", "le", "lt"}, /* op 8 */ {"ne.u8", "eq.u8", "leu", "ltu"}, /* op a */ {"geu", "gtu", "ge", "gt"} };
@@ -5457,6 +6138,474 @@ static const ut16 usip_never_head_with_tail[] = { 0x5e0d, 0x1e0d };
 /* the 48-bit constants admitted by value (USIP_C_IN_C48TAB: imm32 = head[13:9] << 27 | hi[12:0] << 14 | lo[13:0]); the head:hi partial
  * admission of the parser compares the upper 18 bits */
 static const ut32 usip_c48_table[16] = { 0x636f4361, 0x3fd287a7, 0x8b60c8b3, 0x3fc68a28, 0x509f79fb, 0x3fd34413, 0x00333333, 0x08888888, 0x06666666, 0x051eb851, 0x14fffff6, 0x18fffff4, 0x06666663, 0x01333333, 0x7fefffff, 0x7fff7fff };
+
+/* R-br0: the (op nibble of the head, tail bits 13:12, B class, tail distance) cells of the F = 0 branch heads read as b<cond>.d
+ * (the entries *_f0s0 and the F = S = 0 .d entries carry them as USIP_C_BR0_CELLS); class 0 = B == 0, 1 = B == 15, 2 = any other B.
+ * The weak cells hold only at the origins of a live trace (USIP_C_BR0_CELLS_LIVE): the decoder never takes them. */
+typedef struct { ut8 op, tt, bclass, dist; } UsipBr0Cell;
+static const UsipBr0Cell usip_br0_cells[22] = { { 0x9, 0, 0, 1 }, { 0x9, 0, 2, 1 }, { 0x9, 2, 0, 1 }, { 0x9, 2, 1, 1 }, { 0x9, 3, 0, 2 }, { 0x9, 3, 2, 2 }, { 0x9, 2, 1, 2 }, { 0xa, 0, 0, 1 }, { 0xa, 1, 0, 1 }, { 0xa, 1, 2, 1 }, { 0xa, 2, 0, 1 }, { 0xa, 3, 0, 1 }, { 0xa, 3, 2, 1 }, { 0xa, 3, 1, 1 }, { 0xa, 2, 0, 2 }, { 0xa, 3, 0, 2 }, { 0xa, 3, 1, 2 }, { 0xc, 3, 2, 1 }, { 0xc, 2, 2, 2 }, { 0x8, 3, 2, 2 }, { 0x8, 0, 1, 2 }, { 0x8, 1, 2, 2 } };
+static const UsipBr0Cell usip_br0_cells_weak[5] = { { 0x9, 0, 0, 2 }, { 0x8, 0, 0, 2 }, { 0x8, 1, 0, 2 }, { 0xc, 2, 0, 1 }, { 0xc, 2, 2, 1 } };
+
+/* R-c48sym: data addresses already formed by the 48-bit hi(1010) family (sorted); a reading that leaves a family head without tails
+ * while a later free hi + lo of the packet encode one of them pays +0.5 (structure.packet.tie_breaks) */
+static const ut32 usip_c48sym_table[3641] = {
+	0x7d000004, 0x7d00007e, 0x7d0000b8, 0x7d000124, 0x7d00020f, 0x7d000250, 0x7d000254, 0x7d000258,
+	0x7d000500, 0x7d0005ec, 0x7d0009ff, 0x7d000c79, 0x7d000ffe, 0x7d00104c, 0x7d001861, 0x7d001c00,
+	0x7d001e07, 0x7d001e6a, 0x7d003019, 0x7d00319c, 0x7d003440, 0x7d003861, 0x7d003881, 0x7d0038aa,
+	0x7d003c24, 0x7d004034, 0x7d004040, 0x7d0041c2, 0x7d0043b4, 0x7d004a98, 0x7d005011, 0x7d0052a1,
+	0x7d005411, 0x7d005431, 0x7d005454, 0x7d005821, 0x7d007471, 0x7d007811, 0x7d007a11, 0x7d007fe1,
+	0x7d008134, 0x7d0082af, 0x7d008607, 0x7d008ca1, 0x7d009400, 0x7d009e70, 0x7d00a0c0, 0x7d00a22f,
+	0x7d00b404, 0x7d00d132, 0x7d01014c, 0x7d010402, 0x7d01041f, 0x7d0104a7, 0x7d011084, 0x7d01123e,
+	0x7d011402, 0x7d011c00, 0x7d012005, 0x7d012006, 0x7d012245, 0x7d0132c1, 0x7d013f88, 0x7d014388,
+	0x7d015421, 0x7d015423, 0x7d015432, 0x7d01543e, 0x7d01543f, 0x7d01545c, 0x7d015815, 0x7d018007,
+	0x7d018271, 0x7d01b440, 0x7d01bd23, 0x7d01c040, 0x7d01c0ab, 0x7d01c1a9, 0x7d01c588, 0x7d01cc07,
+	0x7d01d002, 0x7d01d041, 0x7d01d425, 0x7d01d435, 0x7d01f207, 0x7d01f607, 0x7d01f81d, 0x7d01f9cc,
+	0x7d01fda3, 0x7d020566, 0x7d020a54, 0x7d021064, 0x7d023649, 0x7d028ae6, 0x7d02d1c3, 0x7d030040,
+	0x7d030061, 0x7d030080, 0x7d03008c, 0x7d0300a1, 0x7d030212, 0x7d030650, 0x7d031454, 0x7d031855,
+	0x7d032c4b, 0x7d034078, 0x7d038020, 0x7d03c0c1, 0x7d03c427, 0x7d03c780, 0x7d03d130, 0x7d03d134,
+	0x7d03d471, 0x7d03f007, 0x7d03fffc, 0x7d040060, 0x7d0402d4, 0x7d040a5c, 0x7d040fff, 0x7d0410c0,
+	0x7d041152, 0x7d04147d, 0x7d041555, 0x7d044058, 0x7d044060, 0x7d044080, 0x7d044200, 0x7d044400,
+	0x7d044798, 0x7d0448b0, 0x7d04543f, 0x7d045487, 0x7d045a0c, 0x7d046478, 0x7d046aaa, 0x7d0490a2,
+	0x7d04d213, 0x7d052024, 0x7d05202f, 0x7d052c51, 0x7d0544a0, 0x7d055422, 0x7d055425, 0x7d05543d,
+	0x7d05543f, 0x7d057455, 0x7d057fe1, 0x7d058020, 0x7d05880e, 0x7d05d825, 0x7d05fb03, 0x7d060178,
+	0x7d060414, 0x7d0640c8, 0x7d068aaa, 0x7d06d132, 0x7d070010, 0x7d070118, 0x7d070562, 0x7d071000,
+	0x7d0710ab, 0x7d071563, 0x7d072010, 0x7d0720f4, 0x7d0720fc, 0x7d0721a8, 0x7d072230, 0x7d072234,
+	0x7d072236, 0x7d07223a, 0x7d072248, 0x7d07224c, 0x7d07225c, 0x7d07226c, 0x7d07227c, 0x7d0723e4,
+	0x7d072474, 0x7d07247e, 0x7d072488, 0x7d072490, 0x7d072493, 0x7d07249a, 0x7d072518, 0x7d072544,
+	0x7d07254a, 0x7d072550, 0x7d072554, 0x7d072560, 0x7d072564, 0x7d072574, 0x7d072575, 0x7d07257b,
+	0x7d072690, 0x7d072698, 0x7d0726a8, 0x7d072838, 0x7d07288c, 0x7d07288d, 0x7d07288e, 0x7d0728a0,
+	0x7d0728a2, 0x7d0728a5, 0x7d0728a6, 0x7d0728aa, 0x7d0728ac, 0x7d0728b4, 0x7d0728b8, 0x7d0728cc,
+	0x7d0728e0, 0x7d0728e3, 0x7d0728e7, 0x7d0728e8, 0x7d0728ec, 0x7d0728ee, 0x7d0728f0, 0x7d0728f1,
+	0x7d0728f5, 0x7d0728f7, 0x7d0728fb, 0x7d0728fe, 0x7d072906, 0x7d072908, 0x7d072910, 0x7d072920,
+	0x7d072924, 0x7d072944, 0x7d072c10, 0x7d072c24, 0x7d072c3c, 0x7d072ca0, 0x7d072d30, 0x7d072d44,
+	0x7d072de4, 0x7d072df4, 0x7d073000, 0x7d073180, 0x7d07318c, 0x7d073190, 0x7d0731dc, 0x7d073a00,
+	0x7d074000, 0x7d074002, 0x7d074005, 0x7d074018, 0x7d07401f, 0x7d074021, 0x7d074022, 0x7d076d14,
+	0x7d076d18, 0x7d076d1c, 0x7d076d20, 0x7d076d2b, 0x7d076e94, 0x7d076ef2, 0x7d076ef4, 0x7d077268,
+	0x7d077d13, 0x7d07843c, 0x7d079216, 0x7d079800, 0x7d079818, 0x7d079830, 0x7d079834, 0x7d079838,
+	0x7d07983c, 0x7d079840, 0x7d079844, 0x7d079848, 0x7d07984c, 0x7d079850, 0x7d079854, 0x7d079858,
+	0x7d07985c, 0x7d079860, 0x7d079864, 0x7d079868, 0x7d07986c, 0x7d07995c, 0x7d07998c, 0x7d079a50,
+	0x7d079a54, 0x7d079b08, 0x7d079b0c, 0x7d079b28, 0x7d079b38, 0x7d079b3c, 0x7d079b4c, 0x7d079b64,
+	0x7d079b6c, 0x7d079ed4, 0x7d079ee4, 0x7d079ef4, 0x7d079f04, 0x7d079f18, 0x7d079f30, 0x7d079f40,
+	0x7d079fc0, 0x7d07a040, 0x7d07a050, 0x7d07a060, 0x7d07a0e0, 0x7d07a160, 0x7d07a1e0, 0x7d07a1e8,
+	0x7d07a1f0, 0x7d07a210, 0x7d07a254, 0x7d07a278, 0x7d07a29c, 0x7d07a2a8, 0x7d07a2b4, 0x7d07a2c0,
+	0x7d07a2cc, 0x7d07a2d0, 0x7d07a2d4, 0x7d07a2d8, 0x7d07a2dc, 0x7d07a2e0, 0x7d07a2fc, 0x7d07a344,
+	0x7d07a345, 0x7d07a34f, 0x7d07a358, 0x7d07a458, 0x7d07a45c, 0x7d07a5c8, 0x7d07a5d4, 0x7d07a9d0,
+	0x7d07a9d4, 0x7d07a9dc, 0x7d080500, 0x7d080d3e, 0x7d080d42, 0x7d080d46, 0x7d080d4a, 0x7d080d4e,
+	0x7d0810da, 0x7d083435, 0x7d08347c, 0x7d084268, 0x7d085030, 0x7d085454, 0x7d085841, 0x7d085851,
+	0x7d085e90, 0x7d086000, 0x7d086008, 0x7d086009, 0x7d08600a, 0x7d08600b, 0x7d08600c, 0x7d08600d,
+	0x7d086010, 0x7d086014, 0x7d086018, 0x7d08601c, 0x7d086020, 0x7d086022, 0x7d086024, 0x7d086026,
+	0x7d08602c, 0x7d086030, 0x7d086034, 0x7d08603c, 0x7d08603d, 0x7d08603f, 0x7d086040, 0x7d086054,
+	0x7d0860d8, 0x7d086104, 0x7d086113, 0x7d086116, 0x7d08611b, 0x7d0861bc, 0x7d08620c, 0x7d08621e,
+	0x7d086228, 0x7d08622a, 0x7d0862b2, 0x7d086408, 0x7d086d74, 0x7d086f34, 0x7d087004, 0x7d087008,
+	0x7d08700c, 0x7d087028, 0x7d08702c, 0x7d087030, 0x7d087034, 0x7d087038, 0x7d08703c, 0x7d08704c,
+	0x7d087050, 0x7d087054, 0x7d087058, 0x7d08705c, 0x7d087060, 0x7d087064, 0x7d087068, 0x7d08706c,
+	0x7d087070, 0x7d087074, 0x7d087078, 0x7d08707c, 0x7d087080, 0x7d087084, 0x7d087088, 0x7d08708c,
+	0x7d087094, 0x7d087098, 0x7d0870e0, 0x7d0870e4, 0x7d0870e8, 0x7d0870ec, 0x7d0870f4, 0x7d0870fc,
+	0x7d0871b0, 0x7d0871e0, 0x7d087204, 0x7d087268, 0x7d087270, 0x7d08727c, 0x7d087280, 0x7d087284,
+	0x7d0872b4, 0x7d0872bc, 0x7d0872f4, 0x7d0872f8, 0x7d087320, 0x7d087360, 0x7d0873b0, 0x7d0873c4,
+	0x7d0873dc, 0x7d087431, 0x7d0874a0, 0x7d0874c8, 0x7d0874e0, 0x7d0874e4, 0x7d08750c, 0x7d087520,
+	0x7d087538, 0x7d087544, 0x7d087548, 0x7d08754c, 0x7d087550, 0x7d087554, 0x7d087558, 0x7d087560,
+	0x7d087564, 0x7d08756c, 0x7d087570, 0x7d087578, 0x7d08757c, 0x7d087580, 0x7d087584, 0x7d087588,
+	0x7d08758c, 0x7d087590, 0x7d087598, 0x7d0875e8, 0x7d0875ec, 0x7d08769c, 0x7d0876c8, 0x7d087708,
+	0x7d087728, 0x7d087768, 0x7d0877e8, 0x7d087808, 0x7d087810, 0x7d087814, 0x7d087818, 0x7d08781c,
+	0x7d087824, 0x7d08785c, 0x7d087880, 0x7d0878b8, 0x7d0878f0, 0x7d08790c, 0x7d087974, 0x7d087cf8,
+	0x7d087d04, 0x7d087d10, 0x7d087e2c, 0x7d087e54, 0x7d087e57, 0x7d087e58, 0x7d087e5c, 0x7d087e64,
+	0x7d087e6c, 0x7d087e70, 0x7d087e74, 0x7d087eef, 0x7d088000, 0x7d08801c, 0x7d088040, 0x7d0882c0,
+	0x7d0883c0, 0x7d0884e8, 0x7d08850c, 0x7d08852c, 0x7d088530, 0x7d08854c, 0x7d088550, 0x7d08856c,
+	0x7d088570, 0x7d08857a, 0x7d08857e, 0x7d088588, 0x7d08858c, 0x7d088591, 0x7d088596, 0x7d0885aa,
+	0x7d0885af, 0x7d0885b4, 0x7d0885c8, 0x7d0885cd, 0x7d0885d2, 0x7d0885d7, 0x7d088668, 0x7d088672,
+	0x7d0886b8, 0x7d0886c2, 0x7d0886d2, 0x7d0886d3, 0x7d0886d4, 0x7d0886d6, 0x7d0886d8, 0x7d0886dc,
+	0x7d0886e0, 0x7d0886e4, 0x7d0886e8, 0x7d0886f0, 0x7d088704, 0x7d088718, 0x7d08872c, 0x7d088734,
+	0x7d088739, 0x7d08873e, 0x7d088761, 0x7d08876c, 0x7d088780, 0x7d088e1f, 0x7d088e5a, 0x7d088f00,
+	0x7d088f04, 0x7d088f08, 0x7d088f0d, 0x7d088f12, 0x7d088f18, 0x7d088f22, 0x7d088f2e, 0x7d089000,
+	0x7d0891e0, 0x7d0893c0, 0x7d089422, 0x7d0894b0, 0x7d0895a0, 0x7d0895d4, 0x7d0897b8, 0x7d0897f8,
+	0x7d089878, 0x7d0898b8, 0x7d089938, 0x7d08996c, 0x7d089988, 0x7d089994, 0x7d0899dc, 0x7d0899e4,
+	0x7d089a6c, 0x7d089a90, 0x7d089acc, 0x7d089ad0, 0x7d089ad4, 0x7d089ad8, 0x7d089ae8, 0x7d089aec,
+	0x7d089b24, 0x7d089b3c, 0x7d089b64, 0x7d089b78, 0x7d089b8c, 0x7d089c2c, 0x7d089ca4, 0x7d089d8c,
+	0x7d089df8, 0x7d089dfc, 0x7d089e04, 0x7d089e08, 0x7d089e10, 0x7d089e14, 0x7d089e20, 0x7d089e2c,
+	0x7d089e30, 0x7d089e34, 0x7d089e40, 0x7d089e48, 0x7d089e84, 0x7d089e88, 0x7d089e94, 0x7d089e9c,
+	0x7d089ed8, 0x7d089ed9, 0x7d089edc, 0x7d089ee0, 0x7d089ee4, 0x7d089ee8, 0x7d089eec, 0x7d089ef0,
+	0x7d089ef4, 0x7d089ef8, 0x7d089efc, 0x7d089f04, 0x7d089f08, 0x7d089f0c, 0x7d089f1c, 0x7d08a000,
+	0x7d08a01c, 0x7d08a090, 0x7d08a092, 0x7d08a094, 0x7d08a096, 0x7d08a0a4, 0x7d08a0b4, 0x7d08a0bc,
+	0x7d08a0cc, 0x7d08a124, 0x7d08a140, 0x7d08a144, 0x7d08a14c, 0x7d08a15c, 0x7d08a15d, 0x7d08a15e,
+	0x7d08a161, 0x7d08a164, 0x7d08a168, 0x7d08a16b, 0x7d08a174, 0x7d08a178, 0x7d08a179, 0x7d08a17a,
+	0x7d08a17b, 0x7d08a17c, 0x7d08a720, 0x7d08ac44, 0x7d08ac45, 0x7d08b002, 0x7d08b244, 0x7d08b248,
+	0x7d08b25c, 0x7d08b260, 0x7d08b264, 0x7d08b278, 0x7d08b290, 0x7d08b294, 0x7d08b295, 0x7d08b29a,
+	0x7d08b2a0, 0x7d08b2a4, 0x7d08b2d4, 0x7d08b2d8, 0x7d08b308, 0x7d08b30c, 0x7d08b30d, 0x7d08b30e,
+	0x7d08b316, 0x7d08b5e0, 0x7d08b5eb, 0x7d08b630, 0x7d08b680, 0x7d08b684, 0x7d08b690, 0x7d08b6b8,
+	0x7d08b6bc, 0x7d08b6d0, 0x7d08b6d4, 0x7d08b6d8, 0x7d08b704, 0x7d08b758, 0x7d08b76d, 0x7d08b76e,
+	0x7d08bad4, 0x7d08c000, 0x7d08c002, 0x7d08c4ec, 0x7d08c4ed, 0x7d08c4f4, 0x7d08c4f8, 0x7d08c4f9,
+	0x7d08c500, 0x7d08c501, 0x7d08c502, 0x7d08c508, 0x7d08c50c, 0x7d08c510, 0x7d08c511, 0x7d08c512,
+	0x7d08c514, 0x7d08c515, 0x7d08c517, 0x7d08c530, 0x7d08c538, 0x7d08c53c, 0x7d08c53d, 0x7d08c7ac,
+	0x7d08c7b0, 0x7d08c7e8, 0x7d08cc60, 0x7d08cc88, 0x7d08cc8d, 0x7d08cc8e, 0x7d08cc90, 0x7d08cc91,
+	0x7d08cc92, 0x7d08cc94, 0x7d08cc98, 0x7d08ccb0, 0x7d08ccbc, 0x7d08ccc8, 0x7d08ccd6, 0x7d08ccd8,
+	0x7d08cce7, 0x7d08cce8, 0x7d08cce9, 0x7d08cd28, 0x7d08cd2a, 0x7d08cd2c, 0x7d08cd2e, 0x7d08cd32,
+	0x7d08cd38, 0x7d08cd3c, 0x7d08cd40, 0x7d08cd44, 0x7d08cd48, 0x7d08cd49, 0x7d08cd4a, 0x7d08cd6c,
+	0x7d08cd70, 0x7d08cd78, 0x7d08cd82, 0x7d08cdac, 0x7d08cdb0, 0x7d08cdb4, 0x7d08cdb8, 0x7d08cdbc,
+	0x7d08cdc0, 0x7d08cdc4, 0x7d08cdcc, 0x7d08cdd4, 0x7d08cdd8, 0x7d08cde0, 0x7d08cdec, 0x7d08cdee,
+	0x7d08cdf0, 0x7d08ce21, 0x7d08cf38, 0x7d08d8e2, 0x7d08e000, 0x7d08e078, 0x7d08e084, 0x7d08e088,
+	0x7d08e08c, 0x7d08e090, 0x7d08e094, 0x7d08e098, 0x7d08f0ac, 0x7d08f842, 0x7d09011c, 0x7d0920a1,
+	0x7d092800, 0x7d09284d, 0x7d092866, 0x7d092880, 0x7d093e80, 0x7d093e84, 0x7d094000, 0x7d0942b1,
+	0x7d09483c, 0x7d0950c1, 0x7d09543d, 0x7d095478, 0x7d095830, 0x7d095838, 0x7d09583c, 0x7d095840,
+	0x7d095844, 0x7d095848, 0x7d09584c, 0x7d095850, 0x7d095854, 0x7d09585c, 0x7d095860, 0x7d095868,
+	0x7d09586c, 0x7d095870, 0x7d095874, 0x7d09587c, 0x7d095880, 0x7d095884, 0x7d095888, 0x7d0958d8,
+	0x7d095974, 0x7d09597c, 0x7d095980, 0x7d095998, 0x7d095ad8, 0x7d095c00, 0x7d095c14, 0x7d095c54,
+	0x7d095c94, 0x7d095cd4, 0x7d095d14, 0x7d095d54, 0x7d095d94, 0x7d095dd4, 0x7d095e14, 0x7d095e54,
+	0x7d095e94, 0x7d095ed4, 0x7d095f14, 0x7d095f54, 0x7d095f94, 0x7d095fd4, 0x7d095fd8, 0x7d095fdc,
+	0x7d09601c, 0x7d096020, 0x7d0960a0, 0x7d0960b0, 0x7d0960b4, 0x7d0960b8, 0x7d0960d0, 0x7d096258,
+	0x7d09625c, 0x7d096278, 0x7d096280, 0x7d0962dc, 0x7d0962e0, 0x7d0962e4, 0x7d096320, 0x7d096324,
+	0x7d096354, 0x7d0963d8, 0x7d09645c, 0x7d0966e4, 0x7d0966f8, 0x7d096728, 0x7d09675c, 0x7d096918,
+	0x7d096928, 0x7d096944, 0x7d096950, 0x7d096964, 0x7d096970, 0x7d096c70, 0x7d096c74, 0x7d096c9c,
+	0x7d096ca0, 0x7d096ca4, 0x7d096f50, 0x7d096fd4, 0x7d097000, 0x7d097001, 0x7d09703c, 0x7d09703e,
+	0x7d097058, 0x7d097096, 0x7d0970a6, 0x7d097272, 0x7d0972e0, 0x7d0972f4, 0x7d097304, 0x7d097308,
+	0x7d097338, 0x7d097404, 0x7d09740c, 0x7d097414, 0x7d09743c, 0x7d09745c, 0x7d097464, 0x7d09746c,
+	0x7d097474, 0x7d09747c, 0x7d097488, 0x7d097490, 0x7d097491, 0x7d097492, 0x7d097494, 0x7d097495,
+	0x7d097496, 0x7d097497, 0x7d09749a, 0x7d09749b, 0x7d09749c, 0x7d09749d, 0x7d09749e, 0x7d0974a0,
+	0x7d0974a1, 0x7d0974a2, 0x7d0974a5, 0x7d0974a6, 0x7d0974ab, 0x7d0974ae, 0x7d0974b0, 0x7d0974bb,
+	0x7d0974bc, 0x7d0974bd, 0x7d0974c0, 0x7d0974c4, 0x7d0974cb, 0x7d0974cd, 0x7d0974cf, 0x7d0974d0,
+	0x7d0974d1, 0x7d0974d2, 0x7d0974d3, 0x7d0974d4, 0x7d0974d5, 0x7d0974d6, 0x7d0974d7, 0x7d0974db,
+	0x7d0974dc, 0x7d0974e1, 0x7d0974e5, 0x7d0974ea, 0x7d0974eb, 0x7d0974ee, 0x7d0974f6, 0x7d0974f7,
+	0x7d0974f8, 0x7d0974f9, 0x7d0974fa, 0x7d0974fc, 0x7d0974fd, 0x7d0974fe, 0x7d097500, 0x7d097502,
+	0x7d09750b, 0x7d09750d, 0x7d09750f, 0x7d097514, 0x7d097518, 0x7d097520, 0x7d097524, 0x7d097528,
+	0x7d09754c, 0x7d097854, 0x7d0978ea, 0x7d097b79, 0x7d097d50, 0x7d097d60, 0x7d09cff8, 0x7d09d130,
+	0x7d0b0100, 0x7d0b0108, 0x7d0b0137, 0x7d0b064c, 0x7d0b4015, 0x7d0bd80f, 0x7d0c0004, 0x7d0c0014,
+	0x7d0c0018, 0x7d0c0120, 0x7d0c0ffd, 0x7d0c1000, 0x7d0c1004, 0x7d0c100c, 0x7d0c1010, 0x7d0c1018,
+	0x7d0c101c, 0x7d0c1020, 0x7d0c1024, 0x7d0c1028, 0x7d0c1064, 0x7d0c1088, 0x7d0c108c, 0x7d0c1090,
+	0x7d0c1130, 0x7d0c1134, 0x7d0c1314, 0x7d0c13b4, 0x7d0c19b4, 0x7d0c19b8, 0x7d0c1c21, 0x7d0c2211,
+	0x7d0c25b4, 0x7d0c29b4, 0x7d0c35b4, 0x7d0c42d8, 0x7d0c45b4, 0x7d0c48b4, 0x7d0c497e, 0x7d0c499e,
+	0x7d0c49be, 0x7d0c49c8, 0x7d0c49cc, 0x7d0c49d0, 0x7d0c49f0, 0x7d0c4a10, 0x7d0c4a2a, 0x7d0c4b08,
+	0x7d0c4bf8, 0x7d0c4bfc, 0x7d0c4c00, 0x7d0c4c12, 0x7d0c4c32, 0x7d0c4c54, 0x7d0c4d54, 0x7d0c4e54,
+	0x7d0c4fd4, 0x7d0c5154, 0x7d0c5254, 0x7d0c5354, 0x7d0c6554, 0x7d0c66d4, 0x7d0c69d4, 0x7d0c6cd4,
+	0x7d0c7ad4, 0x7d0c7b94, 0x7d0c7c94, 0x7d0c8194, 0x7d0c8594, 0x7d0c8914, 0x7d0c8916, 0x7d0c8a58,
+	0x7d0c8a9c, 0x7d0c8b0c, 0x7d0c8c1c, 0x7d0c8c40, 0x7d0c8c42, 0x7d0c8c54, 0x7d0c8c58, 0x7d0c8c5c,
+	0x7d0c8c62, 0x7d0c8c64, 0x7d0c8c74, 0x7d0c8c84, 0x7d0c8c94, 0x7d0c8cb4, 0x7d0c8cd4, 0x7d0c8cf4,
+	0x7d0c8d14, 0x7d0c8d16, 0x7d0c8d18, 0x7d0c8d1a, 0x7d0c8e1c, 0x7d0c8f1e, 0x7d0c8f2e, 0x7d0c8f3c,
+	0x7d0c8f7c, 0x7d0c8fbc, 0x7d0c8fc0, 0x7d0c8fc2, 0x7d0c8fc4, 0x7d0c8fd2, 0x7d0c8fd8, 0x7d0c8fde,
+	0x7d0c8fe4, 0x7d0c8fec, 0x7d0c8ff4, 0x7d0c8ffc, 0x7d0c913c, 0x7d0c9406, 0x7d0c9f3c, 0x7d0cb040,
+	0x7d0cb63c, 0x7d0cbc3c, 0x7d0cbc50, 0x7d0cbc64, 0x7d0cbc78, 0x7d0cbc8c, 0x7d0cbca0, 0x7d0cbcc2,
+	0x7d0cbcc6, 0x7d0cbd06, 0x7d0cbd20, 0x7d0cbd26, 0x7d0cbd46, 0x7d0cbd66, 0x7d0cbda6, 0x7d0cbdba,
+	0x7d0cbdd0, 0x7d0cbdd6, 0x7d0cbdda, 0x7d0cbddc, 0x7d0cbdde, 0x7d0cbdf2, 0x7d0cbe08, 0x7d0cbe0c,
+	0x7d0cbe10, 0x7d0cbe14, 0x7d0cbe1c, 0x7d0cbe24, 0x7d0cbea4, 0x7d0cc4a4, 0x7d0cc624, 0x7d0cc6a4,
+	0x7d0cc824, 0x7d0ccc24, 0x7d0ccda4, 0x7d0cd2a4, 0x7d0cd7a4, 0x7d0cd7c0, 0x7d0cd7f4, 0x7d0cd820,
+	0x7d0cd84c, 0x7d0cd878, 0x7d0cd8a4, 0x7d0cd8d0, 0x7d0cd8e4, 0x7d0cd8f8, 0x7d0cd8fc, 0x7d0cd930,
+	0x7d0cd964, 0x7d0cd9a4, 0x7d0cd9e4, 0x7d0cda24, 0x7d0cdb64, 0x7d0cdb78, 0x7d0cdb8c, 0x7d0cdbae,
+	0x7d0cdbd0, 0x7d0cdbd2, 0x7d0cdc52, 0x7d0cded2, 0x7d0ce152, 0x7d0ce15c, 0x7d0cfa52, 0x7d0cfa56,
+	0x7d0cfa5a, 0x7d0cfa6e, 0x7d0cfa82, 0x7d0cfd20, 0x7d0cff82, 0x7d0d00ca, 0x7d0d0402, 0x7d0d0404,
+	0x7d0d0406, 0x7d0d0408, 0x7d0d040a, 0x7d0d040c, 0x7d0d068e, 0x7d0d0690, 0x7d0d0692, 0x7d0d0694,
+	0x7d0d0696, 0x7d0d0902, 0x7d0d0918, 0x7d0d091a, 0x7d0d091c, 0x7d0d091e, 0x7d0d0920, 0x7d0d0922,
+	0x7d0d0924, 0x7d0d0926, 0x7d0d0928, 0x7d0d1b04, 0x7d0d1b08, 0x7d0d1b60, 0x7d0d1b68, 0x7d0d1b88,
+	0x7d0d1ba8, 0x7d0d1e64, 0x7d0d1e84, 0x7d0d1e94, 0x7d0d1e96, 0x7d0d1eb0, 0x7d0d2024, 0x7d0d2026,
+	0x7d0d20b0, 0x7d0d20b4, 0x7d0d20d8, 0x7d0d20fc, 0x7d0d2100, 0x7d0d2102, 0x7d0d2104, 0x7d0d2114,
+	0x7d0d2124, 0x7d0d2134, 0x7d0d2136, 0x7d0d213a, 0x7d0d2636, 0x7d0d2726, 0x7d0d2a96, 0x7d0d2d66,
+	0x7d0d4001, 0x7d0d4018, 0x7d0d4099, 0x7d0d42a5, 0x7d0d4566, 0x7d0d4b66, 0x7d0d4f24, 0x7d0d4f66,
+	0x7d0d5026, 0x7d0d5086, 0x7d0d50c6, 0x7d0d50cc, 0x7d0d50d2, 0x7d0d52a4, 0x7d0d52cc, 0x7d0d52d2,
+	0x7d0d52d6, 0x7d0d53a4, 0x7d0d53ec, 0x7d0d5464, 0x7d0d5664, 0x7d0d5666, 0x7d0d56e2, 0x7d0d56f6,
+	0x7d0d570a, 0x7d0d5720, 0x7d0d5748, 0x7d0d574a, 0x7d0d5750, 0x7d0d5752, 0x7d0d5758, 0x7d0d5778,
+	0x7d0d5808, 0x7d0d580a, 0x7d0d580c, 0x7d0d580e, 0x7d0d5810, 0x7d0d5812, 0x7d0d5826, 0x7d0d583a,
+	0x7d0d584e, 0x7d0d5862, 0x7d0d5876, 0x7d0d588a, 0x7d0d589e, 0x7d0d58ae, 0x7d0d58b4, 0x7d0d58ba,
+	0x7d0d58c0, 0x7d0d58c6, 0x7d0d58da, 0x7d0d58ee, 0x7d0d597a, 0x7d0d598e, 0x7d0d5994, 0x7d0d599a,
+	0x7d0d59a0, 0x7d0d59a6, 0x7d0d59ba, 0x7d0d59ce, 0x7d0d5a5a, 0x7d0d5a6e, 0x7d0d5a72, 0x7d0d5a8e,
+	0x7d0d5a92, 0x7d0d5aae, 0x7d0d5aee, 0x7d0d5b2c, 0x7d0d5b3e, 0x7d0d5b46, 0x7d0d5b4e, 0x7d0d5b56,
+	0x7d0d5b58, 0x7d0d5b5c, 0x7d0d5bbe, 0x7d0d5c20, 0x7d0d5c88, 0x7d0d5cf0, 0x7d0d5d52, 0x7d0d5db4,
+	0x7d0d5e1c, 0x7d0d5e84, 0x7d0d5e9a, 0x7d0d5f5c, 0x7d0d6014, 0x7d0d60cc, 0x7d0d6138, 0x7d0d61a0,
+	0x7d0d6220, 0x7d0d62a0, 0x7d0d6354, 0x7d0d64fe, 0x7d0d6514, 0x7d0d6516, 0x7d0d652c, 0x7d0d652e,
+	0x7d0d6542, 0x7d0d6544, 0x7d0d6558, 0x7d0d6858, 0x7d0d6878, 0x7d0d6898, 0x7d0d68d8, 0x7d0d6918,
+	0x7d0d691a, 0x7d0d691c, 0x7d0d691e, 0x7d0d6920, 0x7d0d6922, 0x7d0d6942, 0x7d0d69a6, 0x7d0d6a0a,
+	0x7d0d6a4a, 0x7d0d6a4c, 0x7d0d6a4e, 0x7d0d6a6e, 0x7d0d6a70, 0x7d0d6a72, 0x7d0d6a92, 0x7d0d6a94,
+	0x7d0d6ab4, 0x7d0d6ab6, 0x7d0d6ad8, 0x7d0d6afa, 0x7d0d6afc, 0x7d0d6b1e, 0x7d0d6b40, 0x7d0d6b4c,
+	0x7d0d6b56, 0x7d0d6b57, 0x7d0d6b76, 0x7d0d6b78, 0x7d0d6b7a, 0x7d0d6b7c, 0x7d0d6b80, 0x7d0d6b82,
+	0x7d0d6b84, 0x7d0d6b88, 0x7d0d6b8e, 0x7d0d6bcc, 0x7d0d6bfe, 0x7d0d6c00, 0x7d0d6c0c, 0x7d0d6c0e,
+	0x7d0d6c4c, 0x7d0d6c4e, 0x7d0d6c50, 0x7d0d6c8e, 0x7d0d6c90, 0x7d0d6cce, 0x7d0d6cd0, 0x7d0d6d10,
+	0x7d0d6d50, 0x7d0d6d52, 0x7d0d6d92, 0x7d0d6dd2, 0x7d0d6e12, 0x7d0d6e52, 0x7d0d6e72, 0x7d0d6e7a,
+	0x7d0d6e82, 0x7d0d6e8a, 0x7d0d6e92, 0x7d0d6e9a, 0x7d0d6ea2, 0x7d0d6eaa, 0x7d0d6eb4, 0x7d0d6ebc,
+	0x7d0d6ee4, 0x7d0d6f04, 0x7d0d6f06, 0x7d0d6f44, 0x7d0d6f4c, 0x7d0d6f74, 0x7d0d6f80, 0x7d0d6f92,
+	0x7d0d6fb8, 0x7d0d6fbe, 0x7d0d6fec, 0x7d0d730c, 0x7d0d738c, 0x7d0d738e, 0x7d0d7390, 0x7d0d7392,
+	0x7d0d7396, 0x7d0d7398, 0x7d0d739a, 0x7d0d739e, 0x7d0d73a0, 0x7d0d73a2, 0x7d0d73a6, 0x7d0d73a8,
+	0x7d0d73aa, 0x7d0d73ac, 0x7d0d73ae, 0x7d0d73b2, 0x7d0d73b4, 0x7d0d73b6, 0x7d0d73ba, 0x7d0d73bc,
+	0x7d0d73e8, 0x7d0d7680, 0x7d0d7732, 0x7d0d7746, 0x7d0d77bc, 0x7d0d7828, 0x7d0d782a, 0x7d0d7830,
+	0x7d0d787a, 0x7d0d78c4, 0x7d0d790e, 0x7d0d7928, 0x7d0d7972, 0x7d0d7a06, 0x7d0d7a1e, 0x7d0d7d20,
+	0x7d0d7da1, 0x7d0d7de0, 0x7d0d7de2, 0x7d0d7de4, 0x7d0d7de6, 0x7d0d7de8, 0x7d0d7e9c, 0x7d0d7f2c,
+	0x7d0d7f44, 0x7d0d7f54, 0x7d0d7f58, 0x7d0d7f70, 0x7d0d7f78, 0x7d0d7fd8, 0x7d0d7fe8, 0x7d0d7ff8,
+	0x7d0d8008, 0x7d0d8024, 0x7d0d8034, 0x7d0d8044, 0x7d0d8054, 0x7d0d8064, 0x7d0d806c, 0x7d0d8074,
+	0x7d0d8094, 0x7d0d80c4, 0x7d0d80e8, 0x7d0d80fc, 0x7d0d8108, 0x7d0d8114, 0x7d0d8120, 0x7d0d812c,
+	0x7d0d8130, 0x7d0d8134, 0x7d0d8138, 0x7d0d813c, 0x7d0d8140, 0x7d0d8144, 0x7d0d8168, 0x7d0d8169,
+	0x7d0d8173, 0x7d0d817c, 0x7d0d827c, 0x7d0d8280, 0x7d0d828c, 0x7d0d8688, 0x7d0d868c, 0x7d0d8690,
+	0x7d0d8800, 0x7d0da61d, 0x7d0dbfe0, 0x7d0dce1f, 0x7d0e1024, 0x7d0e120a, 0x7d0e41ec, 0x7d0e47b0,
+	0x7d0ec04f, 0x7d0f0086, 0x7d0f00a3, 0x7d0f00c3, 0x7d0f0543, 0x7d0f0828, 0x7d0f0a0b, 0x7d0f1e2c,
+	0x7d0f4002, 0x7d0f6ea0, 0x7d0f6ed0, 0x7d0f6ed8, 0x7d0f6ee0, 0x7d0f6ee4, 0x7d0f6ee8, 0x7d0f6eec,
+	0x7d0f6ef0, 0x7d0f6ef4, 0x7d0f6efc, 0x7d0f6f00, 0x7d0f6f04, 0x7d0f6f08, 0x7d0f6f0c, 0x7d0f6fc4,
+	0x7d0f71ac, 0x7d0f71b0, 0x7d0f71b4, 0x7d0f722e, 0x7d0f7240, 0x7d0f7244, 0x7d0f7611, 0x7d0f7a0f,
+	0x7d0f7bb8, 0x7d0f7be0, 0x7d0f7dec, 0x7d0f7dee, 0x7d0f7e04, 0x7d0f7fa4, 0x7d0f8001, 0x7d0f8064,
+	0x7d0f8072, 0x7d0f8080, 0x7d0f8090, 0x7d0f80bc, 0x7d0f80cc, 0x7d0f80dc, 0x7d0f80ec, 0x7d0f8104,
+	0x7d0f8108, 0x7d0f8134, 0x7d0f8148, 0x7d0f814e, 0x7d0f8160, 0x7d0f8162, 0x7d0f816e, 0x7d0f817a,
+	0x7d0f817c, 0x7d0f8221, 0x7d0f833c, 0x7d0f8350, 0x7d0f8360, 0x7d0f83e0, 0x7d0f8460, 0x7d0f85e0,
+	0x7d0f8630, 0x7d0f8660, 0x7d0f8a54, 0x7d0f9237, 0x7d0f9322, 0x7d0f96f6, 0x7d0f9714, 0x7d0f97c4,
+	0x7d0f97c6, 0x7d0f97c8, 0x7d0f9c58, 0x7d0f9e04, 0x7d0f9f78, 0x7d0fa002, 0x7d0fa010, 0x7d0fa210,
+	0x7d0fa410, 0x7d0fa412, 0x7d0fa484, 0x7d0fa5c4, 0x7d0fa5d8, 0x7d0fa718, 0x7d0fa78c, 0x7d0fa7e4,
+	0x7d0fa7e8, 0x7d0fa928, 0x7d0faa68, 0x7d0faa6c, 0x7d0faa70, 0x7d0faa74, 0x7d0faa78, 0x7d0fabb8,
+	0x7d0facd8, 0x7d0facdc, 0x7d0fae1c, 0x7d0faf50, 0x7d0faf54, 0x7d0faf6a, 0x7d0fafab, 0x7d0fafbc,
+	0x7d0fafc0, 0x7d0fafd4, 0x7d0fb004, 0x7d0fb00c, 0x7d0fb024, 0x7d0fb028, 0x7d0fb0c8, 0x7d0fb0cc,
+	0x7d0fb0e0, 0x7d0fb0f4, 0x7d0fb108, 0x7d0fb11c, 0x7d0fb130, 0x7d0fb132, 0x7d0fb134, 0x7d0fb13c,
+	0x7d0fb13e, 0x7d0fb140, 0x7d0fb142, 0x7d0fb144, 0x7d0fb146, 0x7d0fb148, 0x7d0fb14e, 0x7d0fb150,
+	0x7d0fb152, 0x7d0fb154, 0x7d0fb15c, 0x7d0fb15e, 0x7d0fb164, 0x7d0fb166, 0x7d0fb178, 0x7d0fb17a,
+	0x7d0fb18c, 0x7d0fb18e, 0x7d0fb1a0, 0x7d0fb1b4, 0x7d0fb1c8, 0x7d0fb308, 0x7d0fb43c, 0x7d0fb440,
+	0x7d0fb454, 0x7d0fb456, 0x7d0fb468, 0x7d0fb46a, 0x7d0fb46c, 0x7d0fb46e, 0x7d0fb470, 0x7d0fb472,
+	0x7d0fb474, 0x7d0fb476, 0x7d0fb478, 0x7d0fb482, 0x7d0fb4da, 0x7d0fb50e, 0x7d0fb548, 0x7d0fb54c,
+	0x7d0fb54e, 0x7d0fb550, 0x7d0fb552, 0x7d0fb554, 0x7d0fb5ac, 0x7d0fb5e0, 0x7d0fb618, 0x7d0fb61c,
+	0x7d0fb61e, 0x7d0fb620, 0x7d0fb622, 0x7d0fb624, 0x7d0fb626, 0x7d0fb63a, 0x7d0fb63c, 0x7d0fb63e,
+	0x7d0fb640, 0x7d0fb642, 0x7d0fb644, 0x7d0fb646, 0x7d0fb648, 0x7d0fb65c, 0x7d0fb6ac, 0x7d0fb6ae,
+	0x7d0fb6b0, 0x7d0fb6b6, 0x7d0fb6b8, 0x7d0fb6be, 0x7d0fb6d2, 0x7d0fb6e6, 0x7d0fb6e8, 0x7d0fb6f8,
+	0x7d0fb6fc, 0x7d0fb700, 0x7d0fb76c, 0x7d0fb7fc, 0x7d0fb7fe, 0x7d0fb800, 0x7d0fb804, 0x7d0fb806,
+	0x7d0fb808, 0x7d0fb80a, 0x7d0fb80e, 0x7d0fb810, 0x7d0fb814, 0x7d0fb818, 0x7d0fb81c, 0x7d0fb820,
+	0x7d0fb838, 0x7d0fb850, 0x7d0fb852, 0x7d0fb866, 0x7d0fb87c, 0x7d0fb9e8, 0x7d0fba0c, 0x7d0fba54,
+	0x7d0fbbd4, 0x7d0fbbd6, 0x7d0fbbd8, 0x7d0fbbdc, 0x7d0fbbde, 0x7d0fbbee, 0x7d0fbbf0, 0x7d0fbd70,
+	0x7d0fbe70, 0x7d0fbedc, 0x7d0fbf48, 0x7d0fbf5c, 0x7d0fbf5e, 0x7d0fbf62, 0x7d0fbf64, 0x7d0fbf66,
+	0x7d0fbf68, 0x7d0fbf6a, 0x7d0fbf6c, 0x7d0fbf6e, 0x7d0fbf70, 0x7d0fbf72, 0x7d0fbf74, 0x7d0fbf76,
+	0x7d0fbfe2, 0x7d0fbfe4, 0x7d0fbfe6, 0x7d0fbffa, 0x7d0fc00e, 0x7d0fc024, 0x7d0fc028, 0x7d0fc102,
+	0x7d0fc24c, 0x7d0fc2a8, 0x7d0fc3e8, 0x7d0fc3ea, 0x7d0fc3fc, 0x7d0fc410, 0x7d0fc424, 0x7d0fc438,
+	0x7d0fc44c, 0x7d0fc460, 0x7d0fc5e0, 0x7d0fc64e, 0x7d0fc664, 0x7d0fc6d2, 0x7d0fc740, 0x7d0fc754,
+	0x7d0fc768, 0x7d0fc7d4, 0x7d0fc874, 0x7d0fca68, 0x7d0fcae8, 0x7d0fcaea, 0x7d0fcaec, 0x7d0fcaee,
+	0x7d0fcaf0, 0x7d0fcaf2, 0x7d0fcaf4, 0x7d0fcaf6, 0x7d0fcaf8, 0x7d0fcafa, 0x7d0fcafc, 0x7d0fcb6a,
+	0x7d0fcbba, 0x7d0fcbbc, 0x7d0fcbc0, 0x7d0fcbc2, 0x7d0fcbc4, 0x7d0fcbc6, 0x7d0fcbc8, 0x7d0fcbca,
+	0x7d0fcbcc, 0x7d0fcbdc, 0x7d0fcbf0, 0x7d0fcbf4, 0x7d0fcbf6, 0x7d0fcbf8, 0x7d0fcbfa, 0x7d0fcbfc,
+	0x7d0fcbfe, 0x7d0fcc00, 0x7d0fcc02, 0x7d0fcc04, 0x7d0fcc06, 0x7d0fcc0a, 0x7d0fcc0c, 0x7d0fcc20,
+	0x7d0fcc36, 0x7d0fcc4e, 0x7d0fcc66, 0x7d0fcc68, 0x7d0fcc6a, 0x7d0fcc6c, 0x7d0fcc6e, 0x7d0fcc70,
+	0x7d0fcc72, 0x7d0fcc74, 0x7d0fcc76, 0x7d0fcc78, 0x7d0fcc7e, 0x7d0fcc80, 0x7d0fcc82, 0x7d0fcc84,
+	0x7d0fcc86, 0x7d0fcc88, 0x7d0fcc8a, 0x7d0fcc8c, 0x7d0fcc8e, 0x7d0fcc90, 0x7d0fcc94, 0x7d0fcc98,
+	0x7d0fcc9c, 0x7d0fcca0, 0x7d0fcca6, 0x7d0fcca8, 0x7d0fccac, 0x7d0fccae, 0x7d0fcd26, 0x7d0fcd32,
+	0x7d0fcd46, 0x7d0fcd5c, 0x7d0fcd70, 0x7d0fcd74, 0x7d0fcd76, 0x7d0fcd78, 0x7d0fcd7a, 0x7d0fcd7c,
+	0x7d0fcd7e, 0x7d0fcd80, 0x7d0fcd82, 0x7d0fcd84, 0x7d0fcd96, 0x7d0fcd9a, 0x7d0fcdb0, 0x7d0fcdb4,
+	0x7d0fcdb8, 0x7d0fcdbc, 0x7d0fcdc0, 0x7d0fcdc4, 0x7d0fcdc6, 0x7d0fcdc8, 0x7d0fce60, 0x7d0fce64,
+	0x7d0fce68, 0x7d0fce6c, 0x7d0fce70, 0x7d0fce74, 0x7d0fce78, 0x7d0fce7a, 0x7d0fce84, 0x7d0fce8c,
+	0x7d0fce90, 0x7d0fd002, 0x7d0fd070, 0x7d0fd250, 0x7d0fd294, 0x7d0fd3d4, 0x7d0fd40c, 0x7d0fd43a,
+	0x7d0fd50c, 0x7d0fd50e, 0x7d0fd510, 0x7d0fd512, 0x7d0fd514, 0x7d0fd516, 0x7d0fd518, 0x7d0fd586,
+	0x7d0fdb86, 0x7d0fdb88, 0x7d0fdb8c, 0x7d0fdb8e, 0x7d0fdb90, 0x7d0fdb92, 0x7d0fdb94, 0x7d0fdb96,
+	0x7d0fdb98, 0x7d0fdba8, 0x7d0fdbba, 0x7d0fdbc0, 0x7d0fdbc6, 0x7d0fdbc8, 0x7d0fdbca, 0x7d0fdbcc,
+	0x7d0fdbce, 0x7d0fdbd0, 0x7d0fdd03, 0x7d0fdd10, 0x7d0fdd12, 0x7d0fdd24, 0x7d0fdd4c, 0x7d0fdd74,
+	0x7d0fddc4, 0x7d0fddc6, 0x7d0fddc8, 0x7d0fddca, 0x7d0fddcc, 0x7d0fddce, 0x7d0fddd0, 0x7d0fddd2,
+	0x7d0fde00, 0x7d0fde3e, 0x7d0fdeb8, 0x7d0fdf64, 0x7d0fdf66, 0x7d0fdf78, 0x7d0fdf8c, 0x7d0fdfa0,
+	0x7d0fdfb4, 0x7d0fdfc8, 0x7d0fdfdc, 0x7d0fdfde, 0x7d0fdfe8, 0x7d0fdfea, 0x7d0fdfec, 0x7d0fdfee,
+	0x7d0fdff0, 0x7d0fdff2, 0x7d0fdff4, 0x7d0fdff6, 0x7d0fdff8, 0x7d0fe000, 0x7d0fe002, 0x7d0fe004,
+	0x7d0fe032, 0x7d0fe034, 0x7d0fe036, 0x7d0fe03c, 0x7d0fe068, 0x7d0fe06c, 0x7d0fe070, 0x7d0fe074,
+	0x7d0fe078, 0x7d0fe07c, 0x7d0fe080, 0x7d0fe084, 0x7d0fe088, 0x7d0fe08c, 0x7d0fe090, 0x7d0fe092,
+	0x7d0fe094, 0x7d0fe096, 0x7d0fe098, 0x7d0fe09a, 0x7d0fe09c, 0x7d0fe09e, 0x7d0fe0a0, 0x7d0fe0a2,
+	0x7d0fe0a4, 0x7d0fe144, 0x7d0fe324, 0x7d0fe338, 0x7d0fe34c, 0x7d0fe360, 0x7d0fe374, 0x7d0fe388,
+	0x7d0fe608, 0x7d0fe6a8, 0x7d0fe716, 0x7d0fe784, 0x7d0fe786, 0x7d0fe788, 0x7d0fe79a, 0x7d0fe7ae,
+	0x7d0fe7b0, 0x7d0fe7c4, 0x7d0fe7ec, 0x7d0fe800, 0x7d0fe828, 0x7d0fe83c, 0x7d0fe850, 0x7d0fe878,
+	0x7d0fe9b8, 0x7d0feae4, 0x7d0feaf8, 0x7d0fec78, 0x7d0fec7a, 0x7d0fecfa, 0x7d0fedfa, 0x7d0fee7a,
+	0x7d0feee6, 0x7d0feefa, 0x7d0fef68, 0x7d0fef6a, 0x7d0fef7c, 0x7d0fef80, 0x7d0fef94, 0x7d0fefa8,
+	0x7d0fefaa, 0x7d0fefac, 0x7d0fefae, 0x7d0fefb0, 0x7d0fefb2, 0x7d0fefb4, 0x7d0fefb6, 0x7d0fefb8,
+	0x7d0fefe4, 0x7d0fefe6, 0x7d0fefe8, 0x7d0fefea, 0x7d0fefeb, 0x7d0fefec, 0x7d0fefee, 0x7d0feff0,
+	0x7d0feff2, 0x7d0ff004, 0x7d0ff008, 0x7d0ff00c, 0x7d0ff078, 0x7d0ff0e4, 0x7d0ff264, 0x7d0ff266,
+	0x7d0ff278, 0x7d0ff2a0, 0x7d0ff2a2, 0x7d0ff2a4, 0x7d0ff2a6, 0x7d0ff2a8, 0x7d0ff2bc, 0x7d0ff2d0,
+	0x7d0ff2d2, 0x7d0ff2d4, 0x7d0ff2d6, 0x7d0ff3d6, 0x7d0ff4d6, 0x7d0ff4d8, 0x7d0ff4da, 0x7d0ff4dc,
+	0x7d0ff4de, 0x7d0ff4e0, 0x7d0ff4f6, 0x7d0ff4f8, 0x7d0ff4fa, 0x7d0ff526, 0x7d0ff528, 0x7d0ff52a,
+	0x7d0ff52c, 0x7d0ff52e, 0x7d0ff540, 0x7d0ff542, 0x7d0ff544, 0x7d0ff548, 0x7d0ff54c, 0x7d0ff550,
+	0x7d0ff554, 0x7d0ff556, 0x7d0ff558, 0x7d0ff56a, 0x7d0ff56c, 0x7d0ff56e, 0x7d0ff570, 0x7d0ff572,
+	0x7d0ff574, 0x7d0ff934, 0x7d0ffcf4, 0x7d0ffcf6, 0x7d10005a, 0x7d1002a0, 0x7d100474, 0x7d100476,
+	0x7d1004c0, 0x7d10056e, 0x7d100666, 0x7d100668, 0x7d10066a, 0x7d10066c, 0x7d10066e, 0x7d100670,
+	0x7d100672, 0x7d100674, 0x7d100676, 0x7d100678, 0x7d10067a, 0x7d10067c, 0x7d10067e, 0x7d100680,
+	0x7d100682, 0x7d100684, 0x7d100686, 0x7d100688, 0x7d10068c, 0x7d100690, 0x7d100692, 0x7d100694,
+	0x7d100696, 0x7d100796, 0x7d100804, 0x7d100808, 0x7d100814, 0x7d100828, 0x7d10083c, 0x7d100850,
+	0x7d1008a0, 0x7d1008b4, 0x7d1008bc, 0x7d1008c8, 0x7d1008ec, 0x7d100910, 0x7d100924, 0x7d100926,
+	0x7d100a90, 0x7d100a94, 0x7d100ac4, 0x7d100ac8, 0x7d100af0, 0x7d100b18, 0x7d100b40, 0x7d100b68,
+	0x7d100b90, 0x7d100bb8, 0x7d100be0, 0x7d100be2, 0x7d100be4, 0x7d100c0c, 0x7d100c14, 0x7d100c18,
+	0x7d100c40, 0x7d100c68, 0x7d100c90, 0x7d100cc0, 0x7d100cc4, 0x7d100cf4, 0x7d100cf8, 0x7d100cfc,
+	0x7d100d00, 0x7d100d0c, 0x7d100d10, 0x7d100d12, 0x7d100d14, 0x7d100d18, 0x7d100d1a, 0x7d100d1c,
+	0x7d100d30, 0x7d100e28, 0x7d100f20, 0x7d100ff9, 0x7d101012, 0x7d1010a0, 0x7d10110a, 0x7d1011e0,
+	0x7d1011e2, 0x7d1011e4, 0x7d1011e8, 0x7d1011ec, 0x7d1011f0, 0x7d1011f2, 0x7d1011f4, 0x7d1011f6,
+	0x7d1011fc, 0x7d1011fe, 0x7d101200, 0x7d101202, 0x7d101204, 0x7d101206, 0x7d101208, 0x7d10120c,
+	0x7d10120e, 0x7d101210, 0x7d101212, 0x7d101214, 0x7d101226, 0x7d10122a, 0x7d10122c, 0x7d101240,
+	0x7d101252, 0x7d101256, 0x7d10126e, 0x7d101286, 0x7d101288, 0x7d10128a, 0x7d10128c, 0x7d10128e,
+	0x7d101290, 0x7d101292, 0x7d101294, 0x7d101296, 0x7d101298, 0x7d10129a, 0x7d10129c, 0x7d10129e,
+	0x7d1012a0, 0x7d1012a2, 0x7d1012a4, 0x7d1012a6, 0x7d1012a8, 0x7d1012aa, 0x7d1013ec, 0x7d1013f0,
+	0x7d1013f2, 0x7d101406, 0x7d10141a, 0x7d10142e, 0x7d101526, 0x7d10161e, 0x7d101716, 0x7d10180e,
+	0x7d101830, 0x7d1018aa, 0x7d101924, 0x7d10199e, 0x7d101a18, 0x7d101b58, 0x7d101c98, 0x7d101cc0,
+	0x7d101cc2, 0x7d101dba, 0x7d101eba, 0x7d101fba, 0x7d1020fa, 0x7d102207, 0x7d1024fa, 0x7d1028fa,
+	0x7d102afa, 0x7d103407, 0x7d1039fa, 0x7d103c7c, 0x7d104448, 0x7d10447c, 0x7d10462c, 0x7d104c7c,
+	0x7d105008, 0x7d1050ca, 0x7d105471, 0x7d105b7c, 0x7d105f7c, 0x7d107461, 0x7d107d7c, 0x7d107fe2,
+	0x7d108048, 0x7d108a3c, 0x7d108dfc, 0x7d1099fa, 0x7d1099fc, 0x7d10a5fc, 0x7d10b200, 0x7d10b800,
+	0x7d10be02, 0x7d10c104, 0x7d10c400, 0x7d10c401, 0x7d10c706, 0x7d10ca08, 0x7d10d00c, 0x7d10e68c,
+	0x7d10ee0c, 0x7d10fd0c, 0x7d110c0c, 0x7d111b0c, 0x7d112a0c, 0x7d11390c, 0x7d114698, 0x7d11480c,
+	0x7d114ece, 0x7d114f28, 0x7d114f4e, 0x7d1151d0, 0x7d115248, 0x7d1154c8, 0x7d115602, 0x7d1157c0,
+	0x7d11586a, 0x7d116332, 0x7d116832, 0x7d116d32, 0x7d117232, 0x7d1174b2, 0x7d1176a1, 0x7d117734,
+	0x7d117784, 0x7d11787a, 0x7d117a04, 0x7d117a06, 0x7d117a08, 0x7d117c88, 0x7d117cc8, 0x7d117d08,
+	0x7d117d12, 0x7d117f92, 0x7d117f9c, 0x7d118e9c, 0x7d119068, 0x7d119d9c, 0x7d11a29e, 0x7d11a2d0,
+	0x7d11a2e2, 0x7d11a304, 0x7d11a348, 0x7d11a5c8, 0x7d11a848, 0x7d11aac8, 0x7d11b590, 0x7d11b990,
+	0x7d11bb90, 0x7d11bbe0, 0x7d11be60, 0x7d11bfe1, 0x7d11bfe2, 0x7d11c0dc, 0x7d11c0e0, 0x7d11c120,
+	0x7d11c1e0, 0x7d11c8a2, 0x7d11c956, 0x7d11cd18, 0x7d11ce38, 0x7d11d098, 0x7d11d447, 0x7d11d638,
+	0x7d11dbd8, 0x7d11e29a, 0x7d11e5c4, 0x7d11eac4, 0x7d11f58c, 0x7d11f7d0, 0x7d11f7e4, 0x7d11f7f8,
+	0x7d11f80c, 0x7d11f816, 0x7d11f840, 0x7d11f860, 0x7d11ffe0, 0x7d120760, 0x7d120ee0, 0x7d120ee8,
+	0x7d120ef0, 0x7d120f68, 0x7d121448, 0x7d121670, 0x7d121b70, 0x7d122022, 0x7d122070, 0x7d1220f8,
+	0x7d1222f8, 0x7d1227f8, 0x7d122eba, 0x7d122ebe, 0x7d1230be, 0x7d1230c0, 0x7d1230c6, 0x7d1232c6,
+	0x7d1234c6, 0x7d1234d0, 0x7d123510, 0x7d123550, 0x7d124450, 0x7d125350, 0x7d125550, 0x7d125558,
+	0x7d125938, 0x7d125a00, 0x7d125b18, 0x7d125d98, 0x7d12629a, 0x7d12648a, 0x7d12676c, 0x7d1267bc,
+	0x7d12680c, 0x7d126a5c, 0x7d126aac, 0x7d126afc, 0x7d126cfc, 0x7d126d84, 0x7d126e0c, 0x7d126e94,
+	0x7d127094, 0x7d127294, 0x7d127494, 0x7d12749c, 0x7d12799c, 0x7d1279a4, 0x7d127da4, 0x7d127df4,
+	0x7d127ff4, 0x7d128c74, 0x7d1292b4, 0x7d129f34, 0x7d129f38, 0x7d129f3c, 0x7d129f40, 0x7d129f44,
+	0x7d12b204, 0x7d12bb64, 0x7d12cb54, 0x7d12d1a8, 0x7d12d7fc, 0x7d12e003, 0x7d12e023, 0x7d12eabc,
+	0x7d12eb3c, 0x7d12ebbc, 0x7d12f864, 0x7d1300c4, 0x7d130104, 0x7d130860, 0x7d130b24, 0x7d1317cc,
+	0x7d132a8c, 0x7d132b9c, 0x7d133700, 0x7d133780, 0x7d133800, 0x7d133900, 0x7d134607, 0x7d134bc0,
+	0x7d135524, 0x7d1355ce, 0x7d1356de, 0x7d135b4d, 0x7d136244, 0x7d137504, 0x7d137e66, 0x7d137eee,
+	0x7d138370, 0x7d138560, 0x7d138750, 0x7d1389d0, 0x7d138bd0, 0x7d139bc0, 0x7d139c40, 0x7d139cc0,
+	0x7d13a170, 0x7d13b430, 0x7d13b470, 0x7d13b4b0, 0x7d13c3b0, 0x7d13d2b0, 0x7d13d580, 0x7d13d850,
+	0x7d13d87c, 0x7d13f0fc, 0x7d140004, 0x7d14097c, 0x7d14099c, 0x7d1409bc, 0x7d1409dc, 0x7d1409fc,
+	0x7d140a1c, 0x7d140a3c, 0x7d140a5c, 0x7d140a7c, 0x7d140ac0, 0x7d140ae2, 0x7d140b48, 0x7d140b52,
+	0x7d140b5c, 0x7d140ddc, 0x7d140fdc, 0x7d141c50, 0x7d141ff9, 0x7d142718, 0x7d142798, 0x7d142818,
+	0x7d142a98, 0x7d1431d4, 0x7d14390e, 0x7d143b8e, 0x7d143c5a, 0x7d143d26, 0x7d143df2, 0x7d143ec0,
+	0x7d145180, 0x7d146170, 0x7d147430, 0x7d147462, 0x7d1474e2, 0x7d147562, 0x7d1475fb, 0x7d147744,
+	0x7d147874, 0x7d148814, 0x7d148887, 0x7d148e68, 0x7d1494bc, 0x7d14a77c, 0x7d14a780, 0x7d14bba0,
+	0x7d14c0cc, 0x7d14d220, 0x7d14d6a4, 0x7d14dce8, 0x7d14dee8, 0x7d14e0e8, 0x7d14e30a, 0x7d14e50c,
+	0x7d14e730, 0x7d14e734, 0x7d1505b8, 0x7d150fe8, 0x7d150ff2, 0x7d151770, 0x7d151772, 0x7d151ef2,
+	0x7d1526ea, 0x7d15296a, 0x7d152974, 0x7d152bf4, 0x7d153374, 0x7d1533b4, 0x7d1533f4, 0x7d1542f4,
+	0x7d1551f4, 0x7d155422, 0x7d155474, 0x7d155854, 0x7d155f34, 0x7d155fd4, 0x7d15607e, 0x7d156128,
+	0x7d1563a8, 0x7d156628, 0x7d1568a8, 0x7d156948, 0x7d1570c8, 0x7d157af8, 0x7d157b02, 0x7d157d82,
+	0x7d157d8c, 0x7d158c8c, 0x7d159b8c, 0x7d15ae4c, 0x7d15baf4, 0x7d15c0a0, 0x7d15cdb4, 0x7d15cdb8,
+	0x7d15d534, 0x7d15d578, 0x7d15d588, 0x7d15d5bc, 0x7d15e87c, 0x7d15eebc, 0x7d15f4fc, 0x7d15f554,
+	0x7d15f6e8, 0x7d15fe68, 0x7d15ff18, 0x7d160698, 0x7d161598, 0x7d161640, 0x7d1618c0, 0x7d161ac0,
+	0x7d161d40, 0x7d161de0, 0x7d161e80, 0x7d161f20, 0x7d161fc0, 0x7d1623c0, 0x7d1627c0, 0x7d162cc0,
+	0x7d1631c0, 0x7d163218, 0x7d163220, 0x7d1635e0, 0x7d164120, 0x7d165f20, 0x7d165fd0, 0x7d165ff2,
+	0x7d166774, 0x7d1683d8, 0x7d168574, 0x7d169474, 0x7d16a374, 0x7d16a3cc, 0x7d16a424, 0x7d16a47c,
+	0x7d16a4d4, 0x7d16a52c, 0x7d16a530, 0x7d16a55e, 0x7d16acde, 0x7d16ad36, 0x7d16ad8e, 0x7d16ade6,
+	0x7d16ae3e, 0x7d16ae96, 0x7d16aec6, 0x7d16af1e, 0x7d16af76, 0x7d16afd0, 0x7d16bed0, 0x7d16bed8,
+	0x7d16bee0, 0x7d16bee4, 0x7d16bf06, 0x7d16c686, 0x7d16ce08, 0x7d16dd08, 0x7d16ec08, 0x7d16fb08,
+	0x7d170063, 0x7d1700a5, 0x7d1700a6, 0x7d170207, 0x7d17027c, 0x7d170288, 0x7d171188, 0x7d171208,
+	0x7d171220, 0x7d171288, 0x7d1712c8, 0x7d171308, 0x7d171310, 0x7d171350, 0x7d171390, 0x7d1713d0,
+	0x7d1713d4, 0x7d171454, 0x7d171494, 0x7d1714d4, 0x7d171554, 0x7d17156c, 0x7d1715d4, 0x7d171614,
+	0x7d171654, 0x7d171694, 0x7d1716d4, 0x7d171754, 0x7d1717d4, 0x7d171814, 0x7d171854, 0x7d171fd4,
+	0x7d172ed4, 0x7d173dd4, 0x7d1747d4, 0x7d174854, 0x7d17485c, 0x7d174864, 0x7d17486c, 0x7d174874,
+	0x7d17487c, 0x7d174884, 0x7d17488c, 0x7d1748cc, 0x7d17494c, 0x7d174964, 0x7d1749cc, 0x7d175c8c,
+	0x7d175c98, 0x7d176f58, 0x7d178218, 0x7d178258, 0x7d178dd8, 0x7d179558, 0x7d179f3c, 0x7d17a12c,
+	0x7d17a40c, 0x7d17a40e, 0x7d17a414, 0x7d17a416, 0x7d17a41c, 0x7d17a66c, 0x7d17a6bc, 0x7d17a70c,
+	0x7d17a90c, 0x7d17a9fc, 0x7d17b17c, 0x7d17b8fc, 0x7d17b974, 0x7d17bd74, 0x7d17d034, 0x7d17d634,
+	0x7d17d6a4, 0x7d17f6bc, 0x7d17f6be, 0x7d180284, 0x7d1803e0, 0x7d180474, 0x7d1808d4, 0x7d18117c,
+	0x7d18145a, 0x7d183100, 0x7d183338, 0x7d1833a8, 0x7d183418, 0x7d183488, 0x7d1834f8, 0x7d183568,
+	0x7d184120, 0x7d185890, 0x7d186448, 0x7d187471, 0x7d187bb8, 0x7d187fa0, 0x7d18a028, 0x7d18a072,
+	0x7d18c0b0, 0x7d18c9d4, 0x7d18eda4, 0x7d18f42e, 0x7d190e9c, 0x7d191a88, 0x7d191a8c, 0x7d191ab8,
+	0x7d191eb8, 0x7d192007, 0x7d1920b8, 0x7d1928c8, 0x7d1930d8, 0x7d1939f8, 0x7d194318, 0x7d194518,
+	0x7d19475c, 0x7d19493c, 0x7d194b2c, 0x7d194d2c, 0x7d194e2c, 0x7d194f2c, 0x7d1951ac, 0x7d19542c,
+	0x7d19642c, 0x7d1966ac, 0x7d19688c, 0x7d197ce6, 0x7d197e9e, 0x7d198322, 0x7d198478, 0x7d1985aa,
+	0x7d198e8a, 0x7d199100, 0x7d199118, 0x7d199466, 0x7d19960a, 0x7d199772, 0x7d199bd2, 0x7d199dee,
+	0x7d19a47e, 0x7d19b880, 0x7d19bf18, 0x7d19ca58, 0x7d19cf08, 0x7d19eaa8, 0x7d19ee60, 0x7d19f220,
+	0x7d19f869, 0x7d19f9a0, 0x7d1a0104, 0x7d1a01b0, 0x7d1a01d4, 0x7d1a09c0, 0x7d1a12e0, 0x7d1a1c00,
+	0x7d1a1e00, 0x7d1a2044, 0x7d1a2244, 0x7d1a224d, 0x7d1a2444, 0x7d1a26c4, 0x7d1a2944, 0x7d1a2b48,
+	0x7d1a2dc8, 0x7d1a3048, 0x7d1a328c, 0x7d1a366c, 0x7d1a49ec, 0x7d1a516c, 0x7d1a566c, 0x7d1a5821,
+	0x7d1a58ec, 0x7d1a5b6c, 0x7d1a62ec, 0x7d1a6646, 0x7d1a6dc6, 0x7d1a724a, 0x7d1a744a, 0x7d1a76ca,
+	0x7d1a7e4a, 0x7d1a85ca, 0x7d1a91ca, 0x7d1a94cc, 0x7d1a9ad0, 0x7d1aa250, 0x7d1aa5d0, 0x7d1aaad0,
+	0x7d1ab4d0, 0x7d1ab9d0, 0x7d1abb38, 0x7d1abc48, 0x7d1abd68, 0x7d1abf98, 0x7d1ac1b4, 0x7d1ac4fc,
+	0x7d1ac844, 0x7d1acac4, 0x7d1acd44, 0x7d1ad104, 0x7d1ad384, 0x7d1ad744, 0x7d1ae144, 0x7d1ae8c4,
+	0x7d1af7c4, 0x7d1b00a6, 0x7d1b0304, 0x7d1b0584, 0x7d1b063c, 0x7d1b1484, 0x7d1b1c04, 0x7d1b323c,
+	0x7d1b40e8, 0x7d1b479c, 0x7d1b4f1c, 0x7d1b4f1e, 0x7d1b4f38, 0x7d1b56b8, 0x7d1b74b8, 0x7d1b8007,
+	0x7d1b83b8, 0x7d1b92b8, 0x7d1b9a38, 0x7d1b9a3e, 0x7d1b9a40, 0x7d1bb840, 0x7d1bc088, 0x7d1bc740,
+	0x7d1bd640, 0x7d1bd650, 0x7d1bd652, 0x7d1bd658, 0x7d1bd65e, 0x7d1bd66c, 0x7d1bd8d0, 0x7d1bdb34,
+	0x7d1bea34, 0x7d1bf934, 0x7d1bf936, 0x7d1bf93a, 0x7d1bf93c, 0x7d1bf980, 0x7d1bf9c4, 0x7d1bfa08,
+	0x7d1bfa10, 0x7d1bfa18, 0x7d1bfa1a, 0x7d1bfa1c, 0x7d1bfa1e, 0x7d1bfa20, 0x7d1bfa22, 0x7d1bfa24,
+	0x7d1bfa26, 0x7d1bfa28, 0x7d1bff28, 0x7d1c0030, 0x7d1c041f, 0x7d1c0428, 0x7d1c0928, 0x7d1c0a68,
+	0x7d1c0ae8, 0x7d1c106c, 0x7d1c14e8, 0x7d1c19e8, 0x7d1c1c68, 0x7d1c2668, 0x7d1c3002, 0x7d1c4040,
+	0x7d1c4468, 0x7d1c5002, 0x7d1c5368, 0x7d1c5c1a, 0x7d1c5e9a, 0x7d1c611a, 0x7d1c6432, 0x7d1c689a,
+	0x7d1c68b6, 0x7d1c6b1a, 0x7d1c6d80, 0x7d1c7200, 0x7d1c750e, 0x7d1c7c80, 0x7d1c7c82, 0x7d1c7c88,
+	0x7d1c7ccc, 0x7d1c7d10, 0x7d1c840f, 0x7d1c8c10, 0x7d1c8c18, 0x7d1c8c20, 0x7d1c9006, 0x7d1c9120,
+	0x7d1c9620, 0x7d1c9b20, 0x7d1c9c60, 0x7d1c9ce0, 0x7d1c9ce2, 0x7d1c9e00, 0x7d1ca800, 0x7d1cad00,
+	0x7d1cb200, 0x7d1cb700, 0x7d1cc100, 0x7d1ccb00, 0x7d1cd500, 0x7d1cd502, 0x7d1cda00, 0x7d1cdf00,
+	0x7d1ce400, 0x7d1ce900, 0x7d1cf1b2, 0x7d1cf6b4, 0x7d1cfbb4, 0x7d1d00b4, 0x7d1d04b4, 0x7d1d09c0,
+	0x7d1d0fdc, 0x7d1d13c0, 0x7d1d1dc0, 0x7d1d2025, 0x7d1d27d0, 0x7d1d31e0, 0x7d1d3bf0, 0x7d1d4600,
+	0x7d1d5500, 0x7d1d6400, 0x7d1d7300, 0x7d1d75a8, 0x7d1d7ac0, 0x7d1d7ad4, 0x7d1d7aea, 0x7d1d7aec,
+	0x7d1d7af2, 0x7d1d7b0a, 0x7d1d7d06, 0x7d1d800c, 0x7d1d8012, 0x7d1d801c, 0x7d1d801e, 0x7d1d8030,
+	0x7d1d8044, 0x7d1d8058, 0x7d1d80b0, 0x7d1d833a, 0x7d1d85bc, 0x7d1d85cc, 0x7d1d85e0, 0x7d1d85f4,
+	0x7d1d889c, 0x7d1d8cd4, 0x7d1d91ec, 0x7d1d9494, 0x7d1d94ec, 0x7d1d976c, 0x7d1d99ec, 0x7d1d9a44,
+	0x7d1d9f44, 0x7d1da000, 0x7d1da124, 0x7d1da140, 0x7d1da550, 0x7d1dae10, 0x7d1db270, 0x7d1dbb30,
+	0x7d1dbd60, 0x7d1dbe10, 0x7d1dbec0, 0x7d1dc0a0, 0x7d1dc280, 0x7d1dc370, 0x7d1dd978, 0x7d1de878,
+	0x7d1df778, 0x7d1e0764, 0x7d1e0768, 0x7d1e1668, 0x7d1e2568, 0x7d1e3468, 0x7d1e3470, 0x7d1e3474,
+	0x7d1e3574, 0x7d1e3674, 0x7d1e3676, 0x7d1e3df4, 0x7d1e3df6, 0x7d1e4574, 0x7d1e4576, 0x7d1e4cf4,
+	0x7d1e549c, 0x7d1e5c1c, 0x7d1e6b1c, 0x7d1e729c, 0x7d1e819c, 0x7d1e8cfe, 0x7d1ea39e, 0x7d1ea3a8,
+	0x7d1ea3b2, 0x7d1ea3bc, 0x7d1ea488, 0x7d1ea554, 0x7d1ea620, 0x7d1ea6ec, 0x7d1eadaf, 0x7d1eae28,
+	0x7d1eb564, 0x7d1ebca0, 0x7d1ec3da, 0x7d1ec4a6, 0x7d1ec572, 0x7d1ec63e, 0x7d1ec70a, 0x7d1ec84a,
+	0x7d1ec98c, 0x7d1ec990, 0x7d1ecc60, 0x7d1ed188, 0x7d1ed18c, 0x7d1ed190, 0x7d1eef8c, 0x7d1ef250,
+	0x7d1ef748, 0x7d1ef7fc, 0x7d1efac0, 0x7d1effb8, 0x7d1effba, 0x7d1effbc, 0x7d1effdc, 0x7d1f013c,
+	0x7d1f013e, 0x7d1f0140, 0x7d1f0148, 0x7d1f014c, 0x7d1f0150, 0x7d1f0154, 0x7d1f01c4, 0x7d1f01c8,
+	0x7d1f01d0, 0x7d1f01f4, 0x7d1f0220, 0x7d1f024c, 0x7d1f024e, 0x7d1f0250, 0x7d1f0252, 0x7d1f0264,
+	0x7d1f0274, 0x7d1f0278, 0x7d1f0280, 0x7d1f0288, 0x7d1f028a, 0x7d1f0290, 0x7d1f0294, 0x7d1f0298,
+	0x7d1f02c0, 0x7d1f02ec, 0x7d1f02ee, 0x7d1f02f0, 0x7d1f02f2, 0x7d1f02f4, 0x7d1f041a, 0x7d1f0457,
+	0x7d1f055c, 0x7d1f0560, 0x7d1f0562, 0x7d1f0564, 0x7d1f0568, 0x7d1f056a, 0x7d1f056c, 0x7d1f0570,
+	0x7d1f05e0, 0x7d1f05e2, 0x7d1f05e4, 0x7d1f05f6, 0x7d1f05f8, 0x7d1f060a, 0x7d1f060c, 0x7d1f061e,
+	0x7d1f0620, 0x7d1f0632, 0x7d1f0634, 0x7d1f0636, 0x7d1f07ac, 0x7d1f07c0, 0x7d1f07c2, 0x7d1f07c4,
+	0x7d1f07d8, 0x7d1f07ec, 0x7d1f07ee, 0x7d1f07f0, 0x7d1f07f2, 0x7d1f0978, 0x7d1f0a9a, 0x7d1f0bda,
+	0x7d1f0bea, 0x7d1f0bfa, 0x7d1f0bfc, 0x7d1f0c02, 0x7d1f0c04, 0x7d1f0c12, 0x7d1f0c14, 0x7d1f0c26,
+	0x7d1f0c28, 0x7d1f0c3a, 0x7d1f0c3c, 0x7d1f0c4e, 0x7d1f0c50, 0x7d1f0c52, 0x7d1f0c5a, 0x7d1f0c62,
+	0x7d1f0c64, 0x7d1f0c6a, 0x7d1f0c6c, 0x7d1f0c6e, 0x7d1f0c74, 0x7d1f0c78, 0x7d1f0c8c, 0x7d1f0c90,
+	0x7d1f0c94, 0x7d1f0c98, 0x7d1f0c9c, 0x7d1f0ca0, 0x7d1f0cb4, 0x7d1f0cc8, 0x7d1f0cca, 0x7d1f0df0,
+	0x7d1f0e40, 0x7d1f0e54, 0x7d1f0f09, 0x7d1f0f74, 0x7d1f0f76, 0x7d1f0f78, 0x7d1f0f88, 0x7d1f0f8a,
+	0x7d1f0f8c, 0x7d1f0f90, 0x7d1f0f94, 0x7d1f0f96, 0x7d1f0f98, 0x7d1f0f9a, 0x7d1f0f9c, 0x7d1f0f9e,
+	0x7d1f0fa0, 0x7d1f0fa2, 0x7d1f0fa4, 0x7d1f1010, 0x7d1f10a0, 0x7d1f10a2, 0x7d1f10b0, 0x7d1f10b4,
+	0x7d1f1168, 0x7d1f121c, 0x7d1f129c, 0x7d1f147c, 0x7d1f159c, 0x7d1f161c, 0x7d1f191c, 0x7d1f199c,
+	0x7d1f1c9c, 0x7d1f1d1c, 0x7d1f201c, 0x7d1f209c, 0x7d1f239c, 0x7d1f241c, 0x7d1f271c, 0x7d1f279c,
+	0x7d1f2b1c, 0x7d1f2e9c, 0x7d1f321c, 0x7d1f359c, 0x7d1f391c, 0x7d1f3ab6, 0x7d1f3c9c, 0x7d1f4002,
+	0x7d1f401c, 0x7d1f439c, 0x7d1f479c, 0x7d1f4f9c, 0x7d1f5002, 0x7d1f539c, 0x7d1f5b9c, 0x7d1f5ba0,
+	0x7d1f5ba4, 0x7d1f5c41, 0x7d1f684d, 0x7d1f6ba4, 0x7d1f6f2c, 0x7d1f6fa4, 0x7d1f70d0, 0x7d1f70d4,
+	0x7d1f70dc, 0x7d1f711c, 0x7d1f73a4, 0x7d1f73ac, 0x7d1f73b4, 0x7d1f73b8, 0x7d1f73c0, 0x7d1f73c4,
+	0x7d1f73c6, 0x7d1f73c8, 0x7d1f73ca, 0x7d1f73cc, 0x7d1f73d0, 0x7d1f73d2, 0x7d1f73d4, 0x7d1f73d6,
+	0x7d1f73d8, 0x7d1f73dc, 0x7d1f73e2, 0x7d1f73e8, 0x7d1f744a, 0x7d1f76dc, 0x7d1f7b78, 0x7d1f7e60,
+	0x7d1f7e64, 0x7d1f7e68, 0x7d1f7e70, 0x7d1f7e74, 0x7d1f7e78, 0x7d1f7e7c, 0x7d1f7e80, 0x7d1f7e84,
+	0x7d1f7e88, 0x7d1f7e8c, 0x7d1f7e90, 0x7d1f7e94, 0x7d1f7ea4, 0x7d1f7ea8, 0x7d1f7eac, 0x7d1f7eb4,
+	0x7d1f7edc, 0x7d1f7ee4, 0x7d1f7ef0, 0x7d1f7efc, 0x7d1f7f00, 0x7d1f7f08, 0x7d1f7f14, 0x7d1f7f24,
+	0x7d1f7f2c, 0x7d1f7f80, 0x7d1f7fd8, 0x7d1f7fe0, 0x7d1f8064, 0x7d1f806c, 0x7d1f8070, 0x7d1f8098,
+	0x7d1f809c, 0x7d1f80a4, 0x7d1f80b8, 0x7d1f80bc, 0x7d1f80c0, 0x7d1f80c4, 0x7d1f80c8, 0x7d1f80cc,
+	0x7d1f80d0, 0x7d1f80d4, 0x7d1f80d8, 0x7d1f83dc, 0x7d1f843c, 0x7d1f849c, 0x7d1f84fc, 0x7d1f861c,
+	0x7d1f867c, 0x7d1f86dc, 0x7d1f873c, 0x7d1f885c, 0x7d1f891c, 0x7d1f897c, 0x7d1f89dc, 0x7d1f8a3c,
+	0x7d1f8a9c, 0x7d1f8afc, 0x7d1f8b5c, 0x7d1f8b5e, 0x7d1f8c90, 0x7d1f8d04, 0x7d1f8d06, 0x7d1f8f50,
+	0x7d1f90d8, 0x7d1f90da, 0x7d1f90de, 0x7d1f90e8, 0x7d1f911c, 0x7d1f9128, 0x7d1f9198, 0x7d1f91a4,
+	0x7d1f92ec, 0x7d1f9430, 0x7d1f9434, 0x7d1f943c, 0x7d1f9446, 0x7d1f944a, 0x7d1f944e, 0x7d1f9452,
+	0x7d1f945c, 0x7d1f9470, 0x7d1f9488, 0x7d1f949a, 0x7d1f94b6, 0x7d1f94dc, 0x7d1f94e8, 0x7d1f94ec,
+	0x7d1f94ee, 0x7d1f94f8, 0x7d1f9ef8, 0x7d1fa8f8, 0x7d1fb2f8, 0x7d1fbcf8, 0x7d1fc1f8, 0x7d1fc6f8,
+	0x7d2007f8, 0x7d200eca, 0x7d20202f, 0x7d202211, 0x7d204df8, 0x7d2057f8, 0x7d2061a1, 0x7d2093f8,
+	0x7d209df8, 0x7d20a2f8, 0x7d20a7f8, 0x7d20acf8, 0x7d20b1f8, 0x7d20b6f8, 0x7d20bbf8, 0x7d20c0f8,
+	0x7d20c5f8, 0x7d20cff8, 0x7d210bf8, 0x7d211af8, 0x7d212000, 0x7d212ef8, 0x7d213df8, 0x7d214cf8,
+	0x7d215bf8, 0x7d216af8, 0x7d2179f8, 0x7d218802, 0x7d2188f8, 0x7d218c16, 0x7d2197f8, 0x7d21a1f8,
+	0x7d21abf8, 0x7d21b0f8, 0x7d21b5f8, 0x7d21baf8, 0x7d21bff8, 0x7d21c9f8, 0x7d21d13a, 0x7d21d8f8,
+	0x7d21e7f8, 0x7d21f6f8, 0x7d220d78, 0x7d22145d, 0x7d2214f8, 0x7d221ef8, 0x7d2223f8, 0x7d2223fc,
+	0x7d222714, 0x7d222718, 0x7d222a30, 0x7d222a34, 0x7d222d54, 0x7d222d58, 0x7d222d60, 0x7d222d84,
+	0x7d222d92, 0x7d222d94, 0x7d222da8, 0x7d222dac, 0x7d223160, 0x7d22318a, 0x7d225d60, 0x7d225d80,
+	0x7d225d8c, 0x7d225d92, 0x7d225da6, 0x7d225db6, 0x7d225db8, 0x7d225dba, 0x7d225dbc, 0x7d225dbe,
+	0x7d225dd0, 0x7d22838a, 0x7d22838c, 0x7d22838e, 0x7d22b790, 0x7d22b794, 0x7d22b798, 0x7d22b79c,
+	0x7d22b7b0, 0x7d22b7c0, 0x7d22b7f8, 0x7d22b840, 0x7d22b858, 0x7d22b868, 0x7d22b874, 0x7d22b988,
+	0x7d22b98c, 0x7d22bac4, 0x7d22bac8, 0x7d22c7dc, 0x7d22e628, 0x7d22e64c, 0x7d22e670, 0x7d22e694,
+	0x7d22e69c, 0x7d22e6a0, 0x7d22f0a0, 0x7d22f0c4, 0x7d22f0e8, 0x7d22f10c, 0x7d22f60c, 0x7d22fb0c,
+	0x7d23000c, 0x7d230041, 0x7d23050c, 0x7d2309a0, 0x7d230a0c, 0x7d230f0c, 0x7d230f10, 0x7d234310,
+	0x7d235811, 0x7d237710, 0x7d237b02, 0x7d23ab10, 0x7d240108, 0x7d241310, 0x7d241415, 0x7d241ffd,
+	0x7d242200, 0x7d244710, 0x7d24549f, 0x7d247b10, 0x7d24af10, 0x7d24d138, 0x7d24e310, 0x7d251710,
+	0x7d252022, 0x7d254b10, 0x7d257f10, 0x7d257ffc, 0x7d25b310, 0x7d25e710, 0x7d261b10, 0x7d264f10,
+	0x7d268310, 0x7d26b710, 0x7d26eb10, 0x7d270100, 0x7d27016a, 0x7d270401, 0x7d27050f, 0x7d270822,
+	0x7d271f10, 0x7d272e3c, 0x7d274080, 0x7d275310, 0x7d278710, 0x7d27bb10, 0x7d27c510, 0x7d27cf10,
+	0x7d27cf12, 0x7d27cf14, 0x7d27cf18, 0x7d27cf74, 0x7d27cfd0, 0x7d27d050, 0x7d27d060, 0x7d27d064,
+	0x7d27d070, 0x7d27d136, 0x7d27f074, 0x7d27f078, 0x7d27f07c, 0x7d27f094, 0x7d27f21c, 0x7d27f224,
+	0x7d27f280, 0x7d27f284, 0x7d27f288, 0x7d27f2a4, 0x7d27f2d4, 0x7d27f358, 0x7d27f3dc, 0x7d27f664,
+	0x7d27f678, 0x7d27f6a4, 0x7d27f710, 0x7d27f730, 0x7d27f734, 0x7d27f740, 0x7d27fa40, 0x7d27fa44,
+	0x7d27fa48, 0x7d27fa50, 0x7d27fa64, 0x7d27fa74, 0x7d27fa78, 0x7d27fa80, 0x7d27fa88, 0x7d27fa9c,
+	0x7d27fabc, 0x7d27fac4, 0x7d27facc, 0x7d27fad4, 0x7d27fadc, 0x7d27fae8, 0x7d27faec, 0x7d27faee,
+	0x7d27fb2b, 0x7d27fb30, 0x7d27fb34, 0x7d27fb3c, 0x7d27fb40, 0x7d27fb44, 0x7d27fb68, 0x7d280004,
+	0x7d28036c, 0x7d280380, 0x7d281ffd, 0x7d282211, 0x7d2874d2, 0x7d2990f4, 0x7d29da01, 0x7d2ad134,
+	0x7d2b0088, 0x7d2b0164, 0x7d2b0400, 0x7d2b064c, 0x7d2b1c01, 0x7d2c0072, 0x7d2c1012, 0x7d2c2020,
+	0x7d2c5807, 0x7d2d0020, 0x7d2d14b4, 0x7d2d1c00, 0x7d2d3b28, 0x7d2d59e3, 0x7d2d5be2, 0x7d2d8c02,
+	0x7d2dd132, 0x7d2dda01, 0x7d2e4046, 0x7d2f00ab, 0x7d2f051a, 0x7d2f180c, 0x7d2f8020, 0x7d2fb984,
+	0x7d2fdf2e, 0x7d3001c0, 0x7d301000, 0x7d304448, 0x7d30d130, 0x7d315052, 0x7d3181b4, 0x7d31904a,
+	0x7d31d1fe, 0x7d31fd1b, 0x7d3202d0, 0x7d322064, 0x7d328010, 0x7d330064, 0x7d33006c, 0x7d33008a,
+	0x7d330401, 0x7d330829, 0x7d33086a, 0x7d3318ac, 0x7d350000, 0x7d3514d4, 0x7d3530e4, 0x7d360207,
+	0x7d360781, 0x7d36143f, 0x7d3634da, 0x7d371217, 0x7d378277, 0x7d37841f, 0x7d381ff0, 0x7d3b063c,
+	0x7d3c54c1, 0x7d400487, 0x7d4038a0, 0x7d419042, 0x7d41d00c, 0x7d41fb84, 0x7d43004a, 0x7d4410a0,
+	0x7d468d3a, 0x7d480530, 0x7d480534, 0x7d480538, 0x7d4988cc, 0x7d49a21d, 0x7d49fe79, 0x7d4a9885,
+	0x7d4b545c, 0x7d4f026c, 0x7d4f0860, 0x7d500548, 0x7d50120f, 0x7d501ffb, 0x7d503544, 0x7d506008,
+	0x7d50b540, 0x7d50b544, 0x7d513572, 0x7d51801f, 0x7d51b001, 0x7d51b4de, 0x7d521427, 0x7d523546,
+	0x7d5306df, 0x7d53c2e8, 0x7d53d084, 0x7d54120f, 0x7d541ffb, 0x7d543552, 0x7d5480c1, 0x7d550ab8,
+	0x7d55210d, 0x7d5534de, 0x7d5a404d, 0x7d5a4887, 0x7d5a4f80, 0x7d5a5851, 0x7d5a7870, 0x7d5b540f,
+	0x7d5bb027, 0x7d5be00b, 0x7d5c0277, 0x7d5c1e00, 0x7d5c340f, 0x7d5c34de, 0x7d5d6008, 0x7d5f0060,
+	0x7d6060c0, 0x7d607ba1, 0x7d621588, 0x7d6300ac, 0x7d630124, 0x7d63101a, 0x7d631068, 0x7d631e20,
+	0x7d631e50, 0x7d641824, 0x7d642276, 0x7d65f802, 0x7d6700a1, 0x7d6701a2, 0x7d671025, 0x7d6731fb,
+	0x7d680002, 0x7d680fff, 0x7d683390, 0x7d698004, 0x7d6b00e1, 0x7d6b47d0, 0x7d6d05b8, 0x7d6d8fff,
+	0x7d6f0004, 0x7d6f0089, 0x7d6f0130, 0x7d6f0400, 0x7d7056d0, 0x7d70d643, 0x7d711012, 0x7d711586,
+	0x7d724019, 0x7d7471a1, 0x7d75a211, 0x7d75f80c, 0x7d75fe79, 0x7d763435, 0x7d765138, 0x7d787002,
+	0x7d79106e, 0x7d793fe0, 0x7d795136, 0x7d7c5134, 0x7d7ec0a1, 0x7d7ec0e0, 0x7d7ed223, 0x7d7f5132,
+	0x7d7f8207,
+};
 #endif /* USIP_OPCODES_NO_TABLE */
 
 #endif /* USIP_OPCODES_H */

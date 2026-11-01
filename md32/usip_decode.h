@@ -95,8 +95,11 @@ typedef struct {
  * When the answer is unknown, a few forms are still read, marked USIP_G_UNVERIFIED (printed with a trailing ?): the
  * call / b / compare-and-branch-with-immediate forms whose F' = 0 tail sits at +2, beqz.d, the b<cond>.l prefix forms,
  * loop #N and the S0F1 compare-and-branch cells of the allow-list (their unverified readings are right in nearly every
- * case, see unverified_ok in usip_decode.c); the others (loop rX, far b, bnez.d, the register compare-and-branch, the
- * 16-bit call.s) are data / fall through, as when the guard fails.
+ * case, see unverified_ok in usip_decode.c), and the forms whose guard is a validation filter (the F = S = 0
+ * b<cond>.d cells, the F = 0 R-br0 cells, bne.d #-1, loop rX / loop.b1? with the F' = 1 tail, the near b, the open
+ * b.s: a known target that is not a packet start rejects them, an unknown one keeps the reading); the others (loop rX
+ * with the F' = 0 tail, far b, bnez.d, the register compare-and-branch, the 16-bit call.s) are data / fall through, as
+ * when the guard fails.
  * The tie-break callin: inside_function answers 1 when the address lies strictly inside a known function (not at its
  * start): a relative call to such a target pays the out-of-boundary penalty; 0 / unknown change nothing.
  * The K-tie cascade (du2) scans the packets around the one being decoded: packet_at returns the packet that ENDS at
@@ -111,6 +114,9 @@ typedef struct {
 	int (*inside_function)(void *user, ut64 addr);
 	const UsipPacket *(*packet_at)(void *user, ut64 addr, bool before);
 	int (*branch_target)(void *user, ut64 addr);
+	/* packet_start_any: the address is the start of a packet of ANY function of the image (the near b admits the exception
+	 * vectors); NULL = the same-function packet starts stand in */
+	int (*packet_start_any)(void *user, ut64 addr);
 	unsigned flags;
 } UsipGuardCtx;
 
