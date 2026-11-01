@@ -83,7 +83,7 @@ means they are not a validated boot memory map.
 
 `e asm.cpu=usip` selects the decoder for the **uSIP** variant of the MD32 family
 (VLIW execute packets of 16-bit units). The instruction set is described by the
-table `isa/usip_isa.json` (687 forms, generated into `usip_opcodes.h` by
+table `isa/usip_isa.json` (726 forms, generated into `usip_opcodes.h` by
 `tools/gen_usip_tables.py`) and by the packet model implemented in
 `usip_decode.c`. The table is an empirical description, not a vendor
 specification: every form carries a confidence level (`high`, `medium`, `low`,
@@ -185,8 +185,10 @@ port I/O `ior rB, [rA]`/`iow rB, [rA]` (`rA` holds the port number; there is no
 classic CSR bank on this core), extended CSRs by number (`mfcsr rB, #nn`,
 `mtcsr #nn, rA`), the system shape by name (`cop rA`, `rti`, `ieon`, `ieoff`,
 `idle`, `lpexit?`, `isync?`, `sys #n`; with the F = S = 0 tail the packet stays
-open), `nop32`, `addsp #imm` (SP adjust), `lea? rA, [sp+off]`,
-`ldslot`/`stslot rB, #k` (stack-slot access, 6-bit slot, base open),
+open), `nop32`, `addsp #imm` (SP adjust), `lea rA, [sp+off]`,
+`ldslot`/`stslot rB, #k` (stack-slot access, 6-bit slot: the stack arguments
+from the ninth on; `stslot?`/`ldslot?` where the slot or the role is open),
+`sub r14, #imm` (frame allocation), `st.w [sp], #imm` (the ninth stack argument),
 `ld.d`/`st.d rB:rB+1, [rA+off]` (64-bit pairs, signed offset multiple of 4),
 `st.w`/`st.h [rB], #imm` (store of an immediate), `mov32 rB, #imm32` /
 `add rB, rB, #imm32` (48-bit constants, by formula or by the value table),
@@ -208,9 +210,10 @@ at +2). Forms whose operation is unknown but whose grouping is established are
 `.op4t0`, `.ldF0?`, `.3eX0?`, `.slot?`, `.hi`/`.lo`/`.ext` ...) or end with `?`
 (`ld.w?`, `mtacc?`, `fup?`): they are grouped correctly so that the packet and
 delay slot model stays right, and reported with the `unk` type. `.hi`, `.lo`,
-`.ext`, `.be79`, the 2-unit `bz.s`, the first-slot `ldslot`/`stslot`/`lea?`, the
-split `ldslot`/`stslot` halves and the `H H T T` loads/stores come from context
-rules, not plain table entries.
+`.ext`, `.be79`, the 2- to 4-unit `bz.s`, the first-slot `ldslot`/`stslot`/`lea`, the
+split `ldslot`/`stslot` halves (the `.op8?` pairs and the post-layout splits of the
+slot family), the fused `op72?` pair, `movi #simm6` in a delay slot and the
+`H H T T` loads/stores come from context rules, not plain table entries.
 A control instruction printed with a trailing `?` (`call?`, `beqz.d?`, `bne.l?`,
 `loop#?`, `bne.d?`) is one whose target guard could not be evaluated (see below).
 
@@ -229,22 +232,25 @@ unverified readings are right in nearly every case are read anyway, printed
 with a trailing `?`, confidence `medium` and `opex.target_guard = "unverified"`
 (`call` with the F' = 0 tail at +2, `b` with the F' = 0 tail, `b<cond> rA, #imm`
 with the F' = 0 tail, `beqz.d`, the `b<cond>.l` prefix forms with a forward
-target, `loop #N` with F = S = 1, with F = 0 and the tail adjacent, and with
-F = 1 and the S = 0 tail at +2, `loop rX` with F = 1 and the S = 1 F' = 0 tail
-at +2, and the `b<cond>.d` cells with the `[0][1][tt]` tail `bne`/`blt`/`bgeu`/
-`bgtu`/`bge` with immediate, `beqz.d`/`bnez.d` and `bleu` with registers); the
-others are treated as a failed guard (`loop rX` with the other F' = 0 tails,
-`loop #N` with F = 0 and the tail at +2, far `b`, `bnez.d` of the F = S = 0
-cell, the register `b<cond>` with the F' = 0 tail, the other `b<cond>.d` cells,
-the open-packet `call.s`), i.e. `.word`, the plain 16-bit reading or the normal
-layout. The forms whose guard is a validation filter (the F = S = 0 and the
-F = 0 `b<cond>.d` cells, `bne.d #-1`, the hardware loops with the F' = 1 tail,
-the near `b`, the open `b.s`) keep their reading when the target is unknown
-(printed with the `?` too) and are rejected by a known target that is not a
-packet start; a conditional branch whose unknown target lies backward is not
-read. A validated guard reports `opex.target_guard = "validated"`. The K-tie
-cascade sees the packets decoded earlier in the session and the ones inside the
-same lookahead (see `doc/usip.md` §7 for what is approximated).
+target, `loop #N` with F = S = 1, with F = 0 and the tail adjacent, with F = 1
+and the S = 0 tail at +2, with the F' = 0 tail at +2 and with h = 1 (N >= 128)
+and the S = 1 tail or the adjacent F = 0 tail, `loop rX` with F = 1 and the
+S = 1 F' = 0 tail at +2, and the `b<cond>.d` cells with the `[0][1][tt]` tail
+`bne`/`blt`/`bgeu`/`bgtu`/`bge` with immediate, `beqz.d`/`bnez.d` and `bleu`
+with registers); the others are treated as a failed guard (`loop rX` with the
+other F' = 0 tails, `loop #N` with F = 0 and the tail at +2, the m = 1
+`loop #N?` heads and the other h = 1 loop cells, far `b`, `bnez.d` of the
+F = S = 0 cell, the register `b<cond>` with the F' = 0 tail, the other
+`b<cond>.d` cells, the open-packet `call.s`), i.e. `.word`, the plain 16-bit
+reading or the normal layout. The forms whose guard is a validation filter (the
+F = S = 0 and the F = 0 `b<cond>.d` cells, `bne.d #-1`, the hardware loops with
+the F' = 1 tail, the near `b`, the open `b.s`) keep their reading when the
+target is unknown (printed with the `?` too) and are rejected by a known target
+that is not a packet start; a conditional branch whose unknown target lies
+backward is not read. A validated guard reports `opex.target_guard =
+"validated"`. The K-tie cascade sees the packets decoded earlier in the session
+and the ones inside the same lookahead (see `doc/usip.md` §7 for what is
+approximated).
 
 ### Analysis
 
@@ -272,14 +278,16 @@ return `r0`). No ESIL is produced for uSIP.
   head/tail assignments tie on the first four keys of the layout order and the
   K-tie cascade cannot decide (flagged by `opex.packet.ambiguous`) or decides
   them with a shorter context than a whole-function scan would give (`du2`),
-  control flow in open packets (`call`/`b`/`loop`/`b.s` followed by delay-slot
-  ops) when the branch reading is not the cheapest one, the guarded forms whose
+  control flow in open packets (`call`/`b`/`loop`/`loop #N`/`b.s` followed by
+  delay-slot ops) when the branch reading is not the cheapest one (a `loop #N`
+  reading with a 16-bit middle unit often writes a register twice with the
+  stolen tail, which the R-waw rule charges), the guarded forms whose
   target the plugin cannot check (far `b` to another function or beyond the
   lookahead, the open-packet `call.s`, `loop`/`bnez.d`, the `b<cond>.d` register
-  cells and the `bz.s` of long packets with a forward target beyond the
-  lookahead), and the `call` pairs whose tail choice depends on the `callin`
-  tie-break. A disassembler that knows the function table can prefer the
-  reading whose target is a function start or a packet boundary and answer
+  cells and the `bz.s` of 3-unit and longer packets with a forward target
+  beyond the lookahead), and the `call` pairs whose tail choice depends on the
+  `callin` tie-break. A disassembler that knows the function table can prefer
+  the reading whose target is a function start or a packet boundary and answer
   `callin`; `UsipGuardCtx` in `usip_decode.h` is the hook for that knowledge.
 * Open points of the ISA: the remaining layout ties, the sign and width of the
   `?` forms (`ld.d?`/`st.d?` with b10, `ld.w?`/`st.w?` in the 0x800-0xeff band,

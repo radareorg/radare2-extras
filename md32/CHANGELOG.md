@@ -2,6 +2,66 @@
 
 ## Unreleased
 
+### uSIP table update (726 forms), the loop cells and the slot splits
+
+* `isa/usip_isa.json` / `usip_opcodes.h`: 726 forms (52 added, 13 retired,
+  14 modified). New: the `loop #N` count is the collected head field (bits
+  13:5, no +1), `loop #N` with the F' = 0 tail exactly at +2
+  (`loop_imm_*_F1_Fp0`), with h = 1 (N >= 128) and with m = 1 (N >= 256,
+  printed `loop #N?`), `bz.s` in 4- and 3-unit packets (`bz_s_P4_u4` /
+  `bz_s_P4_u3`), the split entries of the slot family `stslot` / `stslot?` /
+  `ldslot?` (F-slot0, S0-slot, the S3 cells `ldslot/stslot #48-63`;
+  `split_role`), the fusion entry `op72? rA, #k, asr#b` (`fuse_pair`),
+  `op2z? rA`, `lsl/asr r8-r15, #B`, the W6 cells `ld.h/st.h rB, [r8+rrr]` and
+  `[rA]+` with h = 1, `sub r14, #f12/2` with any F/F' (`spfix_sub_sp`
+  retired), `st.w [sp], #imm14`, `st.abs` with the hi F' = 0, `add rB, rB,
+  #imm27` / `st.h? [rB], #sat` selected by the immediate value (also the
+  cell-E triples), `add? rB, r15, #rot12` and `ld.h? / ld.hu? rB, [r15+off]`
+  with the F' = 0 tail, `saturate? rd, rs1`, `movi #simm6` in the delay slot
+  of a validated branch, `mtcsr #0x30-0x3e`, `ld.h / ld.hu / lea / movi
+  #-32768 / #-32767 / ld.hu [rA+rB]` without the `?` (twelve `*_q` ids
+  replaced); the constraints `any(rA != 14, m == 1, tail_adjacent == false)`
+  on `beq_imm8_d` (the op 9 `beq.d` with base sp and the adjacent tail is
+  not a branch) and `any(m == 1, rA >= 8, x == 0, rB != 15)` on the seven
+  op a `*_s0f1` / `*_imm8_F0` entries (the `bgt rA, #-1` head class takes
+  only the adjacent S = 1 tail); the ABI passes eight arguments in r0-r7.
+* `tools/gen_usip_tables.py`: the flags `FUSE`, `SPLIT` / `SPLITBARE` (with a
+  `USIP_FORM_*` index for every split and fusion entry), the constraint op
+  `instr_index`, `any` with up to four alternatives that may be a context
+  condition or an instruction position, six new context conditions; the
+  `loopn` operand type is the collected field.
+* `usip_decode.c`: the score in twentieths (al1 = 0.3), the explicit
+  candidates loopcand / R-brHHTT / R-b111pre / R-b111ctl with the
+  `b111_layout` context extended to them, the `bz.s` rules of 4- and 3-unit
+  packets (the rest re-parsed as the delay slot, the 3-unit one with the
+  target beyond the packet and no write of rA), the S3 renames and the split
+  pass of the slot family with the split-tail reading and the nowaw guardian,
+  the fusion after the renames, R-movi6d, the R-w6h1 loop guard evaluated
+  with the packet being parsed, the R-loopA adjacency (`.word` at any
+  distance but +2), rf0dmidwaw, the score rules R-waw / al1 / R-bsnext /
+  P2W-P2H prefix / sat40 H H T T / rf0dpen, the instruction position of the
+  renames. Unverified fallback: the loop entries with the F' = 0 tail at +2
+  and the h = 1 heads with the S = 1 tail (and the adjacent F = 0 tail) are
+  accepted; the m = 1 (`loop #N?`) and the other h = 1 entries are not (wrong
+  too often when unverified).
+* `arch_md32.c`: the stores of an immediate (`[rB]` / `[sp], #imm`) carry the
+  value in `val` and `[sp]` the stack access; the new mnemonics keep their
+  kinds (`op2z?` / `op72?` / `saturate?` are unknown operations).
+* `asm_md32.c`: pseudo syntax for the stores of an immediate (also to `[sp]`),
+  the absolute `st.abs` / `ld.abs`, the `?` of a count (`loop#? #256?`).
+* Tests: `test/test_plugin.py` vectors for the loop count, the F' = 0 / h = 1 /
+  m = 1 loops (validated and unverified), the 4- and 3-unit `bz.s` (validated
+  and unknown), beq9sp, the `bgt rA, #-1` cell, the W6 h = 1 cells and the
+  loop guard, `op2z?`, the h = 1 shifts, the 16-bit `lea`, the splits
+  (R-slot4n, R-op4imm in 2 and more units, S0-slot, S3), `op72?`,
+  `saturate?`, sat40 H H T T, R-waw with the P2W prefix, R-b111pre,
+  R-b111ctl, R-bsnext, the omitted weak cell of R-brHHTT, `sub r14`,
+  `st.w [sp]`, `st.abs` hi F' = 0, addq / cell E by value, `mtcsr` of the
+  accumulator CSRs, R-1eX0F0, R-movi6d; the `lea`, `loop#`, `mtcsr`, `movi
+  #-32768 / #-32767`, `ld.h` / `ld.hu` of R-1eX0 / R-ldF0 / R-hhttF0 / R-F0d,
+  `op2z?` and two R-waw vectors updated to the new readings;
+  `test/test_parse.c` vectors for the new pseudo rules.
+
 ### uSIP table update (687 forms), the target filter and the F = 0 branch cells
 
 * `isa/usip_isa.json` / `usip_opcodes.h`: 687 forms (56 added, 3 retired,
