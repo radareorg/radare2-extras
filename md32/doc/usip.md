@@ -43,7 +43,8 @@ wrong in general: **the unit is the 16-bit halfword and the instruction stream i
    inside a group, the assignments with more bare heads that have no named 16-bit reading, adds the explicit candidates
    (`[head][op16][F' = 0 tail]` for 3 units — not for a head that never takes a tail —, **H H T T** =
    `[h0][h1][t0 S=0][t1 S=1]` with two named ld/st for 4 units, also with tt = 11 tails (`ld.bu` / `st.b`) and the
-   bit-field pair `[op 7][op 7][tt = 01 S = 0][tt = 01 S = 1]`) and ranks the readings with the **prior-free total
+   bit-field pair `[op 7][op 7][tt = 01 S = 0][tt = 01 S = 1]`, and loopcand, R-brHHTT, R-b111pre and R-b111ctl of
+   item 15) and ranks the readings with the **prior-free total
    order** (`structure.packet.layout_order`): `(s0, I, Fv, −A, K)` ascending, where `s0` = unknown units (kind `other`:
    1 per unit; kind `fmt`: 1 per instruction) + the tie-break penalties of `structure.packet.tie_breaks` (R7 credit, O
    syllables, loose `4000`, alignment except `f12 ≡ 3 ≥ 0xf00` and except `f12 ≡ 2` in the H H T T / H H T T C layout
@@ -53,7 +54,9 @@ wrong in general: **the unit is the 16-bit halfword and the instruction stream i
    H H T T / H H T T C except `f12 = 0x001` with base sp, **R-lr16**: +0.5 for a 16-bit `ld/st.b|bu|h r15, [rA]` in a
    2-unit packet, **R-align48**: +0.5 for a formed 48-bit hi(1010) ld/st trio whose address is misaligned,
    **R-c48sym**: +0.5 for a reading that leaves a 48-bit-family head without tails while a later free hi(1010) + lo of
-   the packet encode an address of `usip_c48sym_table[]`), `I` = number of instructions, `Fv` = heads with a tail
+   the packet encode an address of `usip_c48sym_table[]`, and the rules of item 15: **R-waw**, **al1**, **R-bsnext**,
+   **sat40 H H T T**, **rf0dpen**, the P2W / P2H exemption of the H H T T prefix), `I` = number of instructions, `Fv` =
+   heads with a tail
    whose adjacency contradicts the **F pattern** (head F = 0 and next unit bit 14 = 1 ⇒ adjacent tail, otherwise
    deferred), `−A` = minus the number of adjacent tails, `K` = the sorted tuple of `(head index, (tail indices…))`
    (smallest first). Readings tied on `(s0, I, Fv, −A)` go through the **K-tie cascade** (item 12) and, when it does
@@ -98,7 +101,9 @@ wrong in general: **the unit is the 16-bit halfword and the instruction stream i
 8. **Context forms (`USIP_F_CTX`).** `bz_s_P4`, `bz_s_P5` (R-bzs5: a first-slot `4X?5/6X?5` unit, rA not sp/LR,
    whose best reading is a bare unnamed unit is `bz.s rA, dest` with the rest of the packet as its delay slot:
    unconditionally in a 2-unit packet, in a longer one only with the target validated as a packet start of the same
-   function), `ldslot_S0/stslot_S0/lea_sp_S0` and the m = 1 twins (R7 / R-slotm1), `ldslot_split/stslot_split` (the
+   function), `bz_s_P4_u4` / `bz_s_P4_u3` (the same unit opening a packet of exactly 4 / 3 units, item 15),
+   `movi6_dsbr` (R-movi6d, item 15), `ldslot_S0/stslot_S0/lea_sp_S0` and the m = 1 twins (R7 / R-slotm1),
+   `ldslot_split/stslot_split` (the
    two halves of an `.op8?`/`.op8.t?` pair of slot-family units, context rule `op8_slot_split`), the `hhtt_*` ld/st
    forms with F ≠ S and the `b111_*` ld.bu / st.b forms with F ≠ S or F = S = 0 (only inside the H H T T candidate:
    `USIP_F_HHTT`, `ctx:b111_layout`), the `b111_*_F1S1` forms (`USIP_F_B111`: the 2-unit head + tail packet with a
@@ -116,24 +121,34 @@ wrong in general: **the unit is the 16-bit halfword and the instruction stream i
    `call rB`, `call.abs`), every other unit of the packet executes before the transfer (on both paths). For radare2 this
    means `op->delay` = number of remaining ops in the packet, and the branch instruction's `size` covers only its own
    units while the fall-through address of the packet is the next packet.
-10. **Hardware loops.** `loop rX, last=pc+disp12`, `loop #N, last=pc+disp12` (`USIP_A_LOOPN`: N = `((rrr:x:B) >> 1)
-    + [x:B ≠ 0]`), `loop.b1? rX, last=…` (the head with B = 1: the meaning of that bit is open) and the `?ss=N` twins
-    (`loop r<rrr>?ss=N`, `loop.b1? r<rrr>?ss=N` for ss ≥ 2): `last` is the address of the LAST instruction of the body
-    (inclusive); the body is the following 1-16 instructions; `last` must be a packet start of the same function and
-    ≠ pc. `de0d` (`nop.ctl` with S = 1) closes most hardware-loop bodies.
-11. **Post-layout renames (`USIP_F_RENAME`).** Thirty-one entries (`nop_ctl`, `lsl16_S0`, `lsl16_F1_c`,
+10. **Hardware loops.** `loop rX, last=pc+disp12`, `loop #N, last=pc+disp12` (`USIP_A_LOOPN`: N = head bits 13:5 =
+    `m:h:rrr:x:B[3:1]`, 0..511, the collected field as is; the heads with h = 1 (N ≥ 128) and with m = 1 (N ≥ 256,
+    printed `loop #N?`) are loops too, and so is the head whose F' = 0 tail sits exactly at +2 (`loop_imm_*_F1_Fp0`,
+    R-loopA: the middle unit is a 16-bit op of the packet, at any other distance the pair is `.word`); the explicit
+    layout candidate **loopcand** adds the `[loop head][op16][tail at +2]` reading that the group grammar drops when
+    the middle unit has no named 16-bit reading, item 15), `loop.b1? rX, last=…` (the head with B = 1: the meaning of
+    that bit is open) and the `?ss=N` twins (`loop r<rrr>?ss=N`, `loop.b1? r<rrr>?ss=N` for ss ≥ 2): `last` is the
+    address of the LAST instruction of the body (inclusive); the body is the following 1-16 instructions; `last` must
+    be a packet start of the same function and ≠ pc. `de0d` (`nop.ctl` with S = 1) closes most hardware-loop bodies.
+11. **Post-layout renames (`USIP_F_RENAME`).** Forty-one entries (`nop_ctl`, `lsl16_S0`, `lsl16_F1_c`,
     `lsl16_F1_S0_k1_q`, `sext16_F1_c`, `sext16_F1_S0_q`, `zext16_F1_c`, `zext16_F1_S0_q`, `addi32_cop`, `ld_w16_A_k0`,
-    `x1e0_ld_w_q`, `x1e0_ld_h_q`, `x1e0_ld_hu_q`, `op7e_0_bset_r`, `op7e_6_bext_r`, `ldF0_q_t1_adj`, `ldF0_q_t2_adj`,
-    `ld_h_q_Fp0`, `ld_hu_q_Fp0`, `x3eX0_q`, the BF_SEL cells `bfsel_fup`, `bfsel_fup_q`, `bfsel_fxtu`, `bfsel_fxtu_q`,
-    `bfsel_fxts_q` from `.bf?` with `ctx:bf_dst_not_written` — no other WAW-kind instruction of the packet writes
-    rB(!x) —, `negq_ld_w_c1/c3`, `negq_st_w_c1/c3` (`ld.w?` / `st.w?`), `spfix_add_sp` (from `ld.w`), `spfix_sub_sp`
-    (from `.ldF0?` / `ld.h?`)) are NEVER used while pairing or scoring (the layout is decided with the
-    underlying reading: `.ctl15`/`.hword`, `.sub?`, `.1eX0`, `.word`, `.7e`, `mov32`/`add`). Once the layout is
-    decided, for each instruction the rename entries of its width are tried in table order: mask over the gathered
-    units, `rename_from` containing the current reading (a mnemonic, or `@kind` for every reading of that kind), the
-    other constraints (`head_pos_ge 1`, `tail_adjacent == true/false`, `ctx:cop_rA_in_packet`,
-    `ctx:not_c48_lo_follows`, `u16 in [...]`) → the instruction takes the entry's mnemonic / kind / format; the score
-    is untouched.
+    `x1e0_ld_w_q`, `x1e0_ld_h`, `x1e0_ld_hu`, `x1e0F0_add_q`, `x1e0F0_ld_h_q`, `x1e0F0_ld_hu_q` (R-1eX0F0: the `.1eX0`
+    head with the F' = 0 tail), `op7e_0_bset_r`, `op7e_6_bext_r`, `ldF0_q_t1_adj`, `ldF0_q_t2_adj`, `ld_h_Fp0`,
+    `ld_hu_Fp0`, `x3eX0_q`, the BF_SEL cells `bfsel_fup`, `bfsel_fup_q`, `bfsel_fxtu`, `bfsel_fxtu_q`, `bfsel_fxts_q`
+    from `.bf?` with `ctx:bf_dst_not_written` — no other WAW-kind instruction of the packet writes rB(!x) —,
+    `negq_ld_w_c1/c3`, `negq_st_w_c1/c3` (`ld.w?` / `st.w?`), `spfix_add_sp` (from `ld.w`), `stimmsp_st_w_sp`
+    (`st.w [sp], #imm` from `mov32` / `st.w?`, R-stimmsp), the six split entries `stslot_F0`, `stslot_F0_q`,
+    `stslot_S0_pos1`, `ldslot_S0_pos1_q`, `ldslot_S3_F0`, `stslot_S3_F0` (`USIP_F_SPLIT`) and the fusion entry
+    `op72_q` (`USIP_F_FUSE`)) are NEVER used while pairing or scoring (the layout is decided with the underlying
+    reading: `.ctl15`/`.hword`, `.sub?`, `.1eX0`, `.word`, `.7e`, `mov32`/`add`). Once the layout is decided, for
+    each instruction the rename entries of its width are tried in table order: mask over the gathered units,
+    `rename_from` containing the current reading (a mnemonic, or `@kind` for every reading of that kind), the other
+    constraints (`head_pos_ge 1`, `instr_index n` — the position of the INSTRUCTION inside the decoded packet, not
+    the unit index —, `tail_adjacent == true/false`, `ctx:cop_rA_in_packet`, `ctx:not_c48_lo_follows`,
+    `u16 in [...]`) → the instruction takes the entry's mnemonic / kind / format; the score is untouched. The split
+    and the fusion entries are skipped by this pass: the split pass and the fusion of item 14 apply them by index.
+    `sub r14, #imm` (frame allocation) is no longer a rename but the parser form `spsub_sub_sp` (R-spsub, any
+    F / F').
 12. **K-tie cascade.** For each packet whose readings tied on `(s0, I, Fv, −A)`: `dedup` (identical multisets of
     instruction texts → the K reading), `nowaw` (exactly one reading without a double register write → chosen; all
     with one → no decision), `du2` (a differential use-definition score over a window of eight packets before and
@@ -152,6 +167,67 @@ wrong in general: **the unit is the 16-bit halfword and the instruction stream i
     that is not one rejects the reading (fall-through to the next entry of the cell for the `USIP_F_GUARDFT` entries,
     the next 16-bit entry for the open `b.s`, `.word` for the near `b` and the loops), an unknown one keeps the
     reading unverified for the forms whose guard is a validation filter.
+14. **Post-layout splits and fusion of the slot family.** After the layout (the score is untouched, only the names
+    change) the slot family is re-read. First **S3**: a bare `.hword` `[0][0][1][1][rrr][x][B][o3 0 00]` (m = h = 1,
+    F = 0, S = 0) in the first slot of a multi-unit packet is `ldslot rB, #k` (k = 48..63, `ldslot_S3_F0`) and a bare
+    `.hword` closer `[1][0][1][1][rrr][x][B][o3 1 00]` is `stslot` (`stslot_S3_F0`). Then one pass with a **nowaw
+    guardian**: **R-slot4n** (a pair read `.op4t0` / `.op4t1` / `.op4t3` whose head is op 4 with F = 0 and whose
+    single tail is the next unit with S = 0, low 12 bits > 1 and not `4000`-shaped → head `stslot` / `stslot?`
+    (k = m:h:rrr:o3, the `?` with h or m = 1: `stslot_F0` / `stslot_F0_q`) ‖ the tail's split-tail reading),
+    **R-op4imm** (a pair read `.op4imm` with an op 4 head and a tail with F' = 0 and tt ∈ {00, 01}, ONLY when the
+    split-tail reading is named → head F = 1 `stslot`, F = 0 `stslot` in a 2-unit packet / `stslot?` in a longer one
+    (`ctx:op4imm_head_multiunit`) ‖ the tail), **S0-slot** (a bare `.hword` at INSTRUCTION position 1 with F = 1,
+    S = 0, low 12 bits > 1 and (m = 0 or op ≠ 0) → `stslot` for o2 = 1 / `ldslot?` for o2 = 0: `stslot_S0_pos1` /
+    `ldslot_S0_pos1_q`). The split-tail reading of a unit is: the slot family with F = 1 and S = 0 → `stslot` /
+    `ldslot?`; op 4 / op c with F = 0 → `stslot(?)`; else its ordinary 16-bit reading (unnamed: kept as is in
+    R-slot4n, no split in R-op4imm). The guardian returns a split whose new destination (WAW kinds; stores and `iow`
+    excluded) is written by another instruction of the packet to its original entry. The units of a split pair carry
+    `ctx:split_unit`. Then the generic renames (item 11) and the **fusion** `op72? rA, #k, asr#b` (`op72_q`,
+    `USIP_F_FUSE`): two ADJACENT one-unit instructions whose readings are `movi rA` (head
+    `[0][F][0][h][rrr][0][b][0111]`) and the 16-bit op 2 `asr? rA` with x = 1 and the same rrr (`eq_fields`) become
+    ONE two-unit instruction (the `lsl` cell, x = 0, is not fused; the pair does not count as a double write).
+15. **Explicit candidates, score rules and layout constraints of the 726-form table.** The explicit candidates of
+    item 4 gain **loopcand** (op f head + tt = 10 tail at +1 / +2 reading `loop #N` — not `loop #N?` —, the middle
+    unit a bare head; the F' = 0 tail only at +2), **R-brHHTT** (`[branch head F = 0 at 0 → 2][op 0/1 head at 1 → 3]`
+    + the rest in packets of ≥ 5 units whose units 2 and 3 have S = 0 and F' = 1, when the branch reads with a
+    validated target and the second pair reads ld/st), **R-b111pre** (the type-111 H H T T, both tails S = 0, as the
+    PREFIX of a packet of ≥ 5 units; the rest parsed as a group) and **R-b111ctl** (`[op e head at 0 → 2][op 1 head at
+    1 → 3]` in exactly 4 units, unit 2 S = 0 and F' = 1 with tt = 10/11, unit 3 S = 1: the round-robin of the type-111
+    store after a control head, which the group grammar does not generate; `400e 5c01 654c f8e2` = `b ‖ st.b r0,
+    [sp+0xe3]`); each is rejected by the grammar's own filters (a tail on `ret/save/restore` or on a head that never
+    takes one, a unit that is never a tail) and the b111 / hhtt context forms hold inside them (`ctx:b111_layout`).
+    The score (item 4) adds **R-waw** (+0.75 per register written by ≥ 2 instructions of the reading — the first
+    operand of a WAW-kind instruction followed by a comma; stores excluded; the adjacent bare pair `movi rA ‖ op 2 rA,
+    x = 1` of the same rrr is one instruction and does not count — the parallel-execution model), **al1** (the
+    `f12 ≡ 1` / `≡ 3` (< 0xf00) word tails pay 0.8 in all: 0.3 more than a double write), **R-bsnext** (+2.5 for a
+    first-slot 16-bit `b.s` whose target is exactly the next packet and not a function start: the unit is the
+    `st.h/st.b` head), the **P2W / P2H exemption** when H H T T is the prefix of a ≥ 5-unit packet, **sat40 H H T T**
+    (+3.0 for `[op c][op c][tail (8,c)][tail (8,c)]` not read as the pairs 0 → 2, 1 → 3), **rf0dpen** (+1.0 for the
+    bare unit after an R-F0d head whose destination is written twice; **rf0dmidwaw**: that middle unit is then not
+    re-read) and **R-movi6d** (the `.movi6?` closer in the delay slot of a validated branch at unit 0 counts as
+    `movi rA, #simm6`: `movi6_dsbr`, `ctx:delay_slot_of_validated_branch`); scores are kept in twentieths of a unit.
+    Three constraints are evaluated with the layout: **beq9sp** (`beq_imm8_d`: `any(rA ≠ 14, m = 1, tail_adjacent =
+    false)` — the op 9 `beq.d` with base sp and the adjacent tail is not a branch; a failure falls to the next
+    reading), the **`bgt rA, #-1` head class** (the seven op a `*_s0f1` / `*_imm8_F0` entries carry `any(m = 1,
+    rA ≥ 8, x = 0, rB ≠ 15)`: with ss = 00, x = 1 and B = 15 the head only takes the adjacent S = 1 tail) and the
+    **R-w6h1 loop guard** (`st_h16_f_slot0_h1`, the W6 cell `st.h rB, [r{8+rrr}]` with x = 0 and B ∈ {0, 1}, does
+    not match when a `[S][0][11][d12]` tail at +1 / +2 of the packet being parsed has its end at a packet start of
+    the function after the head: the unit is the head of a validated `loop r{8+rrr}`, `ctx:not_loop_reg_head`).
+    **`bz.s` in 4- and 3-unit packets** (`bz_s_P4_u4`, `bz_s_P4_u3`; item 8): the same `4X?d` unit (not `5cXd` /
+    `5e0d`, rA not sp) opening a packet of exactly 4 units whose best reading leaves it unnamed, with the target a
+    packet start of the same function, is `bz.s rA, dest` with the rest of the packet re-parsed as its delay slot; in
+    a 3-unit packet also with the target BEYOND the packet (`ctx:target_beyond_packet`) and a delay slot that does not
+    write rA (`ctx:delay_slot_not_writing_rA`). The ABI passes eight arguments in r0-r7 (§4).
+16. **Cells added with the 726-form table** (besides the loops of item 10 and the splits of item 14): `op2z? rA`
+    (the 16-bit op 2 with x = 0 and B = 0 is not a shift by 0), `lsl / asr r8-r15, #B` (the h = 1 cells), the W6 cells
+    with h = 1 (`ld.h / st.h rB, [r8+rrr]` and `[rA]+` in the first slot), `sub r14, #f12/2` with any F / F'
+    (R-spsub), `st.w [sp], #imm14` (R-stimmsp: the ninth stack argument), `st.abs` with the hi F' = 0 (R-stabs0),
+    `add rB, rB, #imm27` / `st.h? [rB], #sat` selected by the immediate value (addq: the saturation constants 0x7fff,
+    0x8000, 0x7ffe, 0x3fff, 0x1fff, 0xfff are the `in` / `notin` value lists of the entries; also the cell-E
+    triples), `add? rB, r15, #rot12` / `ld.h? / ld.hu? rB, [r15±off]` with the F' = 0 tail (R-1eX0F0),
+    `saturate? rd, rs1` (op c with B = 0 and rd = rs1), `movi rA, #simm6` in the delay slot of a validated branch
+    (R-movi6d), `ld.h / ld.hu` without the `?` for R-ldF0 (S = 0), R-hhttF0, R-F0d and R-1eX0, `ld.hu rd, [rA+rB]`
+    (X = 4), the 16-bit `lea` (no `?`), `movi #-32768 / #-32767`, `mtcsr #0x30-0x3e` (`mtcsr_acc`).
 
 Operand fields are given as bit ranges over the big-endian concatenation of the instruction's units (bit `width-1`
 = bit 15 of the head): 32-bit forms = head bits 31..16, tail 15..0; 48-bit = head 47..32, hi 31..16, lo 15..0; 64-bit =
@@ -162,7 +238,8 @@ then its tails in round-robin order) before applying mask/value.
 
 `tools/gen_usip_tables.py` emits every field referenced by the format string or by a constraint (`nfields` >=
 `nargs`), the constraints as structured `UsipCons` records (op, field indices, values), the `rename_from` lists of the
-rename entries, the indices of the context-only forms (`USIP_FORM_*`, incl. `hi1010_loose`) and the auxiliary tables
+rename entries, the indices of the context-only forms (`USIP_FORM_*`, incl. `hi1010_loose`, the split and the fusion
+entries) and the auxiliary tables
 of the ISA description (`usip_must_pair`, `usip_sys_fld4[16]`, `usip_cond_bcc48[5][4]`, `usip_csr_ext[64]`,
 `usip_kind_names[]`, `usip_save_set[8]`, `usip_never_tail[]`, `usip_never_head_with_tail[]`, `usip_c48_table[]`,
 `usip_br0_cells[]` / `usip_br0_cells_weak[]` (`UsipBr0Cell`: op, tt, class, distance), the sorted `usip_c48sym_table[]`,
@@ -179,15 +256,24 @@ cell mask, `USIP_BR0_BIT(class, dist)`), `bf_valid` (`USIP_C_BF_VALID`, fields w
 (`USIP_C_GUARD_TAIL_NAMED16`) and `target_packet_start_any_or_function_start` (`USIP_C_GUARD_TARGET_PK_ANY_OR_FN`),
 the value sets too large for `vals` (`USIP_C_IN_SET` / `USIP_C_NOTIN_SET` into `usip_value_sets[]`), the `any`
 sub-operations `USIP_ANY_PACKET_LEN`, `USIP_ANY_GUARD` (`enum usip_guard_id`), `USIP_ANY_RANGE` (`lo | hi << 16`) and
-`USIP_ANY_BR0_CELLS` / `USIP_ANY_BR0_CELLS_LIVE`, and the context conditions `USIP_CTX_COP_RA_IN_PACKET` /
-`USIP_CTX_NOT_C48_LO_FOLLOWS` / `USIP_CTX_B111_LAYOUT` … `USIP_CTX_REST_NAMED_NO_Q`, are evaluated by the decoder with
-the packet context.
+`USIP_ANY_BR0_CELLS` / `USIP_ANY_BR0_CELLS_LIVE`, `USIP_ANY_INSTR_INDEX` and `USIP_ANY_CTX` (an `any` holds up to four
+alternatives, `USIP_MAXANY 4`, which may be a context condition or an instruction position), the instruction position
+`instr_index` (`USIP_C_INSTR_INDEX`, on the rename entries), and the context conditions `USIP_CTX_COP_RA_IN_PACKET` /
+`USIP_CTX_NOT_C48_LO_FOLLOWS` / `USIP_CTX_B111_LAYOUT` … `USIP_CTX_REST_NAMED_NO_Q` / `USIP_CTX_NOT_LOOP_REG_HEAD` …
+`USIP_CTX_SPLIT_UNIT`, are evaluated by the decoder with the packet context (`USIP_CTX_TARGET_BEYOND_PACKET`,
+`USIP_CTX_DELAY_SLOT_NOT_WRITING_RA`, `USIP_CTX_OP4IMM_HEAD_MULTIUNIT`, `USIP_CTX_SPLIT_UNIT` and
+`USIP_CTX_DELAY_SLOT_OF_VALIDATED_BRANCH` by the explicit procedures of items 14 and 15 — the `bz.s` rules, the split
+pass, `decode_asg` — and accepted by the generic constraint check). `USIP_F_SPLIT` marks the entries of the split
+procedure (`split_role` in the JSON: `either` = the head or the re-read tail of a split pair, `bare` = a bare unit
+renamed before the pass, also `USIP_F_SPLITBARE`), `USIP_F_FUSE` the fusion entry; every one of them has a `USIP_FORM_*`
+index.
 
 `usip_opcodes[]` is ordered: the first entry of the right width whose `(units & mask) == value`, whose `flags`
 allow the slot, and whose `cons` holds is the reading (entries with `USIP_F_RENAME` are excluded from that matching:
 item 1.11). Fields of each entry: `name` (mnemonic), `form` (stable id = `usip_isa.json` `forms[].name`),
 `value/mask`, `width/nunits` (16/32/48/64), `flags` (`USIP_F_SLOT0`, `NOTSLOT0`, `CTX`, `DELAY`, `ADJ1`, `ADJCTRL`,
-`NAMED`, `NOTAIL`, `ADJ2`, `UNKNOWN16`, `ADJDEF`, `PREFIX`, `RENAME`, `HHTT`, `GUARDFT`, `B111`, `F0CTX`; a `ut32`),
+`NAMED`, `NOTAIL`, `ADJ2`, `UNKNOWN16`, `ADJDEF`, `PREFIX`, `RENAME`, `HHTT`, `GUARDFT`, `B111`, `F0CTX`, `FUSE`,
+`SPLIT`, `SPLITBARE`; a `ut32`),
 `kind`, `conf`, `fmt` + `fields[]`
 (operand template and bit fields, up to 8 ranges), `cons[]`, `rename_from` / `nrename_from` (the readings a rename
 entry may replace).
@@ -203,9 +289,9 @@ the hi(1010) family `lea/lea?`), `acc`, `accw`, `csr` (unused), `csr_ext`, `flag
 (half-word offset: `f` even → `f`, odd → `f − 0x1001`), `offw` (W14, a 14-bit word displacement: `(f & 3) == 2` →
 `0x1000 + (f & ~3)`; `(f & 3) == 3 && f >= 0x800` → `4·sext10(f >> 2)`; else `f`), `offb` (the byte displacement of
 `ld.b/ld.bu/st.b`: `sext12(f[0] : f[10:1] : f[11])`, bit 11 of the field is bit 0 of the displacement and bit 0 the
-sign; printed with its sign), `loopn` (`(raw >> 1) + ((raw & 0x1f) != 0)`). An immediate glued to a letter or to `=`
-(the accumulator index `A{k}`, the loop `?ss=N`, `save w=N`) is printed in decimal. The 48-bit constants use a plain
-32-bit `imm` field `val` =
+sign; printed with its sign), `loopn` (the collected bits as is: head bits 13:5). An immediate glued to a letter or
+to `=` (the accumulator index `A{k}`, the loop `?ss=N`, `save w=N`) is printed in decimal. The 48-bit constants use a
+plain 32-bit `imm` field `val` =
 `head[13:9] << 27 | hi[12:0] << 14 | lo[13:0]`. The bit-field position `pos` of `fxtu/fxts/fup` is a plain `imm`
 whose ranges `[0,0],[4,1]` implement `rotr5(p)`.
 
@@ -268,8 +354,12 @@ the post-layout renames, the K-tie cascade.
   `b<cond>.d` S0F1 cells, `ret.s.d`, `loop.b1?` (the B bit), `bz.s` P5, the R-br0 cells of op 8 / op c, the `?ss=N`
   loops, `lsl?/asr?` of the op 2 cells without idiom, `ldslot/stslot` with m = 1, `ld.h?/ld.hu?` of R-hhttF0 / R-F0d,
   `ld.w?/st.w?` of the NEGQ classes (sign open), `movi? #-32767`, `fup?/fxtu?/fxts?` by BF_SEL cell, `mtcsr?` of the
-  accumulator CSRs, `add r14 / sub r14`).
-* `low`: named hypotheses (`mtacc?`, `msu?`, `.cmp?`, `or.2`, `add.1`, accumulator shifts, `sys?`, `ld.sp`/`st.sp`).
+  accumulator CSRs, `add r14 / sub r14`, `loop #N?` (the m = 1 heads), `bz.s` of 3-unit packets, the split
+  `stslot? / ldslot?` and the 16-bit `lea`, `op2z?`, `saturate?`, `add? / ld.h? / ld.hu?` with base r15 and the
+  F' = 0 tail, `st.h? [rB], #sat` (addq / cell E), `mtcsr #0x30-0x3e` (CSR semantics open), `sub r14, #f12/2`,
+  `st.w [sp], #imm`, `movi #simm6` in a delay slot, the `ld.h / ld.hu` that lost their `?`).
+* `low`: named hypotheses (`mtacc?`, `msu?`, `.cmp?`, `or.2`, `add.1`, accumulator shifts, `sys?`, `ld.sp`/`st.sp`,
+  `op72?`).
 * `format-only`: the pairing is established but not the operation: mnemonics starting with `.` (`.hword`, `.word`,
   `.w48`, `.dsp`, `.alu32`, `.op4imm/.op4i`, `.op4t0` (NOT ld.w: a stolen tail), `.op7t`, `.bf?`, `.idx?`,
   `.ctl15/.ctl15.t?` (parser readings of `nop.ctl`), `.1eX0` (F' = 0), `.ldF0?` (width open), `.3eX0?` (not a
@@ -284,8 +374,8 @@ example), the B bit of `loop.b1?`, the `?ss=N` loops, the `lsl?/asr?` cells with
 the F ≠ S cell at `f12 = 0x7ff`, the layout-based `add`/`ld.w` selector of the op 0 F = S = 1 `f12 ≡ 0` cell, the
 packets with an unformed 48-bit head and a hi(1010) unit read as `movi r10, #7`, why the scheduler inserts `nop.ctl`,
 the 0x800-0xeff word-offset band, `.idx?` a = 2, `4028 4002`. Two printing conventions are not in the table: the
-32-bit add-immediate is often listed as `add rB, rA, #imm` (record mnemonic `addi`) and `loop #N` as `loop#`; the
-plugin prints the record mnemonics.
+32-bit add-immediate is often listed as `add rB, rA, #imm` (record mnemonic `addi`) and `loop #N` as `loop#`
+(`loop #N?` as `loop#?`); the plugin prints the record mnemonics.
 
 ## 4. ABI (for `regs()`)
 
@@ -303,14 +393,19 @@ branches are compare-and-branch (incl. the 48-bit `b<cond>.l rB, #imm9 / rA`).
    and longer packets where several head/tail assignments have the same cost). The `du2` step sees a shorter context
    than a scan of the whole function would give (§7), so a few of its decisions can differ from those of a decoder
    that has the function in hand.
-2. **Control flow in open packets** (`call`/`b`/`loop`/`b.s` followed by delay-slot ops): when the branch reading
-   is not the cheapest one the packet reads as `add`/`st.w`/`st.h`/`movi`. A disassembler that knows the function
-   table can prefer the reading whose target is a function start or a packet boundary, and can answer the `callin`
-   tie-break (a relative `call` into the middle of a function, §6).
+2. **Control flow in open packets** (`call`/`b`/`loop`/`loop #N`/`b.s` followed by delay-slot ops): when the branch
+   reading is not the cheapest one the packet reads as `add`/`st.w`/`st.h`/`movi` (a `loop #N` reading with a 16-bit
+   middle unit often writes a register twice with the stolen tail, which R-waw charges). A disassembler that knows the
+   function table can prefer the reading whose target is a function start or a packet boundary, and can answer the
+   `callin` tie-break (a relative `call` into the middle of a function, §6).
 3. **Target guards that cannot be evaluated** (§6): far `b` to another function or beyond the lookahead (and the
    readings of the packet behind it), the open-packet `call.s`, and `loop`/`bnez.d`/register `b<cond>`, the
    `b<cond>.d` S0F1 and register cells and the `bz.s` of packets longer than two units with a forward target beyond
    the lookahead are read as data or as the plain 16-bit units.
+4. **Rules that need a validated target** (§6): the loop entries not accepted unverified (the m = 1 `loop #N?` heads,
+   the h = 1 heads except with the S = 1 tail or the adjacent F = 0 tail), the 3- and 4-unit `bz.s`, R-brHHTT,
+   R-movi6d and the R-w6h1 loop guard have no unverified fallback: beyond the lookahead the plain 16-bit readings,
+   the `.hword`, the grammar's reading, the `.movi6?` closer and the W6 cell stand.
 
 ## 6. Target guards: what the plugin knows
 
@@ -336,16 +431,20 @@ the target): the forms whose
 unverified readings are right in nearly every case where they compete are read anyway — `call_F0` (function start
 unknown; with the tie-break bonus), `b_F0`, `beqz_d` and the immediate `b<cond>` forms with the F' = 0 tail
 (`beq/bne/ble/blt/bgtu/bge/bgt_imm8_F0`, forward target beyond the lookahead), the `bcc48_*` / `bcc48_*_64` prefix
-forms (forward target beyond the lookahead), `loop_imm_F1S1`, `loop_imm_F0S0` with the tail adjacent,
-`loop_imm_F1S0`, `loop_F0` when the head has F = 1 and the S = 1 tail sits at +2, and the S0F1 cells
+forms (forward target beyond the lookahead), `loop_imm_F1S1`, `loop_imm_F0S0` and `loop_imm_h1_F0S0` with the tail
+adjacent, `loop_imm_F1S0`, `loop_imm_F1_Fp0` (the F' = 0 tail at +2), `loop_imm_h1_F1S1`, `loop_F0` when the head has
+F = 1 and the S = 1 tail sits at +2, and the S0F1 cells
 `bne/blt/bgeu/bgtu/bge_imm8_s0f1`, `beqz/bnez_s0f1` and `bleu_rr_s0f1`, and the forms whose guard is a validation
 filter (`b_s_open`, `b_near`, `loop` / `loop_ssq` / `loop_b1_q` / `loop_b1_q_ssq` with the F' = 1 tail, the F = S = 0
 `b<cond>.d` cells, `bne_d_m1` and the R-br0 `*_f0s0` cells: they were read without a guard before the filter existed,
 so an unknown target keeps the reading, the conditional ones only forward); the others are treated as a failed guard —
 `call_s_S0` (only a small fraction of the shapes are calls), `b_far` (about a fifth of the unverified readings would
 be wrong), `bnez_d` of the F = S = 0 cell (shared with the op C DSP pairs), `ble_rr_F0`/`blt_rr_F0` (shared with
-`.ctl15`), the other `loop_F0` tails (`movi || mov` pairs), `loop_imm_F0S0` with the tail at +2, the S0F1 cells
-`beq/ble/bgt_imm8_s0f1`, the op 8 S0F1 cells and the op d S0F1 register cells. Backward targets inside the decoded
+`.ctl15`), the other `loop_F0` tails (`movi || mov` pairs), `loop_imm_F0S0` and `loop_imm_h1_F0S0` with the tail at
++2, `loop_imm_h1_F1S0`, `loop_imm_h1_F1_Fp0` and the m = 1 `loop_imm_m1_*` entries (`loop #N?`: the 16-bit readings
+stand), the S0F1 cells `beq/ble/bgt_imm8_s0f1`, the op 8 S0F1 cells and the op d S0F1 register cells. The rules that
+need a validated target (the 3- and 4-unit `bz.s`, R-brHHTT, R-movi6d, the R-w6h1 loop guard) have no unverified
+reading. Backward targets inside the decoded
 region are decided by the session (seen = packet start, unseen = not a packet start); below it they are unknown:
 unverified for `call`, `b` and `b.s`, never for a conditional branch (a conditional branch does not leave its
 function). An accepted-unverified reading prints a trailing `?` (`call?`, `beqz.d?`, `blt?`, `bne.l?`, `loop#?`,
@@ -377,5 +476,9 @@ in `usip_decode.c`: `decide_ties`, `regs_of`, `du2_scores`):
   with the shorter context is left to K (flagged ambiguous).
 * `opex.packet.tiebreak` reports `dedup` / `nowaw` / `du2` for a packet decided by the cascade;
   `opex.packet.ambiguous` is true only for the ties the cascade could not decide (K decides them).
-* A packet read by the `bz_s_P5` rule parses the rest of the packet as an independent packet: the ties of that parse
-  are the ones the cascade sees, and the rule is applied again to the reading the cascade chooses.
+* A packet read by the `bz_s_P5`, `bz_s_P4_u4` or `bz_s_P4_u3` rule parses the rest of the packet as an independent
+  packet (its delay slot): the ties of that parse are the ones the cascade sees, and the rule is applied again to the
+  reading the cascade chooses.
+* The packet-level rules run on the chosen reading in a fixed order — `bz_s_P4`, `bz_s_P4_u4`, R7 / `lea_sp_S0`,
+  `bz_s_P4_u3`, S3, `.be79`, the split pass (item 14) — then the generic renames and the fusion; the cascade compares
+  the renamed and fused texts, and after its decision the same passes run again on the reading it chose.

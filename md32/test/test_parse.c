@@ -97,8 +97,7 @@ int main(void) {
 	check (a, "st.b r1, [r2]+", "dmem8[r2] = r1; r2 += 1");
 	check (a, "loop r3, last=0x00002488", "repeat r3 times until last=0x00002488");
 	check (a, "save w=0", "push_callee_saved(w=0)");
-	// Format-only forms, displaced tails and unmodelled operations keep their text.
-	check (a, "st.w [r0], #0x28002", "st.w [r0], #0x28002");
+	// Displaced tails and unmodelled operations keep their text (the store of an immediate has a pseudo form below).
 	// system, port I/O, CSR, slot and stack forms of the uSIP table.
 	check (a, "mfcsr r15!, #0x01", "r15! = csr[0x01]");
 	check (a, "mtcsr #0x20, r4!", "csr[0x20] = r4!");
@@ -198,6 +197,35 @@ int main(void) {
 	check (a, "mtcsr? #0x39, r2!", "csr[0x39] = r2!");
 	check (a, "ld.w? r2, [r0!+0x305]", "r2 = dmem32[r0! + 0x305]");
 	check (a, ".stimm16? [r0], #0x36688", ".stimm16? [r0], #0x36688");
+	// table update (726 forms): the loop count as collected, loop #N? for the m = 1 heads, the split slot forms, the 16-bit lea,
+	// the stores of an immediate (also to [sp]), the absolute store, the r15-based add? / ld.h?, the op 2 shifts of r8-r15, the
+	// h = 1 half-word cells, the frame allocation sub r14, the 3- and 4-unit bz.s and the format-level op2z? / op72? / saturate?.
+	check (a, "loop# #15, last=0x1cb2d0f6", "repeat 15 times until last=0x1cb2d0f6");
+	check (a, "loop#? #256?, last=0x1cbec570", "repeat 256 times until last=0x1cbec570");
+	check (a, "stslot? r14!, #0x16", "slot[0x16] = r14!");
+	check (a, "ldslot? r2, #0x4", "r2 = slot[0x4]");
+	check (a, "lea r9, [sp+76]", "r9 = &[sp+76]");
+	check (a, "st.w [sp], #0x35", "dmem32[sp] = 0x35");
+	check (a, "st.h? [r3], #0x8000", "dmem16[r3] = 0x8000");
+	check (a, "st.w [r0], #0x28002", "dmem32[r0] = 0x28002");
+	check (a, "st.abs r0, [#0xe20014]", "dmem32[0xe20014] = r0");
+	check (a, "add? r1, r15, #0x420", "r1 = (r15 + 0x420)");
+	check (a, "ld.h? r7, [r15+0xe8]", "r7 = dmem16[r15 + 0xe8]");
+	check (a, "lsl r8, #0x1", "r8 <<= 0x1");
+	check (a, "asr r15, #0xf", "r15 = ((int32_t)r15 >> 0xf)");
+	check (a, "ld.h r10, [r14]", "r10 = sext16(dmem16[r14])");
+	check (a, "ld.h r10, [r12]+", "r10 = sext16(dmem16[r12]); r12 += 2");
+	check (a, "st.h r8, [r11]+", "dmem16[r11] = r8; r11 += 2");
+	check (a, "sub r14, #0x5b0", "r14 -= 0x5b0");
+	check (a, "bz.s r4, 0x1cad0504", "if (r4 == 0) goto 0x1cad0504");
+	check (a, "ld.hu r5, [r5+r4]", "r5 = dmem16[r5 + r4]");
+	check (a, "add r1, r1, #0x10000", "r1 = (r1 + 0x10000)");
+	check (a, "movi r3, #-32768", "r3 = -32768");
+	check (a, "mtcsr #0x35, r5!", "csr[0x35] = r5!");
+	check (a, "op2z? r0", "op2z? r0");
+	check (a, "op72? r1, #0x0, asr#0x1", "op72? r1, #0x0, asr#0x1");
+	check (a, "saturate? r1, r1", "saturate? r1, r1");
+	check (a, "sat40.a? A0, A0", "sat40.a? A0, A0");
 	r_asm_free (a);
 	puts ("MD32 pseudo syntax, Harvard addressing, parallel bundles and conservative fallbacks passed");
 	return 0;
