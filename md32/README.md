@@ -7,7 +7,10 @@ registers, and hardware-loop setup. It has no runtime dependency on Python,
 Ghidra, Capstone, or vendor binutils.
 
 The **uSIP** binaries use a different, VLIW-packet encoding. Select the `usip`
-CPU for these (`e asm.cpu=usip`); see [uSIP mode](#usip-mode).
+CPU for these (`e asm.cpu=usip`); see [uSIP mode](#usip-mode). The **SCQ16**
+binaries (the vector DSP of the same family) use a byte-granular packet
+encoding: select the `scq16` CPU (`e asm.cpu=scq16`); see
+[SCQ16 mode](#scq16-mode).
 
 ## Build and use
 
@@ -307,6 +310,72 @@ return `r0`). No ESIL is produced for uSIP.
 
 See [doc/usip.md](doc/usip.md) for the table format and the constraint and
 context-rule semantics.
+
+## SCQ16 mode
+
+`e asm.cpu=scq16` selects the decoder for the **SCQ16** variant of the MD32
+family, a vector DSP whose instruction stream is byte-granular: units of 2 to 6
+bytes (vector operations are 4 bytes, bundles 8), optionally paired in a
+**packet** `{ A ‖ B }` whose two units execute in parallel.  The table is an
+empirical description, not a vendor specification: every form carries a
+confidence level (`high`, `medium`, `low`, `format-only`) that the `aoj` output
+reports under `opex.units[].confidence`.  Select it with
+
+```sh
+r2 -a md32 -b 32 -e cfg.bigendian=true -e asm.cpu=scq16 firmware.be.bin
+```
+
+Functions may start at odd addresses (`asm.cpu=scq16` sets the code and
+function alignment to 1).  Inside a session set `e asm.cpu=scq16` before
+`e asm.arch=md32` (or re-select `asm.arch` afterwards): the register profile
+of the SCQ16 (`sp`/`lr` as csr14/csr15, the VU ports) is read when the arch
+session is created.  The table is `isa/scq16_isa.json`, compiled into
+`scq16_opcodes.h` by `tools/gen_scq16_tables.py`.  See
+[doc/scq16.md](doc/scq16.md) for the encoding model, the length rule and the
+form families.
+
+### What one `pd` line is
+
+* a stand-alone unit: `lw        r5, 0x4(r1)`, `jal.d1    0x00001010`;
+* a packet: `{ mv        r1, r3 ‖ beqz      r5, #0, 0x0000100e }`: the first
+  byte of the head has its bit 7 set, the head is read shifted left by one bit
+  with the top bit of the second unit borrowed in (the `transformed` field of
+  `aoj` shows the head as decoded); control flow only lives in the second
+  slot, and its targets are relative to the packet start;
+* a vector operation: `v.alu3    op9=0x1c1 A0 B0 F1,F2,F3`: the op9 code is
+  printed with its class (`v.<class>`) and, when a provisional name exists,
+  `v.<class>.<name>?`; the fields A/B/F1-F3 are shown raw;
+* a bundle: `vbundle   v.mem.ld? op9=0x00a … ‖ add r2, r6 ‖ add r3, r1`: a
+  32-bit vector operation and two 15-bit scalar slots in 8 bytes.
+
+Provisional mnemonics carry a `?` (`fxts?`, `sel?`, `vrd?`, `vwr?`,
+`vpmem?`, `lhu.post?`, `vwait?`…): the encoding is fixed, the operation is
+not.  Family placeholders (`op41`, `op43`, `op67`, `op6f`, `alu41`…) print
+their fields and are not named.
+
+### Analysis and ESIL
+
+`aoj` gives the type, `jump`/`fail` (fall-through after the delay slots,
+which are counted in instructions: `.d1` one, `.d2` two), `delay`, the loop
+end of `do` as a reference (`ptr`) with the count in `reg`/`val`, loads and
+stores with `refptr`/`ireg`/`disp`, the stack ops, and an `opex` with the
+`shape` (unit/packet/bundle), the `units[]` (slot, address, size, mnemonic,
+form, confidence, operands) and `parallel`.
+
+The ESIL covers the scalar forms: a packet is emitted as A followed by B with
+the registers that B reads and A writes copied to the temporaries `t0-t3`
+first (parallel semantics), delayed transfers use `SETJT`/`SETD` so that `aes`
+executes the slot before the jump, `do` writes `lc0/le0/ls0`, division fills
+`a0l`/`a0h`.  The VU scalar ports are registers (`vu0-vu31` for `vget`,
+`v0-v31` as the scalar shadow of `vbcast`, `va0-va7`, `vp0-vp7`, `vs0-vs15`,
+`vb1_*`/`vb3_*`/`vb5_*`, `udf0-udf31`) and every vector operation is the custom
+op `vop` (op9, A, B, F1, F2, F3), registered as a no-op: the vector unit itself
+is not modelled.  Forms without an established operation have no ESIL.
+
+Registers: `r0-r31`, `pc`, `sr`/`ipc`/`isr`/`lf`, the loop registers
+`ls0-2`/`le0-2`/`lc0-2`, `sp` and `lr` as the special registers csr14/csr15
+(the public MD32 ABI: arguments r3-r6, return r1), the accumulator `a0`
+(`a0l`/`a0h`).
 
 ## Analysis and emulation
 

@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### SCQ16 mode (cpu=scq16): the table (218 forms), the byte-granular packet decoder, analysis and ESIL
+
+* `isa/scq16_isa.json` / `tools/gen_scq16_tables.py` / `scq16_opcodes.h` /
+  `scq16_decode.c`: the SCQ16 (MD32 family, byte-granular packet variant) as
+  a third cpu of the plugin: 218 forms / 389 bit alternatives generated from
+  the ISA table, which carries the plugin semantics (the VU ports as
+  registers, delayed transfers as SETJT/SETD, the hypothetical readings
+  flagged), the length rule by first-byte leaves, packets `{ A ‖ B }` with
+  the head shifted by the borrowed bit, masked orphans, 4-byte vector ops by
+  op9 class (v.<class>[.<name>?]) and 8-byte bundles.
+* `arch_md32.c` / `scq16_arch.inc.c`: analysis (types, targets relative to the
+  packet start, delay slots counted in instructions, `do` as a loop
+  reference, opex with the unit/packet/bundle structure), ESIL for the scalar
+  forms with parallel packet semantics (temporaries t0-t3), delayed transfers
+  via SETJT/SETD, the VU scalar ports as registers (vu*, v*, va*, vp*, vs*,
+  vb1_/vb3_/vb5_*, udf*) and vector ops as the custom op `vop`; register
+  profile with sp/lr as csr14/csr15, a0 and the loop registers; byte alignment,
+  MAXOP 12.
+* `asm_md32.c`: SCQ16 pseudo-syntax (packets as `parallel { ...; ...; }`).
+* `test/test_scq16.py`, `test/test_md32.c`: bytes-only checks of cpu=scq16.
+* `doc/scq16.md`, README "SCQ16 mode".
+
 ### uSIP table update (726 forms), the loop cells and the slot splits
 
 * `isa/usip_isa.json` / `usip_opcodes.h`: 726 forms (52 added, 13 retired,
