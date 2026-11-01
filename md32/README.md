@@ -83,7 +83,7 @@ means they are not a validated boot memory map.
 
 `e asm.cpu=usip` selects the decoder for the **uSIP** variant of the MD32 family
 (VLIW execute packets of 16-bit units). The instruction set is described by the
-table `isa/usip_isa.json` (634 forms, generated into `usip_opcodes.h` by
+table `isa/usip_isa.json` (687 forms, generated into `usip_opcodes.h` by
 `tools/gen_usip_tables.py`) and by the packet model implemented in
 `usip_decode.c`. The table is an empirical description, not a vendor
 specification: every form carries a confidence level (`high`, `medium`, `low`,
@@ -237,7 +237,12 @@ others are treated as a failed guard (`loop rX` with the other F' = 0 tails,
 `loop #N` with F = 0 and the tail at +2, far `b`, `bnez.d` of the F = S = 0
 cell, the register `b<cond>` with the F' = 0 tail, the other `b<cond>.d` cells,
 the open-packet `call.s`), i.e. `.word`, the plain 16-bit reading or the normal
-layout. A validated guard reports `opex.target_guard = "validated"`. The K-tie
+layout. The forms whose guard is a validation filter (the F = S = 0 and the
+F = 0 `b<cond>.d` cells, `bne.d #-1`, the hardware loops with the F' = 1 tail,
+the near `b`, the open `b.s`) keep their reading when the target is unknown
+(printed with the `?` too) and are rejected by a known target that is not a
+packet start; a conditional branch whose unknown target lies backward is not
+read. A validated guard reports `opex.target_guard = "validated"`. The K-tie
 cascade sees the packets decoded earlier in the session and the ones inside the
 same lookahead (see `doc/usip.md` §7 for what is approximated).
 
@@ -270,20 +275,22 @@ return `r0`). No ESIL is produced for uSIP.
   control flow in open packets (`call`/`b`/`loop`/`b.s` followed by delay-slot
   ops) when the branch reading is not the cheapest one, the guarded forms whose
   target the plugin cannot check (far `b` to another function or beyond the
-  lookahead, the open-packet `call.s`, `loop`/`bnez.d` and the `b<cond>.d` cells
-  with a forward target beyond the lookahead), and the `call` pairs whose tail
-  choice depends on the `callin` tie-break. A disassembler that knows the
-  function table can prefer the reading whose target is a function start or a
-  packet boundary and answer `callin`; `UsipGuardCtx` in `usip_decode.h` is the
-  hook for that knowledge.
+  lookahead, the open-packet `call.s`, `loop`/`bnez.d`, the `b<cond>.d` register
+  cells and the `bz.s` of long packets with a forward target beyond the
+  lookahead), and the `call` pairs whose tail choice depends on the `callin`
+  tie-break. A disassembler that knows the function table can prefer the
+  reading whose target is a function start or a packet boundary and answer
+  `callin`; `UsipGuardCtx` in `usip_decode.h` is the hook for that knowledge.
 * Open points of the ISA: the remaining layout ties, the sign and width of the
   `?` forms (`ld.d?`/`st.d?` with b10, `ld.w?`/`st.w?` in the 0x800-0xeff band,
   `seq?`/`sle?` with large immediates, `mov32?`, `lea?`, `mfacc?`, `add?`/`st.h?`
   of cell E, `bcc48?`, `movi?`, `mtacc?`, `fup?`, `.ldF0?`), the `f12 = 1 / 3
   mod 4` word displacements below 0x800, `.op4t0` (a stolen tail), `.3eX0?`,
-  the op 2 16-bit `addi rA, #simm4` (probably a shift), `ld.w` vs `add` in the
-  op 0 F = S = 1 cell, the bit 4 of `loop #N`, the exact `save w` frame size,
-  `sys #2/#4/#8`, `L_mult` vs `L_mult.e`, why the scheduler inserts `nop.ctl`.
+  `ld.w` vs `add` in the op 0 F = S = 1 cell, the bit 4 of `loop #N`, the exact
+  `save w` frame size, `sys #2/#4/#8`, `L_mult` vs `L_mult.e`, why the scheduler
+  inserts `nop.ctl`, the B bit of `loop.b1?`, the `?ss=N` loops, the sign of the
+  `ld.w?`/`st.w?` word classes, `.stimm16?`, the `lsl?`/`asr?` cells without an
+  idiom.
 * A decode in the middle of a packet without the packet cached (e.g. `ao` at an
   arbitrary address) sees a different packet than the linear listing.
 * At the end of a map, `ao` pads the read with `0xff`, which is a legal closing
