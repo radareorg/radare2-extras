@@ -2,6 +2,73 @@
 
 ## Unreleased
 
+### uSIP table update (687 forms), the target filter and the F = 0 branch cells
+
+* `isa/usip_isa.json` / `usip_opcodes.h`: 687 forms (56 added, 3 retired,
+  71 modified). New: the `b<cond>.d` cells with head F = 0 (`bne.d`, `ble.d`,
+  `bgeu.d`, `bge.d`, `bne.u8.d`, `beq.u8.d`, `bleu.d`, read only in the
+  (B class, tail distance) cells of `usip_br0_cells[]`; the five weak cells of
+  `usip_br0_cells_weak[]` are never taken), `bgt.d` of the F = S = 0 cell back
+  in the table, `ret.s.d`, `loop.b1? rX, last=` and the `?ss=N` loops, `bz.s`
+  with bit 3 = 0, the ld/st type 111 `ld.bu` / `st.b` (`st.b?` retired) with
+  the byte displacement `sext12(f[0]:f[10:1]:f[11])` (`USIP_A_OFFB`, also on
+  `ld.b`), `ld.b` / `st.h` with F != S of op 1 exactly at +2, `ld.h?` / `ld.hu?`
+  with the F' = 0 tail as the second head of H H T T and by the deferred tail
+  of a head with base sp (context group `f0ctx`), the bit-field pair
+  `fxtu`/`fxts`/`fup` in H H T T and the BF_SEL cells
+  `fup`/`fup?`/`fxtu`/`fxtu?`/`fxts?` (renamed from `.bf?` with the nowaw
+  guardian), the 16-bit op 2 shifts `lsl`/`lsl?`/`asr`/`asr? rA, #B` (`addi4`
+  retired), `ldslot`/`stslot` with m = 1, `.stimm16?`, `ld.w?`/`st.w?` for the
+  `f12 = 1 / 3 mod 4` word classes, `add r14` / `sub r14` (spfix),
+  `movi? #-32767`, `movi rA, #-1` with F = 0, `mtcsr?` of the accumulator CSRs
+  with a named 16-bit tail; the known target as a validation filter on the
+  F = S = 0 cells, `bne.d #-1`, the loops with the F' = 1 tail, the open `b.s`
+  (also a function start) and the near `b` (any packet start of the image or a
+  function start), with fall-through on failure for the F = S = 0 cells
+  (`USIP_F_GUARDFT`); the operand conventions of six families revised
+  (`mul`/`divs`/`divu`/`mulu64 A<k>, r<rrr>, rB`, the op 7f bit ops,
+  `cls1`/`clz`/`ctz`, the op 6 compare-immediates, the 48-bit `add`, `asr16`);
+  `known16 = false` on the four h = 0 word slots. Thirty-one entries are
+  post-layout renames.
+* `tools/gen_usip_tables.py`: the operand type `offb`, the flags `GUARDFT` /
+  `B111` / `F0CTX` (`flags` is `ut32`), the constraint ops `br0_cells` /
+  `br0_cells_live` (cell masks), `bf_valid`, the guards `tail_named16` and
+  `target_packet_start_any_or_function_start`, the `any` sub-operations
+  `packet_len`, `guard`, `range`, `br0_cells`, large value sets
+  (`usip_value_sets[]`), the new context conditions, the tables
+  `usip_br0_cells[]`, `usip_br0_cells_weak[]`, `usip_c48sym_table[]`; form
+  names sanitised into C identifiers.
+* `usip_decode.c`: the fall-through guards, the fifth guard kind with the
+  optional `UsipGuardCtx.packet_start_any` callback, the R-br0 cells by B class
+  and tail distance, the `b111` group in the 2-unit packet and in H H T T (which
+  now takes tt = 11 tails), the context conditions `b111_layout` /
+  `hhtt_second_head` / `f0d_triple` / `bfpair` / `bf_dst_not_written` /
+  `rest_named_no_q`, the `f0ctx` pass on the `.word` pairs and the re-read of
+  the R-F0d middle unit, R-op1fs (a ld/st entry with `ADJ2` undoes the pair at
+  any other distance), the `bz_s_P5` context rule, the m = 1 R7 slots, P2H,
+  R-lr16, R-align48 and R-c48sym in the score, the `b.s` guard admitting a
+  function start, the loop F' = 0 rule by field; immediates glued to a letter
+  or `=` (`A0`, `?ss=2`, `w=0`) printed in decimal. Unverified fallback: the
+  forms whose guard is a validation filter keep their reading when the target
+  is unknown (`b.s?`, `b?`, `loop?`, `bne.d?` ...; conditional branches only
+  forward), a definite "not a packet start" rejects them.
+* `arch_md32.c`: `UsipGuardCtx` with designated initialisers; the lowest packet
+  start decoded in the session separates "not a packet start" from "unknown"
+  for backward targets; `offb` as a `disp` operand in `opex`; stack deltas for
+  `addsp` and the `add r14, r14, #imm` / `sub r14, #imm` pairs.
+* `asm_md32.c`: pseudo syntax for the 2-operand `lsl` / `asr`.
+* Tests: `test/test_plugin.py` vectors for the F = S = 0 and R-br0 cells
+  (validated by the session, rejected with fall-through, unknown backward,
+  unverified forward), `ret.s.d`, `movi #-1` F = 0, the op 2 shifts, the open
+  `b.s` rejected / unverified, `bz.s` P5 (2-unit, validated, unknown), the m = 1
+  slots, `loop.b1?` and the `?ss=N` loops, `movi? #-32767`, the `asr16` clamp,
+  the bit-field pair and the BF_SEL cells, `ld.bu`/`st.b` with the byte
+  displacement (plain, 2-unit b111, H H T T), `ld.b`/`st.h` F != S at +2 and
+  the undo at +1, `ld.h?`/`ld.hu?` of R-hhttF0 / R-F0d, spfix, NEGQ,
+  `.stimm16?`, `mtcsr?` with a named tail; the `loop`, open `b.s`, `mtcsr`,
+  `movhi` tt = 10 and `save w=` vectors updated; `test/test_parse.c` vectors
+  for the new pseudo rules.
+
 ### uSIP table update (634 forms), decoder rules and the K-tie cascade
 
 * `isa/usip_isa.json` / `usip_opcodes.h`: 634 forms (52 added, 12 retired,

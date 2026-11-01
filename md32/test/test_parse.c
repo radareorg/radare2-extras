@@ -96,7 +96,7 @@ int main(void) {
 	check (a, "st.w r1, [r15+0x4]", "dmem32[r15 + 0x4] = r1");
 	check (a, "st.b r1, [r2]+", "dmem8[r2] = r1; r2 += 1");
 	check (a, "loop r3, last=0x00002488", "repeat r3 times until last=0x00002488");
-	check (a, "save w=0x0", "push_callee_saved(w=0x0)");
+	check (a, "save w=0", "push_callee_saved(w=0)");
 	// Format-only forms, displaced tails and unmodelled operations keep their text.
 	check (a, "st.w [r0], #0x28002", "st.w [r0], #0x28002");
 	// system, port I/O, CSR, slot and stack forms of the uSIP table.
@@ -175,6 +175,29 @@ int main(void) {
 	check (a, ".3eX0? r6, 0x6e14 0xd000", ".3eX0? r6, 0x6e14 0xd000");
 	check (a, ".op4t0 r0, [r8+0x19]", ".op4t0 r0, [r8+0x19]");
 	check (a, ".hi 0x35ff", ".hi 0x35ff");
+	// table update (687 forms): the 16-bit shifts in place, ret.s.d, loop.b1?, the R-br0 branches, bz.s with bit 3 = 0, the
+	// byte loads/stores, the sp adjustment pair, the ss loops, the BF_SEL cells and the format-only immediate store.
+	check (a, "lsl r0, #0x2", "r0 <<= 0x2");
+	check (a, "asr? r2, #0xf", "r2 = ((int32_t)r2 >> 0xf)");
+	check (a, "ret.s.d", "return");
+	check (a, "loop.b1? r5, last=0x0000422c", "repeat r5 times until last=0x0000422c");
+	check (a, "loop.b1?? r1?ss=2, last=0x0000261e", "repeat r1?ss=2 times until last=0x0000261e");
+	check (a, "bne.u8.d r1, #0x7e, 0x00001b32", "if (r1 != 0x7e) goto 0x00001b32");
+	check (a, "bgeu.d r0, #0x2, 0x00000aa0", "if ((uint32_t)r0 >= (uint32_t)0x2) goto 0x00000aa0");
+	check (a, "bge.d r0, #0x0, 0x00000652", "if ((int32_t)r0 >= (int32_t)0x0) goto 0x00000652");
+	check (a, "bz.s r10, 0x00004f7e", "if (r10 == 0) goto 0x00004f7e");
+	check (a, "ld.bu r1, [r8+0x628]", "r1 = dmem8[r8 + 0x628]");
+	check (a, "st.b r0, [r14+0x66]", "dmem8[r14 + 0x66] = r0");
+	check (a, "ld.b r0, [r0-0xef]", "r0 = sext8(dmem8[r0 - 0xef])");
+	check (a, "ld.hu? r0, [r14+0x98]", "r0 = dmem16[r14 + 0x98]");
+	check (a, "add r14, r14, #0x4", "r14 = (r14 + 0x4)");
+	check (a, "sub r14, #0x1f8", "r14 -= 0x1f8");
+	check (a, "ldslot r8, #0x33", "r8 = slot[0x33]");
+	check (a, "movi? r2, #-32767", "r2 = -32767");
+	check (a, "fxts? r1, r0, #0x8, #0x8", "r1 = sext(0x8)((r0 >> 0x8) & ((1 << 0x8) - 1))");
+	check (a, "mtcsr? #0x39, r2!", "csr[0x39] = r2!");
+	check (a, "ld.w? r2, [r0!+0x305]", "r2 = dmem32[r0! + 0x305]");
+	check (a, ".stimm16? [r0], #0x36688", ".stimm16? [r0], #0x36688");
 	r_asm_free (a);
 	puts ("MD32 pseudo syntax, Harvard addressing, parallel bundles and conservative fallbacks passed");
 	return 0;
