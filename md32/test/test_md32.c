@@ -150,7 +150,28 @@ static int stream(const char *cpu) {
 	return 0;
 }
 
+static void check_scq16(const char *hex, int size, const char *text, int type) {
+	ut8 bytes[16];
+	int n = 0;
+	for (; hex[0] && hex[1] && n < 16; hex += 2) {
+		unsigned v;
+		sscanf (hex, "%2x", &v);
+		bytes[n++] = (ut8)v;
+	}
+	RAnalOp op;
+	assert (run (&op, bytes, n, 0x1000, "scq16", R_ARCH_OP_MASK_ALL));
+	if (strcmp (op.mnemonic, text) || op.type != (ut32)type || op.size != size) {
+		fprintf (stderr, "scq16 %s: got %s (%d, %d), expected %s (%d, %d)\n", hex, op.mnemonic, op.type, op.size, text, type, size);
+		assert (0);
+	}
+	r_anal_op_fini (&op);
+}
+
 int main(int argc, char **argv) {
+	/* SCQ16 (cpu=scq16): stand-alone unit, packet, vector op */
+	check_scq16 ("2005", 2, "ret", R_ANAL_OP_TYPE_RET);
+	check_scq16 ("889026e4", 4, "{ mv        r1, r3 \xe2\x80\x96 beqz      r5, #0, 0x0000100e }", R_ANAL_OP_TYPE_CJMP);
+	check_scq16 ("c0000001", 4, "v.const.movi? op9=0x001 A0 B0 F0,F0,F0", R_ANAL_OP_TYPE_UNK);
 	if (argc > 1 && !strcmp (argv[1], "--stream")) {
 		return stream (argc > 2? argv[2]: "md32");
 	}
