@@ -988,11 +988,22 @@ static void usip_analyze(RAnalOp *op, const UsipPacket *pk, int k) {
 				/* the loads with the fixed base r15 (ld.w? / ld.h? / ld.hu? rB, [r15+off]) */
 				op->ireg = "r15";
 			}
-			if (usip_field (in, "off", &v) || usip_field (in, "off12", &v) || usip_field (in, "off11", &v) || usip_field (in, "imm", &v)) {
-				op->disp = (ut64)v;
-			}
-			if (usip_field (in, "addr", &v) || usip_field (in, "imm27", &v)) {
-				op->ptr = v;
+			if (in->op && in->op->fmt && in->op->fmt[0] == '[') {
+				/* the stores of an immediate: st.w / st.h? [rB], #imm, st.w [sp], #imm (the ninth stack argument) */
+				if (!strncmp (in->op->fmt, "[sp]", 4)) {
+					op->ireg = "r14";
+					op->stackop = R_ANAL_STACK_SET;
+				}
+				if (usip_field (in, "imm27", &v) || usip_field (in, "imm14", &v) || usip_field (in, "imm", &v)) {
+					op->val = (ut64)v;
+				}
+			} else {
+				if (usip_field (in, "off", &v) || usip_field (in, "off12", &v) || usip_field (in, "off11", &v) || usip_field (in, "imm", &v)) {
+					op->disp = (ut64)v;
+				}
+				if (usip_field (in, "addr", &v) || usip_field (in, "imm27", &v)) {
+					op->ptr = v;
+				}
 			}
 		}
 		break;
