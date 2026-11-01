@@ -841,7 +841,7 @@
        "bias": 0
       }
      ],
-     "text": "{d} (fuera de la imagen)",
+     "text": "{d} (outside the image)",
      "esil": null
     }
    ]
@@ -1340,7 +1340,7 @@
        "bias": 0
       }
      ],
-     "text": "{cnt}, fin={e} (F={F})",
+     "text": "{cnt}, end={e} (F={F})",
      "esil": "{cnt},lc0,=,{e},le0,=,{ret},ls0,="
     },
     {
@@ -1397,7 +1397,7 @@
        "bias": 0
       }
      ],
-     "text": "{cnt}, fin={e} (F={F})",
+     "text": "{cnt}, end={e} (F={F})",
      "esil": "{cnt},lc0,=,{e},le0,=,{ret},ls0,="
     },
     {
@@ -1454,7 +1454,7 @@
        "bias": 0
       }
      ],
-     "text": "{cnt}, fin={e} (F={F})",
+     "text": "{cnt}, end={e} (F={F})",
      "esil": "{cnt},lc0,=,{e},le0,=,{ret},ls0,="
     },
     {
@@ -1511,7 +1511,7 @@
        "bias": 0
       }
      ],
-     "text": "{cnt}, fin={e} (F={F})",
+     "text": "{cnt}, end={e} (F={F})",
      "esil": "{cnt},lc0,=,{e},le0,=,{ret},ls0,="
     },
     {
@@ -1568,7 +1568,7 @@
        "bias": 0
       }
      ],
-     "text": "{cnt}, fin={e} (F={F})",
+     "text": "{cnt}, end={e} (F={F})",
      "esil": "{cnt},lc0,=,{e},le0,=,{ret},ls0,="
     },
     {
@@ -1625,7 +1625,7 @@
        "bias": 0
       }
      ],
-     "text": "{cnt}, fin={e} (F={F})",
+     "text": "{cnt}, end={e} (F={F})",
      "esil": "{cnt},lc0,=,{e},le0,=,{ret},ls0,="
     }
    ]
@@ -5968,7 +5968,7 @@
        "bias": 0
       }
      ],
-     "text": ". (trampa)",
+     "text": ". (trap)",
      "esil": "{d},SETJT,1,SETD"
     },
     {
@@ -6038,7 +6038,7 @@
        "bias": 0
       }
      ],
-     "text": ". (trampa)",
+     "text": ". (trap)",
      "esil": "{d},pc,="
     },
     {
