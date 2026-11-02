@@ -3,7 +3,10 @@
 stand-alone units, packets `{ A ‖ B }`, vector ops and bundles; analysis (types, targets relative to the packet start,
 delay slots counted in instructions, fall-through after the slots, loop references); opex; ESIL (parallel packet
 semantics, delayed call via SETJT/SETD, loads/stores and post-increments, sign/zero extension, division, bit fields,
-the VU scalar ports, vop); the pseudo parser.  No firmware is needed."""
+the VU scalar ports, vop); the newer forms (cmov.ge / cmov.eq with a register / the provisional cmov.*?, mv 67 c8, bset/btst
+rd, rd, #pos, lbu.post with 5-bit registers and the 23 page with a signed post-increment, and #0x3fff, the 6-byte and #imm16, ctz?/clb?,
+vcfg4c? #0xc, ld46?, the established vector names v.move.mv / v.mem.ld / v.mem.st, lbu? off(sp), halt and sys41 without effect),
+j.d1 decided by its target, `.d2` across two `aes` steps, negative stack offsets; the pseudo parser.  No firmware is needed."""
 import json
 import os
 import subprocess
@@ -48,15 +51,37 @@ DISASM = [
     ('650020', 3, 'add       r0, r1, r0 << 1'), ('67cc20', 3, 'mv        r0, r1'), ('67d820', 3, 'add       r0, r0, r1'), ('67e020', 3, 'and       r0, r0, r1'),
     ('6d0020', 3, 'lbu       r0, 0x0(r1)'),
     ('56400010', 4, 'jal.d1    0x00001010'), ('41e01904', 4, 'add       r4, r8, r6'), ('5c800a21', 4, 'beq       #81, r1, 0x00001000'), ('41f00140', 4, 'div       a0, r10, r0'),
-    ('48080001', 4, 'mv        r1, #0x4000'), ('437acda0', 4, 'vpmem?    p0, #0x2c, m13  (b1 7a)'), ('41b51461', 4, 'fxts?     r1, r3, #5, #10'),
-    ('42141ce6', 4, 'sel?      r6, r7, x7, r8  (q0 c1)'), ('40078000', 4, 'vbcast.i  v0, #-0x400  (sub 000)'), ('44000020', 4, 'lbu       r0, 0x0(r1)'),
+    ('48080001', 4, 'mv        r1, #0x4000'), ('437acda0', 4, 'vpmem?    p0, #0x2c, m13  (b1 7a)'), ('41b51461', 4, 'fxts      r1, r3, #5, #10'),
+    ('42141ce6', 4, 'cmov.ge   r6, r7, #0, r8'), ('40078000', 4, 'vbcast.i  v0, #-0x400  (sub 000)'), ('44000020', 4, 'lbu       r0, 0x0(r1)'),
     ('47c00020', 4, 'sw        r0, [r1] += 0'), ('42600000', 4, 'cmov.lt   r0, r0, r0, r0'), ('41aaa8c1', 4, 'fxtu      r1, r6, #10, #21'), ('4190410f', 4, 'fup       r15, r8, #16, #0'),
     ('55d01b03', 4, 'do.d2     r3, end=0x0000101b (F=27)'), ('5e800000', 4, 'sys       #0x0 (0x0000)'), ('41f38400', 4, 'clz       r0, r0'), ('41f70008', 4, 'addsp     sp, #0x8'),
     ('40200020', 4, 'mul       r0, r0, #1'), ('4a000020', 4, 'add       r0, r1, #0x0'), ('4b000020', 4, 'and       r0, r1, #0x0'), ('c0000001', 4, 'v.const.movi? op9=0x001 A0 B0 F0,F0,F0'),
     ('889026e4', 4, '{ mv        r1, r3 ‖ beqz      r5, #0, 0x0000100e }'), ('90c821e3', 4, '{ lw.post   r1, [r2] += 4 ‖ lw.post   r4, [r7] += 4 }'),
     ('903fe90543', 5, '{ sw.lr     lr, -0x4(sp) ‖ beqz8.d1  r3, #0, 0x0000102a }'), ('a40003d19125', 6, '{ mv        r3, #0x3d ‖ mv        r6, r3 }'),
     ('a17a0e7350813001', 8, '{ cmov.ne   r6, r7, #0, r8 ‖ ble.d1    #0, r1, 0x00001013 }'),
-    ('f000000285288a02', 8, 'vbundle   v.mem.ld? op9=0x00a A0 B0 F0,F0,F0 ‖ add r2, r6 ‖ add r3, r1'),
+    ('f000000285288a02', 8, 'vbundle   v.mem.ld op9=0x00a A0 B0 F0,F0,F0 ‖ add r2, r6 ‖ add r3, r1'),
+    # the whole page 42 (cmov.ge, cmov.eq with a register, the provisional cmov.leu?/ltu?/lt?/le?, the remaining sel? codes),
+    # the 67 page (mv, bset/btst rd, rd, #pos), lbu.post? with +3, addsp 14 8x, halt, sys41 (no modelled effect), lbu? off(sp),
+    # the 4-byte beq rA, rB of 5c 40-6f and j.d1 56 0x-3x decided by its target (0x1000 - 0x32 = 0xfce)
+    ('4213b0c1', 4, 'cmov.ge   r1, r6, #5, r7'), ('42c2b5c8', 4, 'cmov.eq   r8, r14, r13, r5'), ('42308864', 4, 'cmov.leu? r4, r3, r2, r1'),
+    ('42b0a464', 4, 'cmov.ltu? r4, r3, #9, r1'), ('4270a464', 4, 'cmov.lt?  r4, #2, r3, r1'), ('4240a464', 4, 'cmov.le?  r4, #9, r3, r1'),
+    ('42008864', 4, 'sel?      r4, r3, r2, r1  (q0 c0)'), ('42e08864', 4, 'sel?      r4, r3, r2, r1  (q3 c2)'), ('42508864', 4, 'sel?      r4, r3, #2, r1  (q1 c1)'),
+    ('42808864', 4, 'sel?      r4, r3, x2, r1  (q2 c0)'), ('42d0a464', 4, 'cmov.eq   r4, r3, #2, r1'),
+    ('67c875', 3, 'mv        r21, r3'), ('67f409', 3, 'bset      r9, r9, #0'), ('67f865', 3, 'btst      r5, r5, #3'), ('67fb41', 3, 'op67      r1, r26  (x=0x3e)'),
+    ('22c5', 2, 'lbu.post? r6, [r1] += 3'), ('148a', 2, 'addsp     sp, #0x228'), ('5eb00000', 4, 'halt'),
+    ('41f3a000', 4, 'sys41     sub 0x28'), ('6f2041', 3, 'lbu?      r1, -0xfd(sp)'), ('5c68a8e6', 4, 'beq       r7, r6, 0x00000a2a'),
+    ('563fffce', 4, 'j.d1      0x00000fce'), ('56200000', 2, '.b2       56 20'), ('88904213b0c1', 6, '{ mv        r1, r3 ‖ cmov.ge   r1, r6, #5, r7 }'),
+    # lbu.post with 5-bit registers (6e q2 h0), the 23 page as lbu.post rd, [rb] += simm3 (-4..-1; the 22 page carries +1..+3),
+    # and #0x3fff (67 a4-a7), the 6-byte and rd, rs, #imm16 (74 sub 1; sub 3 stays open), the provisional ctz?/clb? next to clz,
+    # vcfg4c? v(17+2k), rs, #0xc (hypothetical ESIL p_k <- rs), ld46? with a post-increment, the established vector names
+    # v.move.mv / v.mem.ld / v.mem.st (no ?) next to the provisional v.alu3.acc.add? / difsc?, a bundle and a vector head with them
+    ('6e850d', 3, 'lbu.post  r13, [r8] += 0x1'), ('23fa', 2, 'lbu.post  r3, [r8] += -1'), ('2302', 2, 'lbu.post  r3, [r1] += -4'), ('2285', 2, 'lbu.post  r6, [r1] += 2'),
+    ('67a468', 3, 'and       r8, r3, #0x3fff'), ('67ac68', 3, 'and?      r8, r3, #0xfc00?'), ('740004500000', 6, 'and       r0, r0, #0x1400'),
+    ('740008500000', 6, 'or        r0, r0, #0x1400'), ('74000c500000', 6, 'alu74?    r0, r0, #0x1400  (sub 3)'), ('41f38800', 4, 'ctz?      r0, r0'),
+    ('41f38c00', 4, 'clb?      r0, r0'), ('4c003231', 4, 'vcfg4c?   v17, r17, #0xc  (q0 s0)'), ('4600a020', 4, 'ld46?     r0, [r1] += 0x28'),
+    ('c0000109', 4, 'v.move.mv op9=0x109 A0 B0 F0,F0,F0'), ('c0000002', 4, 'v.mem.ld  op9=0x002 A0 B0 F0,F0,F0'), ('c0000003', 4, 'v.mem.st  op9=0x003 A0 B0 F0,F0,F0'),
+    ('c000000e', 4, 'v.alu3.acc.add? op9=0x00e A0 B0 F0,F0,F0'), ('c000002e', 4, 'v.alu3.acc.difsc? op9=0x02e A0 B0 F0,F0,F0'),
+    ('e00001092005', 6, '{ v.mem.ld  op9=0x012 A0 B0 F0,F0,F1 ‖ ret }'), ('88906e850d', 5, '{ mv        r1, r3 ‖ lbu.post  r13, [r8] += 0x1 }'),
 ]
 for hx, L, exp in DISASM:
     out = r2('wx %s @ 0x1000;pi 1 @ 0x1000;ao 1 @ 0x1000~size' % hx)
@@ -81,6 +106,29 @@ check(ops[0].get('ptr') == 0x501b and ops[0].get('delay') == 2 and ops[0].get('r
 ops = json.loads(r2('wx c0000001 @ 0x7000;aoj 1 @ 0x7000')[0])
 check(ops[0]['opex']['units'][0]['vclass'] == 'const' and ops[0]['opex']['units'][0]['provisional'] is True and ops[0]['opex']['units'][0]['named'] is False, 'vector op: class const, provisional, unnamed')
 
+# 2b. j.d1 by target (in a B slot the target is measured from the packet start), the 4-byte beq of 5c 40-6f, cmov types
+ops = json.loads(r2('wx 563fffce @ 0x1036;aoj 1 @ 0x1036')[0])
+check(ops[0]['size'] == 4 and ops[0]['type'] == 'jmp' and ops[0]['jump'] == 0x1004 and ops[0].get('delay') == 1, 'j.d1 56 3f: 4 bytes, jump by target, delay 1')
+out = r2('wx 8890563fffce @ 0x1036;pi 1 @ 0x1036;ao 1 @ 0x1036~size')
+check(out[0] == '{ mv        r1, r3 ‖ j.d1      0x00001004 }' and any(l.strip() == 'size: 6' for l in out), 'j.d1 in a B slot: target from the packet start')
+ops = json.loads(r2('wx 5c68a8e6 2005 @ 0x1000;aoj 2 @ 0x1000')[0])
+check(ops[0]['size'] == 4 and ops[0]['type'] == 'cjmp' and ops[0]['cond'] == 'eq' and ops[1]['type'] == 'ret', '5c 68 a8 e6: a 4-byte beq rA, rB')
+ops = json.loads(r2('wx 4213b0c1 42308864 23fa 5eb00000 41f3a000 @ 0x5000;aoj 5 @ 0x5000')[0])
+check(ops[0]['type'] == 'cmov' and ops[0]['opex']['units'][0]['form'] == 'cmov.ge' and ops[0]['opex']['units'][0]['named'] is True, 'cmov.ge: cmov, named form')
+check(ops[1]['type'] == 'cmov' and ops[1]['opex']['units'][0]['provisional'] is True and ops[1]['opex']['units'][0]['named'] is False, 'cmov.leu?: provisional')
+check(ops[2]['type'] == 'load' and ops[2].get('refptr') == 1 and ops[2].get('ireg') == 'r8' and ops[2]['opex']['units'][0]['named'] is True, 'lbu.post rd, [rb] += -1 (23 xx): byte load through r8, named')
+check(ops[3]['type'] == 'trap' and ops[4]['type'] == 'swi', 'halt = trap, sys41 = swi')
+# 2c. the established vector names are named operations, the provisional ones carry the ? flag; and #imm16 of 6 bytes; ctz?
+ops = json.loads(r2('wx c0000002 c000000e f000000285288a02 740004500000 41f38800 @ 0x5100;aoj 5 @ 0x5100')[0])
+u = ops[0]['opex']['units'][0]
+check(u['mnemonic'] == 'v.mem.ld' and u['named'] is True and 'provisional' not in u and u.get('vname') == 'ld', 'v.mem.ld: an established vector name is a named operation')
+u = ops[1]['opex']['units'][0]
+check(u['mnemonic'] == 'v.alu3.acc.add?' and u['named'] is False and u['provisional'] is True, 'v.alu3.acc.add?: provisional vector name')
+u = ops[2]['opex']['units'][0]
+check(ops[2]['opex']['shape'] == 'bundle' and u['named'] is True and u.get('vname') == 'ld', 'bundle with v.mem.ld: named')
+check(ops[3]['size'] == 6 and ops[3]['type'] == 'and', 'and rd, rs, #imm16 (74 sub 1): 6 bytes, and')
+check(ops[4]['opex']['units'][0]['mnemonic'] == 'ctz?' and ops[4]['opex']['units'][0]['provisional'] is True, 'ctz?: provisional')
+
 # 3. ESIL
 regs = json.loads(r2('wx a40003d19125 @ 0x6000;aei;ar r3=7;ar r6=0;s 0x6000;aeip;aes;arj')[0])
 check(regs['r3'] == 0x3d and regs['r6'] == 7, 'parallel packet {mv r3,#0x3d ‖ mv r6,r3}: r6 gets the old r3')
@@ -104,6 +152,47 @@ regs = json.loads(r2('wx 1810 6b4c74 6b7407 @ 0x3000;aei;ar vu1=0x77;ar vb3_3=0x
 check(regs['r1'] == 0x77 and regs['r20'] == 0x99 and regs['vb5_0'] == 0x55, 'VU scalar ports as registers (vget, vrd?, vwr?)')
 out = r2('wx c0000001 2005 @ 0x3000;ao 1 @ 0x3000~esil;aei;s 0x3000;aeip;aes;ar pc')
 check(any('vop' in l for l in out) and out[-1].strip() == '0x00003004', 'vector op: ESIL vop, aes steps over it')
+
+# 3b. the new semantics, negative stack offsets (ESIL addresses cut to 32 bits), halt/sys41 without effect, .d2 across two aes steps
+regs = json.loads(r2('wx 4213b0c1 @ 0x3000;aei;ar r6=5;ar r7=4;ar r1=9;s 0x3000;aeip;aes;arj')[0])
+check(regs['r1'] == 4, 'cmov.ge r1, r6, #5, r7 with r6 = 5: taken')
+regs = json.loads(r2('wx 4213b0c1 @ 0x3000;aei;ar r6=0xfffffffc;ar r7=4;ar r1=9;s 0x3000;aeip;aes;arj')[0])
+check(regs['r1'] == 9, 'cmov.ge with r6 = -4 (signed): not taken')
+regs = json.loads(r2('wx 42c2b5c8 @ 0x3000;aei;ar r14=0x4000;ar r13=0x4000;ar r5=0x77;ar r8=1;s 0x3000;aeip;aes;arj')[0])
+check(regs['r8'] == 0x77, 'cmov.eq r8, r14, r13, r5 (register form): taken')
+regs = json.loads(r2('wx 42308864 @ 0x3000;aei;ar r3=0x100;ar r2=0x100;ar r1=0xaa;ar r4=0;s 0x3000;aeip;aes;arj')[0])
+check(regs['r4'] == 0xaa, 'cmov.leu? r4, r3, r2, r1 with r3 == r2: taken')
+regs = json.loads(r2('wx 42b0a464 @ 0x3000;aei;ar r3=9;ar r1=0xbb;ar r4=0;s 0x3000;aeip;aes;arj')[0])
+check(regs['r4'] == 0, 'cmov.ltu? r4, r3, #9, r1 with r3 = 9: not taken (strict)')
+regs = json.loads(r2('wx 4270a464 @ 0x3000;aei;ar r3=0xffffffff;ar r1=0xcc;ar r4=0;s 0x3000;aeip;aes;arj')[0])
+check(regs['r4'] == 0, 'cmov.lt? r4, #2, r3, r1 with r3 = -1: not taken (signed)')
+regs = json.loads(r2('wx 4240a464 @ 0x3000;aei;ar r3=9;ar r1=0xdd;ar r4=0;s 0x3000;aeip;aes;arj')[0])
+check(regs['r4'] == 0xdd, 'cmov.le? r4, #9, r3, r1 with r3 = 9: taken')
+regs = json.loads(r2('wx 67c875 67f409 67f865 @ 0x3000;aei;ar r3=0x12345678;ar r9=0x100;ar r5=8;s 0x3000;aeip;aes;aes;aes;arj')[0])
+check(regs['r21'] == 0x12345678 and regs['r9'] == 0x101 and regs['r5'] == 1, 'mv r21, r3 (67 c8); bset r9, r9, #0; btst r5, r5, #3')
+regs = json.loads(r2('wx 23fa 22c5 @ 0x3000;wx 807f @ 0x400;aei;ar r8=0x400;ar r1=0x401;s 0x3000;aeip;aes;aes;arj')[0])
+check(regs['r3'] == 0x80 and regs['r8'] == 0x3ff and regs['r6'] == 0x7f and regs['r1'] == 0x404, 'lbu.post r3, [r8] += -1 (zero-extended byte, post-decrement); lbu.post? r6, [r1] += 3')
+regs = json.loads(r2('wx 207e 157e 6f2041 2c10 2810 @ 0x3000;wx 80 @ 0x503;aei;ar sp=0x600;ar lr=0x1234;s 0x3000;aeip;aes;ar lr=0;aes;aes;ar r1=0x55;aes;ar r1=0;aes;arj')[0])
+check(regs['lr'] == 0x1234 and regs['r1'] == 0x55, 'sw.lr / lw.lr -0x8(sp), lbu? -0xfd(sp), sw.sp / lw.sp -0xfc(sp): negative offsets reach the 32-bit frame')
+regs = json.loads(r2('wx 5eb00000 41f3a000 2005 @ 0x3000;aei;ar lr=0x4000;s 0x3000;aeip;aes;aes;aes;arj')[0])
+check(regs['pc'] == 0x4000, 'halt and sys41: no effect, aes steps over them')
+regs = json.loads(r2('wx 2007 1402 0445 2005 @ 0x2000;aei;aeim;ar sp=0x1800;ar r1=10;ar lr=0x3000;s 0x2000;aeip;aes;arj')[0])
+check(regs['pc'] == 0x2004 and regs['sp'] == 0x1808 and regs['r6'] == 0, 'ret.d2, first aes step: the first slot runs, no jump yet')
+regs = json.loads(r2('wx 2007 1402 0445 2005 @ 0x2000;aei;aeim;ar sp=0x1800;ar r1=10;ar lr=0x3000;s 0x2000;aeip;aes;aes;arj')[0])
+check(regs['pc'] == 0x3000 and regs['r6'] == 11, 'ret.d2, second aes step: the second slot runs and the return is taken')
+regs = json.loads(r2('wx 6fecc5 a40003d19125 0445 2005 @ 0x2000;aei;aeim;ar r1=10;ar r3=7;ar r5=0x4000;s 0x2000;aeip;aes;aes;arj')[0])
+check(regs['pc'] == 0x4000 and regs['r3'] == 0x3d and regs['r6'] == 11, 'jr.d2 r5 with a packet in the first slot: both slots, then the jump')
+# 3c. lbu.post with 5-bit registers, and #0x3fff, the 6-byte and #imm16, vcfg4c? #0xc (hypothetical: p_k <- rs), ld46? (hypothetical byte load)
+regs = json.loads(r2('wx 6e8501 @ 0x3000;wx 8081 @ 0x400;aei;ar r8=0x400;ar r1=0;s 0x3000;aeip;aes;arj')[0])
+check(regs['r1'] == 0x80 and regs['r8'] == 0x401, 'lbu.post r1, [r8] += 0x1 (3 bytes): zero-extended byte, post-increment')
+regs = json.loads(r2('wx 67a468 740004ffc063 @ 0x3000;aei;ar r3=0x12345678;ar r8=0;s 0x3000;aeip;aes;aes;arj')[0])
+check(regs['r8'] == 0x1678 and regs['r3'] == 0x1670, 'and r8, r3, #0x3fff (67 a4); and r3, r3, #0x3ff0 (74 sub 1, 6 bytes)')
+regs = json.loads(r2('wx 4c003231 4c003233 @ 0x3000;aei;ar r17=0x1234;ar vp0=0;ar vp1=0;s 0x3000;aeip;aes;aes;arj')[0])
+check(regs['vp0'] == 0x1234 and regs['vp1'] == 0x1234, 'vcfg4c? v17 / v19, r17, #0xc: the hypothetical p_k <- rs (vp0, vp1)')
+regs = json.loads(r2('wx 4600a020 @ 0x3000;wx 7f @ 0x400;aei;ar r1=0x400;ar r0=0;s 0x3000;aeip;aes;arj')[0])
+check(regs['r0'] == 0x7f and regs['r1'] == 0x428, 'ld46? r0, [r1] += 0x28: hypothetical zero-extended byte with a post-increment')
+out = r2('wx c0000109 2005 @ 0x3000;ao 1 @ 0x3000~esil;aei;s 0x3000;aeip;aes;ar pc')
+check(any('vop' in l for l in out) and out[-1].strip() == '0x00003004', 'v.move.mv: the ESIL is the documented no-op vop, aes steps over it')
 
 # 4. pseudo
 text = '\n'.join(r2('e asm.pseudo=true;wx 889026e4 3084 1402 0566 2005 @ 0x1000;pD 12 @ 0x1000'))

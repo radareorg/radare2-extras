@@ -343,14 +343,15 @@ form families.
   `aoj` shows the head as decoded); control flow only lives in the second
   slot, and its targets are relative to the packet start;
 * a vector operation: `v.alu3    op9=0x1c1 A0 B0 F1,F2,F3`: the op9 code is
-  printed with its class (`v.<class>`) and, when a provisional name exists,
-  `v.<class>.<name>?`; the fields A/B/F1-F3 are shown raw;
-* a bundle: `vbundle   v.mem.ld? op9=0x00a … ‖ add r2, r6 ‖ add r3, r1`: a
+  printed with its class (`v.<class>`), with an established operation name
+  when there is one (`v.move.mv`, `v.mem.ld`, `v.mem.st`) and with a
+  provisional name as `v.<class>.<name>?`; the fields A/B/F1-F3 are shown raw;
+* a bundle: `vbundle   v.mem.ld op9=0x00a … ‖ add r2, r6 ‖ add r3, r1`: a
   32-bit vector operation and two 15-bit scalar slots in 8 bytes.
 
-Provisional mnemonics carry a `?` (`fxts?`, `sel?`, `vrd?`, `vwr?`,
-`vpmem?`, `lhu.post?`, `vwait?`…): the encoding is fixed, the operation is
-not.  Family placeholders (`op41`, `op43`, `op67`, `op6f`, `alu41`…) print
+Provisional mnemonics carry a `?` (`sel?`, `cmov.leu?`, `vrd?`, `vwr?`,
+`vpmem?`, `lhu.post?`, `ld46?`, `ctz?`, `vwait?`…): the encoding is fixed, the
+operation is not.  Family placeholders (`op41`, `op43`, `op67`, `op6f`, `alu41`…) print
 their fields and are not named.
 
 ### Analysis and ESIL
@@ -365,7 +366,8 @@ form, confidence, operands) and `parallel`.
 The ESIL covers the scalar forms: a packet is emitted as A followed by B with
 the registers that B reads and A writes copied to the temporaries `t0-t3`
 first (parallel semantics), delayed transfers use `SETJT`/`SETD` so that `aes`
-executes the slot before the jump, `do` writes `lc0/le0/ls0`, division fills
+executes the slot before the jump (a `.d2` transfer takes two `aes` steps),
+memory addresses are cut to 32 bits, `do` writes `lc0/le0/ls0`, division fills
 `a0l`/`a0h`.  The VU scalar ports are registers (`vu0-vu31` for `vget`,
 `v0-v31` as the scalar shadow of `vbcast`, `va0-va7`, `vp0-vp7`, `vs0-vs15`,
 `vb1_*`/`vb3_*`/`vb5_*`, `udf0-udf31`) and every vector operation is the custom
@@ -376,6 +378,12 @@ Registers: `r0-r31`, `pc`, `sr`/`ipc`/`isr`/`lf`, the loop registers
 `ls0-2`/`le0-2`/`lc0-2`, `sp` and `lr` as the special registers csr14/csr15
 (the public MD32 ABI: arguments r3-r6, return r1), the accumulator `a0`
 (`a0l`/`a0h`).
+
+The data-space bases (main data memory at 0, the I/O window at 0x8000, the
+second data memory at 0x40000) can be added as flags with
+`. tools/scq16_flags.r2`; the data memory is little-endian while the code is
+big-endian.  `j.d1 56` with the top bits of its second byte clear is decided by
+its target (see doc/scq16.md).
 
 ## Analysis and emulation
 

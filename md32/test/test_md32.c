@@ -172,6 +172,12 @@ int main(int argc, char **argv) {
 	check_scq16 ("2005", 2, "ret", R_ANAL_OP_TYPE_RET);
 	check_scq16 ("889026e4", 4, "{ mv        r1, r3 \xe2\x80\x96 beqz      r5, #0, 0x0000100e }", R_ANAL_OP_TYPE_CJMP);
 	check_scq16 ("c0000001", 4, "v.const.movi? op9=0x001 A0 B0 F0,F0,F0", R_ANAL_OP_TYPE_UNK);
+	/* cmov.ge, mv 67 c8, j.d1 56 0x-3x by target (0x1000 - 0x32), lbu.post of the 23 page, an established vector name */
+	check_scq16 ("4213b0c1", 4, "cmov.ge   r1, r6, #5, r7", R_ANAL_OP_TYPE_CMOV);
+	check_scq16 ("67c875", 3, "mv        r21, r3", R_ANAL_OP_TYPE_MOV);
+	check_scq16 ("563fffce", 4, "j.d1      0x00000fce", R_ANAL_OP_TYPE_JMP);
+	check_scq16 ("23fa", 2, "lbu.post  r3, [r8] += -1", R_ANAL_OP_TYPE_LOAD);
+	check_scq16 ("c0000002", 4, "v.mem.ld  op9=0x002 A0 B0 F0,F0,F0", R_ANAL_OP_TYPE_UNK);
 	if (argc > 1 && !strcmp (argv[1], "--stream")) {
 		return stream (argc > 2? argv[2]: "md32");
 	}
