@@ -50,6 +50,14 @@ renamed before the pass) with a USIP_FORM_* index for every such entry; the cons
 the INSTRUCTION inside the decoded packet, not the unit index); `any` with up to four alternatives, which may now be a
 context condition or an instr_index test; six new context conditions (not_loop_reg_head, delay_slot_of_validated_branch,
 target_beyond_packet, delay_slot_not_writing_rA, op4imm_head_multiunit, split_unit).
+
+Table update (760 forms): the guards loop_b4_straddle16 (the loop #N entries: bit 4 of the head, field b4, must agree with
+"the packet at the loop end crosses a 16-byte line"; exported with the field b4) and not_over_validated_call32 (the 64-bit
+b<cond>.l entries whose extension unit is any 16-bit unit X: not taken over a validated 32-bit call / b read from U0 + X);
+seven new context conditions (tail_at_plus2, head_unnamed_not_lsl0, rf0dall_guards, slotc_pair, call_within_2_packets,
+op4imm_head, add2_free_closer); FUSE together with ADJ2 marks the fusion at distance 2 (add2_rot12); the loop #N? rule of
+structure.packet.loop_imm_q (USIP_LOOPQ_N_EQ, usip_loopq_d12[]) and the packet execution model (USIP_PACKET_EXEC_PARALLEL)
+are emitted as constants.
 """
 import json, os, sys, collections
 
@@ -67,7 +75,8 @@ CONS_OPS = ['eq', 'ne', 'lt', 'ge', 'gt', 'in', 'notin', 'inmask', 'notinmask', 
             'guard_target_packet_start', 'guard_target_function_start', 'guard_target_fn_or_packet_start',
             'guard_head_not_validated_bs',
             'tail_adjacent', 'ieee_short', 'in_c48tab',
-            'guard_target_pk_any_or_fn', 'guard_tail_named16', 'br0_cells', 'br0_cells_live', 'bf_valid', 'in_set', 'notin_set']
+            'guard_target_pk_any_or_fn', 'guard_tail_named16', 'br0_cells', 'br0_cells_live', 'bf_valid', 'in_set', 'notin_set',
+            'guard_loop_b4_straddle16', 'guard_not_over_validated_call32']
 ANY_OPS = {'eq': 0, 'ne': 1, 'lt': 2, 'ge': 3, 'gt': 4, 'inmask': 5, 'notinmask': 6, 'tail_adjacent': 7,
            'packet_len': 8, 'guard': 9, 'range': 10, 'br0_cells': 11, 'br0_cells_live': 12, 'instr_index': 13, 'ctx': 14}
 # guards that may appear inside an `any` (USIP_ANY_GUARD: value = enum usip_guard_id)
@@ -76,7 +85,9 @@ CTX_IDS = {'not_ext_of_op67': 0, 'cop_rA_in_packet': 1, 'not_c48_lo_follows': 2,
            'b111_layout': 3, 'hhtt_second_head': 4, 'f0d_triple': 5, 'bfpair': 6, 'bf_dst_not_written': 7,
            'between_dsp_head_and_tail': 8, 'rest_named_no_q': 9,
            'not_loop_reg_head': 10, 'delay_slot_of_validated_branch': 11, 'target_beyond_packet': 12,
-           'delay_slot_not_writing_rA': 13, 'op4imm_head_multiunit': 14, 'split_unit': 15}
+           'delay_slot_not_writing_rA': 13, 'op4imm_head_multiunit': 14, 'split_unit': 15,
+           'tail_at_plus2': 16, 'head_unnamed_not_lsl0': 17, 'rf0dall_guards': 18, 'slotc_pair': 19, 'call_within_2_packets': 20,
+           'op4imm_head': 21, 'add2_free_closer': 22}
 CTX_FIELDS = {'cop_rA_in_packet': ['rA'], 'bf_dst_not_written': ['rB', 'x']}
 GUARDS = {'setcc_tail': 'guard_setcc_tail', 'tail_not_named16': 'guard_tail_not_named16', 'or2_tail': 'guard_or2_tail',
           'target_packet_start_same_function': 'guard_target_packet_start',
@@ -84,7 +95,11 @@ GUARDS = {'setcc_tail': 'guard_setcc_tail', 'tail_not_named16': 'guard_tail_not_
           'target_fn_or_packet_start_same_function': 'guard_target_fn_or_packet_start',
           'head_not_validated_bs': 'guard_head_not_validated_bs',
           'target_packet_start_any_or_function_start': 'guard_target_pk_any_or_fn',
-          'tail_named16': 'guard_tail_named16'}
+          'tail_named16': 'guard_tail_named16',
+          'loop_b4_straddle16': 'guard_loop_b4_straddle16',
+          'not_over_validated_call32': 'guard_not_over_validated_call32'}
+# fields a guard reads beyond the tail (exported after the format fields)
+GUARD_FIELDS = {'or2_tail': ['u12'], 'loop_b4_straddle16': ['b4']}
 # R-br0 cells: B class of the head (B0 = B == 0, B15 = B == 15, B = any other) x tail distance (1 / 2) as a bit mask
 BR0_CLASS = {'B0': 0, 'B15': 1, 'B': 2}
 MAXFIELDS = 12
@@ -279,7 +294,7 @@ def cons_fields(c):
     if 'any' in c:
         return [any_field(a) for a in c['any'] if any_field(a) is not None] + [f for a in c['any'] if 'ctx' in a for f in CTX_FIELDS.get(a['ctx'], [])]
     if 'guard' in c:
-        return ['u12'] if c['guard'] == 'or2_tail' else []
+        return list(GUARD_FIELDS.get(c['guard'], []))
     if 'eq_fields' in c:
         return list(c['eq_fields'])
     if 'ne_fields' in c:
@@ -394,11 +409,18 @@ def emit(isa, out_path):
     A(' * the first-slot unit is not the head of a validated `loop rX` (a [S][0][11][d12] tail at +1 / +2 with its end a packet')
     A(' * start of the function after it); the unit is a .movi6? closer in the delay slot of a validated branch at unit 0; the')
     A(' * target of the 3-unit bz.s lies beyond the packet; its re-parsed delay slot does not write rA; the F = 0 head of a split')
-    A(' * .op4imm pair in a packet of more than two units; the unit is the head or the re-read tail of a split pair */')
+    A(' * .op4imm pair in a packet of more than two units; the unit is the head or the re-read tail of a split pair; the single tail')
+    A(' * is EXACTLY at +2 (else the entry falls through); the best reading leaves the first unit unnamed and it is not the bare')
+    A(" * op 5 x = 0 unit; the align guardians of the F' = 0 half-word load with any base (the unit at +2 is not a trusted 16-bit op")
+    A(' * nor control, the head is not 4400 after an op f x = 1 head, the middle unit does not write sp); the op c head with F = 0')
+    A(' * and its single unnamed tail form a slot pair; some call in the packet or in the two following ones; the F = 0 head of a')
+    A(' * split .op4imm pair; the bare .hword head and the bare unnamed closer at +2 fuse into add rB, rA, #rot12 (nowaw) */')
     A('enum usip_ctx_cond { USIP_CTX_NOT_EXT_OF_OP67, USIP_CTX_COP_RA_IN_PACKET, USIP_CTX_NOT_C48_LO_FOLLOWS, USIP_CTX_B111_LAYOUT,')
     A('\tUSIP_CTX_HHTT_SECOND_HEAD, USIP_CTX_F0D_TRIPLE, USIP_CTX_BFPAIR, USIP_CTX_BF_DST_NOT_WRITTEN, USIP_CTX_BETWEEN_DSP_HEAD_AND_TAIL,')
     A('\tUSIP_CTX_REST_NAMED_NO_Q, USIP_CTX_NOT_LOOP_REG_HEAD, USIP_CTX_DELAY_SLOT_OF_VALIDATED_BRANCH, USIP_CTX_TARGET_BEYOND_PACKET,')
-    A('\tUSIP_CTX_DELAY_SLOT_NOT_WRITING_RA, USIP_CTX_OP4IMM_HEAD_MULTIUNIT, USIP_CTX_SPLIT_UNIT };')
+    A('\tUSIP_CTX_DELAY_SLOT_NOT_WRITING_RA, USIP_CTX_OP4IMM_HEAD_MULTIUNIT, USIP_CTX_SPLIT_UNIT, USIP_CTX_TAIL_AT_PLUS2,')
+    A('\tUSIP_CTX_HEAD_UNNAMED_NOT_LSL0, USIP_CTX_RF0DALL_GUARDS, USIP_CTX_SLOTC_PAIR, USIP_CTX_CALL_WITHIN_2_PACKETS, USIP_CTX_OP4IMM_HEAD,')
+    A('\tUSIP_CTX_ADD2_FREE_CLOSER };')
     A('')
     A('#define USIP_F_SLOT0     0x001  /* only valid as the first unit of a packet */')
     A('#define USIP_F_NOTSLOT0  0x002  /* never the first unit of a packet */')
@@ -417,7 +439,7 @@ def emit(isa, out_path):
     A('#define USIP_F_GUARDFT   0x4000 /* a failing target guard falls through to the next entry of the cell (no entry left: two 16-bit ops), never .word */')
     A('#define USIP_F_B111      0x8000 /* context entry (ld.bu / st.b with a named 16-bit tail) admitted in the 2-unit head + tail packet and inside the H H T T candidate */')
     A("#define USIP_F_F0CTX     0x10000 /* context entry tried by the decoder when an op 0 head with its F' = 0 tail at +2 reads .word (never by the pairing) */")
-    A('#define USIP_F_FUSE      0x20000 /* post-layout FUSION: two ADJACENT one-unit instructions whose readings are the two rename_from mnemonics (head, tail) and whose units match the entry (+ its constraints) become ONE two-unit instruction of this entry; never used by the parser nor by the generic rename pass */')
+    A('#define USIP_F_FUSE      0x20000 /* post-layout FUSION: two ADJACENT one-unit instructions whose readings are the two rename_from mnemonics (head, tail) and whose units match the entry (+ its constraints) become ONE two-unit instruction of this entry; never used by the parser nor by the generic rename pass; with USIP_F_ADJ2 the fusion is at DISTANCE 2 (a bare head at i and a bare unnamed closer at i + 2) */')
     A('#define USIP_F_SPLIT     0x40000 /* entry of the post-layout split procedure of the slot family (the decoder applies it in its split pass, by USIP_FORM_* index; never the parser nor the generic rename pass); USIP_F_SPLITBARE marks the ones applied to bare units before the pass */')
     A('#define USIP_F_SPLITBARE 0x80000')
     A('')
@@ -431,6 +453,18 @@ def emit(isa, out_path):
     A('/* USIP_C_BR0_CELLS / USIP_C_BR0_CELLS_LIVE: vals[0] = mask of the admitted (B class, tail distance) cells of the F = 0 branch head:')
     A(' * bit 2 * class + distance - 1, class 0 = B == 0, 1 = B == 15, 2 = any other B, distance 1 / 2 (the tail at +1 or +2) */')
     A('#define USIP_BR0_BIT(cls, dist) (1 << (2 * (cls) + (dist) - 1))')
+    A('')
+    pkx = isa['structure']['packet']
+    A('/* packet execution model (structure.packet.execution): the instructions of a packet execute in PARALLEL and every read sees')
+    A(' * the state BEFORE the packet (an emulator reads all the operands of the packet before any write; two writes of the same')
+    A(' * register in one packet are an impossible layout) */')
+    A('#define USIP_PACKET_EXEC_PARALLEL %d' % (1 if 'execution' in pkx else 0))
+    lq = pkx.get('loop_imm_q', {})
+    A('/* the loop #N? rule (structure.packet.loop_imm_q): a loop #N reading with N == USIP_LOOPQ_N_EQ or whose tail displacement d12')
+    A(' * is one of usip_loopq_d12[] prints loop #N? (mnemonic loop#?); the layout candidate loopcand does not admit it */')
+    A('#define USIP_LOOPQ_N_EQ %d' % lq.get('N_eq', 0))
+    A('#define USIP_LOOPQ_ENABLED %d' % (1 if lq else 0))
+    A('static const ut16 usip_loopq_d12[%d] = { %s };' % (max(1, len(lq.get('last_d12_in', []))), ', '.join('0x%04x' % int(x, 16) for x in lq.get('last_d12_in', [])) or '0'))
     A('')
     A('typedef struct { ut8 hi, lo; } UsipBits;')
     A('typedef struct {')

@@ -18,6 +18,12 @@
 #include "usip_decode.h"
 
 #define N_OPS ((int)(sizeof (usip_opcodes) / sizeof (usip_opcodes[0])))
+
+/* the packet model of the table: the instructions of a packet execute in parallel and every read sees the state before the
+ * packet; nothing below depends on an intra-packet order (the double-write rule R-waw and the K-tie cascade stay) */
+#if !USIP_PACKET_EXEC_PARALLEL
+#error "the uSIP decoder assumes the parallel packet execution model of the table"
+#endif
 #define NU USIP_MAX_UNITS
 #define ASG_HARD_CAP 20000     /* generous bound; guards pathological input */
 #define GROUP_PARSES_LIMIT 96  /* group_parses stops enumerating splits past this many readings */
@@ -256,7 +262,9 @@ enum { TG_NONE = 0, TG_PK, TG_FN, TG_FN_OR_PK, TG_PK_ANY_OR_FN };
 #define FI_BS      0x08   /* guard head_not_validated_bs */
 #define FI_DEFER   0x10   /* has deferred (position / packet-length / context / tail-adjacency / R-br0) constraints */
 #define FI_C48     0x20   /* 48-bit entry admitted by the value table (partial head:hi admission against the upper 18 bits) */
+#define FI_STRADDLE 0x40  /* guard loop_b4_straddle16: bit 4 of the loop #N head must agree with "the packet at the end crosses a 16-byte line" */
 #define FI_DONE    0x80
+#define FI_XGUARD  0x100  /* guard not_over_validated_call32: the 64-bit b<cond>.l with a free extension unit yields to a validated 32-bit call / b of U0 + X */
 
 static bool cons_deferred(const UsipCons *c) {
 	int j;
@@ -286,14 +294,14 @@ static bool cons_is_guard(int op) {
 	switch (op) {
 	case USIP_C_GUARD_TARGET_PACKET_START: case USIP_C_GUARD_TARGET_FUNCTION_START:
 	case USIP_C_GUARD_TARGET_FN_OR_PACKET_START: case USIP_C_GUARD_HEAD_NOT_VALIDATED_BS:
-	case USIP_C_GUARD_TARGET_PK_ANY_OR_FN:
+	case USIP_C_GUARD_TARGET_PK_ANY_OR_FN: case USIP_C_GUARD_LOOP_B4_STRADDLE16: case USIP_C_GUARD_NOT_OVER_VALIDATED_CALL32:
 		return true;
 	}
 	return false;
 }
 
 /* per-form summary of the constraint classes (computed once) */
-static ut8 finfo[sizeof (usip_opcodes) / sizeof (usip_opcodes[0])];
+static ut16 finfo[sizeof (usip_opcodes) / sizeof (usip_opcodes[0])];
 static ut64 mfcsr_known;   /* CSR numbers of the canonical mfcsr pair (the `in` set of the mfcsr form) */
 
 static void finfo_init(void) {
@@ -303,9 +311,11 @@ static void finfo_init(void) {
 	}
 	for (i = 0; i < N_OPS; i++) {
 		const UsipOpcode *f = &usip_opcodes[i];
-		ut8 v = 0;
+		ut16 v = 0;
 		for (j = 0; j < f->ncons; j++) {
 			switch (f->cons[j].op) {
+			case USIP_C_GUARD_LOOP_B4_STRADDLE16: v |= FI_STRADDLE; break;
+			case USIP_C_GUARD_NOT_OVER_VALIDATED_CALL32: v |= FI_XGUARD; break;
 			case USIP_C_GUARD_TARGET_PACKET_START: v |= TG_PK; break;
 			case USIP_C_GUARD_TARGET_FUNCTION_START: v |= TG_FN; break;
 			case USIP_C_GUARD_TARGET_FN_OR_PACKET_START: v |= TG_FN_OR_PK; break;
@@ -340,7 +350,7 @@ static inline int tguard(const UsipOpcode *op) {
 	return finfo[op - usip_opcodes] & FI_TG_MASK;
 }
 
-static inline ut8 form_info(const UsipOpcode *op) {
+static inline ut16 form_info(const UsipOpcode *op) {
 	return finfo[op - usip_opcodes];
 }
 
@@ -355,19 +365,24 @@ static inline bool parser_form(const UsipOpcode *f) {
  * forward target lies beyond the bytes the caller could see).  Measured on the sample the table was built from
  * (doc/usip.md): the unverified readings of these forms are right in nearly every case where they compete (call with
  * the F' = 0 tail at +2, b with the F' = 0 tail, compare-and-branch with immediate and the F' = 0 tail, beqz.d, the
- * b<cond>.l prefix forms with a forward target, loop #N with F = S = 1, with F = 0 and the tail adjacent, and with F = 1
- * and the S = 0 tail at +2; the S0F1 cells bne/blt/bgeu/bgtu/bge with immediate, beqz.d/bnez.d and the bleu register
- * cell).  The other guarded forms are NOT accepted unverified: bnez.d of the F = S = 0 cell (the cell is shared with
- * the op C DSP pairs), the register compare-and-branch with the F' = 0 tail (shared with .ctl15), loop rX with the
- * F' = 0 tail (movi || mov pairs; only the S = 1 tail at +2 after a head with F = 1 is accepted), loop #N with F = 0
- * and the tail at +2, far b, the 16-bit call.s with bit 15 = 0 (only a small fraction of the shapes are calls), the
- * S0F1 cells beq/ble/bgt with immediate, the op 8 cells and the op d register cells.  w = the units of the
- * instruction. */
+ * b<cond>.l prefix forms with a forward target in their regular cell, loop #N with F = S = 1 and with F = 0 and the
+ * tail adjacent, the op c F = 1 branches and the op 9 F = S = 0 cells with the F' = 0 tail at +2 (R-F0c / R-F0s0); the
+ * S0F1 cells bne/blt/bgeu/bgtu/bge with immediate, beqz.d/bnez.d and the bleu register cell).  The other guarded
+ * forms are NOT accepted unverified: bnez.d of the F = S = 0 cell (the cell is shared with the op C DSP pairs), the
+ * register compare-and-branch with the F' = 0 tail (shared with .ctl15), loop rX with the F' = 0 tail (movi || mov
+ * pairs; only the S = 1 tail at +2 after a head with F = 1 is accepted), loop #N with F = 0 and the tail at +2 and
+ * with F = 1 and the S = 0 tail at +2, far b, the 16-bit call.s with bit 15 = 0 (only a small fraction of the shapes
+ * are calls), the S0F1 cells beq/ble/bgt with immediate, the op 8 cells and the op d register cells.  w = the units
+ * of the instruction. */
 static bool unverified_ok(const UsipOpcode *op, int dist, ut64 w, ut64 pc, ut64 target) {
 	static const char *const forms[] = {
 		"call_F0", "b_F0", "beqz_d",
 		"beq_imm8_F0", "bne_imm8_F0", "ble_imm8_F0", "blt_imm8_F0", "bgtu_imm8_F0", "bge_imm8_F0", "bgt_imm8_F0",
-		"loop_imm_F1S1", "loop_imm_F1S0",
+		/* (loop_imm_F1S0, the S = 0 tail at +2, is no longer accepted: its unverified readings are wrong too often) */
+		"loop_imm_F1S1",
+		/* the op c F = 1 S = 1 branches with the F' = 0 tail at +2 (R-F0c) and the op 9 F = S = 0 F' = 0 cells of >= 4 units (R-F0s0):
+		 * right in nearly every unverified case (see doc/usip.md, "Target guards") */
+		"beqz_F0c", "bnez_F0c", "bleu_rr_F0c", "bltu_rr_F0c", "bne_imm8_F0s0", "blt_imm8_F0s0",
 		/* the loop #N entries with the F' = 0 tail at +2 and with h = 1 (N >= 128) and the S = 1 tail are accepted; the other
 		 * h = 1 / m = 1 (N >= 256, loop #N?) entries are wrong too often when unverified and are not accepted */
 		"loop_imm_F1_Fp0", "loop_imm_h1_F1S1",
@@ -376,27 +391,32 @@ static bool unverified_ok(const UsipOpcode *op, int dist, ut64 w, ut64 pc, ut64 
 		 * filter existed, so without the function table the reading is kept and marked unverified; a known target that is
 		 * not a packet start still rejects it (fall-through for the USIP_F_GUARDFT entries, .word for b, the next 16-bit
 		 * entry for b.s) */
-		"b_s_open", "b_near", "loop", "loop_ssq", "loop_b1_q", "loop_b1_q_ssq",
+		"b_s_open", "b_near", "loop", "loop_ssq", "loop_b1", "loop_b1_ssq",
 		"beq_imm8_d", "blt_imm8_d", "bltu_imm8_d", "bgtu_imm8_d", "bgt_imm8_d", "bne_rr_d", "beq_rr_d", "ble_rr_d", "blt_rr_d", "bltu_rr_d",
 		"bne_d_m1", "bne_imm8_f0s0", "ble_imm8_f0s0", "bgeu_imm8_f0s0", "bge_imm8_f0s0", "bne.u8_imm8_f0s0", "beq.u8_imm8_f0s0", "bleu_rr_f0s0",
 	};
 	size_t i;
 	if ((op->kind == USIP_K_BR || op->kind == USIP_K_BR16 || op->kind == USIP_K_BR16D) && strcmp (op->name, "b") && strcmp (op->name, "b.s")
-		&& target < pc) {
+		&& (st32)(ut32)(target - pc) < 0) {
 		/* a conditional branch whose unknown target lies backward, before everything the caller has looked at, is never
 		 * right (a conditional branch does not leave its function; a backward target inside the region decoded so far is
 		 * known); calls and the unconditional b / b.s to an earlier function start are a different matter */
 		return false;
 	}
 	if (op->flags & USIP_F_PREFIX) {
-		return true;
+		/* the 48/64-bit b<cond>.l: unverified only in the regular cell (U1 low byte = 0 and tt = 00 on T: a forward displacement
+		 * of less than 4096 units), where the unverified readings are right in nearly every case; the other cells of the 22-bit
+		 * displacement (backward: above; +4096..+8191) and the 64-bit variant with a free extension unit (any 16-bit unit X) need
+		 * the target validated */
+		const ut16 u1 = (w >> 16) & 0xFFFF, t = w & 0xFFFF;
+		return (u1 & 0xFF) == 0 && ((t >> 12) & 3) == 0 && !(op->nunits == 4 && ((op->mask >> 32) & 0xFFFF) == 0x8000);
 	}
 	if (!strcmp (op->form, "loop_imm_F0S0") || !strcmp (op->form, "loop_imm_h1_F0S0")) {
 		return dist == 1;
 	}
 	if (!strcmp (op->form, "loop_F0") || !strcmp (op->form, "loop_F0_ssq")
-		|| ((!strcmp (op->form, "loop_b1_q") || !strcmp (op->form, "loop_b1_q_ssq")) && !((w >> 14) & 1))) {
-		/* loop rX with the F' = 0 tail (also loop.b1? when its tail has F' = 0): only the S = 1 tail at +2 after a head with F = 1 */
+		|| ((!strcmp (op->form, "loop_b1") || !strcmp (op->form, "loop_b1_ssq")) && !((w >> 14) & 1))) {
+		/* loop rX with the F' = 0 tail (also loop rX, x16 when its tail has F' = 0): only the S = 1 tail at +2 after a head with F = 1 */
 		return dist == 2 && ((w >> 30) & 1) && ((w >> 15) & 1);
 	}
 	for (i = 0; i < R_ARRAY_SIZE (forms); i++) {
@@ -440,6 +460,29 @@ static int eval_tguard(const UsipGuardCtx *g, const UsipOpcode *op, int tg, ut64
 	return unverified_ok (op, dist, w, pc, target)? USIP_G_UNVERIFIED: 0;
 }
 
+/* R-loopx16: does the packet that starts at `last` cross a 16-byte line?  1 / 0, or -1 when the caller cannot tell (the
+ * packet at the loop end lies beyond the bytes at hand: the guard is then not evaluated, as for any decoder without that
+ * packet in view).  The end of that packet is the next packet start after `last` (a whole-function scan uses the next packet
+ * start inside the function, else the function end: the same address for a packet that closes). */
+static int straddle16(const UsipGuardCtx *g, ut64 last) {
+	const int n = (g && g->packet_units)? g->packet_units (g->user, last): -1;
+	if (n < 1) {
+		return -1;
+	}
+	return (last / 16) != ((last + 2 * (ut64)n - 2) / 16)? 1: 0;
+}
+
+/* the loop #N guard loop_b4_straddle16 of a resolved reading: bit 4 of the head (field b4) == straddle16(last); an unknown
+ * packet at the end accepts */
+static bool straddle_guard_ok(const UsipGuardCtx *g, const UsipOpcode *f, ut64 w, ut64 target) {
+	const int fb = field_index (f, "b4");
+	const int sv = straddle16 (g, target);
+	if (fb < 0 || sv < 0) {
+		return true;
+	}
+	return (field_value (f, fb, w) != 0) == (sv != 0);
+}
+
 /* R-st1h guard: a 16-bit b.s with bit 15 = 0 (5cX1/7cX1 = [0][1][m][1][110][x][B][0001], not m = 0 with d6 = 0) whose
  * target is a packet start of the same function */
 static bool bs_valid(const UsipGuardCtx *g, ut64 pc, ut16 v) {
@@ -465,6 +508,7 @@ typedef struct {
 	ut8 t[USIP_MAX_TAILS];
 	ut8 pseudo;
 	ut8 guard;
+	ut8 loopq;          /* the loop #N? rule of the table (printed loop#? #N?, last=...) */
 	const UsipOpcode *op;
 	ut8 kind;
 	const char *mnem;
@@ -531,6 +575,7 @@ static bool br0_live_ok(const CtxD *ctxd) {
 }
 
 static bool ctx_cond_ok(const UsipOpcode *op, ut64 w, int cond, const CtxD *ctxd);
+static bool rf0d_all_ok(const ut16 *units, int n, int i, int j);
 
 static bool any_sub(const UsipOpcode *f, int op, st64 v, st64 val, ut64 w, const CtxD *ctxd) {
 	switch (op) {
@@ -565,9 +610,18 @@ static bool ctx_cond_ok(const UsipOpcode *op, ut64 w, int cond, const CtxD *ctxd
 		return !(ctxd && ctxd->loop_guard);
 	}
 	if (cond == USIP_CTX_TARGET_BEYOND_PACKET || cond == USIP_CTX_DELAY_SLOT_NOT_WRITING_RA || cond == USIP_CTX_OP4IMM_HEAD_MULTIUNIT
-		|| cond == USIP_CTX_SPLIT_UNIT || cond == USIP_CTX_DELAY_SLOT_OF_VALIDATED_BRANCH) {
-		/* evaluated by the explicit procedures (the bz.s context rules, the split pass, decode_asg) */
+		|| cond == USIP_CTX_SPLIT_UNIT || cond == USIP_CTX_DELAY_SLOT_OF_VALIDATED_BRANCH || cond == USIP_CTX_HEAD_UNNAMED_NOT_LSL0
+		|| cond == USIP_CTX_SLOTC_PAIR || cond == USIP_CTX_CALL_WITHIN_2_PACKETS || cond == USIP_CTX_OP4IMM_HEAD || cond == USIP_CTX_ADD2_FREE_CLOSER) {
+		/* evaluated by the explicit procedures (the bz.s context rules, the split pass, decode_asg, hw_rules, slotc_mark) */
 		return true;
+	}
+	if (cond == USIP_CTX_TAIL_AT_PLUS2) {
+		/* R-F0c / R-F0s0: the single tail EXACTLY at +2; at any other distance the entry falls through (unknown layout: accept) */
+		return !ctxd || ctxd->tail_dist < 0 || ctxd->tail_dist == 2;
+	}
+	if (cond == USIP_CTX_RF0DALL_GUARDS) {
+		/* rf0dall: the align guardians of the F' = 0 half-word load with any base (need the units of the packet) */
+		return !ctxd || !ctxd->units || ctxd->tail_idx < 0 || rf0d_all_ok (ctxd->units, ctxd->pktlen, ctxd->i, ctxd->tail_idx);
 	}
 	if (!ctxd || !ctxd->units) {
 		return true;
@@ -930,7 +984,12 @@ static const UsipOpcode *resolve32(const UsipGuardCtx *g, ut16 h, ut16 t, bool f
 		if (tg) {
 			bool has = false;
 			const ut64 target = target_value (f, w, pc, &has);
-			const int s = has? eval_tguard (g, f, tg, target, dist, w, pc): 0;
+			int s = has? eval_tguard (g, f, tg, target, dist, w, pc): 0;
+			if (s && (fi & FI_STRADDLE) && !straddle_guard_ok (g, f, w, target)) {
+				/* R-loopx16: bit 4 of the loop #N head contradicts the 16-byte line of its end: the pair is data, like a failing
+				 * target guard (the false loops are the forward 64-bit b<cond>.l with an extension unit) */
+				s = 0;
+			}
 			if (s) {
 				*st = RS_OK;
 				*guard = s;
@@ -1529,6 +1588,20 @@ static Dec dec32(const UsipGuardCtx *g, ut64 pc, ut16 h, ut16 t, bool first, con
 		return d;
 	}
 	set_form (&d, f, pc);
+	if (USIP_LOOPQ_ENABLED && f->kind == USIP_K_LOOP && !strcmp (f->name, "loop#")) {
+		/* R-loopx16 (the loop #N? rule of the table): a loop #N reading with N = 0 or whose end lies at pc + 2^k prints loop #N?
+		 * (the ? after the count); the layout candidate loopcand does not admit it */
+		const int fn = field_index (f, "N");
+		bool q = fn >= 0 && field_value (f, fn, d.w) == USIP_LOOPQ_N_EQ;
+		size_t i;
+		for (i = 0; i < R_ARRAY_SIZE (usip_loopq_d12); i++) {
+			q |= (t & 0xFFF) == usip_loopq_d12[i];
+		}
+		if (q) {
+			d.mnem = "loop#?";
+			d.loopq = 1;
+		}
+	}
 	return d;
 }
 
@@ -1575,6 +1648,69 @@ static inline bool is_ctrl_tgt(int kind) {
 		return true;
 	}
 	return false;
+}
+
+static bool in_list(const char *s, const char *const *list, size_t n);
+
+/* rf0dall (ctx rf0dall_guards): (1) the unit at +2 (the tail j) does not decode in tail position as a trusted 16-bit op nor as a
+ * control kind, (2) the head is not the unit 4400 right after an op f head with x = 1 (call r8 || mov || mov), (3) the middle
+ * unit read as a 16-bit op does not write r14 / sp (the parity of f12 is in the pattern of the rf0dall_* entries) */
+static bool rf0d_all_ok(const ut16 *units, int n, int i, int j) {
+	static const char *const conf16[] = { "mov", "inc", "dec", "rsub", "add", "addi", "mul", "st.w", "ld.w", "mfacc", "lsl", "lsr", "asr", "sub",
+		"and", "or", "xor", "sext16", "zext16", "movi", "st.h", "ld.h", "ld.hu", "st.b", "ld.bu" };
+	const Dec dj = dec16 (NULL, 0, units[j], false, -1, -1);
+	if (in_list (dj.mnem, conf16, R_ARRAY_SIZE (conf16)) || is_ctrl_any (dj.kind)) {
+		return false;
+	}
+	if (i >= 1 && (units[i - 1] & 0x810F) == 0x010F && (units[i] & 0xFFF0) == 0x4400) {
+		return false;
+	}
+	if (n >= 0 && i + 1 < n) {
+		const Dec d1 = dec16 (NULL, 0, units[i + 1], false, -1, -1);
+		if (is_named (&d1) && first_operand_is (&d1, 0, "r14", ", \t")) {
+			return false;
+		}
+	}
+	return true;
+}
+
+/* R-slotc (ctx slotc_pair): the tail [S][F'][00][a][X][rd] with rd in {4, c} and a != 8, not the (0, 0) cell with head B = 0
+ * (saturate), low 12 bits > 1 when F' = 1, and a pair reading without a firm name (.dsp / .word, the ? DSP cells, or mac /
+ * mul.a / mul3216.a / L_mac.a with the accumulator nibble rd > 3) */
+static bool slotc_ok(ut16 h, ut16 t, const Dec *d) {
+	static const char *const qdsp[] = { "msu?", "shr.a?", "mac.9a?", "mac.92?" };
+	static const char *const acc[] = { "mac", "mul.a", "mul3216.a", "L_mac.a" };
+	if (((t >> 12) & 3) != 0 || ((t & 0xF) != 4 && (t & 0xF) != 0xC) || ((t >> 8) & 0xF) == 8) {
+		return false;
+	}
+	if ((t & 0x0FF0) == 0 && (h & 0x00F0) == 0) {
+		return false;
+	}
+	if (((t >> 14) & 1) == 1 && (t & 0x0FFF) <= 1) {
+		return false;
+	}
+	if (!is_named (d) && (!strcmp (d->mnem, ".dsp") || !strcmp (d->mnem, ".word"))) {
+		return true;
+	}
+	if (in_list (d->mnem, qdsp, R_ARRAY_SIZE (qdsp))) {
+		return true;
+	}
+	return (t & 0xF) > 3 && in_list (d->mnem, acc, R_ARRAY_SIZE (acc));
+}
+
+/* the immediate after the first '#' of the instruction's text (the value of mov32 r15, #X / addi r14, #imm); *ok = found */
+static st64 text_imm(const Dec *d, ut64 pc, bool *ok) {
+	RStrBuf sb;
+	st64 v = 0;
+	r_strbuf_init (&sb);
+	dec_text (d, pc, &sb);
+	const char *hs = strchr (r_strbuf_get (&sb), '#');
+	*ok = hs != NULL;
+	if (hs) {
+		v = (st64)strtoll (hs + 1, NULL, 0);
+	}
+	r_strbuf_fini (&sb);
+	return v;
 }
 
 /* slot-family unit [S][F][m][h][rrr][x][B][o3 o2 00]: low 12 bits != 0 (not nop/hi/lo), not addsp (F = 0, h = 1, rrr = 6) */
@@ -1958,6 +2094,9 @@ static void decode_asg(const Ctx *c, const Asg *asg, bool first_ok, DecList *out
 
 /* ---------------------------------------------------------------------------------------------------- scoring */
 
+/* lr32: true while the rest of a 48-bit call.abs / b.abs packet is parsed (a mov32 r15, #return in its delay slot) */
+static bool g_lr32 = false;
+
 static bool mn_in_fam48(const char *mn) {
 	static const char *const fam[] = { "lea", "lea?", "add", "ld.w", "ld.h", "ld.hu", "ld.b?", "ld.bu", "st.w", "st.h", "st.b", "mov32" };
 	size_t i;
@@ -2305,6 +2444,11 @@ static Score score_reading(const Ctx *c, const Asg *asg, bool first_ok, DecList 
 			if (!d->nt && d->head >= 1 && rf0d_head[d->head - 1] && dst[i] >= 0 && cnt_all[dst[i]] >= 2) {
 				pen += Q (1.0);
 			}
+			if (d->nt == 1 && d->op && !strncmp (d->op->form, "rf0dall", 7) && dst[i] >= 0 && cnt_all[dst[i]] >= 2) {
+				/* rf0dall nowaw: the F' = 0 half-word load with a base other than sp pays when another instruction of the reading
+				 * writes its destination */
+				pen += Q (1.0);
+			}
 		}
 		if (first_ok && dec->n && dec->d[0].head == 0 && dec->d[0].kind == USIP_K_BR16D && !strcmp (dec->d[0].mnem, "b.s") && dec->d[0].has_target
 			&& dec->d[0].target == ((c->addrs[0] + 2 * (ut64)n) & UT32_MAX)
@@ -2350,6 +2494,44 @@ static Score score_reading(const Ctx *c, const Asg *asg, bool first_ok, DecList 
 	if (r7_shape (dec, first_ok) && r7_form (units[0], dec)) {
 		/* rule R7: the bare first-slot slot/lea? unit counts as named when the rest of the packet is named */
 		unnamed--;
+	}
+	{
+		/* the score rules lr32 (a mov32 r15, #X with X a packet start of the same function inside a reading with a jump / call,
+		 * or in the rest of a call.abs / b.abs packet, scores like a validated target: a manual link), spodd (a 16-bit addi r14, #imm
+		 * whose imm is not a multiple of 4 pays 1.0: an impossible sp move), rr7 (a movi rB, #imm17 formed while an earlier op 7 head
+		 * of the reading with x = 0 and no tail stays bare pays 0.25: the null-field tail goes to the FIRST tail-less op 7 head) */
+		bool has_jump = g_lr32;
+		for (i = 0; i < dec->n && !has_jump; i++) {
+			const int kd = dec->d[i].kind;
+			has_jump = kd == USIP_K_BR || kd == USIP_K_BR16 || kd == USIP_K_BR16D || kd == USIP_K_JUMPA || kd == USIP_K_CALL || kd == USIP_K_CALLA || kd == USIP_K_CALL16;
+		}
+		for (i = 0; i < dec->n; i++) {
+			const Dec *d = &dec->d[i];
+			const ut64 pc = c->addrs[d->head];
+			bool ok = false;
+			if (has_jump && !strcmp (d->mnem, "mov32") && first_operand_is (d, pc, "r15", ",")) {
+				const st64 v = text_imm (d, pc, &ok);
+				if (ok && v >= 0 && g && g->packet_start && g->packet_start (g->user, (ut64)v & UT32_MAX) == 1) {
+					pen -= Q (1.0);
+				}
+			}
+			if (!d->nt && !strcmp (d->mnem, "addi") && first_operand_is (d, pc, "r14", ",")) {
+				const st64 v = text_imm (d, pc, &ok);
+				if (ok && (v % 4) != 0) {
+					pen += Q (1.0);
+				}
+			}
+			if (d->nt == 1 && !strcmp (d->mnem, "movi") && (units[d->head] & 0xF) == 7 && (units[d->t[0]] & 0x3FF0) == 0
+				&& ((units[d->t[0]] & 0xF) == 1 || (units[d->t[0]] & 0xF) == 3)) {
+				for (j = 0; j < dec->n; j++) {
+					const Dec *e = &dec->d[j];
+					if (e->head < d->head && !e->nt && (units[e->head] >> 15) == 0 && (units[e->head] & 0x10F) == 0x007) {
+						pen += Q (0.25);
+						break;
+					}
+				}
+			}
+		}
 	}
 	if (n >= 4) {
 		/* the canonical mfcsr pair 4X37 e0nn (nn known) not paired in a packet of >= 4 units: +0.5 */
@@ -2398,7 +2580,10 @@ static void fallback(const Ctx *c, bool first_ok, DecList *out) {
 			continue;
 		}
 		int st;
-		Dec d = dec32 (c->guard, c->addrs[i], h, units[i + 1], first, NULL, false, false, 1, &st);
+		CtxD ctxd = CTXD_INIT (c->n, kidx (c, c->addrs[i]), units, i);
+		ctxd.tail_dist = 1;
+		ctxd.tail_idx = i + 1;
+		Dec d = dec32 (c->guard, c->addrs[i], h, units[i + 1], first, &ctxd, false, false, 1, &st);
 		if (st == RS_UNDO || !is_named (&d)) {
 			Dec d16 = dec16 (c->guard, c->addrs[i], h, first, c->n, kidx (c, c->addrs[i]));
 			if (is_named (&d16) || st == RS_UNDO) {
@@ -2445,10 +2630,42 @@ static bool abs_prefix(const Ctx *c, int *hi, int *lo) {
 	return f && (f->kind == USIP_K_CALLA || f->kind == USIP_K_JUMPA);
 }
 
-/* the packet-prefix forms (bcc48 / bcc64): the first one whose mask, context-free constraints and target guard hold
- * over the first nunits units; a failing guard = the form is not taken */
-static const UsipOpcode *match_prefix(const Ctx *c, ut64 *w_out, ut8 *guard) {
+/* guard not_over_validated_call32 (R-bcc48d22): the 64-bit b<cond>.l with a free extension unit X is not taken when U0 + X, read
+ * as an adjacent 32-bit pair in the first slot, are a call / b whose target is a function start.  Function starts are what the
+ * caller knows: with the function_start callback the test is exact; without it a target the caller validated as a
+ * packet start (a function start decoded earlier in the session, or a local packet start) stands in. */
+static bool over_validated_call32(const Ctx *c) {
+	CtxD ctxd = CTXD_INIT (-1, 0, NULL, 0);
+	int st;
+	ut8 gd = USIP_G_NONE;
+	ctxd.tail_dist = 1;
+	ctxd.tail_idx = 1;
+	const UsipOpcode *f = resolve32 (c->guard, c->units[0], c->units[1], true, &ctxd, false, false, c->addrs[0], 1, &st, &gd);
+	if (!f || st != RS_OK) {
+		return false;
+	}
+	if (f->kind != USIP_K_CALL && f->kind != USIP_K_CALLA && f->kind != USIP_K_CALL16 && f->kind != USIP_K_BR && f->kind != USIP_K_JUMPA) {
+		return false;
+	}
+	bool has = false;
+	const ut64 w = ((ut64)c->units[0] << 16) | c->units[1];
+	const ut64 tg = target_value (f, w, c->addrs[0], &has);
+	if (!has) {
+		return false;
+	}
+	const UsipGuardCtx *g = c->guard;
+	if (g && g->function_start) {
+		return g->function_start (g->user, tg) == 1;
+	}
+	return gd == USIP_G_OK || (g && g->packet_start && g->packet_start (g->user, tg) == 1);
+}
+
+/* the packet-prefix forms (bcc48 / bcc64, and the 64-bit variant whose extension unit is any 16-bit unit X: *xvar): the first
+ * one whose mask, context-free constraints and target guard(s) hold over the first nunits units; a failing guard = the form is
+ * not taken */
+static const UsipOpcode *match_prefix(const Ctx *c, ut64 *w_out, ut8 *guard, bool *xvar) {
 	int i, k;
+	*xvar = false;
 	for (i = 0; i < N_OPS; i++) {
 		const UsipOpcode *f = &usip_opcodes[i];
 		if (!(f->flags & USIP_F_PREFIX) || f->nunits > c->n) {
@@ -2476,6 +2693,10 @@ static const UsipOpcode *match_prefix(const Ctx *c, ut64 *w_out, ut8 *guard) {
 		} else {
 			*guard = USIP_G_NONE;
 		}
+		if ((form_info (f) & FI_XGUARD) && over_validated_call32 (c)) {
+			continue;
+		}
+		*xvar = f->nunits == 4 && ((f->mask >> 32) & 0xFFFF) == 0x8000;
 		*w_out = w;
 		return f;
 	}
@@ -2594,23 +2815,34 @@ static bool same_reading(const DecList *a, const DecList *b) {
 	return true;
 }
 
-/* F-slot0: [S][0][m][h][rrr][x][B][o3 100] = stslot rB(!x), #k (k = m:h:rrr:o3); stslot? when h or m = 1 (k >= 16) or for
- * the F = 0 head of a .op4imm pair in a multi-unit packet */
-static Dec ln_stslot_f0(const Ctx *c, int j, bool multi_op4imm) {
+/* the rule that produces an F-slot0 reading (ln_stslot_f0): only the F = 0 head of a split .op4imm pair keeps the ? for k >= 16 */
+enum { LN_SLOT4N = 0, LN_OP4IMM, LN_SLOTPAIR0, LN_FSLOT0C };
+
+/* F-slot0: [S][0][m][h][rrr][x][B][o3 100] = stslot rB(!x), #k (k = m:h:rrr:o3): stslot_F0 (k < 16), stslot_F0_k16 (k >= 16: h or
+ * m = 1; R-slot4n, slotpair0, R-fslot0c, the R-slotc tails) or stslot_F0_q for the F = 0 head of a split .op4imm pair with k >= 16
+ * or in a multi-unit packet (stslot16) */
+static Dec ln_stslot_f0(const Ctx *c, int j, int rule, bool multi_op4imm) {
 	Dec d = { 0 };
 	const ut16 u = c->units[j];
+	int idx;
 	d.w = u;
-	set_form (&d, &usip_opcodes[((u & 0x3000) || multi_op4imm)? USIP_FORM_STSLOT_F0_Q: USIP_FORM_STSLOT_F0], c->addrs[j]);
+	if (rule == LN_OP4IMM && ((u & 0x3000) || multi_op4imm)) {
+		idx = USIP_FORM_STSLOT_F0_Q;
+	} else {
+		idx = (u & 0x3000)? USIP_FORM_STSLOT_F0_K16: USIP_FORM_STSLOT_F0;
+	}
+	set_form (&d, &usip_opcodes[idx], c->addrs[j]);
 	d.head = j;
 	return d;
 }
 
-/* S0-slot: a slot-family unit with F = 1 and S = 0 (low 12 bits > 1) = stslot rB, #k (o2 = 1) / ldslot? rB, #k (o2 = 0) */
+/* S0-slot: a slot-family unit with F = 1 and S = 0 (low 12 bits > 1) = stslot rB, #k (o2 = 1) / ldslot rB, #k (o2 = 0; without the ?
+ * since the 760-form table: ldslotk1) */
 static Dec ln_slot_f1(const Ctx *c, int j) {
 	Dec d = { 0 };
 	const ut16 u = c->units[j];
 	d.w = u;
-	set_form (&d, &usip_opcodes[((u >> 2) & 1)? USIP_FORM_STSLOT_S0_POS1: USIP_FORM_LDSLOT_S0_POS1_Q], c->addrs[j]);
+	set_form (&d, &usip_opcodes[((u >> 2) & 1)? USIP_FORM_STSLOT_S0_POS1: USIP_FORM_LDSLOT_S0_POS1], c->addrs[j]);
 	d.head = j;
 	return d;
 }
@@ -2622,14 +2854,14 @@ static inline bool slot_f1_shape(ut16 u) {
 
 /* the split-tail reading of unit j: the slot family with F = 1 and S = 0 (S0-slot), op 4 / op c with F = 0 (F-slot0), else the
  * ordinary 16-bit reading in tail position; *named = it has a name */
-static Dec ln_tail16(const Ctx *c, int j, bool *named) {
+static Dec ln_tail16(const Ctx *c, int j, int rule, bool *named) {
 	const ut16 t = c->units[j];
 	*named = true;
 	if (slot_f1_shape (t)) {
 		return ln_slot_f1 (c, j);
 	}
 	if ((t & 0x4007) == 0x0004) {
-		return ln_stslot_f0 (c, j, false);
+		return ln_stslot_f0 (c, j, rule, false);
 	}
 	Dec d = dec16 (c->guard, c->addrs[j], t, false, c->n, kidx (c, c->addrs[j]));
 	d.head = j;
@@ -2658,24 +2890,42 @@ static void ln_rename(const Ctx *c, DecList *best) {
 			if ((!strcmp (d->mnem, ".op4t0") || !strcmp (d->mnem, ".op4t1") || !strcmp (d->mnem, ".op4t3")) && ti == d->head + 1
 				&& (h & 0xC00F) == 0x0004 && (t >> 15) == 0 && (t & 0x0FFF) > 1 && (t & 0x7BFF) != 0x4000) {
 				bool named;
-				out[nout] = ln_stslot_f0 (c, d->head, false);
+				out[nout] = ln_stslot_f0 (c, d->head, LN_SLOT4N, false);
 				orig[nout++] = kpos;
-				out[nout] = ln_tail16 (c, ti, &named);
+				out[nout] = ln_tail16 (c, ti, LN_SLOT4N, &named);
 				orig[nout++] = kpos;
 				changed = true;
 				continue;
 			}
 			if (!strcmp (d->mnem, ".op4imm") && (h & 0x800F) == 0x0004 && (t & 0x6000) == 0) {
 				bool named;
-				const Dec d2 = ln_tail16 (c, ti, &named);
+				const Dec d2 = ln_tail16 (c, ti, LN_OP4IMM, &named);
 				if (named) {
-					out[nout] = ((h >> 14) & 1)? ln_slot_f1 (c, d->head): ln_stslot_f0 (c, d->head, n > 2);
+					out[nout] = ((h >> 14) & 1)? ln_slot_f1 (c, d->head): ln_stslot_f0 (c, d->head, LN_OP4IMM, n > 2);
 					orig[nout++] = kpos;
 					out[nout] = d2;
 					orig[nout++] = kpos;
 					changed = true;
 					continue;
 				}
+			}
+			if ((h & 0xC00F) == 0x000C && slotc_ok (h, t, d)) {
+				/* R-slotc (the table's post-layout split (7)): an op c head with F = 0 and its single tail with tt = 00 and rd in {4, c}
+				 * read without a firm name are a slot pair: head stslot rB(x), #m:h:rrr:1 || tail stslot rX, #k (the ? twins when no call
+				 * follows within two packets: slotc_mark) */
+				Dec a = { 0 }, b = { 0 };
+				a.w = h;
+				set_form (&a, &usip_opcodes[USIP_FORM_STSLOT_SLOTC_H], c->addrs[d->head]);
+				a.head = d->head;
+				b.w = t;
+				set_form (&b, &usip_opcodes[USIP_FORM_STSLOT_SLOTC_T], c->addrs[ti]);
+				b.head = ti;
+				out[nout] = a;
+				orig[nout++] = kpos;
+				out[nout] = b;
+				orig[nout++] = kpos;
+				changed = true;
+				continue;
 			}
 		} else if (!d->nt && !strcmp (d->mnem, ".hword") && kpos == 1 && slot_f1_shape (h)) {
 			out[nout] = ln_slot_f1 (c, d->head);
@@ -2723,9 +2973,103 @@ static void ln_rename(const Ctx *c, DecList *best) {
 	*best = res;
 }
 
-/* the packet-level context rules applied to the chosen reading (bz_s_P4, bz_s_P4_u4, slot_S0_R7 / lea_sp_S0, bz_s_P4_u3, S3,
- * be79_prefix, the splits of the slot family); the bz.s rules re-parse the rest of the packet as the delay slot (its ties
- * replace the packet's for the cascade, as in apply_bzs5) */
+/* the post rules on the final reading of a packet (hw_rules; applied before the split pass of ln_rename
+ * and also after the b<cond>.l / call.abs prefix paths): R-add2 (the fusion at distance 2 of the table, entry add2_rot12: a bare
+ * .hword head [0][0][m][h][rrr][x][B][0000] at unit i of a packet of >= 3 units and a bare UNNAMED closer [1][1][00][f12 = 0 mod 4]
+ * at unit i + 2 become one add rB(!x), rA(!m), #rot12, unless another instruction of the packet already writes rB; the head must
+ * read .hword: a bare m = h = 0 unit of the group parse is relabelled .ext, like the .ext entries of the table, and never
+ * fuses) and R-fslot0c (a bare .hword / .ext F-slot0 unit [0][0][0][0][rrr][x][B][o3 100], low 12 bits > 1, at unit 1 of a packet
+ * whose instruction 0 is a call / call.abs / callr / call16 is stslot: a frame store in the delay slot) */
+static void hw_rules(const Ctx *c, DecList *best, bool first_ok) {
+	const ut16 *units = c->units;
+	const int n = c->n;
+	int q, j;
+	if (n >= 3) {
+		int own[NU], cnt[32] = { 0 };
+		bool removed[NU] = { false }, changed = false;
+		for (j = 0; j < NU; j++) {
+			own[j] = -1;
+		}
+		for (q = 0; q < best->n; q++) {
+			const Dec *d = &best->d[q];
+			const int dst = dec_dst (d, c->addrs[d->head], true);
+			own[d->head] = q;
+			for (j = 0; j < d->nt; j++) {
+				own[d->t[j]] = q;
+			}
+			if (dst >= 0) {
+				cnt[dst]++;
+			}
+		}
+		for (q = 0; q < best->n; q++) {
+			Dec *d = &best->d[q];
+			const int i = d->head;
+			if (removed[q] || d->nt || strcmp (d->mnem, ".hword") || (units[i] >> 15) || (units[i] & 0xF) != 0 || ((units[i] >> 14) & 1) || i + 2 >= n) {
+				continue;
+			}
+			const int qt = own[i + 2];
+			if (qt < 0 || qt == q || removed[qt]) {
+				continue;
+			}
+			const Dec *e = &best->d[qt];
+			const ut16 t = units[i + 2];
+			if (!((t >> 12) == 0xC && (t & 3) == 0 && !e->nt && e->head == i + 2 && !is_named (e))) {
+				continue;
+			}
+			const UsipOpcode *fa = &usip_opcodes[USIP_FORM_ADD2_ROT12];
+			const ut64 w = ((ut64)units[i] << 16) | t;
+			if ((w & fa->mask) != fa->value) {
+				continue;
+			}
+			const int fb = field_index (fa, "rB"), fx = field_index (fa, "x");
+			const int rb = (fb >= 0? (int)(field_value (fa, fb, w) & 15): 0) + ((fx >= 0 && field_value (fa, fx, w))? 16: 0);
+			if (cnt[rb] >= 1) {
+				/* nowaw: another instruction of the packet already writes rB */
+				continue;
+			}
+			Dec nd = { 0 };
+			nd.head = i;
+			nd.nt = 1;
+			nd.t[0] = i + 2;
+			nd.w = w;
+			set_form (&nd, fa, c->addrs[i]);
+			nd.has_target = false;
+			*d = nd;
+			removed[qt] = true;
+			cnt[rb]++;
+			changed = true;
+		}
+		if (changed) {
+			DecList res;
+			res.n = 0;
+			for (q = 0; q < best->n; q++) {
+				if (!removed[q]) {
+					res.d[res.n++] = best->d[q];
+				}
+			}
+			qsort (res.d, res.n, sizeof (Dec), dec_cmp_head);
+			*best = res;
+		}
+	}
+	if (n >= 3 && first_ok && best->n && best->d[0].head == 0
+		&& (best->d[0].kind == USIP_K_CALL || best->d[0].kind == USIP_K_CALLA || best->d[0].kind == USIP_K_CALLR || best->d[0].kind == USIP_K_CALL16)) {
+		for (q = 0; q < best->n; q++) {
+			Dec *d = &best->d[q];
+			if (d->nt || d->head != 1 || (strcmp (d->mnem, ".hword") && strcmp (d->mnem, ".ext"))) {
+				continue;
+			}
+			const ut16 u = units[1];
+			if ((u & 0xF007) != 0x0004 || (u & 0xFFF) <= 1) {
+				continue;
+			}
+			*d = ln_stslot_f0 (c, 1, LN_FSLOT0C, false);
+		}
+	}
+}
+
+/* the packet-level context rules applied to the chosen reading (bz_s_P4, bz_s_P4_u4, bz_s_P4_F0, slot_S0_R7 / lea_sp_S0,
+ * bz_s_P4_u3, S3, be79_prefix, the post rules R-add2 / R-fslot0c, the splits of the slot family); the bz.s rules re-parse the
+ * rest of the packet as the delay slot (its ties replace the packet's for the cascade, as in apply_bzs5) */
 static void post_rules(const Ctx *c, DecList *best, bool first_ok, TieList *ties, bool *amb) {
 	const ut16 *units = c->units;
 	const ut64 *addrs = c->addrs;
@@ -2767,6 +3111,31 @@ static void post_rules(const Ctx *c, DecList *best, bool first_ok, TieList *ties
 			best->n = 0;
 			best->d[best->n++] = d0;
 			*amb = rest_parse (c, rest, nr, best, ties);
+		}
+	}
+	/* context rule bz_s_P4_F0 (R-bzf0): the P4 cell with F = 0 (000h rrrd dddd d101, rA not sp) at k = 0 of a packet of exactly 2 or
+	 * 3 units whose head has no named reading and is not the bare .hword op 5 x = 0 unit (the R-lsl0 cell), with d6 > 0 and the
+	 * target a packet start of the same function beyond the packet: bz.s rA + the rest as its delay slot (at 2 units the second unit
+	 * is a 16-bit op, at 3 the rest is re-parsed) */
+	if ((n == 2 || n == 3) && first_ok && (units[0] & 0xE007) == 0x0005 && (units[0] & 0x1E00) != 0x1C00 && best->n && best->d[0].head == 0
+		&& !is_named (&best->d[0]) && !((units[0] & 0x108) == 0 && !best->d[0].nt && !strcmp (best->d[0].mnem, ".hword"))) {
+		Dec d0 = { 0 };
+		d0.w = units[0];
+		set_form (&d0, &usip_opcodes[USIP_FORM_BZ_S_P4_F0], addrs[0]);
+		if (((units[0] >> 3) & 0x3F) > 0 && d0.has_target && d0.target >= addrs[n - 1] + 2 && g && g->packet_start && g->packet_start (g->user, d0.target) == 1) {
+			d0.guard = USIP_G_OK;
+			d0.head = 0;
+			best->n = 0;
+			best->d[best->n++] = d0;
+			if (n == 2) {
+				Dec d1 = dec16 (c->guard, addrs[1], units[1], false, 2, kidx (c, addrs[1]));
+				d1.head = 1;
+				best->d[best->n++] = d1;
+				*amb = false;
+			} else {
+				const int rest[2] = { 1, 2 };
+				*amb = rest_parse (c, rest, 2, best, ties);
+			}
 		}
 	}
 	/* context rules slot_S0_R7 / lea_sp_S0: bare first-slot .hword unit, every other instruction named */
@@ -2860,6 +3229,7 @@ static void post_rules(const Ctx *c, DecList *best, bool first_ok, TieList *ties
 		}
 	}
 	if (n > 1) {
+		hw_rules (c, best, first_ok);
 		ln_rename (c, best);
 	}
 	g_cur = saved_cur;
@@ -2907,30 +3277,60 @@ static bool parse_packet_inner(Ctx *cp, bool first_ok, DecList *best, TieList *t
 		best->d[best->n++] = d;
 		return false;
 	}
+	if (n == 2 && (units[0] & 0xC007) == 0x0004 && (units[0] & 0x0FFF) != 0 && (units[1] & 0xC007) == 0x8004 && (units[1] & 0x0FFF) != 0) {
+		/* slotpair0 (the table's post-layout split (5), decided BEFORE the layout): a 2-unit packet of two F-slot0 units whose
+		 * 32-bit reading has no name is stslot || stslot (never ambiguous) */
+		CtxD ctxd = CTXD_INIT (n, 0, units, 0);
+		int st;
+		ctxd.tail_dist = 1;
+		ctxd.tail_idx = 1;
+		const Dec d32 = dec32 (g, addrs[0], units[0], units[1], first_ok, &ctxd, false, false, 1, &st);
+		if (st == RS_UNDO || st == RS_WORD || !is_named (&d32)) {
+			best->d[best->n++] = ln_stslot_f0 (c, 0, LN_SLOTPAIR0, false);
+			best->d[best->n++] = ln_stslot_f0 (c, 1, LN_SLOTPAIR0, false);
+			return false;
+		}
+	}
 	if (first_ok && n >= 3) {
 		ut64 w = 0;
 		ut8 guard = USIP_G_NONE;
 		int rest[NU], nr = 0, hi, lo;
-		const UsipOpcode *pf = match_prefix (c, &w, &guard);
+		bool xvar = false, amb;
+		const UsipOpcode *pf = match_prefix (c, &w, &guard, &xvar);
 		if (pf) {
-			/* b<cond>.l prefix: one instruction, the rest of the packet is its delay slot */
+			/* b<cond>.l prefix: one instruction, the rest of the packet is its delay slot; the 64-bit variant with a free extension
+			 * unit keeps the three units U0 U1 T and reads X on its own as the first 16-bit instruction of the delay slot */
 			Dec d0 = { 0 };
 			d0.head = 0;
-			d0.nt = pf->nunits - 1;
-			for (k = 0; k < d0.nt; k++) {
-				d0.t[k] = k + 1;
-			}
 			d0.w = w;
 			d0.guard = guard;
+			if (xvar) {
+				d0.nt = 2;
+				d0.t[0] = 2;
+				d0.t[1] = 3;
+			} else {
+				d0.nt = pf->nunits - 1;
+				for (k = 0; k < d0.nt; k++) {
+					d0.t[k] = k + 1;
+				}
+			}
 			set_form (&d0, pf, addrs[0]);
 			best->d[best->n++] = d0;
+			if (xvar) {
+				Dec dx = dec16 (g, addrs[1], units[1], false, n, kidx (c, addrs[1]));
+				dx.head = 1;
+				best->d[best->n++] = dx;
+			}
 			for (k = pf->nunits; k < n; k++) {
 				rest[nr++] = k;
 			}
-			return rest_parse (c, rest, nr, best, ties);
+			amb = rest_parse (c, rest, nr, best, ties);
+			hw_rules (c, best, first_ok);
+			return amb;
 		}
 		if (abs_prefix (c, &hi, &lo)) {
 			CtxD ctxd = CTXD_INIT (n, 0, units, 0);
+			const bool saved_lr = g_lr32;
 			ctxd.tail_idx = hi;
 			Dec d0 = dec48 (g, addrs[0], units[0], units[hi], units[lo], true, &ctxd);
 			d0.head = 0;
@@ -2942,7 +3342,13 @@ static bool parse_packet_inner(Ctx *cp, bool first_ok, DecList *best, TieList *t
 					rest[nr++] = k;
 				}
 			}
-			return rest_parse (c, rest, nr, best, ties);
+			/* lr32: the rest of a call.abs / b.abs packet contains a jump (a mov32 r15, #return in its delay slot scores like a
+			 * validated target) */
+			g_lr32 = true;
+			amb = rest_parse (c, rest, nr, best, ties);
+			g_lr32 = saved_lr;
+			hw_rules (c, best, first_ok);
+			return amb;
 		}
 	}
 	const AsgList *all = group_parses (c, 0, first_ok);
@@ -3238,6 +3644,7 @@ static void dec_to_insn(const Dec *d, UsipInsn *in) {
 	}
 	in->pseudo = d->pseudo;
 	in->guard = d->guard;
+	in->loopq = d->loopq;
 	in->op = d->op;
 	in->kind = d->kind;
 	in->mnem = d->mnem;
@@ -3393,7 +3800,8 @@ static void fuse_pairs(UsipPacket *pk) {
 		const ut64 w = ((ut64)pk->units[in->head] << 16) | pk->units[nx->head];
 		for (j = 0; j < N_OPS; j++) {
 			const UsipOpcode *f = &usip_opcodes[j];
-			if (!(f->flags & USIP_F_FUSE) || f->nunits != 2 || (w & f->mask) != f->value || f->nrename_from < 1 || strcmp (in->mnem, f->rename_from[0])) {
+			if (!(f->flags & USIP_F_FUSE) || (f->flags & USIP_F_ADJ2) || f->nunits != 2 || (w & f->mask) != f->value || f->nrename_from < 1
+				|| strcmp (in->mnem, f->rename_from[0])) {
 				continue;
 			}
 			if (f->ncons && !cons_ok (f, w, in->head == 0, NULL, CM_FREE | CM_DEFER)) {
@@ -3426,9 +3834,63 @@ static void fuse_pairs(UsipPacket *pk) {
 	}
 }
 
-static void finish_packet(UsipPacket *pk) {
+static bool pk_has_call(const UsipPacket *pk) {
+	int i;
+	for (i = 0; i < pk->ninsn; i++) {
+		const int k = pk->insn[i].kind;
+		if (k == USIP_K_CALL || k == USIP_K_CALL16 || k == USIP_K_CALLA || k == USIP_K_CALLR) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/* R-slotc, ctx call_within_2_packets (slotc_mark): the slot pairs of the packet (stslot_slotc_h / _t) are
+ * firm only with a call in their packet or in the two following ones; otherwise they take the stslot? twins.  The following packets
+ * are the caller's first-pass readings (UsipGuardCtx.packet_at); when one of them cannot be seen the window ends there (a
+ * whole-function scan clips the window at the function end), so the pair prints stslot?. */
+static void slotc_mark(UsipPacket *pk, const UsipGuardCtx *g) {
+	bool any = false;
+	int i, k, q;
+	for (i = 0; i < pk->ninsn && !any; i++) {
+		const UsipInsn *in = &pk->insn[i];
+		any = in->op && (usip_op_index (in->op) == USIP_FORM_STSLOT_SLOTC_H || usip_op_index (in->op) == USIP_FORM_STSLOT_SLOTC_T);
+	}
+	if (!any || pk_has_call (pk)) {
+		return;
+	}
+	ut64 at = pk->addr + 2 * (ut64)pk->nunits;
+	for (q = 0; q < 2; q++) {
+		const UsipPacket *nx = (g && g->packet_at)? g->packet_at (g->user, at, false): NULL;
+		if (!nx || !nx->nunits || nx->addr != at || nx->truncated) {
+			break;
+		}
+		if (pk_has_call (nx)) {
+			return;
+		}
+		at = nx->addr + 2 * (ut64)nx->nunits;
+	}
+	for (i = 0; i < pk->ninsn; i++) {
+		UsipInsn *in = &pk->insn[i];
+		const int idx = usip_op_index (in->op);
+		if (idx != USIP_FORM_STSLOT_SLOTC_H && idx != USIP_FORM_STSLOT_SLOTC_T) {
+			continue;
+		}
+		const UsipOpcode *f = &usip_opcodes[idx == USIP_FORM_STSLOT_SLOTC_H? USIP_FORM_STSLOT_SLOTC_H_Q: USIP_FORM_STSLOT_SLOTC_T_Q];
+		in->op = f;
+		in->kind = f->kind;
+		in->mnem = f->name;
+		in->nvals = R_MIN (f->nfields, USIP_MAX_VALS);
+		for (k = 0; k < in->nvals; k++) {
+			in->vals[k] = field_value (f, k, in->w);
+		}
+	}
+}
+
+static void finish_packet(UsipPacket *pk, const UsipGuardCtx *g) {
 	apply_renames (pk);
 	fuse_pairs (pk);
+	slotc_mark (pk, g);
 	pk->delay = pk->ninsn > 1 && pk->owner[0] != 0xff && kind_delays (pk->insn[pk->owner[0]].kind);
 }
 
@@ -3539,6 +4001,14 @@ static void format_operands(const UsipInsn *in, ut64 pc, RStrBuf *sb) {
 	tmp[o] = 0;
 	r_strbuf_fini (&ob);
 	r_str_trim_tail (tmp);
+	if (in->loopq && o + 1 < sizeof (tmp)) {
+		/* loop #N?: the ? goes after the count */
+		char *cm = strchr (tmp, ',');
+		if (cm) {
+			memmove (cm + 1, cm, strlen (cm) + 1);
+			*cm = '?';
+		}
+	}
 	if (*tmp) {
 		r_strbuf_append (sb, " ");
 		r_strbuf_append (sb, tmp);
@@ -4302,7 +4772,7 @@ void usip_decode_packet(UsipPacket *pk, ut64 addr, const ut16 *units, int n, boo
 	const bool cascade_on = !(g && (g->flags & USIP_GUARD_NO_CASCADE));
 	pk->ambiguous = parse_packet (g, units, addrs, n, true, addr, &dec, cascade_on? &ties: NULL);
 	fill_packet (pk, &dec);
-	finish_packet (pk);
+	finish_packet (pk, g);
 	if (pk->ambiguous && ties.n >= 2) {
 		/* the K-tie cascade: dedup / nowaw / du2 over the tied readings; the chosen one replaces the K reading */
 		ut8 how = USIP_T_NONE;
@@ -4320,7 +4790,7 @@ void usip_decode_packet(UsipPacket *pk, ut64 addr, const ut16 *units, int n, boo
 				post_rules (&c, &d2, ties.first_ok, NULL, &amb2);
 			}
 			fill_packet (pk, &d2);
-			finish_packet (pk);
+			finish_packet (pk, g);
 			pk->ambiguous = false;
 			pk->tiebreak = how;
 		}
