@@ -15,7 +15,7 @@ all: $(PLUGIN) $(ASM_PLUGIN) tools/md32-run
 USIP_SRC = usip_decode.c
 USIP_HDR = usip_decode.h usip_opcodes.h
 # the SCQ16 decoder is included by scq16_arch.inc.c (one table instance): dependencies only
-SCQ16_HDR = scq16_arch.inc.c scq16_decode.c scq16_decode.h scq16_opcodes.h
+SCQ16_HDR = scq16_arch.inc.c scq16_vu.inc.c scq16_decode.c scq16_decode.h scq16_opcodes.h
 
 $(PLUGIN): arch_md32.c md32_opcodes.h $(USIP_SRC) $(USIP_HDR) $(SCQ16_HDR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -shared -o $@ arch_md32.c $(USIP_SRC) $(LDLIBS)
