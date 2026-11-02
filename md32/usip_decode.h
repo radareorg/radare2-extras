@@ -15,7 +15,9 @@
  * packet is its delay slot.  Once the layout is decided the post-layout rename entries of the table relabel the
  * instructions they match.  Some control forms carry a target guard (the target must be a packet start of the same
  * function or a function start): the caller supplies that knowledge through UsipGuardCtx, the decoder applies the
- * documented fallback when it is missing.  See README.md "uSIP mode". */
+ * documented fallback when it is missing.  The instructions of a packet execute in parallel and every read sees the
+ * state before the packet (USIP_PACKET_EXEC_PARALLEL): the decoder never depends on an intra-packet order.  See
+ * README.md "uSIP mode". */
 
 #ifndef USIP_DECODE_H
 #define USIP_DECODE_H
@@ -62,6 +64,7 @@ typedef struct {
 	ut8 tails[USIP_MAX_TAILS]; /* unit indices of the tails (hi, lo) */
 	ut8 pseudo;             /* enum usip_pseudo */
 	ut8 guard;              /* enum usip_guard */
+	ut8 loopq;              /* a loop #N reading printed loop #N? (N = 0 or the end at pc + 2^k: the loop #N? rule of the table) */
 	const UsipOpcode *op;   /* NULL when pseudo != USIP_P_FORM (USIP_P_HI carries the context form) */
 	ut8 kind;               /* enum usip_kind (USIP_K_OTHER / USIP_K_FMT for the pseudo forms) */
 	const char *mnem;       /* mnemonic */
@@ -118,6 +121,11 @@ typedef struct {
 	 * vectors); NULL = the same-function packet starts stand in */
 	int (*packet_start_any)(void *user, ut64 addr);
 	unsigned flags;
+	/* packet_units: the number of units (1..8) of the packet that STARTS at addr, -1 when unknown (the loop #N guard: bit 4 of
+	 * the head must agree with "the packet at the loop end crosses a 16-byte line"; unknown = the guard is not evaluated).
+	 * The two packets after the one being decoded (packet_at with before = false) also decide the stslot / stslot? twins of
+	 * the op c slot pairs (a call within two packets); when they cannot be seen the pair prints stslot?. */
+	int (*packet_units)(void *user, ut64 addr);
 } UsipGuardCtx;
 
 /* Collect the units of the packet that starts at buf (len bytes available).  Returns the number of units (0 when

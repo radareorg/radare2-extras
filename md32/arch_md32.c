@@ -646,6 +646,38 @@ static int usip_guard_packet_start(void *user, ut64 a) {
 	return p == a? 1: 0;
 }
 
+/* the number of units of the packet that starts at a (the loop #N guard of the table compares bit 4 of the head with "the packet at
+ * the loop end crosses a 16-byte line"): from the bytes at hand, else from a packet decoded earlier in the session; -1 = unknown */
+static int usip_guard_packet_units(void *user, ut64 a) {
+	const UsipGuardUser *u = (const UsipGuardUser *)user;
+	const st64 off = (st64)(a - u->base);
+	int i;
+	if (a >= u->base && off + 2 <= u->len) {
+		ut16 units[USIP_MAX_UNITS];
+		bool truncated;
+		const int n = usip_scan_units (u->bytes + off, (int)R_MIN (u->len - off, 2 * USIP_MAX_UNITS), units, &truncated);
+		if (n >= 1 && !truncated && (units[n - 1] & 0x8000)) {
+			/* (eight units without a closer are not a packet: unknown) */
+			return n;
+		}
+	}
+	if (u->st) {
+		for (i = 0; i < USIP_CACHE_SIZE; i++) {
+			const UsipPacket *pk = &u->st->pk[i];
+			if (pk->nunits && !pk->truncated && pk->addr == a) {
+				return pk->nunits;
+			}
+		}
+		for (i = 0; i < u->st->nctx; i++) {
+			const UsipPacket *pk = &u->st->ctxpk[i];
+			if (pk->nunits && !pk->truncated && pk->addr == a) {
+				return pk->nunits;
+			}
+		}
+	}
+	return -1;
+}
+
 static int usip_guard_branch_target(void *user, ut64 a) {
 	const UsipGuardUser *u = (const UsipGuardUser *)user;
 	return u->st && usip_set_has (&u->st->btgt, a)? 1: 0;
@@ -686,7 +718,8 @@ static const UsipPacket *usip_guard_packet_at(void *user, ut64 a, bool before) {
 	}
 	UsipPacket *pk = &st->ctxpk[st->nctx++];
 	UsipGuardUser gu = { st, a, n, u->base, u->bytes, u->len };
-	UsipGuardCtx g = { .user = &gu, .packet_start = usip_guard_packet_start, .branch_target = usip_guard_branch_target, .flags = USIP_GUARD_NO_CASCADE };
+	UsipGuardCtx g = { .user = &gu, .packet_start = usip_guard_packet_start, .branch_target = usip_guard_branch_target, .packet_units = usip_guard_packet_units,
+		.flags = USIP_GUARD_NO_CASCADE };
 	usip_decode_packet (pk, a, units, n, truncated, &g);
 	usip_record_targets (st, pk);
 	return pk;
@@ -747,7 +780,8 @@ static UsipPacket *usip_cached_packet(UsipState *st, ut64 addr, const ut8 *bytes
 			memcpy (units, pk->units, u0 * sizeof (ut16));
 			n += usip_scan_units (bytes, R_MIN (len, 2 * (USIP_MAX_UNITS - u0)), units + u0, &truncated);
 			UsipGuardUser gu = { st, pk->addr, n, addr, bytes, len };
-			UsipGuardCtx g = { .user = &gu, .packet_start = usip_guard_packet_start, .packet_at = usip_guard_packet_at, .branch_target = usip_guard_branch_target };
+			UsipGuardCtx g = { .user = &gu, .packet_start = usip_guard_packet_start, .packet_at = usip_guard_packet_at, .branch_target = usip_guard_branch_target,
+				.packet_units = usip_guard_packet_units };
 			st->nctx = 0;
 			usip_decode_packet (pk, pk->addr, units, n, truncated, &g);
 			usip_record_targets (st, pk);
@@ -1143,7 +1177,8 @@ static bool usip_decode(RArchSession *s, RAnalOp *op, RArchDecodeMask mask) {
 			pk = &local;
 		}
 		UsipGuardUser gu = { st, op->addr, n, op->addr, op->bytes, available };
-		UsipGuardCtx g = { .user = &gu, .packet_start = usip_guard_packet_start, .packet_at = usip_guard_packet_at, .branch_target = usip_guard_branch_target };
+		UsipGuardCtx g = { .user = &gu, .packet_start = usip_guard_packet_start, .packet_at = usip_guard_packet_at, .branch_target = usip_guard_branch_target,
+			.packet_units = usip_guard_packet_units };
 		if (st) {
 			st->nctx = 0;
 		}
