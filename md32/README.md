@@ -6,11 +6,21 @@ covers all **258 encoding forms** in the public vendor disassembler, including
 registers, and hardware-loop setup. It has no runtime dependency on Python,
 Ghidra, Capstone, or vendor binutils.
 
-The **uSIP** binaries use a different, VLIW-packet encoding. Select the `usip`
-CPU for these (`e asm.cpu=usip`); see [uSIP mode](#usip-mode). The **SCQ16**
-binaries (the vector DSP of the same family) use a byte-granular packet
-encoding: select the `scq16` CPU (`e asm.cpu=scq16`); see
-[SCQ16 mode](#scq16-mode).
+The plugin serves three encodings of the same modem DSP line, selected with
+`asm.cpu`:
+
+* **MS15E30** (the default): the public MD32 ISA, 16/32-bit instructions.
+* **uSIP** (`e asm.cpu=usip`): a later MD32 variant that packs 16-bit units into
+  VLIW packets. Same register model and much of the same vocabulary as MS15E30,
+  but a different encoding; see [uSIP mode](#usip-mode).
+* **SCQ16** (`e asm.cpu=scq16`): a byte-granular, big-endian packet encoding
+  that is **not** an MD32 encoding. It is served by this plugin because its
+  scalar programming model (32 general registers, `sp`/`lr` as control
+  registers, calling convention, the scalar operations and their ESIL) follows
+  MD32 closely; its instruction table is its own. See [SCQ16 mode](#scq16-mode).
+
+The remaining DSP cores of the same modem use an unrelated SIMD ISA
+(byte-granular, little-endian) and are out of this plugin's scope.
 
 ## Build and use
 
@@ -313,8 +323,9 @@ context-rule semantics.
 
 ## SCQ16 mode
 
-`e asm.cpu=scq16` selects the decoder for the **SCQ16** variant of the MD32
-family, a vector DSP whose instruction stream is byte-granular: units of 2 to 6
+`e asm.cpu=scq16` selects the decoder for the **SCQ16**, a byte-granular
+encoding of the same modem DSP line (not an MD32 encoding; it shares the
+scalar programming model, see the introduction) whose instruction stream is byte-granular: units of 2 to 6
 bytes (vector operations are 4 bytes, bundles 8), optionally paired in a
 **packet** `{ A ‖ B }` whose two units execute in parallel.  The table is an
 empirical description, not a vendor specification: every form carries a
