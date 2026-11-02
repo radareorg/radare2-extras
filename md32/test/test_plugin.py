@@ -87,9 +87,13 @@ def integration():
     assert [o['size'] for o in ops] == [2, 2, 4, 2, 2]
     assert ops[2]['opcode'] == '.unit 0x733769b0 (call.abs @ 0x00001058)'
     # hardware loop: the end address is a reference, not a branch (its guard validates on the packet that starts there).
-    ops = json.loads(r2('e asm.cpu=usip;wx 060f02277010786028104390c100c123e227@0x2478;aoj 1@0x2478', 0x8000)[0])
+    ops = json.loads(r2('e asm.cpu=usip;wx 060ff010e227e227e227e227e227e227e227@0x2478;aoj 1@0x2478', 0x8000)[0])
     assert ops[0]['opcode'] == 'loop r3, last=0x00002488' and ops[0]['ptr'] == 0x2488 and 'jump' not in ops[0]
     assert ops[0]['opex']['target_guard'] == 'validated'
+    # (the 760-form table reads the former loop vector as the half-word load with the deferred F' = 0 tail and any base: rf0dall)
+    ops = json.loads(r2('e asm.cpu=usip;wx 060f02277010786028104390c100c123e227@0x2478;aoj 6@0x2478', 0x8000)[0])
+    assert [o['opcode'] for o in ops[:3]] == ['movi r3, #0x1', 'cmov r0, r1, r2', 'ld.hu r1, [r8!+0x810]'] and ops[2]['opex']['form'] == 'rf0dall_ld_hu'
+    assert ops[5]['opcode'] == 'ld.w r9!, [r1+0x100]' and ops[2]['opex']['units'] == [0x247c, 0x2480]
     # ret.d: the next op is its delay slot; ret closes a packet by itself.
     ops = json.loads(r2('e asm.cpu=usip;wx 5ef9a10ddef9@0x10a2;aoj 3@0x10a2', 0x8000)[0])
     assert ops[0]['opcode'] == 'ret.d' and ops[0]['type'] == 'ret' and ops[0]['delay'] == 1
@@ -262,7 +266,7 @@ def integration():
     assert ops[4]['opcode'] == 'mtacc? A0, r2!:r4!' and ops[4]['opex']['form'] == 'op7d_2_mtacc_q' and ops[4]['opex']['units'] == [0xe18, 0xe1a]
     assert ops[0]['opcode'] == 'ld.w r4!, [r14+0x14]' and ops[1]['opcode'] == 'addi r5!, r14, #0x8'
     ops = json.loads(r2('e asm.cpu=usip;wx 10a77b004087c001@0xf20;aoj 2@0xf20', 0x8000)[0])
-    assert [o['opcode'] for o in ops] == ['lsl r0, r8, #0xa', 'movi r8, #-32768'] and ops[1]['type'] == 'mov' and ops[1]['opex']['form'] == 'movi_min16'
+    assert [o['opcode'] for o in ops] == ['lsl r0, r8, #0xa', 'movi r8, #-0x10000'] and ops[1]['type'] == 'mov' and ops[1]['opex']['form'] == 'movi_imm17'
     ops = json.loads(r2('e asm.cpu=usip;wx 1c300097410838654604ffff@0x46ba;aoj 5@0x46ba', 0x8000)[0])
     assert ops[4]['opcode'] == 'sgt r0, r3, #-1' and ops[4]['type'] == 'cmp' and ops[4]['opex']['form'] == 'setcc_op4_t31_sgt_m1_F1S1'
     assert [o['opcode'] for o in ops[:2]] == ['ld.w r3, [r14+0x108]', 'cmov r5, r0, r9']
@@ -296,7 +300,8 @@ def integration():
     ops = json.loads(r2('e asm.cpu=usip;wx 1e10424044078807@0x1e90;aoj 2@0x1e90', 0x8000)[0])
     assert [o['opcode'] for o in ops] == ['ld.w? r1, [r15+0x407]', 'addi r4, r1, #-0x3fd'] and ops[0]['opex']['form'] == 'x1e0_ld_w_q' and ops[0]['opex']['units'] == [0x1e90, 0x1e94]
     ops = json.loads(r2('e asm.cpu=usip;wx 4200790e9008@0x1bbc;aoj 2@0x1bbc', 0x8000)[0])
-    assert [o['opcode'] for o in ops] == ['ld.h r0, [r1+0x8]', 'st.w r0, [r12+24]'] and ops[0]['opex']['form'] == 'ld_h_Fp0' and ops[0]['opex']['units'] == [0x1bbc, 0x1bc0]
+    assert [o['opcode'] for o in ops] == ['ld.h r0, [r1+0x8]', 'st.w r0, [r12+24]'] and ops[0]['opex']['form'] == 'rf0dall_ld_h' and ops[0]['opex']['units'] == [0x1bbc, 0x1bc0]
+    # (the 760-form table reads this pair inside the layout as the F' = 0 half-word load with any base, rf0dall; the rename ld_h_Fp0 never sees it)
     ops = json.loads(r2('e asm.cpu=usip;wx 0f009240@0x2176;aoj 1@0x2176', 0x8000)[0])
     assert ops[0]['opcode'] == '.ldF0? r0!, [r7+0x240]' and ops[0]['type'] == 'unk' and ops[0]['opex']['form'] == 'ldF0_q_t1_adj'
     # The 48-bit constants admitted by the value table (any op 0 head), and the .3eX0? trio that is not a constant.
@@ -314,7 +319,7 @@ def integration():
     ops = json.loads(r2('e asm.cpu=usip;wx 0c8778e7e43d@0x65e;aoj 2@0x65e', 0x8000)[0])
     assert [o['opcode'] for o in ops] == ['slt r7, r6, r8', 'sext16 r3, r2'] and ops[1]['type'] == 'cast' and ops[1]['opex']['form'] == 'sext16_F1_c'
     ops = json.loads(r2('e asm.cpu=usip;wx 09077b27066a693d8a98@0x7d9e;aoj 3@0x7d9e', 0x8000)[0])
-    assert ops[2]['opcode'] == 'zext16? r3, r4' and ops[2]['opex']['form'] == 'zext16_F1_S0_q' and ops[1]['opcode'] == 'movi r6, #0x1d4c'
+    assert ops[2]['opcode'] == 'zext16 r3, r4' and ops[2]['opex']['form'] == 'zext16_F1_S0' and ops[1]['opcode'] == 'movi r6, #0x1d4c'
     ops = json.loads(r2('e asm.cpu=usip;wx 001f5000c103@0x3338;aoj 2@0x3338', 0x8000)[0])
     assert [o['opcode'] for o in ops] == ['cop r0', 'addi r0, #32'] and ops[1]['type'] == 'add' and ops[1]['opex']['form'] == 'addi32_cop'
     # H1: a loose hi syllable is .hi only after a head of the 48-bit family (here the ld.w); movhi with the tt = 10
@@ -367,8 +372,11 @@ def integration():
     assert [o['opcode'] for o in ops] == ['movi r0, #-1', 'movi r1, #0x0'] and ops[0]['opex']['form'] == 'movi_m1_F0_S0' and ops[0]['type'] == 'mov'
     ops = json.loads(r2('e asm.cpu=usip;wx 8022@0x1028;aoj 1@0x1028', 0x8000)[0])
     assert ops[0]['opcode'] == 'lsl r0, #0x2' and ops[0]['type'] == 'shl' and ops[0]['opex']['form'] == 'lsl16_imm'
+    ops = json.loads(r2('e asm.cpu=usip;wx 020745f28479e5fe8c0b@0x7e4e;aoj 2@0x7e4e', 0x8000)[0])
+    assert ops[1]['opcode'] == 'asr r2, #0xf' and ops[1]['type'] == 'sar' and ops[1]['opex']['form'] == 'asr16_imm'
+    # (in the first slot the same unit is the 16-bit ld.w rB, [rA +/- 4] since the 760-form table)
     ops = json.loads(r2('e asm.cpu=usip;wx 45f28479e5fe8c0b@0x7e50;aoj 1@0x7e50', 0x8000)[0])
-    assert ops[0]['opcode'] == 'asr r2, #0xf' and ops[0]['type'] == 'sar' and ops[0]['opex']['form'] == 'asr16_imm'
+    assert ops[0]['opcode'] == 'ld.w r15, [r2+0x4]' and ops[0]['type'] == 'load' and ops[0]['opex']['form'] == 'ld_w16_2_k0_F1'
     ops = json.loads(r2('e asm.cpu=usip;wx 4006c402@0x818;aoj 2@0x818', 0x8000)[0])
     assert ops[1]['opcode'] == 'op2z? r2' and ops[1]['opex']['form'] == 'op2z_q' and ops[1]['opex']['confidence'] == 'medium'
     ops = json.loads(r2('e asm.cpu=usip;wx 8522@0x1000;aoj 1@0x1000', 0x8000)[0])
@@ -397,14 +405,14 @@ def integration():
     # Hardware loops: loop.b1? (B = 1) validated and unverified (its ss >= 2 twin), loop rX?ss=N; movi? #-32767; the asr16 clamp
     # with the same register on both sides.
     ops = json.loads(r2('e asm.cpu=usip;wx 0a1f08f7701c7b60300740073d03bac0024050024027fd0546f7fb63@0x4210;aoj 2@0x4210', 0x8000)[0])
-    assert ops[0]['opcode'] == 'loop.b1? r5, last=0x0000422c' and ops[0]['ptr'] == 0x422c and ops[0]['opex']['form'] == 'loop_b1_q' and ops[0]['opex']['target_guard'] == 'validated'
+    assert ops[0]['opcode'] == 'loop r5, last=0x0000422c, x16' and ops[0]['ptr'] == 0x422c and ops[0]['opex']['form'] == 'loop_b1' and ops[0]['opex']['target_guard'] == 'validated'
     assert ops[0]['opex']['units'] == [0x4210, 0x4214] and ops[1]['opcode'] == 'lsr r0, r4, #0xf'
     ops = json.loads(r2('e asm.cpu=usip;wx 221f705cc029@0x25c2;aoj 1@0x25c2', 0x8000)[0])
-    assert ops[0]['opcode'] == 'loop.b1?? r1?ss=2, last=0x0000261e' and ops[0]['opex']['form'] == 'loop_b1_q_ssq' and ops[0]['opex']['target_guard'] == 'unverified'
+    assert ops[0]['opcode'] == 'loop? r1?ss=2, last=0x0000261e, x16' and ops[0]['opex']['form'] == 'loop_b1_ssq' and ops[0]['opex']['target_guard'] == 'unverified'
     ops = json.loads(r2('e asm.cpu=usip;wx 340f3816701c4008002a40078060e233a62a86994630c0244636f0024606cc02@0x22c6;aoj 1@0x22c6', 0x8000)[0])
     assert ops[0]['opcode'] == 'loop r2?ss=3, last=0x000022e2' and ops[0]['opex']['form'] == 'loop_ssq' and ops[0]['opex']['target_guard'] == 'validated'
     ops = json.loads(r2('e asm.cpu=usip;wx 040c202700a0c003@0x6214;aoj 2@0x6214', 0x8000)[0])
-    assert ops[1]['opcode'] == 'movi r2, #-32767' and ops[1]['opex']['form'] == 'movi_m32767' and ops[1]['opex']['units'] == [0x6216, 0x621a] and ops[0]['opcode'] == 'sub r0, r2, r0'
+    assert ops[1]['opcode'] == 'movi r2, #-0x7fff' and ops[1]['opex']['form'] == 'movi_imm17' and ops[1]['opex']['units'] == [0x6216, 0x621a] and ops[0]['opcode'] == 'sub r0, r2, r0'
     ops = json.loads(r2('e asm.cpu=usip;wx 0007d4d4060cc0c0c161@0xc0a;aoj 2@0xc0a', 0x8000)[0])
     assert [o['opcode'] for o in ops] == ['asr16 r0, r0, #10', 'L_shr r0, r3, r0'] and ops[0]['opex']['form'] == 'asr16_clamp_u' and ops[0]['type'] == 'sar'
     # The bit-field family by H H T T pair (R-bfpair) and by cell (the BF_SEL renames of .bf?: fup, fup?, fxtu, fxtu?, fxts?).
@@ -495,7 +503,7 @@ def integration():
     assert ops[0]['opcode'] == 'loop# #240, last=0x0000a1ec' and ops[0]['opex']['form'] == 'loop_imm_h1_F1S1' and ops[0]['opex']['target_guard'] == 'validated'
     assert ops[1]['opcode'] == 'ld.hu r0, [r8+r12]' and ops[1]['opex']['form'] == 'idx_4_ld_hu' and ops[1]['type'] == 'load'
     ops = json.loads(r2('e asm.cpu=usip;wx 200f6012d6070eb4602a6c6d961314acc44a0ca7fc460c07@0xc55e;aoj 2@0xc55e', 0x20000)[0])
-    assert ops[0]['opcode'] == 'loop#? #256?, last=0x0000c570' and ops[0]['val'] == 256 and ops[0]['opex']['form'] == 'loop_imm_m1_q_F0S0'
+    assert ops[0]['opcode'] == 'loop# #256, last=0x0000c570' and ops[0]['val'] == 256 and ops[0]['opex']['form'] == 'loop_imm_m1_F0S0'
     assert ops[0]['opex']['target_guard'] == 'validated' and ops[0]['opex']['confidence'] == 'medium' and ops[1]['opcode'] == 'movi r11, #0x0'
     ops = json.loads(r2('e asm.cpu=usip;wx 200f6012d607@0xc55e;aoj 2@0xc55e', 0x20000)[0])
     assert [o['opcode'] for o in ops] == ['movi r0!, #0x1', 'ld.w r1, [r0+0]']
@@ -550,15 +558,15 @@ def integration():
     assert [o['opcode'] for o in ops] == ['stslot r0, #0x0', 'stslot r13!, #0x2', 'mov r0, r13!', 'mov r1, r10']
     assert ops[0]['opex']['form'] == 'stslot_F0' and ops[1]['opex']['form'] == 'stslot_S0_pos1' and ops[0]['type'] == 'store' and ops[0]['size'] == 2
     ops = json.loads(r2('e asm.cpu=usip;wx 17e48dbc@0xf0e6;aoj 2@0xf0e6', 0x20000)[0])
-    assert [o['opcode'] for o in ops] == ['stslot? r14!, #0x16', 'stslot r11!, #0xd'] and ops[0]['opex']['form'] == 'stslot_F0_q' and ops[1]['opex']['form'] == 'stslot_F0'
+    assert [o['opcode'] for o in ops] == ['stslot r14!, #0x16', 'stslot r11!, #0xd'] and ops[0]['opex']['form'] == 'stslot_F0_k16' and ops[1]['opex']['form'] == 'stslot_F0'
     ops = json.loads(r2('e asm.cpu=usip;wx 2e1010201294040000048001@0x10f2;aoj 3@0x10f2', 0x20000)[0])
     assert [o['opcode'] for o in ops] == ['addi r1, r7!, #0x200', 'addi r2, r8, #0x2', 'stslot? r9, #0x12'] and ops[2]['opex']['form'] == 'stslot_F0_q'
     ops = json.loads(r2('e asm.cpu=usip;wx 405e41c4b64a@0x4dbc;aoj 2@0x4dbc', 0x20000)[0])
     assert [o['opcode'] for o in ops] == ['call? 0x0000a406', 'stslot r12!, #0x0'] and ops[1]['opex']['form'] == 'stslot_S0_pos1' and ops[1]['opex']['delay_slot']
     ops = json.loads(r2('e asm.cpu=usip;wx 5024442020040c47fcaf@0x17a8;aoj 2@0x17a8', 0x20000)[0])
-    assert [o['opcode'] for o in ops] == ['ld.w r4, [r8+r2]', 'ldslot? r2, #0x4'] and ops[1]['opex']['form'] == 'ldslot_S0_pos1_q' and ops[1]['type'] == 'load'
+    assert [o['opcode'] for o in ops] == ['ld.w r4, [r8+r2]', 'ldslot r2, #0x4'] and ops[1]['opex']['form'] == 'ldslot_S0_pos1' and ops[1]['type'] == 'load'
     ops = json.loads(r2('e asm.cpu=usip;wx 32907218b231@0x4d82;aoj 3@0x4d82', 0x20000)[0])
-    assert [o['opcode'] for o in ops] == ['ldslot r9, #0x32', 'ldslot? r1, #0x33', 'mov r3, r9!'] and ops[0]['opex']['form'] == 'ldslot_S3_F0' and ops[1]['opex']['form'] == 'ldslot_S0_pos1_q'
+    assert [o['opcode'] for o in ops] == ['ldslot r9, #0x32', 'ldslot r1, #0x33', 'mov r3, r9!'] and ops[0]['opex']['form'] == 'ldslot_S3_F0' and ops[1]['opex']['form'] == 'ldslot_S0_pos1'
     ops = json.loads(r2('e asm.cpu=usip;wx 4a09006672b82002bdd4@0x16f8;aoj 5@0x16f8', 0x20000)[0])
     assert ops[4]['opcode'] == 'stslot r13!, #0x3c' and ops[4]['opex']['form'] == 'stslot_S3_F0' and ops[0]['opcode'] == 'blt.d? r5, #0x1, 0x000017b0'
     # The post-layout fusion op72? (movi rA || asr? rA of the same rrr), saturate? (op c with B = 0 and rd = rs1), the sat40.a? H H T T.
@@ -566,7 +574,7 @@ def integration():
     assert [o['opcode'] for o in ops] == ['op72? r1, #0x0, asr#0x1', 'movi r12, #0x7'] and ops[0]['opex']['form'] == 'op72_q' and ops[0]['opex']['units'] == [0xe928, 0xe92a]
     assert ops[0]['size'] == 4 and ops[0]['opex']['confidence'] == 'low' and ops[0]['type'] == 'unk'
     ops = json.loads(r2('e asm.cpu=usip;wx 020cc001@0xc1a4;aoj 1@0xc1a4', 0x20000)[0])
-    assert ops[0]['opcode'] == 'saturate? r1, r1' and ops[0]['opex']['form'] == 'dsp_00_saturate_q' and ops[0]['size'] == 4
+    assert ops[0]['opcode'] == 'saturate r1, r1' and ops[0]['opex']['form'] == 'dsp_00_saturate' and ops[0]['size'] == 4
     ops = json.loads(r2('e asm.cpu=usip;wx 000c020c08c0c8c1@0x1d92;aoj 2@0x1d92', 0x20000)[0])
     assert [o['opcode'] for o in ops] == ['sat40.a? A0, A0', 'sat40.a? A1, A1'] and ops[0]['opex']['units'] == [0x1d92, 0x1d96] and ops[1]['opex']['units'] == [0x1d94, 0x1d98]
     # The score rules: R-waw with the P2W exemption of the H H T T prefix (ld.w || st.w of the = 2 class in an 8-unit packet), the
@@ -615,6 +623,96 @@ def integration():
     ops = json.loads(r2('e asm.cpu=usip;wx 040a761240618fe748096d170200c946dce90677@0x1c7c;aoj 3@0x1c7c', 0x20000)[0])
     assert [o['opcode'] for o in ops] == ['bgt.d r2, #0x3, 0x00001c8e', 'mov r6, r0', 'movi r7, #-0x4'] and ops[2]['opex']['form'] == 'movi6_dsbr' and ops[2]['type'] == 'mov'
     assert ops[0]['opex']['target_guard'] == 'validated' and ops[2]['opex']['delay_slot']
+    # Table update (760 forms).  The packet executes in parallel: the second add reads the old r3.
+    ops = json.loads(r2('e asm.cpu=usip;wx 7a3646464004c3ff@0xc38c;aoj 2@0xc38c', 0x20000)[0])
+    assert [o['opcode'] for o in ops] == ['add r3, r13!, #0x2', 'add r4, r3, #-0x1'] and ops[0]['opex']['units'] == [0xc38c, 0xc390] and ops[1]['opex']['units'] == [0xc38e, 0xc392]
+    # movi rB, #imm17: the op 7 head with the null-field tail (m = 0 is -65536 / -65535; the former -32768 / -32767 cells are the m = 1 ones).
+    ops = json.loads(r2('e asm.cpu=usip;wx 002702078001@0x4dce;aoj 2@0x4dce', 0x20000)[0])
+    assert [o['opcode'] for o in ops] == ['movi r2, #-0x10000', 'movi r1, #0x0'] and ops[0]['opex']['form'] == 'movi_imm17' and ops[0]['opex']['units'] == [0x4dce, 0x4dd2]
+    assert ops[0]['val'] == (-0x10000) & 0xffffffffffffffff and ops[0]['type'] == 'mov'
+    ops = json.loads(r2('e asm.cpu=usip;wx 2067c001@0x78ac;aoj 1@0x78ac', 0x20000)[0])
+    assert ops[0]['opcode'] == 'movi r6, #-0x8000' and ops[0]['opex']['form'] == 'movi_imm17' and ops[0]['size'] == 4
+    ops = json.loads(r2('e asm.cpu=usip;wx 3127434a00018000@0x6174;aoj 2@0x6174', 0x20000)[0])
+    assert [o['opcode'] for o in ops] == ['movi r2!, #-0x4000', 'movi r4!, #0x800'] and ops[0]['opex']['form'] == 'movi_imm17' and ops[1]['opex']['form'] == 'movi21'
+    # movhi with the small F' = 0 tails: c001 (0x10000000) and the even f12 (0x1000..0x7000).
+    ops = json.loads(r2('e asm.cpu=usip;wx 0018c001@0x3000;aoj 1@0x3000', 0x20000)[0])
+    assert ops[0]['opcode'] == 'movhi r1, #0x10000000' and ops[0]['opex']['form'] == 'movhi_small_c001' and ops[0]['val'] == 0x10000000
+    ops = json.loads(r2('e asm.cpu=usip;wx 00288004@0x3010;aoj 1@0x3010', 0x20000)[0])
+    assert ops[0]['opcode'] == 'movhi r2, #0x00002000' and ops[0]['opex']['form'] == 'movhi_small_Fp0' and ops[0]['val'] == 0x2000
+    # The 16-bit ld.w rB, [rA -/+ 4] of the first slot, the one-unit st.w rB, [rA -/+ 4] and the class-E addi rA, #-4.
+    ops = json.loads(r2('e asm.cpu=usip;wx c10242075206790ccbdf@0x2ef6;aoj 1@0x2ef6', 0x20000)[0])
+    assert ops[0]['opcode'] == 'ld.w r0, [r0+0x4]' and ops[0]['opex']['form'] == 'ld_w16_2_k0_F1' and ops[0]['type'] == 'load' and ops[0]['disp'] == 4 and ops[0]['refptr'] == 4
+    ops = json.loads(r2('e asm.cpu=usip;wx c22294a97fee@0x2f5e;aoj 1@0x2f5e', 0x20000)[0])
+    assert ops[0]['opcode'] == 'ld.w r2, [r1-0x4]' and ops[0]['opex']['form'] == 'ld_w16_2_k0_F1' and ops[0]['size'] == 2
+    ops = json.loads(r2('e asm.cpu=usip;wx c862ca66c863ca67@0xcefa;aoj 2@0xcefa', 0x20000)[0])
+    assert [o['opcode'] for o in ops] == ['ld.w r6, [r4-0x4]', 'st.w r6, [r5-0x4]'] and ops[1]['opex']['form'] == 'st_w16_6_alone_F1' and ops[1]['type'] == 'store'
+    ops = json.loads(r2('e asm.cpu=usip;wx 61e3a3e3@0xcf2a;aoj 2@0xcf2a', 0x20000)[0])
+    assert [o['opcode'] for o in ops] == ['addi r0, #-0x4', 'addi r1, #-0x4'] and ops[0]['opex']['form'] == 'addi7_E_neg' and ops[0]['type'] == 'add'
+    # Hardware loops: loop rX, last, x16 (B = 1) validated; loop #N (m = 1, without the ?) with bit 4 of the head agreeing with the
+    # 16-byte line of its end packet (seen before, crossing a line) and rejected when that packet does not cross one; the
+    # loop #N? rule (the end at pc + 0x100), validated and unverified.
+    ops = json.loads(r2('e asm.cpu=usip;wx 041f701040398239c122c3264022cffb4223dffb@0xcf2e;aoj 1@0xcf2e', 0x20000)[0])
+    assert ops[0]['opcode'] == 'loop r2, last=0x0000cf3e, x16' and ops[0]['opex']['form'] == 'loop_b1' and ops[0]['opex']['target_guard'] == 'validated' and ops[0]['ptr'] == 0xcf3e
+    ops = json.loads(r2('e asm.cpu=usip;wx 00000000000000008000@0xcb08;wx 201f6062071044071356f8c0@0xcaa6;aoj 1@0xcb08;aoj 2@0xcaa6', 0x20000)[1])
+    assert ops[0]['opcode'] == 'loop# #256, last=0x0000cb08' and ops[0]['opex']['form'] == 'loop_imm_m1_F0S0' and ops[0]['opex']['target_guard'] == 'validated' and ops[0]['val'] == 256
+    assert ops[1]['opcode'] == 'mov32 r1!, #0x1cd5b8c0'
+    ops = json.loads(r2('e asm.cpu=usip;wx 8000@0xdb08;wx 201f6062071044071356f8c0@0xdaa6;aoj 1@0xdb08;aoj 2@0xdaa6', 0x20000)[1])
+    assert [o['opcode'] for o in ops] == ['movi r0!, #0x3', 'ld.w r6, [r0+0]']
+    ops = json.loads(r2('e asm.cpu=usip;wx 8000@0x526c;wx 420fe100@0x516c;aoj 1@0x526c;aoj 1@0x516c', 0x20000)[1])
+    assert ops[0]['opcode'] == 'loop#? #16?, last=0x0000526c' and ops[0]['opex']['form'] == 'loop_imm_F1S1' and ops[0]['opex']['target_guard'] == 'validated' and ops[0]['val'] == 16
+    ops = json.loads(r2('e asm.cpu=usip;wx 420fe100@0x516c;aoj 1@0x516c', 0x20000)[0])
+    assert ops[0]['opcode'] == 'loop#?? #16?, last=0x0000526c' and ops[0]['opex']['target_guard'] == 'unverified'
+    # b<cond>.l with the 22-bit displacement (backward: validated by the session, else .word) and the 64-bit variant whose
+    # extension unit is any 16-bit unit X: the branch keeps U0 U1 T and X is the first instruction of the delay slot.
+    ops = json.loads(r2('e asm.cpu=usip;wx 8000@0x1d6f6;wx 409d51fffc92@0x1ddd2;aoj 1@0x1d6f6;aoj 1@0x1ddd2', 0x20000)[1])
+    assert ops[0]['opcode'] == 'bge.l r9, #0x1, 0x0001d6f6' and ops[0]['jump'] == 0x1d6f6 and ops[0]['cond'] == 'ge' and ops[0]['opex']['form'] == 'bcc48_opd_mh1_bge' and ops[0]['size'] == 6
+    ops = json.loads(r2('e asm.cpu=usip;wx 409d51fffc92@0x1edd2;aoj 1@0x1edd2', 0x20000)[0])
+    assert ops[0]['opcode'] == '.word 0x409d51ff'
+    ops = json.loads(r2('e asm.cpu=usip;wx 8000@0x1e60;wx 021f20276100c10352845416@0x1c5a;aoj 1@0x1e60;aoj 5@0x1c5a', 0x20000)[1])
+    assert ops[0]['opcode'] == 'blt.l r1, #0x11, 0x00001e60' and ops[0]['opex']['form'] == 'bcc48_opf_mh2_blt_64x' and ops[0]['opex']['target_guard'] == 'validated'
+    assert ops[0]['size'] == 2 and ops[0]['delay'] == 2 and ops[0]['opex']['units'] == [0x1c5a, 0x1c5e, 0x1c60] and ops[0]['jump'] == 0x1e60
+    assert [o['opcode'] for o in ops[1:]] == ['movi r0!, #0x4', '.unit 0x6100c103 (blt.l @ 0x00001c5a)', 'stslot r8, #0x12', 'add r1, r10, #0x0'] and ops[1]['opex']['delay_slot']
+    ops = json.loads(r2('e asm.cpu=usip;wx 021f20276100c10352845416@0x1f5a;aoj 2@0x1f5a', 0x20000)[0])
+    assert [o['opcode'] for o in ops] == ['movi r1, #0x3', '.op7t']
+    # The op c F = 1 branches with the F' = 0 tail at +2 (beqz / bnez: validated by the scan, unverified beyond it) and the
+    # op 9 F = S = 0 F' = 0 cell of >= 4 units (blt.d: validated, else the layout's DSP reading).
+    ops = json.loads(r2('e asm.cpu=usip;wx 8000@0x6324;wx 740c411690a4@0x6280;aoj 1@0x6324;aoj 3@0x6280', 0x20000)[1])
+    assert ops[0]['opcode'] == 'beqz r10!, 0x00006324' and ops[0]['opex']['form'] == 'beqz_F0c' and ops[0]['opex']['target_guard'] == 'validated' and ops[0]['jump'] == 0x6324
+    assert ops[0]['delay'] == 2 and ops[0]['cond'] == 'eq' and [o['opcode'] for o in ops[1:]] == ['dec r1, r0', '.unit 0x90a4 (beqz @ 0x00006280)'] and ops[1]['opex']['delay_slot']
+    ops = json.loads(r2('e asm.cpu=usip;wx 740c411690a4@0x7280;aoj 1@0x7280', 0x20000)[0])
+    assert ops[0]['opcode'] == 'beqz? r10!, 0x00007324' and ops[0]['opex']['target_guard'] == 'unverified' and ops[0]['opex']['confidence'] == 'medium'
+    pk = '4609424f342cc44100664004e75d02564004cb764e0ff016cd730e4c082c0167c1640e0c080c0147c144cb77'
+    ops = json.loads(r2('e asm.cpu=usip;wx %s@0x951e;aoj 4@0x951e' % pk, 0x20000)[0])
+    assert ops[0]['opcode'] == 'blt.d r3, #0x2, 0x0000954a' and ops[0]['opex']['form'] == 'blt_imm8_F0s0' and ops[0]['opex']['target_guard'] == 'validated' and ops[0]['cond'] == 'lt'
+    assert ops[0]['delay'] == 3 and [o['opcode'] for o in ops[1:]] == ['movi r1, #0x9', '.unit 0x342c (blt.d @ 0x0000951e)', 'mov r4, r2']
+    ops = json.loads(r2('e asm.cpu=usip;wx 4609424f342cc441@0xa51e;aoj 3@0xa51e', 0x20000)[0])
+    assert [o['opcode'] for o in ops] == ['add r3, r0', 'movi r1, #0x9', 'abs_s r1, r10']
+    # bz.s with the P4 cell F = 0: in a 3-unit packet (the target validated by the scan, the rest the delay slot) and in a
+    # 2-unit one (the target seen before); with an unknown target the layout's reading stays.
+    pk = '00f5521fbe7946087338dad0000c4108c0817ffefee3a10d408cf10e400ade5682270017fca05e067488ea306e1440bac4004216d4025c490200f0005e067488ea306e1440bac400'
+    ops = json.loads(r2('e asm.cpu=usip;wx %s@0x114e;aoj 3@0x114e' % pk, 0x20000)[0])
+    assert ops[0]['opcode'] == 'bz.s r0, 0x0000118a' and ops[0]['opex']['form'] == 'bz_s_P4_F0' and ops[0]['opex']['target_guard'] == 'validated' and ops[0]['jump'] == 0x118a
+    assert ops[0]['delay'] == 2 and ops[0]['cond'] == 'eq' and [o['opcode'] for o in ops[1:]] == ['movi r9, #0x3', 'nop']
+    ops = json.loads(r2('e asm.cpu=usip;wx 00f5521fbe79@0x414e;aoj 1@0x414e', 0x20000)[0])
+    assert ops[0]['opcode'] == '.op5t1 r15, r0, #0x21f'
+    ops = json.loads(r2('e asm.cpu=usip;wx 8000@0x2de6;wx 03a58290@0x2d7e;aoj 1@0x2de6;aoj 2@0x2d7e', 0x20000)[1])
+    assert ops[0]['opcode'] == 'bz.s r1, 0x00002de6' and ops[0]['opex']['form'] == 'bz_s_P4_F0' and ops[0]['delay'] == 1 and ops[1]['opcode'] == '.ext'
+    ops = json.loads(r2('e asm.cpu=usip;wx 03a58290@0x3d7e;aoj 2@0x3d7e', 0x20000)[0])
+    assert [o['opcode'] for o in ops] == ['.hword 0x03a5', '.ext']
+    # The slot family: slotpair0 (two F-slot0 units without a named 32-bit reading, k >= 16), the op c slot pairs firm with a
+    # call within two packets and stslot? without one, the frame store in the delay slot of call.abs (R-fslot0c), and the
+    # fusion at distance 2 add rB, rA, #rot12 (R-add2) next to the adjacent one.
+    ops = json.loads(r2('e asm.cpu=usip;wx 258ca584@0xfc10;aoj 2@0xfc10', 0x20000)[0])
+    assert [o['opcode'] for o in ops] == ['stslot r8!, #0x25', 'stslot r8!, #0x24'] and ops[0]['opex']['form'] == 'stslot_F0_k16' and ops[0]['type'] == 'store' and not ops[0]['opex']['packet']['ambiguous']
+    ops = json.loads(r2('e asm.cpu=usip;wx 002c40041201b4217f9efbe35210c0301c001230410c50b0@0xb28e;aoj 4@0xb28e', 0x20000)[0])
+    assert [o['opcode'] for o in ops] == ['stslot r2, #0x1', 'stslot r0, #0x0', 'mov r0, r9', 'mov r2, r10!'] and ops[0]['opex']['form'] == 'stslot_slotc_h' and ops[1]['opex']['form'] == 'stslot_slotc_t'
+    ops = json.loads(r2('e asm.cpu=usip;wx 002c40041201b421@0xd28e;aoj 2@0xd28e', 0x20000)[0])
+    assert [o['opcode'] for o in ops] == ['stslot? r2, #0x1', 'stslot? r0, #0x0'] and ops[0]['opex']['form'] == 'stslot_slotc_h_q' and ops[1]['opex']['form'] == 'stslot_slotc_t_q'
+    ops = json.loads(r2('e asm.cpu=usip;wx 0608021c729bc2c0@0x111c;aoj 2@0x111c', 0x20000)[0])
+    assert [o['opcode'] for o in ops] == ['call.abs 0x1ca6c2c0', 'stslot r1, #0x3'] and ops[1]['opex']['form'] == 'stslot_F0' and ops[1]['opex']['delay_slot']
+    ops = json.loads(r2('e asm.cpu=usip;wx 0e044f9c1c001c100588cb28@0xd3e0;aoj 4@0xd3e0', 0x20000)[0])
+    assert [o['opcode'] for o in ops] == ['stslot r0, #0xe', 'stslot r9!, #0xf', 'addi r0, r14, #0x2c4', 'add r1, r14, #0x594']
+    assert ops[3]['opex']['form'] == 'add2_rot12' and ops[3]['opex']['units'] == [0xd3e6, 0xd3ea] and ops[3]['type'] == 'add' and ops[3]['size'] == 2
     print('Plugin loading, analysis, delay slots, operands and ESIL passed')
 
 

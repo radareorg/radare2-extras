@@ -83,7 +83,7 @@ wrong in general: **the unit is the 16-bit halfword and the instruction stream i
    and the open `b.s` (`b_s_open`: a packet start of the same function or a function start) a failure falls through;
    for the prefix forms a failure means "not taken". The near `b` (`b_near`) needs a packet start of any function of
    the image or a function start (`guard:target_packet_start_any_or_function_start`), the hardware loops with the
-   F' = 1 tail (`loop`, `loop.b1?`, their `?ss=N` twins) a packet start of the same function.
+   F' = 1 tail (`loop`, `loop …, x16`, their `?ss=N` twins) a packet start of the same function.
 6. **Deferred tails and undo.** `USIP_F_ADJDEF` (`st.h` with the F' = 0 tail, R-st1h): the tail must be at +2 or
    farther; an adjacent tail undoes the pair into two 16-bit ops. `guard:head_not_validated_bs`: in the first slot,
    when the head is a 16-bit `b.s` shape (`5cX1/7cX1`, not m = 0 with d6 = 0) whose target is a packet start of the same
@@ -126,8 +126,9 @@ wrong in general: **the unit is the 16-bit halfword and the instruction stream i
     printed `loop #N?`) are loops too, and so is the head whose F' = 0 tail sits exactly at +2 (`loop_imm_*_F1_Fp0`,
     R-loopA: the middle unit is a 16-bit op of the packet, at any other distance the pair is `.word`); the explicit
     layout candidate **loopcand** adds the `[loop head][op16][tail at +2]` reading that the group grammar drops when
-    the middle unit has no named 16-bit reading, item 15), `loop.b1? rX, last=…` (the head with B = 1: the meaning of
-    that bit is open) and the `?ss=N` twins (`loop r<rrr>?ss=N`, `loop.b1? r<rrr>?ss=N` for ss ≥ 2): `last` is the
+    the middle unit has no named 16-bit reading, item 15), `loop rX, last=…, x16` (the head with B = 1: the packet at
+    the loop end crosses a 16-byte line, a fetch hint that leaves the loop semantics unchanged; formerly `loop.b1?`)
+    and the `?ss=N` twins (`loop r<rrr>?ss=N`, `loop r<rrr>?ss=N, x16` for ss ≥ 2): `last` is the
     address of the LAST instruction of the body (inclusive); the body is the following 1-16 instructions; `last` must
     be a packet start of the same function and ≠ pc. `de0d` (`nop.ctl` with S = 1) closes most hardware-loop bodies.
 11. **Post-layout renames (`USIP_F_RENAME`).** Forty-one entries (`nop_ctl`, `lsl16_S0`, `lsl16_F1_c`,
@@ -229,6 +230,59 @@ wrong in general: **the unit is the 16-bit halfword and the instruction stream i
     (R-movi6d), `ld.h / ld.hu` without the `?` for R-ldF0 (S = 0), R-hhttF0, R-F0d and R-1eX0, `ld.hu rd, [rA+rB]`
     (X = 4), the 16-bit `lea` (no `?`), `movi #-32768 / #-32767`, `mtcsr #0x30-0x3e` (`mtcsr_acc`).
 
+17. **The parallel packet, the 22-bit branches, the slot pairs and the guards of the 760-form table.** The packet
+    model is settled: the instructions of a packet execute in parallel and every read sees the state before the
+    packet (`USIP_PACKET_EXEC_PARALLEL`; the R-waw penalty and the K-tie cascade stay, no rule depends on an
+    intra-packet order). **Before the layout**: slotpair0 (a 2-unit packet `[0][0][m][h][rrr][x][B][o3 100]`
+    `[1][0][…][o3' 100]`, low 12 bits ≠ 0 in both, whose 32-bit reading has no name — no entry, kind other / fmt, a
+    failed guard or an undone pair — is `stslot ‖ stslot` (`stslot_F0` / `stslot_F0_k16`), never ambiguous); the
+    prefix forms with the **22-bit displacement** (`disp` = 2·sext22(`U1[7:0] : T[13:12] : T[11:0]`); the U1 low byte
+    and the T tt are free in the masks) and the **64-bit X variant** (`bcc48_*_64x`: U0 with F = 0, any extension unit
+    with bit 15 = 0 other than `1e0d`; `guard:not_over_validated_call32`: not taken when U0 + X read, as an adjacent
+    pair in the first slot, as a `call` / `b` whose target is a function start; the branch keeps the three units
+    U0 U1 T, X is decoded on its own as the first 16-bit instruction of the delay slot, the units from 4 on are the
+    rest of it). **In the layout**: the guard `loop_b4_straddle16` of the twelve `loop #N` entries (bit 4 of the head,
+    field `b4`, must equal `straddle16(last)` = the packet that starts at `last` crosses a 16-byte line:
+    `(last / 16) != ((last + 2n − 2) / 16)` with n its units; a contradiction is `.word`, like a failing target guard;
+    an unknown packet at `last` accepts); the **`loop #N?` rule** (`USIP_LOOPQ_*`: a `loop#` reading with N = 0 or a
+    tail d12 in {0x100, 0x200, 0x400} prints `loop#? #N?, last=…`; the explicit candidate loopcand does not admit it);
+    `ctx:tail_at_plus2` (`beqz_F0c` / `bnez_F0c` / `bleu_rr_F0c` / `bltu_rr_F0c`, `bne_imm8_F0s0` / `blt_imm8_F0s0`:
+    the single tail EXACTLY at +2, at any other distance the entry falls through to the next one of the cell — the
+    DSP pairs of op c —, NOT `.word`; with the tail at +2 and a target that is not a packet start the pair is `.word`);
+    `ctx:rf0dall_guards` (`rf0dall_ld_h / ld_hu`, group f0ctx after `rf0d_*`: the tail f12 is even, the unit at +2
+    does not decode in tail position as a trusted 16-bit op — mov inc dec rsub add addi mul st.w ld.w mfacc lsl lsr
+    asr sub and or xor sext16 zext16 movi st.h ld.h ld.hu st.b ld.bu — nor as control, the head is not `4400` right
+    after an op f head with x = 1, the middle unit as a 16-bit op does not write r14; the f0ctx group is tried inside
+    the layout, before the post-layout renames: `ld_h_Fp0` never sees those pairs); the score rules lr32 (−1 for a
+    reading with a jump / call, or the rest of a `call.abs` / `b.abs` packet, that contains `mov32 r15, #X` with X a
+    packet start of the same function), rr7 (+0.25 for a `movi rB, #imm17` formed while an earlier op 7 head of the
+    reading with x = 0 stays bare), spodd (+1.0 for a bare 16-bit `addi r14, #imm` with imm not a multiple of 4) and
+    the rf0dall nowaw (+1.0 when another instruction of the reading writes the destination of an `rf0dall_*` head).
+    **After the layout**: `bz_s_P4_F0` (after `bz_s_P4_u4`, before the R7 gate: `000h rrrd dddd d101` at k = 0 of a
+    packet of 2 or 3 units whose head has no named reading and is not the bare `.hword` op 5 x = 0 unit, rA ≠ r14,
+    d6 > 0, the target a packet start of the same function beyond the packet: `bz.s rA` + the delay slot — at 2 units
+    the second unit as a 16-bit op, at 3 the rest re-parsed); the post rules of the final reading, before the split
+    pass and also after the prefix paths: **R-add2** (a packet of ≥ 3 units, a bare `.hword` op 0 F = 0 head at unit
+    i — `.hword` only: the bare m = h = 0 units of a non-first slot read `.ext` and never fuse — and a bare unnamed
+    closer `[1][1][00][f12 ≡ 0 mod 4]` at unit i + 2 become one `add rB(!x), rA(!m), #rot12` unless another
+    instruction of the packet writes rB) and **R-fslot0c** (a bare `.hword` / `.ext` F-slot0 unit
+    `[0][0][0][0][rrr][x][B][o3 100]`, low 12 bits > 1, at unit 1 of a packet whose instruction 0 is a call /
+    call.abs / callr / call16 is `stslot`); in the split pass **R-slotc** (a pair read with an op c head with F = 0
+    and a single tail with tt = 00, rd ∈ {4, c}, a ≠ 8, not the (0, 0) cell with B = 0, low 12 bits > 1 when F' = 1,
+    whose reading is `.dsp` / `.word`, `msu?` / `shr.a?` / `mac.9a?` / `mac.92?` or `mac` / `mul.a` / `mul3216.a` /
+    `L_mac.a` with rd > 3 → `stslot_slotc_h ‖ stslot_slotc_t`, with the nowaw guardian), the F-slot0 readings by rule
+    (R-slot4n / slotpair0 / R-fslot0c with k ≥ 16 → `stslot_F0_k16`; only the F = 0 head of a split `.op4imm` pair
+    with k ≥ 16 or in a multi-unit packet keeps `stslot_F0_q`) and `ldslot_S0_pos1` without the `?`; **after the
+    packet**: slotc_mark (the slot pairs without a call — kinds call / call16 / calla / callr — in their packet or in
+    the two following packets take the `stslot?` twins `stslot_slotc_h_q / _t_q`). The other cells added with the
+    table: `movi rB, #imm17` (the op 7 head with the null-field tail `S P00 … 00f1`: a 17-bit rotated immediate
+    `USIP_A_ROTIMM` with `nbits = 17`; with m = 0 the value is −65536 / −65535, not −32768 / −32767: `movi_min16` /
+    `movi_m32767` are gone), `movhi` with the small F' = 0 tails (`c001` → `0x10000000`, even f12 → `0x1000..0x7000`),
+    the 16-bit `ld.w rB, [rA ∓ 4]` of the first slot and the one-unit `st.w rB, [rA ∓ 4]` (R-ld16k0 / R-st16k0),
+    `addi rA, #−4 / −2 / −1` of the class-E cell (R-addiE), `loop rX, last, x16` (B = 1: the former `loop.b1?`), the
+    m = 1 `loop #N` without the `?`, `saturate`, `mfacc` of the C cell and `sext16 / zext16` with S = 0 without the
+    `?`, and the CSR names `ag0-ag3.{base?, len?, idx?}` for 0x30-0x3e.
+
 Operand fields are given as bit ranges over the big-endian concatenation of the instruction's units (bit `width-1`
 = bit 15 of the head): 32-bit forms = head bits 31..16, tail 15..0; 48-bit = head 47..32, hi 31..16, lo 15..0; 64-bit =
 head 63..48, ext 47..32, U1 31..16, T 15..0. When the units are not adjacent in memory the plugin gathers them (head,
@@ -267,6 +321,18 @@ pass, `decode_asg` — and accepted by the generic constraint check). `USIP_F_SP
 procedure (`split_role` in the JSON: `either` = the head or the re-read tail of a split pair, `bare` = a bare unit
 renamed before the pass, also `USIP_F_SPLITBARE`), `USIP_F_FUSE` the fusion entry; every one of them has a `USIP_FORM_*`
 index.
+
+With the 760-form table the header also carries the guards `loop_b4_straddle16` (`USIP_C_GUARD_LOOP_B4_STRADDLE16`,
+exported with the head field `b4`) and `not_over_validated_call32` (`USIP_C_GUARD_NOT_OVER_VALIDATED_CALL32`), the
+context conditions `USIP_CTX_TAIL_AT_PLUS2`, `USIP_CTX_HEAD_UNNAMED_NOT_LSL0`, `USIP_CTX_RF0DALL_GUARDS`,
+`USIP_CTX_SLOTC_PAIR`, `USIP_CTX_CALL_WITHIN_2_PACKETS`, `USIP_CTX_OP4IMM_HEAD` and `USIP_CTX_ADD2_FREE_CLOSER`
+(evaluated by the explicit procedures of item 17: the f0ctx pass, the post rules, the split pass and `slotc_mark`),
+`USIP_F_FUSE | USIP_F_ADJ2` for the fusion at distance 2 (`add2_rot12`), the constants of the packet model
+(`USIP_PACKET_EXEC_PARALLEL`) and of the `loop #N?` rule (`USIP_LOOPQ_ENABLED`, `USIP_LOOPQ_N_EQ`, `usip_loopq_d12[]`);
+`USIP_A_ROTIMM` with `nbits = 17` and the three-range `USIP_A_DISP` of the 22-bit displacement need no generator
+change, `usip_csr_ext[]` carries `ag0-ag3.{base?, len?, idx?}`, and the `rename_from` symbols `@slotpair0` /
+`@fslot0c` / `@slotc_tail` / `@free_closer` are plain strings (the split and fusion entries are applied by index, never
+by the generic rename pass).
 
 `usip_opcodes[]` is ordered: the first entry of the right width whose `(units & mask) == value`, whose `flags`
 allow the slot, and whose `cons` holds is the reading (entries with `USIP_F_RENAME` are excluded from that matching:
@@ -351,7 +417,7 @@ the post-layout renames, the K-tie cascade.
   `ble.l?`, `bneu.l?`, `bequ.l?`, `movi?` (op b and `#-32768`), `bclr?/binv?/bext? rd!`, `lpexit?`, `isync?`, `extu`,
   `ior?/iow?`, `nop.ctl`, `lsl/lsl?` (R-lsl0/1), `sext16/zext16(?)` (R-sxt1), `addi #32`, `sgt #-1` (F = S = 1),
   `movhi` tt = 10, `ld.w?/ld.h?/ld.hu? [r15+off]`, `ld.h?/ld.hu?` with the F' = 0 tail, `fup?`, the op d / op 8
-  `b<cond>.d` S0F1 cells, `ret.s.d`, `loop.b1?` (the B bit), `bz.s` P5, the R-br0 cells of op 8 / op c, the `?ss=N`
+  `b<cond>.d` S0F1 cells, `ret.s.d`, `bz.s` P5, the R-br0 cells of op 8 / op c, the `?ss=N`
   loops, `lsl?/asr?` of the op 2 cells without idiom, `ldslot/stslot` with m = 1, `ld.h?/ld.hu?` of R-hhttF0 / R-F0d,
   `ld.w?/st.w?` of the NEGQ classes (sign open), `movi? #-32767`, `fup?/fxtu?/fxts?` by BF_SEL cell, `mtcsr?` of the
   accumulator CSRs, `add r14 / sub r14`, `loop #N?` (the m = 1 heads), `bz.s` of 3-unit packets, the split
@@ -370,7 +436,7 @@ the post-layout renames, the K-tie cascade.
 Open points that matter for a disassembler: the remaining layout ties and fallback packets; the `f12 ≡ 1` /
 `≡ 3 < 0x800` word displacements (`ld.w?/st.w?`: negative by the W14 formula or unsigned, unconfirmed); `.op4t0`
 (stolen tails), `.ldF0?` (width), `.3eX0?` (a saturating ALU op?), `mtacc?`, `.bf?` (the cells without a confirmed
-example), the B bit of `loop.b1?`, the `?ss=N` loops, the `lsl?/asr?` cells without idiom, the byte displacement of
+example), the `?ss=N` loops, the `lsl?/asr?` cells without idiom, the byte displacement of
 the F ≠ S cell at `f12 = 0x7ff`, the layout-based `add`/`ld.w` selector of the op 0 F = S = 1 `f12 ≡ 0` cell, the
 packets with an unformed 48-bit head and a hi(1010) unit read as `movi r10, #7`, why the scheduler inserts `nop.ctl`,
 the 0x800-0xeff word-offset band, `.idx?` a = 2, `4028 4002`. Two printing conventions are not in the table: the
@@ -402,10 +468,19 @@ branches are compare-and-branch (incl. the 48-bit `b<cond>.l rB, #imm9 / rA`).
    readings of the packet behind it), the open-packet `call.s`, and `loop`/`bnez.d`/register `b<cond>`, the
    `b<cond>.d` S0F1 and register cells and the `bz.s` of packets longer than two units with a forward target beyond
    the lookahead are read as data or as the plain 16-bit units.
-4. **Rules that need a validated target** (§6): the loop entries not accepted unverified (the m = 1 `loop #N?` heads,
-   the h = 1 heads except with the S = 1 tail or the adjacent F = 0 tail), the 3- and 4-unit `bz.s`, R-brHHTT,
-   R-movi6d and the R-w6h1 loop guard have no unverified fallback: beyond the lookahead the plain 16-bit readings,
-   the `.hword`, the grammar's reading, the `.movi6?` closer and the W6 cell stand.
+4. **Rules that need a validated target** (§6): the loop entries not accepted unverified (the m = 1 `loop #N` heads,
+   the h = 1 heads except with the S = 1 tail or the adjacent F = 0 tail, the F = 1 head with the S = 0 tail at +2),
+   the 22-bit cells and the 64-bit X variant of `b<cond>.l`, the 2-, 3- and 4-unit `bz.s`, R-brHHTT, R-movi6d and
+   the R-w6h1 loop guard have no unverified fallback: beyond the lookahead the plain 16-bit readings, the `.hword`,
+   the grammar's reading, the `.movi6?` closer and the W6 cell stand.
+5. **Windows the plugin cannot always see** (§6): `slotc_mark` needs the two packets after a slot pair (inside the
+   lookahead they are first-pass readings, beyond it the window ends and the pair prints `stslot?`), the straddle
+   guard of `loop #N` needs the packet at the loop end (beyond the lookahead and the session's cache it is not
+   evaluated, and an eight-unit run without a closer counts as unknown), and `not_over_validated_call32` needs
+   function starts (without the `function_start` callback a target the session validated as a packet start stands
+   in, so a cross-function `call` of U0 + X the session has not seen does not block the 64-bit variant). The plugin
+   produces no ESIL for the uSIP mode: the parallel packet would require reading every operand of the packet before
+   any write.
 
 ## 6. Target guards: what the plugin knows
 
@@ -431,28 +506,41 @@ the target): the forms whose
 unverified readings are right in nearly every case where they compete are read anyway — `call_F0` (function start
 unknown; with the tie-break bonus), `b_F0`, `beqz_d` and the immediate `b<cond>` forms with the F' = 0 tail
 (`beq/bne/ble/blt/bgtu/bge/bgt_imm8_F0`, forward target beyond the lookahead), the `bcc48_*` / `bcc48_*_64` prefix
-forms (forward target beyond the lookahead), `loop_imm_F1S1`, `loop_imm_F0S0` and `loop_imm_h1_F0S0` with the tail
-adjacent, `loop_imm_F1S0`, `loop_imm_F1_Fp0` (the F' = 0 tail at +2), `loop_imm_h1_F1S1`, `loop_F0` when the head has
-F = 1 and the S = 1 tail sits at +2, and the S0F1 cells
+forms in their regular cell (U1 low byte 0 and tt = 00: a forward displacement below 4096 units, beyond the
+lookahead), `loop_imm_F1S1`, `loop_imm_F0S0` and `loop_imm_h1_F0S0` with the tail adjacent, `loop_imm_F1_Fp0` (the
+F' = 0 tail at +2), `loop_imm_h1_F1S1`, `loop_F0` when the head has F = 1 and the S = 1 tail sits at +2, the op c
+F = 1 branches and the op 9 F = S = 0 cells with the F' = 0 tail at +2 (`beqz/bnez_F0c`, `bleu/bltu_rr_F0c`,
+`bne/blt_imm8_F0s0`), and the S0F1 cells
 `bne/blt/bgeu/bgtu/bge_imm8_s0f1`, `beqz/bnez_s0f1` and `bleu_rr_s0f1`, and the forms whose guard is a validation
-filter (`b_s_open`, `b_near`, `loop` / `loop_ssq` / `loop_b1_q` / `loop_b1_q_ssq` with the F' = 1 tail, the F = S = 0
+filter (`b_s_open`, `b_near`, `loop` / `loop_ssq` / `loop_b1` / `loop_b1_ssq` (the x16 loops) with the F' = 1 tail, the F = S = 0
 `b<cond>.d` cells, `bne_d_m1` and the R-br0 `*_f0s0` cells: they were read without a guard before the filter existed,
 so an unknown target keeps the reading, the conditional ones only forward); the others are treated as a failed guard —
 `call_s_S0` (only a small fraction of the shapes are calls), `b_far` (about a fifth of the unverified readings would
 be wrong), `bnez_d` of the F = S = 0 cell (shared with the op C DSP pairs), `ble_rr_F0`/`blt_rr_F0` (shared with
-`.ctl15`), the other `loop_F0` tails (`movi || mov` pairs), `loop_imm_F0S0` and `loop_imm_h1_F0S0` with the tail at
-+2, `loop_imm_h1_F1S0`, `loop_imm_h1_F1_Fp0` and the m = 1 `loop_imm_m1_*` entries (`loop #N?`: the 16-bit readings
-stand), the S0F1 cells `beq/ble/bgt_imm8_s0f1`, the op 8 S0F1 cells and the op d S0F1 register cells. The rules that
-need a validated target (the 3- and 4-unit `bz.s`, R-brHHTT, R-movi6d, the R-w6h1 loop guard) have no unverified
-reading. Backward targets inside the decoded
+`.ctl15`), the other `loop_F0` tails (`movi || mov` pairs), `loop_imm_F1S0` (the S = 0 tail at +2: wrong too often
+when unverified), `loop_imm_F0S0` and `loop_imm_h1_F0S0` with the tail at +2, `loop_imm_h1_F1S0`,
+`loop_imm_h1_F1_Fp0` and the m = 1 `loop_imm_m1_*` entries (the 16-bit readings stand), the 22-bit cells of
+`b<cond>.l` (backward, or +4096..+8191) and the `bcc48_*_64x` variant with a free extension unit, the S0F1 cells
+`beq/ble/bgt_imm8_s0f1`, the op 8 S0F1 cells and the op d S0F1 register cells. The rules that need a validated
+target (the 2-, 3- and 4-unit `bz.s`, R-brHHTT, R-movi6d, the R-w6h1 loop guard) have no unverified reading;
+slotpair0, R-slotc, R-fslot0c, R-add2 and rf0dall carry no target guard. Backward targets inside the decoded
 region are decided by the session (seen = packet start, unseen = not a packet start); below it they are unknown:
 unverified for `call`, `b` and `b.s`, never for a conditional branch (a conditional branch does not leave its
 function). An accepted-unverified reading prints a trailing `?` (`call?`, `beqz.d?`, `blt?`, `bne.l?`, `loop#?`,
-`bne.d?`, `b.s?`, `loop?`), reports `confidence = medium` and `target_guard = "unverified"` in `opex`; a validated
+`bne.d?`, `b.s?`, `loop?`; the `loop #N?` rule keeps its own `?` after the count, so an unverified one prints
+`loop#?? #N?`), reports `confidence = medium` and `target_guard = "unverified"` in `opex`; a validated
 one reports `"validated"`. A 32-bit pair whose target guard failed is `.word`, except the op C compare-and-branch
 cell (`bnez.d` with F = S = 0), whose failed pair keeps the DSP shape and is printed `.dsp 0x…` (unnamed data either
 way), and the `USIP_F_GUARDFT` entries, whose failed guard falls through to the next entry of the cell (two 16-bit
 ops when none is left).
+
+Two guards of the 760-form table are not target guards. The straddle guard of `loop #N` (`loop_b4_straddle16`: bit 4
+of the head must agree with "the packet at the loop end crosses a 16-byte line") is answered through
+`UsipGuardCtx.packet_units`, which `arch_md32.c` serves from the bytes at hand or from a packet decoded earlier in the
+session; a contradiction is `.word` like a failed target guard, an unknown packet accepts. `not_over_validated_call32`
+(the 64-bit `b<cond>.l` with a free extension unit is not taken when U0 + X read as a `call` / `b` whose target is a
+function start) is exact with the `function_start` callback; without it a target the session validated as a packet
+start stands in.
 
 ## 7. The K-tie cascade in the plugin
 
@@ -476,9 +564,10 @@ in `usip_decode.c`: `decide_ties`, `regs_of`, `du2_scores`):
   with the shorter context is left to K (flagged ambiguous).
 * `opex.packet.tiebreak` reports `dedup` / `nowaw` / `du2` for a packet decided by the cascade;
   `opex.packet.ambiguous` is true only for the ties the cascade could not decide (K decides them).
-* A packet read by the `bz_s_P5`, `bz_s_P4_u4` or `bz_s_P4_u3` rule parses the rest of the packet as an independent
+* A packet read by the `bz_s_P5`, `bz_s_P4_u4`, `bz_s_P4_F0` or `bz_s_P4_u3` rule parses the rest of the packet as an independent
   packet (its delay slot): the ties of that parse are the ones the cascade sees, and the rule is applied again to the
   reading the cascade chooses.
-* The packet-level rules run on the chosen reading in a fixed order — `bz_s_P4`, `bz_s_P4_u4`, R7 / `lea_sp_S0`,
-  `bz_s_P4_u3`, S3, `.be79`, the split pass (item 14) — then the generic renames and the fusion; the cascade compares
-  the renamed and fused texts, and after its decision the same passes run again on the reading it chose.
+* The packet-level rules run on the chosen reading in a fixed order — `bz_s_P4`, `bz_s_P4_u4`, `bz_s_P4_F0`, R7 /
+  `lea_sp_S0`, `bz_s_P4_u3`, S3, `.be79`, the post rules R-add2 / R-fslot0c, the split pass (items 14 and 17) — then
+  the generic renames, the fusion and `slotc_mark`; the cascade compares the renamed and fused texts, and after its
+  decision the same passes run again on the reading it chose.

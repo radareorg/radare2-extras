@@ -24,6 +24,76 @@
 * `test/test_scq16.py`, `test/test_md32.c`: bytes-only checks of cpu=scq16.
 * `doc/scq16.md`, README "SCQ16 mode".
 
+### uSIP table update (760 forms), the parallel packet, the 22-bit branches and the slot pairs
+
+* `isa/usip_isa.json` / `usip_opcodes.h`: 760 forms (46 added, 12 retired,
+  41 modified). The packet executes in parallel and every read sees the
+  state before the packet (`structure.packet.execution`,
+  `USIP_PACKET_EXEC_PARALLEL`; no decoding rule depends on an intra-packet
+  order). New: `movi rB, #imm17` (the op 7 head with the null-field tail, a
+  17-bit rotated immediate; `movi_min16` / `movi_m32767` retired: with m = 0
+  their value was -65536 / -65535), `movhi` with the small F' = 0 tails
+  (`c001` = 0x10000000, even f12 = 0x1000..0x7000), the 16-bit `ld.w rB,
+  [rA -/+ 4]` of the first slot and the one-unit `st.w rB, [rA -/+ 4]`,
+  `addi rA, #-4 / -2 / -1` of the class-E cell, `loop rX, last, x16` (B = 1,
+  the former `loop.b1?`), the guard `loop_b4_straddle16` on the twelve
+  `loop #N` entries (bit 4 of the head must agree with "the packet at the end
+  crosses a 16-byte line") and the `loop #N?` rule
+  (`structure.packet.loop_imm_q`: N = 0 or the end at pc + 2^k), the m = 1
+  `loop #N` without the `?`, the 22-bit displacement of every `b<cond>.l`
+  (`U1[7:0] : T[13:12] : T[11:0]`: backward and +4096..+8191 cells) and the
+  fifteen `bcc48_*_64x` entries (the 64-bit variant whose extension unit is
+  any 16-bit unit X, with the guard `not_over_validated_call32`), the op c
+  F = 1 branches with the F' = 0 tail exactly at +2 (`beqz_F0c` / `bnez_F0c` /
+  `bleu_rr_F0c` / `bltu_rr_F0c`, `ctx:tail_at_plus2`) and the op 9 F = S = 0
+  cell of >= 4 units (`bne_imm8_F0s0` / `blt_imm8_F0s0`), `bz.s` with the P4
+  cell F = 0 in 2- and 3-unit packets (`bz_s_P4_F0`), the slot pairs
+  (`stslot_F0_k16`, the op c pairs `stslot_slotc_h / _t` and their `stslot?`
+  twins, `ctx:slotc_pair` / `ctx:call_within_2_packets`, `ctx:op4imm_head` on
+  `stslot_F0_q`, `ldslot_S0_pos1` without the `?`), the fusion at distance 2
+  `add rB, rA, #rot12` (`add2_rot12`, `fuse_pair` + `tail_adjacency` 2),
+  `ld.h / ld.hu` with the F' = 0 tail at +2 and any base (`rf0dall_ld_h /
+  ld_hu`, `ctx:rf0dall_guards`), `saturate`, `mfacc` of the C cell and
+  `sext16 / zext16` with S = 0 without the `?`; the CSR names `ag0-ag3.{base?,
+  len?, idx?}` for 0x30-0x3e; the score rules lr32 / rr7 / spodd / rf0dall
+  nowaw in `structure.packet.tie_breaks`.
+* `tools/gen_usip_tables.py`: the guards `loop_b4_straddle16` (exported with
+  the head field `b4`) and `not_over_validated_call32`, seven new context
+  conditions, `FUSE | ADJ2` for the fusion at distance 2, the constants of the
+  packet model and of the `loop #N?` rule.
+* `usip_decode.c`: slotpair0 before the layout, the 22-bit prefix
+  displacement and the 64-bit X variant (the branch keeps U0 U1 T, X is the
+  first instruction of the delay slot; the guard against a validated 32-bit
+  call / b of U0 + X), the straddle guard of `loop #N`
+  (`UsipGuardCtx.packet_units`) and the `loop #N?` text, `ctx:tail_at_plus2`
+  (fall-through, never `.word`; the fallback pairs carry their distance),
+  the rf0dall guardians in the f0ctx pass, `bz.s` of the P4 cell F = 0, the
+  post rules R-add2 (`.hword` heads only) / R-fslot0c before the split pass
+  and after the prefix paths, R-slotc in the split pass and `slotc_mark`
+  after the packet (the two following packets through `packet_at`), the
+  F-slot0 readings by rule, the score rules lr32 / rr7 / spodd / rf0dall
+  nowaw. Unverified policy: the `loop_imm_F1S0` reading is no longer
+  accepted (wrong too often), the R-F0c / R-F0s0 branches are (right in
+  nearly every case), the `b<cond>.l` prefix forms only in their forward cell
+  below 4096 units (the 22-bit cells and the X variant need the target
+  validated), the x16 loops as the other `loop rX`.
+* `arch_md32.c`: the `packet_units` callback (the units of the packet at the
+  loop end, from the bytes at hand or the session's cache; an eight-unit run
+  without a closer is unknown).
+* `asm_md32.c`: pseudo syntax for `loop rX, last, x16` and `saturate`.
+* Tests: `test/test_plugin.py` vectors for the parallel packet, `movi #imm17`,
+  the small `movhi` cells, the 16-bit `ld.w` / `st.w` with +-4, the class-E
+  `addi`, `loop x16`, `loop #N` with the straddle guard (accepted and
+  rejected), `loop #N?` (validated and unverified), the backward 22-bit
+  `b<cond>.l` (validated and `.word`), the 64-bit X variant (validated and
+  fallback), `beqz` of R-F0c (validated and unverified), `blt.d` of R-F0s0
+  (validated and fallback), `bz.s` of the P4 cell F = 0 (2 and 3 units,
+  validated and unknown), slotpair0, the op c slot pairs with and without a
+  call, R-fslot0c, R-add2 and rf0dall; the `loop`, `asr16`, `ld_h_Fp0`,
+  `movi #-32768 / #-32767`, `loop.b1?`, `loop #256?`, `ldslot?`, `stslot?`
+  and `saturate?` vectors updated to the new readings; `test/test_parse.c`
+  vectors for the new pseudo rules.
+
 ### uSIP table update (726 forms), the loop cells and the slot splits
 
 * `isa/usip_isa.json` / `usip_opcodes.h`: 726 forms (52 added, 13 retired,

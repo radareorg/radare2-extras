@@ -224,8 +224,27 @@ int main(void) {
 	check (a, "mtcsr #0x35, r5!", "csr[0x35] = r5!");
 	check (a, "op2z? r0", "op2z? r0");
 	check (a, "op72? r1, #0x0, asr#0x1", "op72? r1, #0x0, asr#0x1");
-	check (a, "saturate? r1, r1", "saturate? r1, r1");
 	check (a, "sat40.a? A0, A0", "sat40.a? A0, A0");
+	// table update (760 forms): loop x16, the loop #N? count, saturate without the ?, the 17-bit movi, the class-E addi, the 16-bit
+	// ld.w / st.w with +-4, the slot pairs, the 22-bit b<cond>.l, the op c branches with the F' = 0 tail and movhi of the small cell.
+	check (a, "loop r2, last=0x0000cf3e, x16", "repeat r2 times until last=0x0000cf3e (x16)");
+	check (a, "loop? r1?ss=2, last=0x0000261e, x16", "repeat r1?ss=2 times until last=0x0000261e (x16)");
+	check (a, "loop#? #16?, last=0x0000526c", "repeat 16 times until last=0x0000526c");
+	check (a, "saturate r1, r1", "r1 = saturate(r1)");
+	check (a, "saturate? r1, r1", "r1 = saturate(r1)");
+	check (a, "movi r2, #-0x10000", "r2 = -0x10000");
+	check (a, "addi r0, #-0x4", "r0 += -0x4");
+	check (a, "ld.w r2, [r1-0x4]", "r2 = dmem32[r1 - 0x4]");
+	check (a, "st.w r6, [r5-0x4]", "dmem32[r5 - 0x4] = r6");
+	check (a, "stslot? r2, #0x1", "slot[0x1] = r2");
+	check (a, "stslot r8!, #0x25", "slot[0x25] = r8!");
+	check (a, "add r1, r14, #0x594", "r1 = (r14 + 0x594)");
+	check (a, "bge.l r9, #0x1, 0x0001d6f6", "if ((int32_t)r9 >= (int32_t)0x1) goto 0x0001d6f6");
+	check (a, "beqz? r10!, 0x00007324", "if (r10! == 0) goto 0x00007324");
+	check (a, "bltu r3, r4, 0x00001000", "if ((uint32_t)r3 < (uint32_t)r4) goto 0x00001000");
+	check (a, "bz.s r0, 0x0000118a", "if (r0 == 0) goto 0x0000118a");
+	check (a, "movhi r1, #0x10000000", "r1 = 0x10000000");
+	check (a, "ld.hu r1, [r8!+0x810]", "r1 = dmem16[r8! + 0x810]");
 	r_asm_free (a);
 	puts ("MD32 pseudo syntax, Harvard addressing, parallel bundles and conservative fallbacks passed");
 	return 0;

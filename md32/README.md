@@ -86,7 +86,7 @@ means they are not a validated boot memory map.
 
 `e asm.cpu=usip` selects the decoder for the **uSIP** variant of the MD32 family
 (VLIW execute packets of 16-bit units). The instruction set is described by the
-table `isa/usip_isa.json` (726 forms, generated into `usip_opcodes.h` by
+table `isa/usip_isa.json` (760 forms, generated into `usip_opcodes.h` by
 `tools/gen_usip_tables.py`) and by the packet model implemented in
 `usip_decode.c`. The table is an empirical description, not a vendor
 specification: every form carries a confidence level (`high`, `medium`, `low`,
@@ -297,9 +297,9 @@ return `r0`). No ESIL is produced for uSIP.
   `seq?`/`sle?` with large immediates, `mov32?`, `lea?`, `mfacc?`, `add?`/`st.h?`
   of cell E, `bcc48?`, `movi?`, `mtacc?`, `fup?`, `.ldF0?`), the `f12 = 1 / 3
   mod 4` word displacements below 0x800, `.op4t0` (a stolen tail), `.3eX0?`,
-  `ld.w` vs `add` in the op 0 F = S = 1 cell, the bit 4 of `loop #N`, the exact
+  `ld.w` vs `add` in the op 0 F = S = 1 cell, the exact
   `save w` frame size, `sys #2/#4/#8`, `L_mult` vs `L_mult.e`, why the scheduler
-  inserts `nop.ctl`, the B bit of `loop.b1?`, the `?ss=N` loops, the sign of the
+  inserts `nop.ctl`, the `?ss=N` loops, the sign of the
   `ld.w?`/`st.w?` word classes, `.stimm16?`, the `lsl?`/`asr?` cells without an
   idiom.
 * A decode in the middle of a packet without the packet cached (e.g. `ao` at an
