@@ -131,6 +131,26 @@ static int scq16_need(Scq16Insn *out, int n) {
 	return 0;
 }
 
+/* j.d1 56 0x-3x: with a function table at hand the length is decided by context (4 bytes only when the 22-bit target falls
+ * inside a known function); the plugin has no function table and decides BY TARGET: the 2-byte reading has no form and the 4-byte one is j.d1 with
+ * target base + simm22, taken when that target is a plausible code address (no wrap below 0 and within SCQ16_JD1_REACH).  The
+ * leaves 56 03 / 56 3f of the length table are subsumed. */
+#ifndef SCQ16_JD1_REACH
+#define SCQ16_JD1_REACH 0x400000u
+#endif
+static int scq16_jd1_len(uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3, int avail, uint32_t base, int leaf) {
+	if (avail < 4 || b0 != 0x56 || (b1 >> 6) != 0) {
+		return leaf;
+	}
+	uint32_t w = ((uint32_t)b1 << 16) | ((uint32_t)b2 << 8) | b3;
+	int32_t d = (int32_t)(w & 0x3fffff);
+	if (d & 0x200000) {
+		d -= 0x400000;
+	}
+	uint32_t t = base + (uint32_t)d;
+	return t < SCQ16_JD1_REACH ? 4 : leaf;
+}
+
 static int scq16_decode_second(const uint8_t *bytes, int len, int off, uint32_t addr, uint8_t nb, Scq16Insn *out) {
 	/* B slot after a head of `off` bytes */
 	uint8_t bop = bytes[off] & 0x7f, bv = bytes[off] >> 7;
@@ -144,6 +164,7 @@ static int scq16_decode_second(const uint8_t *bytes, int len, int off, uint32_t 
 	if (LB <= 0) {
 		return -1;
 	}
+	LB = scq16_jd1_len (bop, off + 1 < len ? bytes[off + 1] : 0, off + 2 < len ? bytes[off + 2] : 0, off + 3 < len ? bytes[off + 3] : 0, len - off, addr, LB);   /* j.d1 56 by target (base = packet start) */
 	if (off + LB > len) {
 		return scq16_need (out, off + LB);
 	}
@@ -174,6 +195,7 @@ int scq16_decode_insn(const uint8_t *bytes, int len, uint32_t addr, Scq16Insn *o
 		if (L <= 0) {
 			return -1;
 		}
+		L = scq16_jd1_len (b0, b1, len > 2 ? bytes[2] : 0, len > 3 ? bytes[3] : 0, len, addr, L);   /* j.d1 56 by target */
 		if (L > len) {
 			return scq16_need (out, L);
 		}
@@ -357,6 +379,14 @@ static void scq16_operand_text(const Scq16Unit *u, int i, char *o, size_t n, Scq
 	}
 }
 
+
+/* the vector name of the table (scq16_vname[op9]) carries the ? when the name is PROVISIONAL and none when it is an established
+ * operation (v.move.mv, v.mem.ld, v.mem.st); the decoder adds no ? of its own. */
+static bool scq16_vname_firm(const char *nm) {
+	size_t l = nm ? strlen (nm) : 0;
+	return l > 0 && nm[l - 1] != '?';
+}
+
 const char *scq16_unit_mnemonic(const Scq16Unit *u, char *buf, size_t n) {
 	if (!u->alt) {
 		const char *tag = u->slot == SCQ16_S_A ? ".p" : u->slot == SCQ16_S_B ? ".q" : u->slot == SCQ16_S_ORPHAN ? ".o" : (u->slot == SCQ16_S_S1 || u->slot == SCQ16_S_S2) ? ".s" : ".b";
@@ -369,7 +399,7 @@ const char *scq16_unit_mnemonic(const Scq16Unit *u, char *buf, size_t n) {
 		if (u->alt == &scq16_alts[SCQ16_BUNDLE_ALT]) {
 			snprintf (buf, n, "vbundle");
 		} else if (nm) {
-			snprintf (buf, n, "v.%s.%s?%s", cls, nm, u->last_head ? "!" : "");
+			snprintf (buf, n, "v.%s.%s%s", cls, nm, u->last_head ? "!" : "");
 		} else {
 			snprintf (buf, n, "v.%s%s", cls, u->last_head ? "!" : "");
 		}
@@ -450,7 +480,7 @@ int scq16_insn_text(const Scq16Insn *in, char *buf, size_t n, Scq16Symf sym, voi
 		const char *cls = scq16_vclass_names[scq16_vclass[v->op9]];
 		const char *nm = scq16_vname[v->op9];
 		if (nm) {
-			snprintf (mn, sizeof (mn), "v.%s.%s?", cls, nm);
+			snprintf (mn, sizeof (mn), "v.%s.%s", cls, nm);
 		} else {
 			snprintf (mn, sizeof (mn), "v.%s", cls);
 		}
@@ -675,6 +705,11 @@ int scq16_unit_esil(const Scq16Unit *u, char *buf, size_t n, uint32_t ret, const
 			snprintf (o, sizeof (o), "%s", scq16_remapped (tok, remap, nremap));
 		} else {
 			snprintf (o, sizeof (o), "%s", tok);
+		}
+		/* the ESIL machine of radare2 computes in 64 bits and `aes` does not mask the address of a memory access: a negative frame
+		 * offset over a 32-bit base would wrap above 4 GB (read-err); the address of every [n] / =[n] is cut to 32 bits */
+		if ((o[0] == '[' || (o[0] == '=' && o[1] == '[')) && strchr (o, ']')) {
+			scq16_sbcat (buf, n, &pos, "0xffffffff,&,");
 		}
 		scq16_sbcat (buf, n, &pos, o);
 		if (e) {
