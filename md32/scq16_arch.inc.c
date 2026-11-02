@@ -13,11 +13,14 @@
  * (`target,SETJT,n,SETD`: the jump is applied after n more instructions, which `aes` honours: a `.d2` transfer takes two
  * `aes` steps, the first one runs the transfer and its first slot, the second one the second slot and the jump); `do` sets
  * lc0/le0/ls0 (the back edge is not inferred).  Vector operations are the custom ESIL op `vop` (op9, A, B, F1, F2, F3
- * on the stack; registered by esilcb as a no-op: the VU is not modelled); the scalar ports of the VU are ESIL registers
- * (vu, v, va, vp, vs, vb1_, vb3_, vb5_, udf, each followed by an index).
+ * on the stack; registered by esilcb): the three established operations are modelled on a vector register file
+ * (scq16_vu.inc.c: v.mem.ld / v.mem.st through the VU pointers vp0-vp7 and the counts va0-va7, v.move.mv as a register copy;
+ * vr0-vr31 of 128 bytes exposed as four 256-bit quarters each), every other op9 has no effect; the scalar ports of the VU
+ * are ESIL registers (vu, v, va, vp, vs, vb1_, vb3_, vb5_, udf, each followed by an index).
  */
 
 #include "scq16_decode.c"
+#include "scq16_vu.inc.c"
 
 #define SCQ16_MAX_DELAY_LOOKAHEAD 3
 
@@ -517,25 +520,25 @@ static char *scq16_regprofile(RArchSession *s) {
 	for (i = 0; i < n; i++, off += 4) {
 		r_strbuf_appendf (sb, "gpr %s .32 %d 0\n", scq16_vu_name (i), off);
 	}
+	off = scq16_vu_vr_profile (sb, off);   /* the vector register file vr0-vr31 (128 bytes each, four 256-bit quarters) */
 	return r_strbuf_drain (sb);
 }
 
-/* custom ESIL op `vop`: a vector operation (op9, A, B, F1, F2, F3 pushed in that order, op9 on top).  The VU is not
- * modelled in the plugin: the operands are popped and nothing else happens. */
+/* custom ESIL op `vop`: a vector operation (op9, A, B, F1, F2, F3 pushed in that order, op9 on top).  The three established
+ * operations are modelled (scq16_vu.inc.c: v.mem.ld / v.mem.st on the vector register file through the VU pointers, v.move.mv as a
+ * register copy); every other op9 pops its operands and does nothing. */
 static bool scq16_esil_vop(REsil *esil) {
-	int i;
-	for (i = 0; i < 6; i++) {
-		RStrs s = r_esil_pop (esil);
-		if (r_strs_empty (s)) {
-			return false;
-		}
+	ut64 v[6];
+	if (!scq16_vu_pop6 (esil, v)) {
+		return false;
 	}
+	scq16_vu_vop_public (esil, v);
 	return true;
 }
 
 static bool scq16_esilcb(RArchSession *s, REsil *esil, RArchEsilAction action) {
 	if (action == R_ARCH_ESIL_ACTION_INIT && esil) {
-		return r_esil_set_op (esil, "vop", scq16_esil_vop, 0, 6, R_ESIL_OP_TYPE_CUSTOM, "vector operation (op9, A, B, F1, F2, F3): not modelled");
+		return r_esil_set_op (esil, "vop", scq16_esil_vop, 0, 6, R_ESIL_OP_TYPE_CUSTOM, "vector operation (op9, A, B, F1, F2, F3): v.mem.ld / v.mem.st / v.move.mv modelled on vr0-vr31, the rest no-op");
 	}
 	return true;
 }

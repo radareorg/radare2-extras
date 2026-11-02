@@ -8638,7 +8638,7 @@
      "slots": 0,
      "named": false,
      "provisional": false,
-     "hypothetical": false,
+     "hypothetical": true,
      "operands": [
       {
        "name": "rd",
@@ -8669,9 +8669,9 @@
        "bias": 0
       },
       {
-       "name": "wd",
-       "kind": "imm",
-       "fmt": "d",
+       "name": "rt",
+       "kind": "r5",
+       "fmt": "reg",
        "pieces": [
         [
          10,
@@ -8697,7 +8697,7 @@
        "bias": 0
       }
      ],
-     "text": "{rd}, {rs}, {wd}, {pos}",
+     "text": "{rd}, {rs}, {rt}, {pos}",
      "esil": null
     }
    ]
@@ -8796,15 +8796,15 @@
    "control": false,
    "alternatives": [
     {
-     "mnemonic": "ctz?",
+     "mnemonic": "ctz",
      "match": "(w & 0x7ffffc00) == 0x41f38800",
      "mask": 2147482624,
      "value": 1106479104,
      "confidence": "low",
      "slots": 0,
-     "named": false,
-     "provisional": true,
-     "hypothetical": false,
+     "named": true,
+     "provisional": false,
+     "hypothetical": true,
      "operands": [
       {
        "name": "rd",
@@ -8864,10 +8864,10 @@
       }
      ],
      "text": "{rd}, {rs}",
-     "esil": null
+     "esil": "32,{rs},{rs},0,-,&,CLZ,31,-,{=rd},="
     },
     {
-     "mnemonic": "clb?",
+     "mnemonic": "sqr?",
      "match": "(w & 0x7ffffc00) == 0x41f38c00",
      "mask": 2147482624,
      "value": 1106480128,
@@ -8875,7 +8875,7 @@
      "slots": 0,
      "named": false,
      "provisional": true,
-     "hypothetical": false,
+     "hypothetical": true,
      "operands": [
       {
        "name": "rd",
@@ -8935,7 +8935,7 @@
       }
      ],
      "text": "{rd}, {rs}",
-     "esil": null
+     "esil": "{rs},{rs},*,{=rd},="
     },
     {
      "mnemonic": "op41",
@@ -8946,7 +8946,7 @@
      "slots": 0,
      "named": false,
      "provisional": false,
-     "hypothetical": false,
+     "hypothetical": true,
      "operands": [
       {
        "name": "rd",
@@ -10988,7 +10988,7 @@
       }
      ],
      "text": "{r}, [{rb}] += {inc}",
-     "esil": "{rb},[1],8,SWAP,~,{=r},=,{inc},{rb},+,{=rb},="
+     "esil": "{rb},[1],8,SWAP,~,{inc},{rb},+,{=rb},=,{=r},="
     }
    ]
   },
@@ -11057,7 +11057,7 @@
       }
      ],
      "text": "{r}, [{rb}] += {inc}",
-     "esil": "{rb},[2],16,SWAP,~,{=r},=,{inc},{rb},+,{=rb},="
+     "esil": "{rb},[2],16,SWAP,~,{inc},{rb},+,{=rb},=,{=r},="
     }
    ]
   },
@@ -11126,7 +11126,7 @@
       }
      ],
      "text": "{r}, [{rb}] += {inc}",
-     "esil": "{rb},[1],{=r},=,{inc},{rb},+,{=rb},="
+     "esil": "{rb},[1],{inc},{rb},+,{=rb},=,{=r},="
     },
     {
      "mnemonic": "lhu?",
@@ -11183,7 +11183,7 @@
       }
      ],
      "text": "{r}, [{rb}] += {inc}",
-     "esil": "{rb},[2],{=r},=,{inc},{rb},+,{=rb},="
+     "esil": "{rb},[2],{inc},{rb},+,{=rb},=,{=r},="
     }
    ]
   },
@@ -11252,7 +11252,7 @@
       }
      ],
      "text": "{r}, [{rb}] += {inc}",
-     "esil": "{rb},[4],{=r},=,{inc},{rb},+,{=rb},="
+     "esil": "{rb},[4],{inc},{rb},+,{=rb},=,{=r},="
     }
    ]
   },
@@ -14752,7 +14752,7 @@
          3
         ]
        ],
-       "signed": false,
+       "signed": true,
        "scale": 2,
        "bias": 0
       }
@@ -14821,13 +14821,13 @@
          3
         ]
        ],
-       "signed": false,
+       "signed": true,
        "scale": 4,
        "bias": 0
       }
      ],
      "text": "{r}, [{rb}] += {inc}",
-     "esil": "{rb},[4],{=r},=,{inc},{rb},+,{=rb},="
+     "esil": "{rb},[4],{inc},{rb},+,{=rb},=,{=r},="
     }
    ]
   },
@@ -14890,13 +14890,13 @@
          3
         ]
        ],
-       "signed": false,
+       "signed": true,
        "scale": 2,
        "bias": 0
       }
      ],
      "text": "{r}, [{rb}] += {inc}",
-     "esil": "{rb},[2],{=r},=,{inc},{rb},+,{=rb},="
+     "esil": "{rb},[2],{inc},{rb},+,{=rb},=,{=r},="
     }
    ]
   },
@@ -14959,13 +14959,13 @@
          3
         ]
        ],
-       "signed": false,
+       "signed": true,
        "scale": 1,
        "bias": 0
       }
      ],
      "text": "{r}, [{rb}] += {inc}",
-     "esil": "{rb},[1],{=r},=,{inc},{rb},+,{=rb},="
+     "esil": "{rb},[1],{inc},{rb},+,{=rb},=,{=r},="
     }
    ]
   },
@@ -16883,9 +16883,15 @@
        "signed": false,
        "scale": 1,
        "bias": 0
+      },
+      {
+       "name": "m",
+       "kind": "const",
+       "fmt": "x",
+       "value": 61440
       }
      ],
-     "text": "{rd}, {rs}, #mask6",
+     "text": "{rd}, {rs}, {m}?",
      "esil": null
     }
    ]
@@ -17152,6 +17158,55 @@
        "kind": "const",
        "fmt": "x",
        "value": 64512
+      }
+     ],
+     "text": "{rd}, {rs}, {m}?",
+     "esil": null
+    },
+    {
+     "mnemonic": "and?",
+     "match": "(w & 0x7f7c00) == 0x673400",
+     "mask": 8354816,
+     "value": 6763520,
+     "confidence": "low",
+     "slots": 0,
+     "named": false,
+     "provisional": true,
+     "hypothetical": false,
+     "operands": [
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rs",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         5,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "m",
+       "kind": "const",
+       "fmt": "x",
+       "value": 49152
       }
      ],
      "text": "{rd}, {rs}, {m}?",
@@ -17445,6 +17500,77 @@
    "control": false,
    "alternatives": [
     {
+     "mnemonic": "sra?",
+     "match": "(w & 0x7ffe00) == 0x67fc00",
+     "mask": 8388096,
+     "value": 6814720,
+     "confidence": "low",
+     "slots": 0,
+     "named": false,
+     "provisional": true,
+     "hypothetical": true,
+     "operands": [
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rs",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         5,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "x",
+       "kind": "imm",
+       "fmt": "xb",
+       "pieces": [
+        [
+         10,
+         6
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "pos",
+       "kind": "imm",
+       "fmt": "d",
+       "pieces": [
+        [
+         5,
+         4
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      }
+     ],
+     "text": "{rd}, {rd}, {pos}",
+     "esil": "{pos},{rd},ASR,{=rd},="
+    },
+    {
      "mnemonic": "op67",
      "match": "(w & 0x7f0000) == 0x670000",
      "mask": 8323072,
@@ -17453,7 +17579,7 @@
      "slots": 0,
      "named": false,
      "provisional": false,
-     "hypothetical": false,
+     "hypothetical": true,
      "operands": [
       {
        "name": "rd",
@@ -19353,7 +19479,7 @@
       }
      ],
      "text": "{rd}, [{rb}] += {inc}",
-     "esil": "{rb},[1],{=rd},=,{inc},{rb},+,{=rb},="
+     "esil": "{rb},[1],{inc},{rb},+,{=rb},=,{=rd},="
     }
    ]
   },
@@ -20864,12 +20990,12 @@
      "operands": [
       {
        "name": "rd",
-       "kind": "r3p",
+       "kind": "r4p",
        "fmt": "reg",
        "pieces": [
         [
          0,
-         3
+         4
         ]
        ],
        "signed": false,
@@ -20892,7 +21018,7 @@
       }
      ],
      "text": "{rd}, [{rb}] += 4",
-     "esil": "{rb},[4],{=rd},=,4,{rb},+,{=rb},="
+     "esil": "{rb},[4],4,{rb},+,{=rb},=,{=rd},="
     }
    ]
   },
@@ -21428,9 +21554,9 @@
    "alternatives": [
     {
      "mnemonic": "and?",
-     "match": "(w & 0x7e00) == 0x0",
-     "mask": 32256,
-     "value": 0,
+     "match": "(w & 0x7fc0) == 0x180",
+     "mask": 32704,
+     "value": 384,
      "confidence": "low",
      "slots": 0,
      "named": false,
@@ -21466,25 +21592,13 @@
        "bias": 0
       },
       {
-       "name": "k",
-       "kind": "imm",
-       "fmt": "n",
-       "pieces": [
-        [
-         8,
-         1
-        ],
-        [
-         6,
-         2
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
+       "name": "m",
+       "kind": "const",
+       "fmt": "x",
+       "value": 61440
       }
      ],
-     "text": "{rd}, {rs}, #mask{k}",
+     "text": "{rd}, {rs}, {m}?",
      "esil": null
     }
    ]
@@ -21990,7 +22104,7 @@
    "name": "sra",
    "length": 2,
    "kind": "alu",
-   "confidence": "medium",
+   "confidence": "high",
    "slots": 0,
    "table_length": false,
    "control": false,
@@ -22000,7 +22114,7 @@
      "match": "(w & 0x7f00) == 0x900",
      "mask": 32512,
      "value": 2304,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
@@ -23146,7 +23260,7 @@
       }
      ],
      "text": "{rd}, [{rs}] += {inc}",
-     "esil": "{rs},[1],{=rd},=,{inc},{rs},+,{=rs},="
+     "esil": "{rs},[1],{inc},{rs},+,{=rs},=,{=rd},="
     },
     {
      "mnemonic": "lbu.post",
@@ -23195,7 +23309,7 @@
       }
      ],
      "text": "{rd}, [{rs}] += {inc}",
-     "esil": "{rs},[1],{=rd},=,{inc},{rs},+,{=rs},="
+     "esil": "{rs},[1],{inc},{rs},+,{=rs},=,{=rd},="
     },
     {
      "mnemonic": "lbu.post?",
@@ -23244,7 +23358,7 @@
       }
      ],
      "text": "{rd}, [{rs}] += {inc}",
-     "esil": "{rs},[1],{=rd},=,{inc},{rs},+,{=rs},="
+     "esil": "{rs},[1],{inc},{rs},+,{=rs},=,{=rd},="
     }
    ]
   },
@@ -23314,15 +23428,15 @@
    "control": false,
    "alternatives": [
     {
-     "mnemonic": "vec2",
+     "mnemonic": "vrd?",
      "match": "(w & 0x7f00) == 0x1a00",
      "mask": 32512,
      "value": 6656,
      "confidence": "low",
      "slots": 0,
      "named": false,
-     "provisional": false,
-     "hypothetical": false,
+     "provisional": true,
+     "hypothetical": true,
      "operands": [
       {
        "name": "b1",
@@ -23337,10 +23451,38 @@
        "signed": false,
        "scale": 1,
        "bias": 0
+      },
+      {
+       "name": "x",
+       "kind": "imm",
+       "fmt": "n",
+       "pieces": [
+        [
+         4,
+         4
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rd",
+       "kind": "r4p",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         4
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
       }
      ],
-     "text": "{b1}",
-     "esil": null
+     "text": "{rd}, vb1[{x}]",
+     "esil": "vb1_{#x},{=rd},="
     },
     {
      "mnemonic": "vec2",
@@ -23351,7 +23493,7 @@
      "slots": 0,
      "named": false,
      "provisional": false,
-     "hypothetical": false,
+     "hypothetical": true,
      "operands": [
       {
        "name": "b1",
@@ -23380,7 +23522,7 @@
      "slots": 0,
      "named": false,
      "provisional": false,
-     "hypothetical": false,
+     "hypothetical": true,
      "operands": [
       {
        "name": "b1",
