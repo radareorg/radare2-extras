@@ -45,23 +45,30 @@ classes (`scq16_vclass[512]`) and names (`scq16_vname[512]`) are indexed by op9;
 (`movi?`, `add?`, `addi?`, `adds?`, `difsc?`) and none when it is an established operation (`v.move.mv` = register copy v[F1] <- v[F3],
 `v.mem.ld` = vector load into v[F1 >> 2], `v.mem.st` = vector store of v0): the decoder prints `v.<class>.<name>` as the table says.
 
-Families (first byte): `00-0f` 2-byte ALU (`and`/`sll`/`add`/`xtd`/`mv`/`sub`/`sll`/`sra`/`and`/`mul`/`max`/`or`), `10-13` moves and
+Families (first byte): `00-0f` 2-byte ALU (`and`/`sll`/`add`/`xtd`/`mv`/`sub`/`sll`/`sra`/`and`/`mul`/`max`/`or`; `00`/`01` with k = 6 is the
+provisional `and? #0xf000?`), `10-13` moves and
 `add #imm`, `14-15` stack (`addsp`, `lw.lr`, `sb`), `16` `lhu`, `18-1f` VU scalar ports (`vget`, `vbcast`, `vset.a`, `vmem.set`,
-`vins?`), `20-23` `ret`/`nop`/`jalr`/`sw.lr`/`lw.post`/`lbu`/`lbu.post` (`22`/`23` = `lbu.post rd, [rb] += simm3`: one signed 3-bit
+`vins?`; `1a` is the provisional `vrd? rd, vb1[x]`, a 32-bit read of the VU scalar bank with `rd = w[3:0] + 1`; `1b`/`1d` stay
+open), `20-23` `ret`/`nop`/`jalr`/`sw.lr`/`lw.post` (`21`: `lw.post rd, [rb] += 4` with a 4-bit destination r1-r16)/`lbu`/`lbu.post`
+(`22`/`23` = `lbu.post rd, [rb] += simm3`: one signed 3-bit
 increment over the two pages, +1..+3 on `22`, -4..-1 on `23`; `22` q3 = +3 keeps its `?`), `24-27` `beqz`/`bnez` (8-bit), `28-2f` `lw.sp`/`sw.sp`,
 `30-3b` `lw`/`sw`/`sw.post` with 3-bit base, `3e-3f` `j8`; `40-4f` 4-byte immediates and memory (`mul`/`and`/`or`/`add`/`sethi`,
 `41` csr/acc/bit-field/three-register ALU/`div`/`addsp`/`clz`, `42` `cmov.cc`/`sel?`, `43` `ior`/`iow`/`sw.isr`/`sw.csr`/`op43`,
 `44-47` loads and stores with a 12-bit offset or a post-increment (`46` q0 is the provisional `ld46?`: a byte load with a
 post-increment as its hypothetical ESIL), `48-49` `mv #simm20`, `4a-4b` `add`/`and`/`or`/`mul #imm`,
 `4c-4f` `vcfg4c?` (`4c` q0 s0 with `#0xc` on an odd `v >= 17` carries the hypothetical ESIL `p_k <- rs`, k = (v - 17) / 2); the
-`41 f3` sub-ops next to `clz` (0x21) are the provisional `ctz?` (0x22) and `clb?` (0x23); the `42` page is `cmov.<cc> rd, rs, x, ra` =
+`41 f3` sub-ops next to `clz` (0x21) are `ctz` (0x22, established: `rd = 31 - clz(rs & -rs)`) and the provisional `sqr?` (0x23,
+`rd = rs * rs` as its hypothetical ESIL); `op41.fld rd, rs, rt, #pos` (41 8x) is a field insertion with three registers whose
+operation is open (no ESIL); the `42` page is `cmov.<cc> rd, rs, x, ra` =
 `rd = cond(rs, x) ? r[ra] : rd` with `cc` = `eq`/`ne` (immediate `#(x-7)` or a register), `lt`/`ltu`/`ge` (immediate), the provisional
 `leu?` (register), `ltu?` (immediate), `lt?`/`le?` (immediate on the left: `#imm <s rs`), and `sel?` for the codes without a name); `50-5d` `bcc` (immediate or two registers) and `do`; `5e` `j`/`jal`/system; `60-6f` 3-byte forms (`add`/`mul
 #imm7`, `sub`, `add rs + rt << k`, `sll`/`srl #imm`, the `67` page of two-address ALU (`mv rd, rs` at 67 c8 and 67 cc, `bset`/`btst
-rd, rd, #pos` at 67 f4/f8, `and #0x1fff/#0x3fff/#0x7fff/#0x8000` at 67 a0-ab/b0-b3, the provisional `and? #0xfc00?` at 67 ac-af) and
+rd, rd, #pos` at 67 f4/f8, `and #0x1fff/#0x3fff/#0x7fff/#0x8000` at 67 a0-ab/b0-b3, the provisional masks `and? #0xf000?` at 67 98-9b, `#0xfc00?` at
+67 ac-af and `#0xc000?` at 67 b4-b7, the provisional `sra? rd, rd, #pos` at 67 fc-fd) and
 `xtd`, `6a` `j16`, `6b`
 `jal11`/`mv #imm9`/VU ports with 5-bit registers, `6c` `lw`, `6d` `lbu`, `6e` half-word and post-increment memory, `6f` stack
-frames, `jr`, `mv acc` and byte/half loads, `6e` q2 = `lbu.post`/`lhu.post?` with 5-bit registers); `70` `mv #imm32`, `74` 6-byte
+frames, `jr`, `mv acc` and byte/half loads, `6e` q2 = `lbu.post`/`lhu.post?` with 5-bit registers; the 3-bit post-increment of the `6e` `.post` family — `sh.post`, `lw.post`,
+`lhu.post?`, `lbu.post` — is SIGNED: x = 4..7 means -4..-1 units); `70` `mv #imm32`, `74` 6-byte
 `add #imm19` / `and #imm16` / `or #imm16` (sub 3 is open); `c0-df` vector ops; `e0-ef` vector heads; `f0-f7` bundles.
 
 ## 3. Analysis
@@ -93,23 +100,34 @@ are in `opex.units[]`.
 * Comparisons: `<`/`<=` read 32-bit registers with sign, so unsigned compares normalise both operands with `,0,+` and signed ones
   extend with `32,x,~`; `div` writes `a0l` (quotient) and `a0h` (remainder), `~/`/`~%` for the signed variant.
 * `do` writes `lc0`/`le0`/`ls0` (count, end, body start); the back edge is not applied by the ESIL (an emulator must do it).
+* A load with a post-increment writes its destination LAST (load, increment the base, write rd): with `rd == rb` the loaded value
+  wins.  This is a declared convention (no such unit is known); the public MD32 documents rd written first.
 * The VU scalar ports are registers (`vu0-vu31`, `v0-v31`, `va0-va7`, `vp0-vp7`, `vs0-vs15`, `vb1_0-31`, `vb3_0-31`, `vb5_0-31`,
-  `udf0-udf31`); a vector operation is `F3,F2,F1,B,A,op9,vop` with the custom op `vop` registered by `esilcb` as a no-op.
+  `udf0-udf31`); a vector operation is `F3,F2,F1,B,A,op9,vop` with the custom op `vop` registered by `esilcb`.  The VU model
+  (`scq16_vu.inc.c`): a vector register file `vr0-vr31` of 128 bytes each (64 lanes of 16 bits; exposed as four 256-bit quarters
+  `vrK_0..vrK_3`, lane 16q being the low 16 bits of quarter q), the pointers `vp0-vp7` (written by `vmem.set` and the hypothetical
+  `vcfg4c? #0xc`) and the counts `va0-va7` (written by `vset.a`).  `vop` models the three established operations and nothing else:
+  `v.mem.ld` copies `n` halves from DM[p] into `vr[F1 >> 2]` and `v.mem.st` copies `n` halves from `vr0` to DM[p], with
+  `p = vp[2 * F2 + F3[4]]` when `F2 < 4`, `n = va[A]` when 1..64 (otherwise the whole register: the count field of a large packed A is
+  not established) and the pointer post-incremented by the bytes accessed; `v.move.mv` copies `vr[F3]` into `vr[F1]`.  A memory op
+  with `F2 >= 4` (the second access family, whose pointer is not established), the pair mode `B = 2` of `v.move.mv` and every other
+  op9 have no effect.
 * `SCQ16_FL_HYP` alternatives (`cmov.leu?`/`ltu?`/`lt?`/`le?`, `lhu.post?`, `ld46?`/`lhu?` of `46`, `lbu?`/`lh?` on the stack,
   `sys41`, `vbcast.i?`, `vcfg4c?` `#0xc`, the VU bank ports) carry the ESIL of their provisional reading; an emulator that wants
   to be strict can refuse them.  The HYP table of the form-description module is exported as the flag: the exporter applies no overlay of its own.
 
 Register profile: `r0-r31`, `pc`, `sr`, `ipc`, `isr`, `csr3`, `lf`, `ls0-2`/`le0-2`/`lc0-2`, `sp` (csr14), `lr` (csr15),
-`csr16-31`, `a0` (`a0l`:`a0h`), `t0-t3` (ESIL temporaries), the VU ports.  ABI: arguments r3-r6, return r1.
+`csr16-31`, `a0` (`a0l`:`a0h`), `t0-t3` (ESIL temporaries), the VU ports, `vr0_0-vr31_3` (the vector register file).  ABI: arguments
+r3-r6, return r1; callee-saved r16-r31 (a function that writes one of them saves and restores it on its frame), caller-saved
+r0-r15 (frame stores of r1-r8 are spills), lr saved by the functions that call.
 
 ## 5. Limitations
 
-* No semantics for the vector unit (`vop` is a no-op, also for the established names `v.move.mv`/`v.mem.ld`/`v.mem.st`: the
-  lanes, pointers and counts of the VU are not modelled), the `op41`/`op43`/`op67`/`op6f`/`op4x`/`op6x` placeholders, `ctz?`/`clb?`,
-  `vcfg4c?` except `#0xc`, `vpmem?`, `sys`, the `74` sub-op 3, the six `sel?` codes without a name; `fup` with overlapping fields is a
-  plain insert.
-* A load with a post-increment whose destination is its own base register (`rd == rb`) applies the increment to the loaded
-  value in the ESIL (the templates write rd first); the hardware behaviour of that case is not established.
+* The vector unit is modelled only for `v.move.mv`, `v.mem.ld` and `v.mem.st` (section 4): the lane arithmetic of the other op9
+  codes, the pointer of the second access family (`F2 >= 4`), the count field of a large packed A, the pair mode `B = 2` of `v.move.mv`
+  and the role of `F1 != 0` / `B = 1` in the stores are not modelled (`vop` has no effect there).  No semantics for the
+  `op41`/`op41.fld`/`op43`/`op67`/`op6f`/`op4x`/`op6x` placeholders, `vcfg4c?` except `#0xc`, `vpmem?`, `sys`, the `74` sub-op 3, the six
+  `sel?` codes without a name, the provisional masks `and? #0xf000?`/`#0xfc00?`/`#0xc000?`; `fup` with overlapping fields is a plain insert.
 * The length of `j.d1 56 0x-3x` is decided by the target (section 1) because the plugin has no function table to decide by
   membership: a `j.d1` whose target is outside the loaded code would still be read as `j.d1`.
 * The plugin annotates no DM strings nor I/O registers; the I/O window (`ior`/`iow`) is modelled as memory at the port index.

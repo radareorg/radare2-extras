@@ -350,7 +350,7 @@ form families.
   32-bit vector operation and two 15-bit scalar slots in 8 bytes.
 
 Provisional mnemonics carry a `?` (`sel?`, `cmov.leu?`, `vrd?`, `vwr?`,
-`vpmem?`, `lhu.post?`, `ld46?`, `ctz?`, `vwait?`…): the encoding is fixed, the
+`vpmem?`, `lhu.post?`, `ld46?`, `sqr?`, `sra?`, `vwait?`…): the encoding is fixed, the
 operation is not.  Family placeholders (`op41`, `op43`, `op67`, `op6f`, `alu41`…) print
 their fields and are not named.
 
@@ -371,13 +371,18 @@ memory addresses are cut to 32 bits, `do` writes `lc0/le0/ls0`, division fills
 `a0l`/`a0h`.  The VU scalar ports are registers (`vu0-vu31` for `vget`,
 `v0-v31` as the scalar shadow of `vbcast`, `va0-va7`, `vp0-vp7`, `vs0-vs15`,
 `vb1_*`/`vb3_*`/`vb5_*`, `udf0-udf31`) and every vector operation is the custom
-op `vop` (op9, A, B, F1, F2, F3), registered as a no-op: the vector unit itself
-is not modelled.  Forms without an established operation have no ESIL.
+op `vop` (op9, A, B, F1, F2, F3).  `vop` models the three established vector
+operations on a vector register file `vr0-vr31` (128 bytes each, shown as the
+256-bit quarters `vrK_0..vrK_3`): `v.mem.ld` loads `va[A]` halves from the
+pointer `vp[2*F2 + F3[4]]` into `vr[F1 >> 2]`, `v.mem.st` stores them from `vr0`,
+both post-incrementing the pointer, and `v.move.mv` copies `vr[F3]` into
+`vr[F1]`; every other vector op has no effect.  Forms without an established
+operation have no ESIL.
 
 Registers: `r0-r31`, `pc`, `sr`/`ipc`/`isr`/`lf`, the loop registers
 `ls0-2`/`le0-2`/`lc0-2`, `sp` and `lr` as the special registers csr14/csr15
-(the public MD32 ABI: arguments r3-r6, return r1), the accumulator `a0`
-(`a0l`/`a0h`).
+(the public MD32 ABI: arguments r3-r6, return r1; r16-r31 are callee-saved,
+r0-r15 caller-saved), the accumulator `a0` (`a0l`/`a0h`), the VU state.
 
 The data-space bases (main data memory at 0, the I/O window at 0x8000, the
 second data memory at 0x40000) can be added as flags with

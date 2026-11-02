@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### SCQ16 table update (402 bit alternatives), the `.post` convention and the vector unit model
+
+* `isa/scq16_isa.json` / `scq16_opcodes.h`: 228 forms / 402 bit alternatives.
+  `ctz rd, rs` (41 f3 0x22) is an established operation; new provisional
+  readings: `sqr? rd, rs` (41 f3 0x23), `sra? rd, rd, #pos` (67 fc-fd),
+  `vrd? rd, vb1[x]` (1a xy), `and? #0xf000?` (67 98-9b and the 2-byte 00/01 with
+  k = 6), `and? #0xc000?` (67 b4-b7); `op41.fld rd, rs, rt, #pos` reads its third
+  field as a register; `lw.post rd, [rb] += 4` (21) has a 4-bit destination;
+  the 3-bit post-increment of the `6e` `.post` family is signed; `sra rd, rd, #imm`
+  (09) is established; the load templates with a post-increment write rd last
+  (with `rd == rb` the loaded value wins).
+* `scq16_vu.inc.c` (new) / `scq16_arch.inc.c`: the vector unit model of the ESIL:
+  the register file `vr0-vr31` (128 bytes each, four 256-bit quarters in the
+  profile), `vp0-vp7` and `va0-va7`; `vop` models `v.mem.ld`, `v.mem.st` and
+  `v.move.mv` (loads/stores through the VU pointers with the count of `va[A]`
+  and a post-increment, register copies) and leaves every other op9 without effect.
+* `asm_md32.c`: pseudo rule of `sqr`.
+* `doc/scq16.md`, README: the new forms, the VU model, the `.post`
+  convention, the callee-saved profile (r16-r31).
+* `test/test_scq16.py`, `test/test_md32.c`: the new forms and the VU model.
+
 ### SCQ16 table update (228 forms), the `j.d1` target rule and the vector names
 
 * `isa/scq16_isa.json` / `scq16_opcodes.h`: 228 forms / 400 bit alternatives.
