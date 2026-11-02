@@ -10,7 +10,8 @@
  * (packets included): op->delay carries the count and op->fail the fall-through address after them when the bytes at
  * hand allow it.  ESIL: the high/medium scalar subset; a packet is emitted as A then B with the registers that B reads and
  * A writes copied to t0..t3 first (parallel semantics); delayed control flow uses the ESIL delay-slot mechanism
- * (`target,SETJT,n,SETD`: the jump is applied after n more instructions, which `aes` honours); `do` sets
+ * (`target,SETJT,n,SETD`: the jump is applied after n more instructions, which `aes` honours: a `.d2` transfer takes two
+ * `aes` steps, the first one runs the transfer and its first slot, the second one the second slot and the jump); `do` sets
  * lc0/le0/ls0 (the back edge is not inferred).  Vector operations are the custom ESIL op `vop` (op9, A, B, F1, F2, F3
  * on the stack; registered by esilcb as a no-op: the VU is not modelled); the scalar ports of the VU are ESIL registers
  * (vu, v, va, vp, vs, vb1_, vb3_, vb5_, udf, each followed by an index).
@@ -278,9 +279,15 @@ static void scq16_insn_esil(RAnalOp *op, const Scq16Insn *in, ut64 ret) {
 	(void)remap;
 	for (i = 0; i < in->n; i++) {
 		const Scq16Unit *u = &in->u[i];
-		if (!u->alt || !u->alt->esil) {
+		/* the override hook (experiments) counts as the unit's ESIL, also inside a packet; a unit with the empty ESIL "" (no
+		 * architectural effect: nop, halt, ieon/ieoff, loopend, vwait?, sys41) never blocks the ESIL of its instruction */
+		const char *ue = u->alt ? (scq16_esil_override ? scq16_esil_override (u->alt) : NULL) : NULL;
+		if (u->alt && !ue) {
+			ue = u->alt->esil;
+		}
+		if (!u->alt || !ue) {
 			/* a unit without modelled semantics (vector ops, low forms) leaves the whole instruction without ESIL */
-			if (!(u->alt && u->alt->esil && !*u->alt->esil)) {
+			if (!(u->alt && ue && !*ue)) {
 				return;
 			}
 		}
@@ -378,8 +385,9 @@ static void scq16_fill_opex(RAnalOp *op, const Scq16Insn *in) {
 			pj_ks (pj, "kind", scq16_kind_names[u->alt->kind]);
 			pj_ks (pj, "confidence", scq16_conf_names[u->alt->conf]);
 			const bool isvec = u->alt == &scq16_alts[SCQ16_VEC_ALT] || u->alt == &scq16_alts[SCQ16_BUNDLE_ALT];
-			pj_kb (pj, "named", !isvec && (u->alt->flags & SCQ16_FL_NAMED) != 0);
-			if ((u->alt->flags & SCQ16_FL_PROV) || (isvec && scq16_vname[u->op9])) {
+			/* a vector name without ? (v.move.mv, v.mem.ld, v.mem.st) is an established operation; one with ? is provisional */
+			pj_kb (pj, "named", isvec ? scq16_vname_firm (scq16_vname[u->op9]) : (u->alt->flags & SCQ16_FL_NAMED) != 0);
+			if ((!isvec && (u->alt->flags & SCQ16_FL_PROV)) || (isvec && scq16_vname[u->op9] && !scq16_vname_firm (scq16_vname[u->op9]))) {
 				pj_kb (pj, "provisional", true);
 			}
 			if (isvec) {

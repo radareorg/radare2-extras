@@ -348,7 +348,7 @@
    "name": "halt",
    "length": 4,
    "kind": "sys",
-   "confidence": "low",
+   "confidence": "medium",
    "slots": 0,
    "table_length": false,
    "control": false,
@@ -358,14 +358,14 @@
      "match": "(w & 0x7fffffff) == 0x5eb00000",
      "mask": 2147483647,
      "value": 1588592640,
-     "confidence": "low",
+     "confidence": "medium",
      "slots": 0,
      "named": true,
      "provisional": false,
      "hypothetical": false,
      "operands": [],
      "text": "",
-     "esil": null
+     "esil": ""
     }
    ]
   },
@@ -486,7 +486,7 @@
      "slots": 0,
      "named": false,
      "provisional": false,
-     "hypothetical": false,
+     "hypothetical": true,
      "operands": [
       {
        "name": "sub",
@@ -504,7 +504,7 @@
       }
      ],
      "text": "sub {sub}",
-     "esil": null
+     "esil": ""
     },
     {
      "mnemonic": "sys41",
@@ -515,7 +515,7 @@
      "slots": 0,
      "named": false,
      "provisional": false,
-     "hypothetical": false,
+     "hypothetical": true,
      "operands": [
       {
        "name": "sub",
@@ -533,7 +533,7 @@
       }
      ],
      "text": "sub {sub}",
-     "esil": null
+     "esil": ""
     }
    ]
   },
@@ -7105,7 +7105,7 @@
    "name": "bset",
    "length": 4,
    "kind": "alu",
-   "confidence": "medium",
+   "confidence": "high",
    "slots": 0,
    "table_length": false,
    "control": false,
@@ -7115,7 +7115,7 @@
      "match": "(w & 0x7fff8000) == 0x41ec8000",
      "mask": 2147450880,
      "value": 1106018304,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
@@ -7174,7 +7174,7 @@
    "name": "and",
    "length": 4,
    "kind": "alu",
-   "confidence": "medium",
+   "confidence": "high",
    "slots": 0,
    "table_length": false,
    "control": false,
@@ -7184,7 +7184,7 @@
      "match": "(w & 0x7fff8000) == 0x41e08000",
      "mask": 2147450880,
      "value": 1105231872,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
@@ -8704,24 +8704,24 @@
   },
   {
    "ref": 71,
-   "name": "fxts?",
+   "name": "fxts",
    "length": 4,
    "kind": "alu",
-   "confidence": "low",
+   "confidence": "medium",
    "slots": 0,
    "table_length": false,
    "control": false,
    "alternatives": [
     {
-     "mnemonic": "fxts?",
+     "mnemonic": "fxts",
      "match": "(w & 0x7ff00000) == 0x41b00000",
      "mask": 2146435072,
      "value": 1102053376,
-     "confidence": "low",
+     "confidence": "medium",
      "slots": 0,
-     "named": false,
-     "provisional": true,
-     "hypothetical": true,
+     "named": true,
+     "provisional": false,
+     "hypothetical": false,
      "operands": [
       {
        "name": "rd",
@@ -8795,6 +8795,148 @@
    "table_length": false,
    "control": false,
    "alternatives": [
+    {
+     "mnemonic": "ctz?",
+     "match": "(w & 0x7ffffc00) == 0x41f38800",
+     "mask": 2147482624,
+     "value": 1106479104,
+     "confidence": "low",
+     "slots": 0,
+     "named": false,
+     "provisional": true,
+     "hypothetical": false,
+     "operands": [
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rs",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         5,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "b1",
+       "kind": "imm",
+       "fmt": "h2",
+       "pieces": [
+        [
+         16,
+         8
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "x",
+       "kind": "imm",
+       "fmt": "xb",
+       "pieces": [
+        [
+         10,
+         10
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      }
+     ],
+     "text": "{rd}, {rs}",
+     "esil": null
+    },
+    {
+     "mnemonic": "clb?",
+     "match": "(w & 0x7ffffc00) == 0x41f38c00",
+     "mask": 2147482624,
+     "value": 1106480128,
+     "confidence": "low",
+     "slots": 0,
+     "named": false,
+     "provisional": true,
+     "hypothetical": false,
+     "operands": [
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rs",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         5,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "b1",
+       "kind": "imm",
+       "fmt": "h2",
+       "pieces": [
+        [
+         16,
+         8
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "x",
+       "kind": "imm",
+       "fmt": "xb",
+       "pieces": [
+        [
+         10,
+         10
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      }
+     ],
+     "text": "{rd}, {rs}",
+     "esil": null
+    },
     {
      "mnemonic": "op41",
      "match": "(w & 0x7f800000) == 0x41800000",
@@ -10114,14 +10256,14 @@
      "esil": "{imm},{rs},+,{=rd},="
     },
     {
-     "mnemonic": "alu74?",
+     "mnemonic": "and",
      "match": "(w & 0x7fff0c000000) == 0x740004000000",
      "mask": 140733394714624,
      "value": 127543415930880,
-     "confidence": "low",
+     "confidence": "medium",
      "slots": 0,
-     "named": false,
-     "provisional": true,
+     "named": true,
+     "provisional": false,
      "hypothetical": false,
      "operands": [
       {
@@ -10167,8 +10309,8 @@
        "bias": 0
       }
      ],
-     "text": "{rd}, {rs}, {imm}  (sub 1)",
-     "esil": null
+     "text": "{rd}, {rs}, {imm}",
+     "esil": "{imm},{rs},&,{=rd},="
     },
     {
      "mnemonic": "alu74?",
@@ -10984,7 +11126,7 @@
       }
      ],
      "text": "{r}, [{rb}] += {inc}",
-     "esil": null
+     "esil": "{rb},[1],{=r},=,{inc},{rb},+,{=rb},="
     },
     {
      "mnemonic": "lhu?",
@@ -12067,6 +12209,105 @@
    "alternatives": [
     {
      "mnemonic": "vcfg4c?",
+     "match": "(w & 0x7ffffc11) == 0x4c003011",
+     "mask": 2147482641,
+     "value": 1275080721,
+     "confidence": "low",
+     "slots": 0,
+     "named": false,
+     "provisional": true,
+     "hypothetical": true,
+     "operands": [
+      {
+       "name": "v",
+       "kind": "imm",
+       "fmt": "n",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rs",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         5,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "imm",
+       "kind": "imm",
+       "fmt": "x",
+       "pieces": [
+        [
+         10,
+         8
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "q",
+       "kind": "imm",
+       "fmt": "n",
+       "pieces": [
+        [
+         22,
+         2
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "s",
+       "kind": "imm",
+       "fmt": "hx",
+       "pieces": [
+        [
+         18,
+         4
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "pk",
+       "kind": "imm",
+       "fmt": "n",
+       "pieces": [
+        [
+         1,
+         4
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": -8
+      }
+     ],
+     "text": "v{v}, {rs}, {imm}  (q{q} s{s})",
+     "esil": "{rs},vp{#pk},="
+    },
+    {
+     "mnemonic": "vcfg4c?",
      "match": "(w & 0x7f000000) == 0x4c000000",
      "mask": 2130706432,
      "value": 1275068416,
@@ -12074,7 +12315,7 @@
      "slots": 0,
      "named": false,
      "provisional": true,
-     "hypothetical": false,
+     "hypothetical": true,
      "operands": [
       {
        "name": "v",
@@ -12159,7 +12400,7 @@
      "slots": 0,
      "named": false,
      "provisional": true,
-     "hypothetical": false,
+     "hypothetical": true,
      "operands": [
       {
        "name": "v",
@@ -12244,7 +12485,7 @@
      "slots": 0,
      "named": false,
      "provisional": true,
-     "hypothetical": false,
+     "hypothetical": true,
      "operands": [
       {
        "name": "v",
@@ -12329,7 +12570,7 @@
      "slots": 0,
      "named": false,
      "provisional": true,
-     "hypothetical": false,
+     "hypothetical": true,
      "operands": [
       {
        "name": "v",
@@ -12704,24 +12945,107 @@
    ]
   },
   {
-   "ref": 108,
-   "name": "sel?",
+   "ref": 219,
+   "name": "cmov.ge",
    "length": 4,
    "kind": "alu",
-   "confidence": "low",
+   "confidence": "high",
    "slots": 0,
    "table_length": false,
    "control": false,
    "alternatives": [
     {
-     "mnemonic": "sel?",
-     "match": "(w & 0x7ff00000) == 0x42000000",
+     "mnemonic": "cmov.ge",
+     "match": "(w & 0x7ff00000) == 0x42100000",
      "mask": 2146435072,
-     "value": 1107296256,
-     "confidence": "low",
+     "value": 1108344832,
+     "confidence": "high",
      "slots": 0,
-     "named": false,
-     "provisional": true,
+     "named": true,
+     "provisional": false,
+     "hypothetical": false,
+     "operands": [
+      {
+       "name": "ra",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         15,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rs",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         5,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "x",
+       "kind": "imm",
+       "fmt": "d",
+       "pieces": [
+        [
+         10,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": -7
+      }
+     ],
+     "text": "{rd}, {rs}, {x}, {ra}",
+     "esil": "32,{x},~,32,{rs},~,>=,?{,{ra},{=rd},=,}"
+    }
+   ]
+  },
+  {
+   "ref": 223,
+   "name": "cmov.eq",
+   "length": 4,
+   "kind": "alu",
+   "confidence": "medium",
+   "slots": 0,
+   "table_length": false,
+   "control": false,
+   "alternatives": [
+    {
+     "mnemonic": "cmov.eq",
+     "match": "(w & 0x7ff00000) == 0x42c00000",
+     "mask": 2146435072,
+     "value": 1119879168,
+     "confidence": "medium",
+     "slots": 0,
+     "named": true,
+     "provisional": false,
      "hypothetical": false,
      "operands": [
       {
@@ -12779,15 +13103,42 @@
        "signed": false,
        "scale": 1,
        "bias": 0
-      },
+      }
+     ],
+     "text": "{rd}, {rs}, {x}, {ra}",
+     "esil": "{x},{rs},==,$z,?{,{ra},{=rd},=,}"
+    }
+   ]
+  },
+  {
+   "ref": 224,
+   "name": "cmov.leu?",
+   "length": 4,
+   "kind": "alu",
+   "confidence": "low",
+   "slots": 0,
+   "table_length": false,
+   "control": false,
+   "alternatives": [
+    {
+     "mnemonic": "cmov.leu?",
+     "match": "(w & 0x7ff00000) == 0x42300000",
+     "mask": 2146435072,
+     "value": 1110441984,
+     "confidence": "low",
+     "slots": 0,
+     "named": false,
+     "provisional": true,
+     "hypothetical": true,
+     "operands": [
       {
-       "name": "q",
-       "kind": "imm",
-       "fmt": "n",
+       "name": "ra",
+       "kind": "r5",
+       "fmt": "reg",
        "pieces": [
         [
-         22,
-         2
+         15,
+         5
         ]
        ],
        "signed": false,
@@ -12795,13 +13146,41 @@
        "bias": 0
       },
       {
-       "name": "c",
-       "kind": "imm",
-       "fmt": "n",
+       "name": "rs",
+       "kind": "r5",
+       "fmt": "reg",
        "pieces": [
         [
-         20,
-         2
+         5,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "x",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         10,
+         5
         ]
        ],
        "signed": false,
@@ -12809,14 +13188,275 @@
        "bias": 0
       }
      ],
-     "text": "{rd}, {rs}, {x}, {ra}  (q{q} c{c})",
-     "esil": null
-    },
+     "text": "{rd}, {rs}, {x}, {ra}",
+     "esil": "{x},0,+,{rs},0,+,<=,?{,{ra},{=rd},=,}"
+    }
+   ]
+  },
+  {
+   "ref": 225,
+   "name": "cmov.ltu?",
+   "length": 4,
+   "kind": "alu",
+   "confidence": "low",
+   "slots": 0,
+   "table_length": false,
+   "control": false,
+   "alternatives": [
+    {
+     "mnemonic": "cmov.ltu?",
+     "match": "(w & 0x7ff00000) == 0x42b00000",
+     "mask": 2146435072,
+     "value": 1118830592,
+     "confidence": "low",
+     "slots": 0,
+     "named": false,
+     "provisional": true,
+     "hypothetical": true,
+     "operands": [
+      {
+       "name": "ra",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         15,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rs",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         5,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "x",
+       "kind": "imm",
+       "fmt": "d",
+       "pieces": [
+        [
+         10,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      }
+     ],
+     "text": "{rd}, {rs}, {x}, {ra}",
+     "esil": "{x},{rs},0,+,<,?{,{ra},{=rd},=,}"
+    }
+   ]
+  },
+  {
+   "ref": 226,
+   "name": "cmov.lt?",
+   "length": 4,
+   "kind": "alu",
+   "confidence": "low",
+   "slots": 0,
+   "table_length": false,
+   "control": false,
+   "alternatives": [
+    {
+     "mnemonic": "cmov.lt?",
+     "match": "(w & 0x7ff00000) == 0x42700000",
+     "mask": 2146435072,
+     "value": 1114636288,
+     "confidence": "low",
+     "slots": 0,
+     "named": false,
+     "provisional": true,
+     "hypothetical": true,
+     "operands": [
+      {
+       "name": "ra",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         15,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rs",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         5,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "x",
+       "kind": "imm",
+       "fmt": "d",
+       "pieces": [
+        [
+         10,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": -7
+      }
+     ],
+     "text": "{rd}, {x}, {rs}, {ra}",
+     "esil": "32,{rs},~,32,{x},~,<,?{,{ra},{=rd},=,}"
+    }
+   ]
+  },
+  {
+   "ref": 227,
+   "name": "cmov.le?",
+   "length": 4,
+   "kind": "alu",
+   "confidence": "low",
+   "slots": 0,
+   "table_length": false,
+   "control": false,
+   "alternatives": [
+    {
+     "mnemonic": "cmov.le?",
+     "match": "(w & 0x7ff00000) == 0x42400000",
+     "mask": 2146435072,
+     "value": 1111490560,
+     "confidence": "low",
+     "slots": 0,
+     "named": false,
+     "provisional": true,
+     "hypothetical": true,
+     "operands": [
+      {
+       "name": "ra",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         15,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rs",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         5,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "x",
+       "kind": "imm",
+       "fmt": "d",
+       "pieces": [
+        [
+         10,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      }
+     ],
+     "text": "{rd}, {x}, {rs}, {ra}",
+     "esil": "32,{rs},~,{x},<=,?{,{ra},{=rd},=,}"
+    }
+   ]
+  },
+  {
+   "ref": 108,
+   "name": "sel?",
+   "length": 4,
+   "kind": "alu",
+   "confidence": "low",
+   "slots": 0,
+   "table_length": false,
+   "control": false,
+   "alternatives": [
     {
      "mnemonic": "sel?",
-     "match": "(w & 0x7ff00000) == 0x42300000",
+     "match": "(w & 0x7ff00000) == 0x42000000",
      "mask": 2146435072,
-     "value": 1110441984,
+     "value": 1107296256,
      "confidence": "low",
      "slots": 0,
      "named": false,
@@ -13012,9 +13652,9 @@
     },
     {
      "mnemonic": "sel?",
-     "match": "(w & 0x7ff00000) == 0x42c00000",
+     "match": "(w & 0x7ff00000) == 0x42e00000",
      "mask": 2146435072,
-     "value": 1119879168,
+     "value": 1121976320,
      "confidence": "low",
      "slots": 0,
      "named": false,
@@ -13111,108 +13751,9 @@
     },
     {
      "mnemonic": "sel?",
-     "match": "(w & 0x7ff00000) == 0x42b00000",
+     "match": "(w & 0x7ff00000) == 0x42500000",
      "mask": 2146435072,
-     "value": 1118830592,
-     "confidence": "low",
-     "slots": 0,
-     "named": false,
-     "provisional": true,
-     "hypothetical": false,
-     "operands": [
-      {
-       "name": "ra",
-       "kind": "r5",
-       "fmt": "reg",
-       "pieces": [
-        [
-         15,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "rs",
-       "kind": "r5",
-       "fmt": "reg",
-       "pieces": [
-        [
-         5,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "rd",
-       "kind": "r5",
-       "fmt": "reg",
-       "pieces": [
-        [
-         0,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "x",
-       "kind": "imm",
-       "fmt": "d",
-       "pieces": [
-        [
-         10,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "q",
-       "kind": "imm",
-       "fmt": "n",
-       "pieces": [
-        [
-         22,
-         2
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "c",
-       "kind": "imm",
-       "fmt": "n",
-       "pieces": [
-        [
-         20,
-         2
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      }
-     ],
-     "text": "{rd}, {rs}, {x}, {ra}  (q{q} c{c})",
-     "esil": null
-    },
-    {
-     "mnemonic": "sel?",
-     "match": "(w & 0x7ff00000) == 0x42700000",
-     "mask": 2146435072,
-     "value": 1114636288,
+     "value": 1112539136,
      "confidence": "low",
      "slots": 0,
      "named": false,
@@ -13273,7 +13814,7 @@
        ],
        "signed": false,
        "scale": 1,
-       "bias": -7
+       "bias": 0
       },
       {
        "name": "q",
@@ -13306,105 +13847,6 @@
      ],
      "text": "{rd}, {rs}, {x}, {ra}  (q{q} c{c})",
      "esil": null
-    },
-    {
-     "mnemonic": "sel?",
-     "match": "(w & 0x7ff00000) == 0x42100000",
-     "mask": 2146435072,
-     "value": 1108344832,
-     "confidence": "low",
-     "slots": 0,
-     "named": false,
-     "provisional": true,
-     "hypothetical": true,
-     "operands": [
-      {
-       "name": "ra",
-       "kind": "r5",
-       "fmt": "reg",
-       "pieces": [
-        [
-         15,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "rs",
-       "kind": "r5",
-       "fmt": "reg",
-       "pieces": [
-        [
-         5,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "rd",
-       "kind": "r5",
-       "fmt": "reg",
-       "pieces": [
-        [
-         0,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "x",
-       "kind": "imm",
-       "fmt": "n",
-       "pieces": [
-        [
-         10,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "q",
-       "kind": "imm",
-       "fmt": "n",
-       "pieces": [
-        [
-         22,
-         2
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "c",
-       "kind": "imm",
-       "fmt": "n",
-       "pieces": [
-        [
-         20,
-         2
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      }
-     ],
-     "text": "{rd}, {rs}, x{x}, {ra}  (q{q} c{c})",
-     "esil": "32,7,{x},-,~,32,{rs},~,>=,?{,{ra},{=rd},=,}"
     },
     {
      "mnemonic": "sel?",
@@ -14460,24 +14902,24 @@
   },
   {
    "ref": 117,
-   "name": "lbu.post?",
+   "name": "lbu.post",
    "length": 3,
    "kind": "mem",
-   "confidence": "low",
+   "confidence": "medium",
    "slots": 0,
    "table_length": false,
    "control": false,
    "alternatives": [
     {
-     "mnemonic": "lbu.post?",
+     "mnemonic": "lbu.post",
      "match": "(w & 0x7fe000) == 0x6e8000",
      "mask": 8380416,
      "value": 7241728,
-     "confidence": "low",
+     "confidence": "medium",
      "slots": 0,
-     "named": false,
-     "provisional": true,
-     "hypothetical": true,
+     "named": true,
+     "provisional": false,
+     "hypothetical": false,
      "operands": [
       {
        "name": "r",
@@ -14708,7 +15150,7 @@
   },
   {
    "ref": 121,
-   "name": "lb?",
+   "name": "lbu?",
    "length": 3,
    "kind": "stack",
    "confidence": "low",
@@ -14717,7 +15159,7 @@
    "control": false,
    "alternatives": [
     {
-     "mnemonic": "lb?",
+     "mnemonic": "lbu?",
      "match": "(w & 0x7fe000) == 0x6f2000",
      "mask": 8380416,
      "value": 7282688,
@@ -14757,7 +15199,7 @@
       }
      ],
      "text": "{rd}, {off}(sp)",
-     "esil": "{off},sp,+,[1],8,SWAP,~,{=rd},="
+     "esil": "{off},sp,+,[1],{=rd},="
     }
    ]
   },
@@ -15579,7 +16021,7 @@
    "name": "mv",
    "length": 3,
    "kind": "mv",
-   "confidence": "medium",
+   "confidence": "high",
    "slots": 0,
    "table_length": false,
    "control": false,
@@ -15589,7 +16031,7 @@
      "match": "(w & 0x7ffc00) == 0x67cc00",
      "mask": 8387584,
      "value": 6802432,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
@@ -15631,23 +16073,23 @@
   },
   {
    "ref": 131,
-   "name": "mv?",
+   "name": "mv",
    "length": 3,
    "kind": "mv",
-   "confidence": "low",
+   "confidence": "high",
    "slots": 0,
    "table_length": false,
    "control": false,
    "alternatives": [
     {
-     "mnemonic": "mv?",
+     "mnemonic": "mv",
      "match": "(w & 0x7ffc00) == 0x67c800",
      "mask": 8387584,
      "value": 6801408,
-     "confidence": "low",
+     "confidence": "high",
      "slots": 0,
-     "named": false,
-     "provisional": true,
+     "named": true,
+     "provisional": false,
      "hypothetical": false,
      "operands": [
       {
@@ -15680,7 +16122,7 @@
       }
      ],
      "text": "{rd}, {rs}",
-     "esil": null
+     "esil": "{rs},{=rd},="
     }
    ]
   },
@@ -16509,6 +16951,55 @@
     },
     {
      "mnemonic": "and",
+     "match": "(w & 0x7f7c00) == 0x672400",
+     "mask": 8354816,
+     "value": 6759424,
+     "confidence": "medium",
+     "slots": 0,
+     "named": true,
+     "provisional": false,
+     "hypothetical": false,
+     "operands": [
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rs",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         5,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "m",
+       "kind": "const",
+       "fmt": "x",
+       "value": 16383
+      }
+     ],
+     "text": "{rd}, {rs}, {m}",
+     "esil": "{m},{rs},&,{=rd},="
+    },
+    {
+     "mnemonic": "and",
      "match": "(w & 0x7f7c00) == 0x672800",
      "mask": 8354816,
      "value": 6760448,
@@ -16617,55 +17108,6 @@
    "table_length": false,
    "control": false,
    "alternatives": [
-    {
-     "mnemonic": "and?",
-     "match": "(w & 0x7f7c00) == 0x672400",
-     "mask": 8354816,
-     "value": 6759424,
-     "confidence": "low",
-     "slots": 0,
-     "named": false,
-     "provisional": true,
-     "hypothetical": false,
-     "operands": [
-      {
-       "name": "rd",
-       "kind": "r5",
-       "fmt": "reg",
-       "pieces": [
-        [
-         0,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "rs",
-       "kind": "r5",
-       "fmt": "reg",
-       "pieces": [
-        [
-         5,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "m",
-       "kind": "const",
-       "fmt": "x",
-       "value": 16383
-      }
-     ],
-     "text": "{rd}, {rs}, {m}?",
-     "esil": null
-    },
     {
      "mnemonic": "and?",
      "match": "(w & 0x7f7c00) == 0x672c00",
@@ -16879,6 +17321,116 @@
      ],
      "text": "{rd}, {rd}, {rs}",
      "esil": "{rs},{rd},<<,{=rd},="
+    }
+   ]
+  },
+  {
+   "ref": 221,
+   "name": "bset",
+   "length": 3,
+   "kind": "alu",
+   "confidence": "medium",
+   "slots": 0,
+   "table_length": false,
+   "control": false,
+   "alternatives": [
+    {
+     "mnemonic": "bset",
+     "match": "(w & 0x7ffe00) == 0x67f400",
+     "mask": 8388096,
+     "value": 6812672,
+     "confidence": "medium",
+     "slots": 0,
+     "named": true,
+     "provisional": false,
+     "hypothetical": false,
+     "operands": [
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "pos",
+       "kind": "imm",
+       "fmt": "d",
+       "pieces": [
+        [
+         5,
+         4
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      }
+     ],
+     "text": "{rd}, {rd}, {pos}",
+     "esil": "{pos},1,<<,{rd},|,{=rd},="
+    }
+   ]
+  },
+  {
+   "ref": 222,
+   "name": "btst",
+   "length": 3,
+   "kind": "alu",
+   "confidence": "medium",
+   "slots": 0,
+   "table_length": false,
+   "control": false,
+   "alternatives": [
+    {
+     "mnemonic": "btst",
+     "match": "(w & 0x7ffe00) == 0x67f800",
+     "mask": 8388096,
+     "value": 6813696,
+     "confidence": "medium",
+     "slots": 0,
+     "named": true,
+     "provisional": false,
+     "hypothetical": false,
+     "operands": [
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "pos",
+       "kind": "imm",
+       "fmt": "d",
+       "pieces": [
+        [
+         5,
+         4
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      }
+     ],
+     "text": "{rd}, {rd}, {pos}",
+     "esil": "{pos},{rd},>>,1,&,{=rd},="
     }
    ]
   },
@@ -18692,6 +19244,120 @@
    ]
   },
   {
+   "ref": 220,
+   "name": "addsp",
+   "length": 2,
+   "kind": "stack",
+   "confidence": "low",
+   "slots": 0,
+   "table_length": false,
+   "control": false,
+   "alternatives": [
+    {
+     "mnemonic": "addsp",
+     "match": "(w & 0x7f80) == 0x1480",
+     "mask": 32640,
+     "value": 5248,
+     "confidence": "low",
+     "slots": 0,
+     "named": true,
+     "provisional": false,
+     "hypothetical": false,
+     "operands": [
+      {
+       "name": "v",
+       "kind": "imm",
+       "fmt": "x",
+       "pieces": [
+        [
+         0,
+         7
+        ]
+       ],
+       "signed": false,
+       "scale": 4,
+       "bias": 512
+      }
+     ],
+     "text": "sp, {v}",
+     "esil": "{v},sp,+,sp,="
+    }
+   ]
+  },
+  {
+   "ref": 228,
+   "name": "lbu.post",
+   "length": 2,
+   "kind": "mem",
+   "confidence": "medium",
+   "slots": 0,
+   "table_length": false,
+   "control": false,
+   "alternatives": [
+    {
+     "mnemonic": "lbu.post",
+     "match": "(w & 0x7f00) == 0x2300",
+     "mask": 32512,
+     "value": 8960,
+     "confidence": "medium",
+     "slots": 0,
+     "named": true,
+     "provisional": false,
+     "hypothetical": false,
+     "operands": [
+      {
+       "name": "rd",
+       "kind": "r3p",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         3
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rb",
+       "kind": "r3p",
+       "fmt": "reg",
+       "pieces": [
+        [
+         3,
+         3
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "inc",
+       "kind": "imm",
+       "fmt": "inc",
+       "pieces": [
+        [
+         8,
+         1
+        ],
+        [
+         6,
+         2
+        ]
+       ],
+       "signed": true,
+       "scale": 1,
+       "bias": 0
+      }
+     ],
+     "text": "{rd}, [{rb}] += {inc}",
+     "esil": "{rb},[1],{=rd},=,{inc},{rb},+,{=rb},="
+    }
+   ]
+  },
+  {
    "ref": 151,
    "name": "addsp",
    "length": 2,
@@ -20388,7 +21054,7 @@
    "name": "and",
    "length": 2,
    "kind": "alu",
-   "confidence": "medium",
+   "confidence": "high",
    "slots": 0,
    "table_length": false,
    "control": false,
@@ -20398,7 +21064,7 @@
      "match": "(w & 0x7fc0) == 0x80",
      "mask": 32704,
      "value": 128,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
@@ -20447,7 +21113,7 @@
      "match": "(w & 0x7fc0) == 0x100",
      "mask": 32704,
      "value": 256,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
@@ -20496,7 +21162,7 @@
      "match": "(w & 0x7fc0) == 0x140",
      "mask": 32704,
      "value": 320,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
@@ -20545,7 +21211,7 @@
      "match": "(w & 0x7fc0) == 0x1c0",
      "mask": 32704,
      "value": 448,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
@@ -21153,7 +21819,7 @@
    "name": "xtd",
    "length": 2,
    "kind": "alu",
-   "confidence": "medium",
+   "confidence": "high",
    "slots": 0,
    "table_length": false,
    "control": false,
@@ -21163,7 +21829,7 @@
      "match": "(w & 0x7fc0) == 0x540",
      "mask": 32704,
      "value": 1344,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
@@ -21214,7 +21880,7 @@
    "name": "mv",
    "length": 2,
    "kind": "mv",
-   "confidence": "medium",
+   "confidence": "high",
    "slots": 0,
    "table_length": false,
    "control": false,
@@ -21224,7 +21890,7 @@
      "match": "(w & 0x7f00) == 0x700",
      "mask": 32512,
      "value": 1792,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
@@ -21434,7 +22100,7 @@
    "name": "and",
    "length": 2,
    "kind": "alu",
-   "confidence": "medium",
+   "confidence": "high",
    "slots": 0,
    "table_length": false,
    "control": false,
@@ -21444,7 +22110,7 @@
      "match": "(w & 0x7f00) == 0xd00",
      "mask": 32512,
      "value": 3328,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
@@ -22483,10 +23149,59 @@
      "esil": "{rs},[1],{=rd},=,{inc},{rs},+,{=rs},="
     },
     {
-     "mnemonic": "lbu.post?",
+     "mnemonic": "lbu.post",
      "match": "(w & 0x7fc0) == 0x2280",
      "mask": 32704,
      "value": 8832,
+     "confidence": "medium",
+     "slots": 0,
+     "named": true,
+     "provisional": false,
+     "hypothetical": false,
+     "operands": [
+      {
+       "name": "rd",
+       "kind": "r3p",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         3
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rs",
+       "kind": "r3p",
+       "fmt": "reg",
+       "pieces": [
+        [
+         3,
+         3
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "inc",
+       "kind": "const",
+       "fmt": "n",
+       "value": 2
+      }
+     ],
+     "text": "{rd}, [{rs}] += {inc}",
+     "esil": "{rs},[1],{=rd},=,{inc},{rs},+,{=rs},="
+    },
+    {
+     "mnemonic": "lbu.post?",
+     "match": "(w & 0x7fc0) == 0x22c0",
+     "mask": 32704,
+     "value": 8896,
      "confidence": "medium",
      "slots": 0,
      "named": false,
@@ -22525,7 +23240,7 @@
        "name": "inc",
        "kind": "const",
        "fmt": "n",
-       "value": 2
+       "value": 3
       }
      ],
      "text": "{rd}, [{rs}] += {inc}",
@@ -23562,32 +24277,8 @@
    ],
    [
     92,
-    1,
-    1,
-    4
-   ],
-   [
-    92,
-    2,
     0,
-    4
-   ],
-   [
-    92,
-    3,
-    2,
-    2
-   ],
-   [
-    92,
-    4,
-    6,
-    2
-   ],
-   [
-    92,
-    4,
-    7,
+    0,
     4
    ],
    [
@@ -24902,32 +25593,8 @@
    ],
    [
     92,
-    1,
-    1,
-    -2
-   ],
-   [
-    92,
-    2,
     0,
-    -2
-   ],
-   [
-    92,
-    3,
-    2,
-    2
-   ],
-   [
-    92,
-    4,
-    6,
-    2
-   ],
-   [
-    92,
-    4,
-    7,
+    0,
     -2
    ],
    [
@@ -25898,13 +26565,15 @@
    "0x1ff": "unclassified"
   },
   "name_by_op9": {
-   "0x001": "movi",
+   "0x001": "movi?",
    "0x002": "ld",
    "0x003": "st",
    "0x00a": "ld",
    "0x00b": "st",
+   "0x00e": "add?",
    "0x012": "ld",
-   "0x028": "adds",
+   "0x028": "adds?",
+   "0x02e": "difsc?",
    "0x082": "ld",
    "0x083": "st",
    "0x08a": "ld",
@@ -25917,8 +26586,28 @@
    "0x103": "st",
    "0x109": "mv",
    "0x10b": "st",
-   "0x128": "addi",
+   "0x128": "addi?",
    "0x183": "st"
-  }
+  },
+  "firm_op9": [
+   "0x002",
+   "0x003",
+   "0x00a",
+   "0x00b",
+   "0x012",
+   "0x082",
+   "0x083",
+   "0x08a",
+   "0x08b",
+   "0x093",
+   "0x0a2",
+   "0x0a3",
+   "0x0aa",
+   "0x0ab",
+   "0x103",
+   "0x109",
+   "0x10b",
+   "0x183"
+  ]
  }
 }

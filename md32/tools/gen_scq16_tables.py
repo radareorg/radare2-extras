@@ -30,11 +30,14 @@ Table layout (see README.md "SCQ16 mode" and doc/scq16.md):
 `export` writes isa/scq16_isa.json from a form-description module (SOURCE: a Python description of the forms as Form/Alt objects
 with their bit constraints, operands, text and ESIL templates, the vector classes and the register names) and the length-rule
 leaves (LEAVES: a JSON with the lists "U" and "H" of [b0, depth, prefix, label, ...] rows; only those four fields are kept, the
-head label ["o", n] meaning a masked orphan of n bytes).  The plugin semantics that the source does not carry yet are applied
-on export (plugin_semantics(): the ESIL of the VU scalar ports as registers, the vector operations as the custom op `vop`,
-the hypothetical readings of the provisional loads and of `fxts?` / `sel?` q0 c1, delayed transfers as `SETJT`/`SETD`, the
-no-effect system forms, one text format fix).  The free-text notes of the source are not exported.
+head label ["o", n] meaning a masked orphan of n bytes).  The plugin semantics are carried by the source itself: the ESIL
+templates (VU scalar ports as registers, vector operations as the custom op `vop`, the no-effect system forms, delayed transfers
+as `SETJT`/`SETD`) and the set HYP of hypothetical readings (the reading of a provisional name or of an open sign) are fields of
+the source module (T.HYP); the exporter applies no overlay.  The vector names (vector.name_by_op9) carry the `?` of a
+provisional name; a name without `?` is an established operation (the source set VNAME_FIRM, also listed as vector.firm_op9).
+The free-text notes of the source are not exported; meta.source_sha256 is the sha256 of the source file.
 """
+import hashlib
 import importlib.util
 import json
 import os
@@ -64,103 +67,10 @@ def cstr(s):
 
 
 # ---------------------------------------------------------------------------------------------------------- export ----
-# ESIL templates the form-description module does not carry: ref -> template, or {alternative index: template}; '' = no architectural effect.
-PLUGIN_ESIL = {
-    5: '', 6: '', 8: '',                                   # ieon / ieoff / loopend: no modelled state
-    10: {0: ''},                                           # vwait?: a barrier, no modelled state
-    71: '{wd},{mask},{pos},{rs},>>,&,~,{=rd},=',           # fxts?: signed bit-field extraction (hypothesis)
-    82: '{imm},v{#x},=',                                   # vbcast.i v{x}, #imm (scalar shadow of the vector register)
-    200: '{imm},v{#x},=',                                  # vbcast.i? (hypothesis)
-    99: {1: '{rb},[2],{=r},=,{inc},{rb},+,{=rb},='},       # lhu? with post-increment (hypothesis)
-    116: '{rb},[2],{=r},=,{inc},{rb},+,{=rb},=',           # lhu.post? (hypothesis)
-    117: '{rb},[1],{=r},=,{inc},{rb},+,{=rb},=',           # lbu.post? (hypothesis)
-    121: '{off},sp,+,[1],8,SWAP,~,{=rd},=',                # lb? -off(sp) (hypothesis: the sign)
-    209: '{off},sp,+,[2],16,SWAP,~,{=rd},=',               # lh? -off(sp) (hypothesis: the sign)
-    139: 'vu{#k},{=rd},=',                                 # vget rd, vu[k] (3 bytes)
-    140: '{rs},v{#k},=',                                   # vbcast v{k}, rs
-    141: '{rs},va{#k},=',                                  # vset.a A{k}, rs
-    142: '{rs},vp{#k},=',                                  # vmem.set p{k}, rs
-    143: 'vb1_{#k},{=rd},=',                               # vrd? rd, vb1[k] (hypothesis)
-    214: 'vb3_{#k},{=rd},=',                               # vrd? rd, vb3[k] (hypothesis)
-    215: 'vb5_{#k},{=rd},=',                               # vrd? rd, vb5[k] (hypothesis)
-    216: 'udf{#k},{=rd},=',                                # udf.rd? (hypothesis)
-    144: '{rs},vs{#k},=',                                  # vins? slot{k}, rs (3 bytes) (hypothesis)
-    217: '{rs},vb5_{#k},=',                                # vwr? vb5[k], rs (hypothesis)
-    218: '{rs},udf{#k},=',                                 # udf.wr? udf{k}, rs (hypothesis)
-    187: '{F3},{F2},{F1},{B},{A},{op9},vop',               # vector operation: the custom op vop (a no-op in the plugin)
-    188: '{F3},{F2},{F1},{B},{A},{op9},vop',               # bundle: the vec32 (the s1/s2 slots carry their own ESIL)
-    189: '{rs},va{#ra},=',                                 # vset.a A{ra}, rs (2 bytes)
-    190: '{rs},vp{#hi},=',                                 # vmem.set p{hi}, rs (2 bytes)
-    191: '{rs},v{#vd},=',                                  # vbcast v{vd}, rs (2 bytes)
-    192: 'vu{#k},{=rd},=',                                 # vget rd, vu[k] (2 bytes, k 0-15)
-    193: 'vu{#k},{=rd},=',                                 # vget rd, vu[k] (2 bytes, k 16-31)
-    196: '{rs},vs{#slot},=',                               # vins? slot{slot}, rs (2 bytes) (hypothesis)
-}
-# forms whose ESIL is a hypothesis (the reading of a provisional name or of an open sign): flag HYP
-HYP_REFS = {71, 200, 99, 116, 117, 121, 209, 143, 214, 215, 216, 144, 217, 218, 196}
-# sel? q0 c1 read as cmov.ge rd, rs, #(x - 7), ra: a new alternative with the same text as the catch-all it precedes
-SEL_REF = 108
-SEL_ESIL = '32,7,{x},-,~,32,{rs},~,>=,?{,{ra},{=rd},=,}'
-# text format fixes: ref -> {operand: fmt}
-TEXT_FMT = {66: {'x': 'xb'}}
-_PC_WRITE = re.compile(r'([^,]+),pc,=')
-
-
-def delayed(esil, n):
-    """`X,pc,=` -> `X,SETJT,n,SETD`: the transfer is applied after n more instructions (the ESIL delay-slot mechanism)."""
-    return _PC_WRITE.sub(lambda m: '%s,SETJT,%d,SETD' % (m.group(1), n), esil)
-
-
-def plugin_semantics(T):
-    """Apply the plugin semantics to the imported source (in memory); returns the set of hypothetical alternatives."""
-    byref = {fm.ref: fm for fm in T.FORMS}
-    hyp = set()
-    # 1. the sel? q0 c1 alternative (skipped when the source already carries one with semantics)
-    sel = byref[SEL_REF]
-    catch = sel.alts[-1]
-    assert catch.mn == 'sel?' and len(catch.cons) == 1
-    alt = T.Alt('sel?', [T.OP(4, 0x42), T.BITS(22, 2, 0), T.BITS(20, 2, 1)], fmt='{rd}, {rs}, x{x}, {ra}  (q{q} c{c})',
-                ops={'x': T.UI((10, 5), fmt='n')}, esil=SEL_ESIL)
-    for k, op in alt.ops.items():
-        op.name = k
-    have = [a for a in sel.alts if a.mask_value() == alt.mask_value() and a.esil]
-    if have:
-        hyp.add(id(have[0]))
-    else:
-        sel.alts.insert(len(sel.alts) - 1, alt)
-        hyp.add(id(alt))
-    # 2. ESIL per form / alternative (an alternative with its own non-empty template keeps it)
-    for ref, e in PLUGIN_ESIL.items():
-        fm = byref[ref]
-        if isinstance(e, dict):
-            for i, s in e.items():
-                fm.alts[i].esil = s
-        else:
-            fm.esil = e
-            for a in fm.alts:
-                if a.esil is not None:
-                    a.esil = e if not a.esil else a.esil
-    # 3. delayed transfers: the slot count of the alternative
-    for fm in T.FORMS:
-        if fm.kind not in ('jump', 'call', 'branch', 'ret'):
-            continue
-        for a in fm.alts:
-            n = fm.slots_of(a)
-            if not n:
-                continue
-            if a.esil is not None and ',pc,=' in a.esil:
-                a.esil = delayed(a.esil, n)
-            elif a.esil is None and fm.esil is not None and ',pc,=' in fm.esil:
-                a.esil = delayed(fm.esil, n)
-    # 4. text formats
-    for ref, d in TEXT_FMT.items():
-        for k, f in d.items():
-            byref[ref].ops[k].fmt = f
-    for fm in T.FORMS:
-        if fm.ref in HYP_REFS:
-            for a in fm.alts:
-                hyp.add(id(a))
-    return hyp
+def hypothetical(T):
+    """the alternatives whose ESIL is a hypothesis: the forms listed in the source table HYP (the reading of a provisional name or
+    of an open sign); the plugin emits their ESIL, a strict emulator may refuse the SCQ16_FL_HYP alternatives."""
+    return {id(a) for fm in T.FORMS if fm.ref in getattr(T, 'HYP', {}) for a in fm.alts}
 
 
 def load_source(path):
@@ -173,7 +83,9 @@ def load_source(path):
 
 def export(source_path, leaves_path):
     T = load_source(source_path)
-    hyp = plugin_semantics(T)
+    hyp = hypothetical(T)
+    src_sha = hashlib.sha256(open(source_path, 'rb').read()).hexdigest()
+    firm = set(getattr(T, 'VNAME_FIRM', ()))
     pat = json.load(open(leaves_path))
     leaves = {}
     for key, name in (('U', 'unit'), ('H', 'head')):
@@ -189,6 +101,7 @@ def export(source_path, leaves_path):
     js = {
         'meta': {
             'isa': 'SCQ16 (MD32 family, byte-granular packet variant)',
+            'source_sha256': src_sha,
             'endianness': 'big',
             'confidence_levels': CONFIDENCE_LEVELS,
             'unit': 'the minimum unit is the byte; a stand-alone unit has 2 to 6 bytes, a vector operation 4, a bundle 8; the first byte and, for some first bytes, a prefix of the second decide the length (length_leaves)',
@@ -211,7 +124,8 @@ def export(source_path, leaves_path):
         'vector': {
             'classes': classes,
             'class_by_op9': {'0x%03x' % k: v for k, v in sorted(T.VCLASS.items())},
-            'name_by_op9': {'0x%03x' % k: v for k, v in sorted(T.VNAME.items())},
+            'name_by_op9': {'0x%03x' % k: (v if k in firm else v + '?') for k, v in sorted(T.VNAME.items())},
+            'firm_op9': ['0x%03x' % k for k in sorted(firm)],
         },
     }
     for fm in T.FORMS:
@@ -249,14 +163,19 @@ def generate(js):
     nalts = sum(len(f['alternatives']) for f in forms)
     L.append('/* scq16_opcodes.h - %s instruction forms.' % js['meta']['isa'])
     L.append(' * GENERATED by tools/gen_scq16_tables.py from isa/scq16_isa.json - do not edit by hand.')
+    if js['meta'].get('source_sha256'):
+        L.append(' * ISA source sha256 %s.' % js['meta']['source_sha256'])
     L.append(' * %d forms, %d bit alternatives; length-rule leaves: %d of stand-alone units, %d of packet heads; %d op9 codes with a vector class.' % (
         len(forms), nalts, len(leaves['unit']), len(leaves['head']), len(vec['class_by_op9'])))
+    L.append(' * scq16_vname[op9] carries the ? of a provisional vector name; a name without ? is an established operation (%d firm).' % len(vec.get('firm_op9', [])))
     L.append(' * Convention: w = big-endian integer of the TRANSFORMED unit (A\' in a packet head; byte 0 & 0x7f in a B slot or an')
     L.append(' * orphan), bit 0 = LSB of the last byte; bit 7 of byte 0 is never part of a mask.  Alternative order = specificity:')
     L.append(' * see README.md "SCQ16 mode" and doc/scq16.md. */')
     L.append('#ifndef SCQ16_OPCODES_H')
     L.append('#define SCQ16_OPCODES_H')
     L.append('#include <stdint.h>')
+    if js['meta'].get('source_sha256'):
+        L.append('#define SCQ16_SRC_SHA256 "%s"' % js['meta']['source_sha256'])
     L.append('')
     L.append('enum scq16_kind { ' + ', '.join('SCQ16_K_%s' % k.upper() for k in KINDS) + ' };')
     L.append('enum scq16_conf { ' + ', '.join('SCQ16_C_%s' % c.upper().replace('-', '_') for c in CONFS) + ' };')
