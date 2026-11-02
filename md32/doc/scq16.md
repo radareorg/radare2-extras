@@ -1,7 +1,13 @@
-# SCQ16 (MD32 family, byte-granular packet variant) — notes for the `scq16` CPU mode
+# SCQ16 (byte-granular packet encoding with an MD32-like scalar model) — notes for the `scq16` CPU mode
 
 Hand-over notes for the `scq16` cpu of the md32 plugin: the encoding model the decoder implements, the table that drives it, the
 analysis and ESIL conventions, and what is not modelled.  See README.md "SCQ16 mode" for the user-facing description.
+
+Relation to MD32: the SCQ16 instruction encoding is not an MD32 encoding (neither MS15E30 nor the uSIP VLIW variant): its
+length rule, opcode space and vector operations are its own.  What it shares with MD32 is the scalar programming model (32
+general registers, `sp`/`lr` as control registers, the calling convention, the scalar operation set and therefore the ESIL),
+which is why it is served as a cpu mode of this plugin rather than as a separate architecture.  The other DSP cores of the
+same modem (an unrelated SIMD ISA) are out of scope.
 
 ## 1. Encoding model
 
