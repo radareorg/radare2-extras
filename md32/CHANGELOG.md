@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+### SCQ16 table update (228 forms), the `j.d1` target rule and the vector names
+
+* `isa/scq16_isa.json` / `scq16_opcodes.h`: 228 forms / 400 bit alternatives.
+  The exporter (`tools/gen_scq16_tables.py export`) takes the ESIL, the delayed
+  transfers (SETJT/SETD) and the hypothetical flag from the form-description
+  module itself (its HYP table) and applies no overlay of its own.  Vector
+  names: the established operations `v.move.mv`, `v.mem.ld` and `v.mem.st`
+  print without the `?` (`vector.firm_op9`), the provisional ones keep it in
+  the table string.
+  New or renamed: `cmov.ge rd, rs, #imm, ra`, `cmov.eq rd, rs, rx, ra` (the
+  register form), the provisional `cmov.leu?` / `cmov.ltu?` / `cmov.lt?` /
+  `cmov.le?`, `mv rd, rs` (67 c8), `bset` / `btst rd, rd, #pos` (3 bytes),
+  `lbu.post rd, [rb] += inc` with 5-bit registers (6e q2) and the 23 page as
+  `lbu.post rd, [rb] += simm3` (-4..-1), `and rd, rs, #0x3fff` (67 a4-a7), the
+  6-byte `and rd, rs, #imm16` (74 sub 1), the provisional `ctz?` / `clb?` (41 f3),
+  `vcfg4c? v, rs, #0xc` with the hypothetical `p_k <- rs`, `ld46?` as a
+  hypothetical byte load with a post-increment, `lbu? rd, off(sp)` (ex `lb?`),
+  `addsp sp, #imm` (14 8x-fx), `fxts` without the `?`; `halt` and `sys41` carry
+  the empty ESIL (no modelled effect); `5c 40-6f` is the 4-byte `beq rA, rB`.
+* `scq16_decode.c`: `j.d1 56 0x-3x` decided by its target (stand-alone units
+  and B slots); every ESIL memory access cuts its address to 32 bits (negative
+  frame offsets wrapped in the 64-bit ESIL machine); the `?` of a vector name
+  comes with the table string.
+* `scq16_arch.inc.c`: a unit with the empty ESIL no longer blocks the ESIL of
+  its packet; opex `named` / `provisional` of vector ops follow the table name.
+* `asm_md32.c`: pseudo rules of `cmov.ge`/`cmov.leu`/`cmov.le`, `sys41`, `ctz`/`clb`.
+* `tools/scq16_flags.r2`: the data-space bases (DM, I/O window, DM2) as flags.
+* `test/test_scq16.py`, `test/test_md32.c`: the new forms, `j.d1` by target,
+  `.d2` across two `aes` steps, negative stack offsets, the vector names.
+
 ### SCQ16 mode (cpu=scq16): the table (218 forms), the byte-granular packet decoder, analysis and ESIL
 
 * `isa/scq16_isa.json` / `tools/gen_scq16_tables.py` / `scq16_opcodes.h` /
