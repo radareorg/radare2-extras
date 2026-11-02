@@ -6,7 +6,10 @@ semantics, delayed call via SETJT/SETD, loads/stores and post-increments, sign/z
 the VU scalar ports, vop); the newer forms (cmov.ge / cmov.eq with a register / the provisional cmov.*?, mv 67 c8, bset/btst
 rd, rd, #pos, lbu.post with 5-bit registers and the 23 page with a signed post-increment, and #0x3fff, the 6-byte and #imm16, ctz?/clb?,
 vcfg4c? #0xc, ld46?, the established vector names v.move.mv / v.mem.ld / v.mem.st, lbu? off(sp), halt and sys41 without effect),
-j.d1 decided by its target, `.d2` across two `aes` steps, negative stack offsets; the pseudo parser.  No firmware is needed."""
+j.d1 decided by its target, `.d2` across two `aes` steps, negative stack offsets; the newest forms (ctz, the provisional sqr? / sra? /
+vrd?, op41.fld with three registers, the provisional and? masks, lw.post of 2 bytes with a 4-bit destination, the signed post-increment
+of the 6e page, the .post templates writing rd last) and the public model of the VU (v.mem.ld / v.mem.st / v.move.mv on vr0-vr31 with
+the pointers vp0-vp7 and the counts va0-va7); the pseudo parser.  No firmware is needed."""
 import json
 import os
 import subprocess
@@ -77,11 +80,21 @@ DISASM = [
     # v.move.mv / v.mem.ld / v.mem.st (no ?) next to the provisional v.alu3.acc.add? / difsc?, a bundle and a vector head with them
     ('6e850d', 3, 'lbu.post  r13, [r8] += 0x1'), ('23fa', 2, 'lbu.post  r3, [r8] += -1'), ('2302', 2, 'lbu.post  r3, [r1] += -4'), ('2285', 2, 'lbu.post  r6, [r1] += 2'),
     ('67a468', 3, 'and       r8, r3, #0x3fff'), ('67ac68', 3, 'and?      r8, r3, #0xfc00?'), ('740004500000', 6, 'and       r0, r0, #0x1400'),
-    ('740008500000', 6, 'or        r0, r0, #0x1400'), ('74000c500000', 6, 'alu74?    r0, r0, #0x1400  (sub 3)'), ('41f38800', 4, 'ctz?      r0, r0'),
-    ('41f38c00', 4, 'clb?      r0, r0'), ('4c003231', 4, 'vcfg4c?   v17, r17, #0xc  (q0 s0)'), ('4600a020', 4, 'ld46?     r0, [r1] += 0x28'),
+    ('740008500000', 6, 'or        r0, r0, #0x1400'), ('74000c500000', 6, 'alu74?    r0, r0, #0x1400  (sub 3)'), ('41f38800', 4, 'ctz       r0, r0'),
+    ('41f38c00', 4, 'sqr?      r0, r0'), ('4c003231', 4, 'vcfg4c?   v17, r17, #0xc  (q0 s0)'), ('4600a020', 4, 'ld46?     r0, [r1] += 0x28'),
     ('c0000109', 4, 'v.move.mv op9=0x109 A0 B0 F0,F0,F0'), ('c0000002', 4, 'v.mem.ld  op9=0x002 A0 B0 F0,F0,F0'), ('c0000003', 4, 'v.mem.st  op9=0x003 A0 B0 F0,F0,F0'),
     ('c000000e', 4, 'v.alu3.acc.add? op9=0x00e A0 B0 F0,F0,F0'), ('c000002e', 4, 'v.alu3.acc.difsc? op9=0x02e A0 B0 F0,F0,F0'),
     ('e00001092005', 6, '{ v.mem.ld  op9=0x012 A0 B0 F0,F0,F1 ‖ ret }'), ('88906e850d', 5, '{ mv        r1, r3 ‖ lbu.post  r13, [r8] += 0x1 }'),
+    # ctz (41 f3 0x22, established) next to the provisional sqr? (0x23), the provisional sra? rd, rd, #pos (67 fc-fd) and
+    # vrd? rd, vb1[x] (1a xy), op41.fld rd, rs, rt, #pos (w[14:10] is a register), the provisional masks and? #0xf000? (67 98-9b, and the
+    # 2-byte 00/01 with k = 6) / #0xc000? (67 b4-b7), lw.post of 2 bytes with a 4-bit destination (21 aa = r11), the signed 3-bit
+    # post-increment of the 6e page (x = 4..7 -> -4..-1 units), vector ops with non-zero fields, a vector head and B slots with the newest forms
+    ('67fc75', 3, 'sra?      r21, r21, #3'), ('67fd75', 3, 'sra?      r21, r21, #11'), ('1a76', 2, 'vrd?      r7, vb1[7]'), ('1a00', 2, 'vrd?      r1, vb1[0]'),
+    ('418c0d27', 4, 'op41.fld  r7, r9, r3, #24'), ('679868', 3, 'and?      r8, r3, #0xf000?'), ('67b468', 3, 'and?      r8, r3, #0xc000?'), ('018a', 2, 'and?      r3, r2, #0xf000?'),
+    ('21aa', 2, 'lw.post   r11, [r3] += 4'), ('21a1', 2, 'lw.post   r2, [r3] += 4'), ('6ed063', 3, 'lw.post   r3, [r3] += -0x10'), ('6ef463', 3, 'sh.post   r3, [r3] += -0x6'),
+    ('6ee463', 3, 'sh.post   r3, [r3] += 0x2'), ('0912', 2, 'sra       r3, r3, #1'), ('c8204002', 4, 'v.mem.ld  op9=0x002 A2 B0 F4,F1,F0'), ('c8006003', 4, 'v.mem.st  op9=0x003 A2 B0 F0,F1,F16'),
+    ('c0280109', 4, 'v.move.mv op9=0x109 A0 B0 F5,F0,F0'), ('e00807092005', 6, '{ v.mem.ld  op9=0x012 A0 B0 F2,F0,F7 ‖ ret }'), ('88901a76', 4, '{ mv        r1, r3 ‖ vrd?      r7, vb1[7] }'),
+    ('889021aa', 4, '{ mv        r1, r3 ‖ lw.post   r11, [r3] += 4 }'), ('889041f38800', 6, '{ mv        r1, r3 ‖ ctz       r0, r0 }'),
 ]
 for hx, L, exp in DISASM:
     out = r2('wx %s @ 0x1000;pi 1 @ 0x1000;ao 1 @ 0x1000~size' % hx)
@@ -127,7 +140,18 @@ check(u['mnemonic'] == 'v.alu3.acc.add?' and u['named'] is False and u['provisio
 u = ops[2]['opex']['units'][0]
 check(ops[2]['opex']['shape'] == 'bundle' and u['named'] is True and u.get('vname') == 'ld', 'bundle with v.mem.ld: named')
 check(ops[3]['size'] == 6 and ops[3]['type'] == 'and', 'and rd, rs, #imm16 (74 sub 1): 6 bytes, and')
-check(ops[4]['opex']['units'][0]['mnemonic'] == 'ctz?' and ops[4]['opex']['units'][0]['provisional'] is True, 'ctz?: provisional')
+check(ops[4]['opex']['units'][0]['mnemonic'] == 'ctz' and ops[4]['opex']['units'][0]['named'] is True, 'ctz: an established operation')
+
+# 2d. ctz is an established name (no ?), sqr? / sra? / vrd? are provisional, op41.fld carries three registers, lw.post of 2 bytes
+# has a 4-bit destination
+ops = json.loads(r2('wx 41f38800 41f38c00 67fc75 1a76 418c0d27 21aa @ 0x5200;aoj 6 @ 0x5200')[0])
+u = [o['opex']['units'][0] for o in ops]
+check(u[0]['mnemonic'] == 'ctz' and u[0]['named'] is True and 'provisional' not in u[0], 'ctz: an established operation name')
+check(u[1]['mnemonic'] == 'sqr?' and u[1]['provisional'] is True and u[1]['named'] is False, 'sqr?: provisional')
+check(ops[2]['type'] == 'sar' and u[2]['mnemonic'] == 'sra?' and u[2]['provisional'] is True, 'sra? rd, rd, #pos (67 fc): sar, provisional')
+check(ops[3]['type'] == 'mov' and u[3]['mnemonic'] == 'vrd?' and u[3]['provisional'] is True, 'vrd? rd, vb1[x] (1a): mov, provisional')
+check(u[4]['form'] == 'op41.fld' and u[4]['named'] is False and [o['name'] for o in u[4]['operands']][:3] == ['rd', 'rs', 'rt'], 'op41.fld rd, rs, rt, #pos: three registers, unnamed')
+check(ops[5]['type'] == 'load' and u[5]['operands'][0]['value'] == 'r11' and ops[5].get('ireg') == 'r3', 'lw.post r11, [r3] += 4: 4-bit destination, base r3')
 
 # 3. ESIL
 regs = json.loads(r2('wx a40003d19125 @ 0x6000;aei;ar r3=7;ar r6=0;s 0x6000;aeip;aes;arj')[0])
@@ -192,7 +216,40 @@ check(regs['vp0'] == 0x1234 and regs['vp1'] == 0x1234, 'vcfg4c? v17 / v19, r17, 
 regs = json.loads(r2('wx 4600a020 @ 0x3000;wx 7f @ 0x400;aei;ar r1=0x400;ar r0=0;s 0x3000;aeip;aes;arj')[0])
 check(regs['r0'] == 0x7f and regs['r1'] == 0x428, 'ld46? r0, [r1] += 0x28: hypothetical zero-extended byte with a post-increment')
 out = r2('wx c0000109 2005 @ 0x3000;ao 1 @ 0x3000~esil;aei;s 0x3000;aeip;aes;ar pc')
-check(any('vop' in l for l in out) and out[-1].strip() == '0x00003004', 'v.move.mv: the ESIL is the documented no-op vop, aes steps over it')
+check(any('vop' in l for l in out) and out[-1].strip() == '0x00003004', 'v.move.mv: the ESIL is vop (modelled by the plugin), aes steps over it')
+
+# 3d. ctz / sqr? / sra? / vrd? semantics, the .post templates write rd last (rd == rb: the loaded value wins), the signed
+# post-increment of the 6e page, and the public model of the VU (vr0-vr31 of 128 bytes as four 256-bit quarters, vp0-vp7, va0-va7)
+regs = json.loads(r2('wx 41f38820 @ 0x3000;aei;ar r1=0x8;ar r0=0xff;s 0x3000;aeip;aes;arj')[0])
+check(regs['r0'] == 3, 'ctz r0, r1: ctz(8) = 3')
+regs = json.loads(r2('wx 41f38c20 67fc75 @ 0x3000;aei;ar r1=7;ar r0=0;ar r21=0xfffffff0;s 0x3000;aeip;aes;aes;arj')[0])
+check(regs['r0'] == 49 and regs['r21'] == 0xfffffffe, 'sqr? r0, r1 (7 * 7); sra? r21, r21, #3 (arithmetic shift of a negative value)')
+regs = json.loads(r2('wx 1a76 @ 0x3000;aei;ar vb1_7=0x99;ar r7=0;s 0x3000;aeip;aes;arj')[0])
+check(regs['r7'] == 0x99, 'vrd? r7, vb1[7]: r7 <- vb1_7 (hypothetical)')
+regs = json.loads(r2('wx 2300 @ 0x3000;wx 7f @ 0x404;aei;ar r1=0x404;s 0x3000;aeip;aes;arj')[0])
+check(regs['r1'] == 0x7f, 'lbu.post r1, [r1] += -4 with rd == rb: the loaded value wins (rd is written last)')
+regs = json.loads(r2('wx 6ed063 @ 0x3000;wx deadbeef @ 0x200;aei;ar r3=0x200;s 0x3000;aeip;aes;arj')[0])
+check(regs['r3'] == 0xdeadbeef, 'lw.post r3, [r3] += -0x10 (signed increment x = 4 -> -16; rd == rb): the loaded value wins')
+regs = json.loads(r2('wx 6ed068 6ef463 @ 0x3000;wx deadbeef @ 0x200;aei;ar r3=0x200;ar r8=0;s 0x3000;aeip;aes;ar r3=0x300;aes;arj')[0])
+check(regs['r8'] == 0xdeadbeef and regs['r3'] == 0x2fa, 'lw.post r8, [r3] += -0x10 (post-decrement of 16); sh.post r3, [r3] += -0x6')
+regs = json.loads(r2('wx 21aa @ 0x3000;wx 11223344 @ 0x100;aei;ar r3=0x100;ar r11=0;s 0x3000;aeip;aes;arj')[0])
+check(regs['r11'] == 0x11223344 and regs['r3'] == 0x104, 'lw.post r11, [r3] += 4 (21 aa): the destination is r11')
+regs = json.loads(r2('wx 1f20 1fa0 @ 0x3000;aei;ar r1=3;s 0x3000;aeip;aes;ar r1=0x400;aes;arj')[0])
+check(regs['va2'] == 3 and regs['vp2'] == 0x400, 'vset.a A2, r1 / vmem.set p2, r1: va2 and vp2 are registers')
+out = r2('wx c8204002 @ 0x3000;wx 1122334455667788 @ 0x400;aei;ar va2=3;ar vp2=0x400;s 0x3000;aeip;aes;ar vr1_0;ar vp2')
+check(int(out[-2], 16) == 0x665544332211 and int(out[-1], 16) == 0x406, 'v.mem.ld vr1 <- DM[vp2], 3 halves (va2 = 3): the lanes land in vr1_0 (little-endian), vp2 post-incremented by 6')
+out = r2('wx c8004002 c8004003 @ 0x3000;wx 1122334455667788 @ 0x400;wx 0000000000000000 @ 0x500;aei;ar va2=3;ar vp2=0x400;s 0x3000;aeip;aes;ar vp2=0x500;aes;p8 8 @ 0x500;ar vp2')
+check(out[-2].strip() == '1122334455660000' and int(out[-1], 16) == 0x506, 'v.mem.ld vr0 <- DM[0x400]; v.mem.st DM[0x500] <- vr0: 6 bytes copied through the VU, vp2 = 0x506')
+out = r2('wx c8004002 c0280109 c0000b09 c8004003 @ 0x3000;wx 1122334455667788 @ 0x400;wx 0000000000000000 @ 0x500;aei;ar va2=3;ar vp2=0x400;s 0x3000;aeip;aes;aes;ar vr0_0=0;aes;ar vp2=0x500;aes;p8 8 @ 0x500')
+check(out[-1].strip() == '1122334455660000', 'v.move.mv vr5 <- vr0, vr0 cleared, v.move.mv vr0 <- vr5, st: the register copy comes back to memory')
+out = r2('wx c8010002 @ 0x3000;wx 1122334455667788 @ 0x400;aei;ar va2=3;ar vp2=0x400;ar vp4=0x400;s 0x3000;aeip;aes;ar vp2;ar vp4;ar vr1_0')
+check(int(out[-3], 16) == 0x400 and int(out[-2], 16) == 0x400 and int(out[-1], 16) == 0, 'v.mem.ld with F2 = 4 (second access family, pointer not established): no effect')
+out = r2('wx c8204002 @ 0x3000;wx 1122334455667788 @ 0x400;aei;ar va2=0;ar vp2=0x400;s 0x3000;aeip;aes;ar vp2;ar vr1_0')
+check(int(out[-2], 16) == 0x480 and int(out[-1], 16) == 0x8877665544332211, 'v.mem.ld with va2 = 0: the whole 128-byte register, vp2 += 128')
+out = r2('wx f000000285288a02 @ 0x3000;wx aabbccdd @ 0x400;aei;ar va0=2;ar vp0=0x400;ar r1=1;ar r2=2;ar r3=3;ar r6=6;s 0x3000;aeip;aes;ar vr0_0;ar vp0;ar r2;ar r3')
+check([int(l, 16) for l in out[-4:]] == [0xddccbbaa, 0x404, 8, 4], 'bundle { v.mem.ld op9=0x00a ‖ add r2, r6 ‖ add r3, r1 }: the vector load and the two scalar slots')
+out = r2('wx c0000001 c000000e @ 0x3000;aei;ar va0=2;ar vp0=0x400;s 0x3000;aeip;aes;aes;ar vp0;ar pc')
+check([int(l, 16) for l in out[-2:]] == [0x400, 0x3008], 'v.const.movi? / v.alu3.acc.add?: no model (vop without effect), aes steps over them')
 
 # 4. pseudo
 text = '\n'.join(r2('e asm.pseudo=true;wx 889026e4 3084 1402 0566 2005 @ 0x1000;pD 12 @ 0x1000'))

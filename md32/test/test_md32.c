@@ -178,6 +178,11 @@ int main(int argc, char **argv) {
 	check_scq16 ("563fffce", 4, "j.d1      0x00000fce", R_ANAL_OP_TYPE_JMP);
 	check_scq16 ("23fa", 2, "lbu.post  r3, [r8] += -1", R_ANAL_OP_TYPE_LOAD);
 	check_scq16 ("c0000002", 4, "v.mem.ld  op9=0x002 A0 B0 F0,F0,F0", R_ANAL_OP_TYPE_UNK);
+	/* ctz (established), lw.post of 2 bytes with a 4-bit destination, the provisional sra? of 67 fc, a vector load with its fields */
+	check_scq16 ("41f38800", 4, "ctz       r0, r0", R_ANAL_OP_TYPE_UNK);
+	check_scq16 ("21aa", 2, "lw.post   r11, [r3] += 4", R_ANAL_OP_TYPE_LOAD);
+	check_scq16 ("67fc75", 3, "sra?      r21, r21, #3", R_ANAL_OP_TYPE_SAR);
+	check_scq16 ("c8204002", 4, "v.mem.ld  op9=0x002 A2 B0 F4,F1,F0", R_ANAL_OP_TYPE_UNK);
 	if (argc > 1 && !strcmp (argv[1], "--stream")) {
 		return stream (argc > 2? argv[2]: "md32");
 	}
