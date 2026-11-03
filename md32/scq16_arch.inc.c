@@ -289,7 +289,8 @@ static void scq16_insn_esil(RAnalOp *op, const Scq16Insn *in, ut64 ret) {
 			ue = u->alt->esil;
 		}
 		if (!u->alt || !ue) {
-			/* a unit without modelled semantics (vector ops, low forms) leaves the whole instruction without ESIL */
+			/* a unit without any template leaves the whole instruction without ESIL (an OPEN reading carries the marker "REF,ALT,open"
+			 * from the header, so the rest of its packet keeps its ESIL) */
 			if (!(u->alt && ue && !*ue)) {
 				return;
 			}
@@ -352,6 +353,19 @@ static void scq16_insn_esil(RAnalOp *op, const Scq16Insn *in, ut64 ret) {
 	}
 }
 
+/* the reading class of a unit for opex: established (an operation name), provisional (a name with ?) or placeholder (a family
+ * placeholder, or a vector op9 with a class but no name) */
+static const char *scq16_reading_of(const Scq16Unit *u, bool isvec) {
+	if (isvec) {
+		const char *nm = scq16_vname[u->op9];
+		return !nm ? "placeholder" : scq16_vname_firm (nm) ? "established" : "provisional";
+	}
+	if (u->alt->flags & SCQ16_FL_NAMED) {
+		return "established";
+	}
+	return (u->alt->flags & SCQ16_FL_PROV) ? "provisional" : "placeholder";
+}
+
 static void scq16_fill_opex(RAnalOp *op, const Scq16Insn *in) {
 	PJ *pj = pj_new ();
 	int i, j;
@@ -392,6 +406,13 @@ static void scq16_fill_opex(RAnalOp *op, const Scq16Insn *in) {
 			pj_kb (pj, "named", isvec ? scq16_vname_firm (scq16_vname[u->op9]) : (u->alt->flags & SCQ16_FL_NAMED) != 0);
 			if ((!isvec && (u->alt->flags & SCQ16_FL_PROV)) || (isvec && scq16_vname[u->op9] && !scq16_vname_firm (scq16_vname[u->op9]))) {
 				pj_kb (pj, "provisional", true);
+			}
+			/* the uniform marker of an OPEN reading (SCQ16_FL_OPEN: a family placeholder or a provisional name; a vector op9 without an
+			 * established name) and the reading class; `hypothetical` when the ESIL is the reading of a hypothesis (SCQ16_FL_HYP) */
+			pj_kb (pj, "open", isvec ? !scq16_vname_firm (scq16_vname[u->op9]) : (u->alt->flags & SCQ16_FL_OPEN) != 0);
+			pj_ks (pj, "reading", scq16_reading_of (u, isvec));
+			if (!isvec && (u->alt->flags & SCQ16_FL_HYP)) {
+				pj_kb (pj, "hypothetical", true);
 			}
 			if (isvec) {
 				pj_kn (pj, "op9", u->op9);
@@ -536,9 +557,22 @@ static bool scq16_esil_vop(REsil *esil) {
 	return true;
 }
 
+/* custom ESIL op `open`: the uniform marker of an OPEN reading without semantics (a family placeholder or a provisional name
+ * whose operation is not established: the table flag SCQ16_FL_OPEN; the header carries "REF,ALT,open" where the ISA table has no
+ * template).  It pops its two operands and has no effect; a strict emulator may stop on it. */
+static bool scq16_esil_open(REsil *esil) {
+	return scq16_vu_pop_n (esil, 2, NULL);
+}
+
 static bool scq16_esilcb(RArchSession *s, REsil *esil, RArchEsilAction action) {
 	if (action == R_ARCH_ESIL_ACTION_INIT && esil) {
-		return r_esil_set_op (esil, "vop", scq16_esil_vop, 0, 6, R_ESIL_OP_TYPE_CUSTOM, "vector operation (op9, A, B, F1, F2, F3): v.mem.ld / v.mem.st / v.move.mv modelled on vr0-vr31, the rest no-op");
+		bool ok = r_esil_set_op (esil, "vop", scq16_esil_vop, 0, 6, R_ESIL_OP_TYPE_CUSTOM, "vector operation (op9, A, B, F1, F2, F3): v.mem.ld / v.mem.st / v.move.mv modelled on vr0-vr31, the rest no-op");
+		ok &= r_esil_set_op (esil, "open", scq16_esil_open, 0, 2, R_ESIL_OP_TYPE_CUSTOM, "open reading marker (ref, alt): a form without established semantics, no effect");
+		scq16_vu_esil_init (esil);   /* a write of the scalar port v{k} (vbcast / vbcast.i) is broadcast to the 64 lanes of vr{k} */
+		return ok;
+	}
+	if (action == R_ARCH_ESIL_ACTION_FINI && esil) {
+		scq16_vu_esil_fini (esil);
 	}
 	return true;
 }

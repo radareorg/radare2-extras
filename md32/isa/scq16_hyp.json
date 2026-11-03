@@ -1,0 +1,5 @@
+{
+ "what": "plugin hypotheses: hypothetical ESIL / p-code templates the plugin adds to forms the ISA source lists in its HYP table without a template of its own. Empty: the packing of op41.fld is carried by the ISA source, so every ESIL and p-code the plugin emits comes from the source. The mechanism stays (tools/gen_scq16_tables.py export --hyp): an entry is applied only where the source has no template and the form is in HYP.",
+ "esil_conventions": "radare2 ESIL: A,B,- = B - A; A,B,<< = B << A (the operand pushed last is the left operand); {op} read, {=op} write",
+ "forms": {}
+}

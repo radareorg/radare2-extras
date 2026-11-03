@@ -2,7 +2,7 @@
 """Generate scq16_opcodes.h (the SCQ16 instruction table) from isa/scq16_isa.json.
 
     python3 tools/gen_scq16_tables.py [isa/scq16_isa.json] [-o scq16_opcodes.h]
-    python3 tools/gen_scq16_tables.py export SOURCE.py LEAVES.json [-o isa/scq16_isa.json]
+    python3 tools/gen_scq16_tables.py export SOURCE.py LEAVES.json [--hyp isa/scq16_hyp.json] [-o isa/scq16_isa.json]
 
 The header carries everything the C decoder (scq16_decode.c) needs: one Scq16Alt per bit alternative of a form (mask/value over
 the transformed unit, the delay-slot count, the flags, the operand descriptors, the text template and the ESIL template), an
@@ -23,19 +23,24 @@ Table layout (see README.md "SCQ16 mode" and doc/scq16.md):
     semantics, "" = no architectural effect;
   * flags: NAMED (an established operation name), PROV (provisional name, ends in ?), TABLELEN (form tied to the length
     table), CONTROL (control/system A': never a packet head), HYP (the ESIL is a hypothesis: the reading of a provisional
-    name or of an open sign).
+    name or of an open sign), OPEN (an open reading: a family placeholder or a provisional name; the vector and bundle
+    forms never carry it, their openness is per op9 in scq16_vname[]).  An OPEN alternative without an ESIL template
+    carries the uniform marker "REF,ALT,open" in the header (the custom ESIL op `open` has no effect; an emulator may
+    stop on it); the JSON keeps esil = null and records the marker as esil_plugin.
   Scq16Leaf { b0, depth, prefix, label }: (b0 & 0x7f, the top `depth` bits of b1) -> label > 0: length; label < 0: masked orphan
     of -label bytes; the deepest matching leaf wins.
 
 `export` writes isa/scq16_isa.json from a form-description module (SOURCE: a Python description of the forms as Form/Alt objects
 with their bit constraints, operands, text and ESIL templates, the vector classes and the register names) and the length-rule
 leaves (LEAVES: a JSON with the lists "U" and "H" of [b0, depth, prefix, label, ...] rows; only those four fields are kept, the
-head label ["o", n] meaning a masked orphan of n bytes).  The plugin semantics are carried by the source itself: the ESIL
-templates (VU scalar ports as registers, vector operations as the custom op `vop`, the no-effect system forms, delayed transfers
-as `SETJT`/`SETD`) and the set HYP of hypothetical readings (the reading of a provisional name or of an open sign) are fields of
-the source module (T.HYP); the exporter applies no overlay.  The vector names (vector.name_by_op9) carry the `?` of a
-provisional name; a name without `?` is an established operation (the source set VNAME_FIRM, also listed as vector.firm_op9).
-The free-text notes of the source are not exported; meta.source_sha256 is the sha256 of the source file.
+head label ["o", n] meaning a masked orphan of n bytes).  The plugin semantics are carried by the source itself: the ESIL templates (VU scalar ports as registers, vector operations as the custom op `vop`, the
+no-effect system forms, delayed transfers as `SETJT`/`SETD`) and the set HYP of hypothetical readings (the reading of a
+provisional name or of an open sign) are fields of the source module (T.HYP); the exporter applies no overlay.  The vector
+names (vector.name_by_op9) carry the `?` of a provisional name; a name without `?` is an established operation (the
+source set VNAME_FIRM, also listed as vector.firm_op9).  The notes and evidence fields of the source are not exported;
+meta.source_sha256 is the sha256 of the source file.  `--hyp HYP.json` adds the PLUGIN HYPOTHESES: hypothetical ESIL /
+p-code templates for forms the source lists in HYP WITHOUT a template of its own (none at present); they are flagged HYP, exported
+as esil_plugin with esil_origin = "plugin-hypothesis", and the file's sha256 goes to meta.plugin_hyp_sha256 and to the header.
 """
 import hashlib
 import importlib.util
@@ -52,7 +57,7 @@ OPKINDS = ['r5', 'r4', 'r4p', 'r3p', 'csr', 'acc', 'imm', 'disp', 'const']
 FMTS = ['d', 'x', 'xb', 'n', 'inc', 'pm', 'h2', 'hx', 'b3', 'x04', 'x05', 'x06', 'disp', 'dispx', 'reg']
 REGKINDS = ('r5', 'r4', 'r4p', 'r3p', 'csr', 'acc')
 LENGTHS = (2, 3, 4, 5, 6, 8)
-FL_NAMED, FL_PROV, FL_TABLELEN, FL_CONTROL, FL_HYP = 1, 2, 4, 8, 16
+FL_NAMED, FL_PROV, FL_TABLELEN, FL_CONTROL, FL_HYP, FL_OPEN = 1, 2, 4, 8, 16, 32
 
 CONFIDENCE_LEVELS = {
     'high': 'encoding and operation established by independent checks',
@@ -81,10 +86,13 @@ def load_source(path):
     return mod
 
 
-def export(source_path, leaves_path):
+def export(source_path, leaves_path, hyp_path=None):
     T = load_source(source_path)
     hyp = hypothetical(T)
     src_sha = hashlib.sha256(open(source_path, 'rb').read()).hexdigest()
+    ph = json.load(open(hyp_path)) if hyp_path else {'forms': {}}
+    ph_sha = hashlib.sha256(open(hyp_path, 'rb').read()).hexdigest() if hyp_path else None
+    ph_forms = {int(k): v for k, v in ph.get('forms', {}).items()}
     firm = set(getattr(T, 'VNAME_FIRM', ()))
     pat = json.load(open(leaves_path))
     leaves = {}
@@ -102,6 +110,9 @@ def export(source_path, leaves_path):
         'meta': {
             'isa': 'SCQ16 (MD32 family, byte-granular packet variant)',
             'source_sha256': src_sha,
+            'plugin_hyp_sha256': ph_sha,
+            'plugin_hyp': 'hypothetical templates added by the plugin to forms of the source table HYP without a template (esil_origin = plugin-hypothesis); null = none',
+            'open': 'an open reading (flag OPEN): a family placeholder or a provisional name; without a template its header ESIL is the marker "REF,ALT,open" (esil_plugin, esil_origin = open-marker)',
             'endianness': 'big',
             'confidence_levels': CONFIDENCE_LEVELS,
             'unit': 'the minimum unit is the byte; a stand-alone unit has 2 to 6 bytes, a vector operation 4, a bundle 8; the first byte and, for some first bytes, a prefix of the second decide the length (length_leaves)',
@@ -136,7 +147,7 @@ def export(source_path, leaves_path):
         elif fm is T.BUNDLE:
             fj['role'] = 'bundle'
         fj['alternatives'] = []
-        for a in fm.alts:
+        for ai, a in enumerate(fm.alts):
             mask, value = a.mask_value()
             ops = []
             for k, op in fm.ops_of(a).items():
@@ -145,11 +156,19 @@ def export(source_path, leaves_path):
                 else:
                     ops.append({'name': k, 'kind': op.kind, 'fmt': 'reg' if op.kind in REGKINDS else op.fmt, 'pieces': [list(p) for p in op.pieces], 'signed': bool(op.signed),
                                 'scale': op.scale, 'bias': op.bias})
-            fj['alternatives'].append({
+            named = bool(T.named_mn(fm, a.mn))
+            is_open = fm is not T.VEC and fm is not T.BUNDLE and not named
+            esil = fm.esil_of(a)
+            alt = {
                 'mnemonic': a.mn, 'match': '(w & %#x) == %#x' % (mask, value), 'mask': mask, 'value': value,
-                'confidence': fm.conf_of(a), 'slots': fm.slots_of(a), 'named': bool(T.named_mn(fm, a.mn)),
-                'provisional': a.mn.endswith('?'), 'hypothetical': id(a) in hyp, 'operands': ops,
-                'text': fm.fmt_of(a), 'esil': fm.esil_of(a)})
+                'confidence': fm.conf_of(a), 'slots': fm.slots_of(a), 'named': named,
+                'provisional': a.mn.endswith('?'), 'hypothetical': id(a) in hyp, 'open': is_open, 'operands': ops,
+                'text': fm.fmt_of(a), 'esil': esil}
+            if esil is None and id(a) in hyp and fm.ref in ph_forms:
+                alt['esil_plugin'] = ph_forms[fm.ref]['esil']; alt['esil_origin'] = 'plugin-hypothesis'
+            elif esil is None and is_open:
+                alt['esil_plugin'] = '%d,%d,open' % (fm.ref, ai); alt['esil_origin'] = 'open-marker'
+            fj['alternatives'].append(alt)
         js['forms'].append(fj)
     return js
 
@@ -176,6 +195,8 @@ def generate(js):
     L.append('#include <stdint.h>')
     if js['meta'].get('source_sha256'):
         L.append('#define SCQ16_SRC_SHA256 "%s"' % js['meta']['source_sha256'])
+    if js['meta'].get('plugin_hyp_sha256'):
+        L.append('#define SCQ16_PLUGIN_HYP_SHA256 "%s"' % js['meta']['plugin_hyp_sha256'])
     L.append('')
     L.append('enum scq16_kind { ' + ', '.join('SCQ16_K_%s' % k.upper() for k in KINDS) + ' };')
     L.append('enum scq16_conf { ' + ', '.join('SCQ16_C_%s' % c.upper().replace('-', '_') for c in CONFS) + ' };')
@@ -186,6 +207,7 @@ def generate(js):
     L.append('#define SCQ16_FL_TABLELEN 4   /* form tied to the length table */')
     L.append('#define SCQ16_FL_CONTROL  8   /* control/system A\': never a packet head */')
     L.append('#define SCQ16_FL_HYP      16  /* the ESIL is a hypothesis: the reading of a provisional name or of an open sign */')
+    L.append('#define SCQ16_FL_OPEN     32  /* an open reading: a family placeholder or a provisional name; without a template the ESIL is the marker "REF,ALT,open" */')
     L.append('')
     L.append('typedef struct { const char *name; uint8_t kind; uint8_t fmt; uint8_t npieces; uint8_t is_signed; struct { uint8_t lo, w; } piece[2]; int32_t scale, bias, cval; } Scq16Operand;')
     L.append('typedef struct { uint16_t form; uint16_t ref; const char *form_name; const char *mn; uint8_t L; uint8_t kind, conf, slots, nops, flags; uint64_t mask, value; const Scq16Operand *ops; const char *fmt; const char *esil; } Scq16Alt;')
@@ -227,8 +249,10 @@ def generate(js):
                 flags |= FL_CONTROL
             if a['hypothetical']:
                 flags |= FL_HYP
+            if a.get('open'):
+                flags |= FL_OPEN
             assert a['confidence'] in CONFS, (fm['name'], a['confidence'])
-            esil = a['esil']
+            esil = a.get('esil_plugin', a['esil'])
             alt_rows.append('  { %d, %d, %s, %s, %d, SCQ16_K_%s, SCQ16_C_%s, %d, %d, %d, 0x%xULL, 0x%xULL, %s, %s, %s }' % (
                 fi, fm['ref'], cstr(fm['name']), cstr(a['mnemonic']), fm['length'], fm['kind'].upper(), a['confidence'].upper().replace('-', '_'),
                 a['slots'], len(rows), flags, mask, value, name, cstr(a['text']), cstr(esil) if esil is not None else 'NULL'))
@@ -297,11 +321,16 @@ def generate(js):
 def main(argv):
     out = argv[argv.index('-o') + 1] if '-o' in argv else None
     args = [a for i, a in enumerate(argv) if a != '-o' and (i == 0 or argv[i - 1] != '-o')]
+    hyp_path = None
+    if '--hyp' in args:
+        i = args.index('--hyp')
+        hyp_path = args[i + 1]
+        del args[i:i + 2]
     if args and args[0] == 'export':
         if len(args) != 3:
             print(__doc__)
             return 2
-        js = export(args[1], args[2])
+        js = export(args[1], args[2], hyp_path)
         out = out or os.path.join(ROOT, 'isa', 'scq16_isa.json')
         with open(out, 'w', encoding='utf-8') as fh:
             json.dump(js, fh, indent=1, ensure_ascii=False)
