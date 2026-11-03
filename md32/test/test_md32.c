@@ -183,6 +183,9 @@ int main(int argc, char **argv) {
 	check_scq16 ("21aa", 2, "lw.post   r11, [r3] += 4", R_ANAL_OP_TYPE_LOAD);
 	check_scq16 ("67fc75", 3, "sra?      r21, r21, #3", R_ANAL_OP_TYPE_SAR);
 	check_scq16 ("c8204002", 4, "v.mem.ld  op9=0x002 A2 B0 F4,F1,F0", R_ANAL_OP_TYPE_UNK);
+	/* jr with a 5-bit register field, btst rd, rd, #pos with a 5-bit position */
+	check_scq16 ("6fec9b", 3, "jr        r27", R_ANAL_OP_TYPE_RJMP);
+	check_scq16 ("67fb41", 3, "btst      r1, r1, #26", R_ANAL_OP_TYPE_AND);
 	if (argc > 1 && !strcmp (argv[1], "--stream")) {
 		return stream (argc > 2? argv[2]: "md32");
 	}

@@ -363,7 +363,10 @@ form families.
 Provisional mnemonics carry a `?` (`sel?`, `cmov.leu?`, `vrd?`, `vwr?`,
 `vpmem?`, `lhu.post?`, `ld46?`, `sqr?`, `sra?`, `vwait?`…): the encoding is fixed, the
 operation is not.  Family placeholders (`op41`, `op43`, `op67`, `op6f`, `alu41`…) print
-their fields and are not named.
+their fields and are not named.  Both are OPEN readings: `aoj` reports them with
+`open: true` and `reading: provisional | placeholder` (`established` otherwise, and
+`hypothetical: true` when the ESIL is the reading of a hypothesis), and an open
+reading without semantics has the uniform ESIL marker `REF,ALT,open` (no effect).
 
 ### Analysis and ESIL
 
@@ -387,8 +390,13 @@ operations on a vector register file `vr0-vr31` (128 bytes each, shown as the
 256-bit quarters `vrK_0..vrK_3`): `v.mem.ld` loads `va[A]` halves from the
 pointer `vp[2*F2 + F3[4]]` into `vr[F1 >> 2]`, `v.mem.st` stores them from `vr0`,
 both post-incrementing the pointer, and `v.move.mv` copies `vr[F3]` into
-`vr[F1]`; every other vector op has no effect.  Forms without an established
-operation have no ESIL.
+`vr[F1]`; every other vector op has no effect.  `vbcast v_k, rs` / `vbcast.i`
+write the scalar port `v_k` and the plugin broadcasts the low 16 bits to the 64
+lanes of `vr_k`.  Forms without an established operation have the marker ESIL
+`REF,ALT,open`, except the hypothetical readings flagged in the table (among them
+the packing of `op41.fld`, carried by the ISA source; the file of
+plugin hypotheses `isa/scq16_hyp.json` is empty).  `ctz` of a zero operand gives
+-1 in the ESIL (`31 - clz(0)`); whether the hardware returns 32 is open.
 
 Registers: `r0-r31`, `pc`, `sr`/`ipc`/`isr`/`lf`, the loop registers
 `ls0-2`/`le0-2`/`lc0-2`, `sp` and `lr` as the special registers csr14/csr15
