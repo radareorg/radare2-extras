@@ -1,0 +1,7 @@
+core_tama.dylib
+core_tama.so
+tests/test_core_tama
+__pycache__/
+/roms/
+*.dSYM/
+/.pmai/
