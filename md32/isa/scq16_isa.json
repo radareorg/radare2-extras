@@ -1,6 +1,8 @@
 {
  "meta": {
   "isa": "SCQ16 (MD32 family, byte-granular packet variant)",
+  "plugin_hyp": "hypothetical templates added by the plugin to forms of the source table HYP without a template (esil_origin = plugin-hypothesis); null = none",
+  "open": "an open reading (flag OPEN): a family placeholder or a provisional name; without a template its header ESIL is the marker \"REF,ALT,open\" (esil_plugin, esil_origin = open-marker)",
   "endianness": "big",
   "confidence_levels": {
    "high": "encoding and operation established by independent checks",
@@ -155,6 +157,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [],
      "text": "",
      "esil": ""
@@ -181,6 +184,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [],
      "text": "",
      "esil": "lr,pc,="
@@ -207,6 +211,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [],
      "text": "",
      "esil": "lr,SETJT,1,SETD"
@@ -233,6 +238,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [],
      "text": "",
      "esil": "lr,SETJT,2,SETD"
@@ -259,6 +265,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [],
      "text": "",
      "esil": ""
@@ -285,6 +292,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [],
      "text": "",
      "esil": ""
@@ -311,6 +319,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [],
      "text": "",
      "esil": "ipc,pc,="
@@ -337,6 +346,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [],
      "text": "",
      "esil": ""
@@ -363,6 +373,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [],
      "text": "",
      "esil": ""
@@ -389,6 +400,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "sub",
@@ -432,6 +444,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "sub",
@@ -463,7 +476,9 @@
       }
      ],
      "text": "{sub} ({x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "10,1,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -487,6 +502,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "sub",
@@ -516,6 +532,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "sub",
@@ -557,15 +574,16 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
-       "kind": "r4",
+       "kind": "r5",
        "fmt": "reg",
        "pieces": [
         [
          0,
-         4
+         5
         ]
        ],
        "signed": false,
@@ -586,15 +604,16 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
-       "kind": "r4",
+       "kind": "r5",
        "fmt": "reg",
        "pieces": [
         [
          0,
-         4
+         5
         ]
        ],
        "signed": false,
@@ -615,15 +634,16 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
-       "kind": "r4",
+       "kind": "r5",
        "fmt": "reg",
        "pieces": [
         [
          0,
-         4
+         5
         ]
        ],
        "signed": false,
@@ -644,15 +664,16 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rn",
-       "kind": "r4",
+       "kind": "r5",
        "fmt": "reg",
        "pieces": [
         [
          0,
-         4
+         5
         ]
        ],
        "signed": false,
@@ -685,6 +706,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -714,6 +736,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -755,6 +778,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -784,6 +808,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -825,6 +850,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "d",
@@ -842,7 +868,9 @@
       }
      ],
      "text": "{d} (outside the image)",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "15,0,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -866,6 +894,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -907,6 +936,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -948,6 +978,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "off",
@@ -1005,6 +1036,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "off",
@@ -1074,6 +1106,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "off",
@@ -1129,6 +1162,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "off",
@@ -1172,6 +1206,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "off",
@@ -1227,6 +1262,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "off",
@@ -1272,7 +1308,9 @@
       }
      ],
      "text": "{r}, {off}  [x={x}]",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "21,0,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -1296,6 +1334,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "e",
@@ -1353,6 +1392,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "e",
@@ -1410,6 +1450,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "e",
@@ -1467,6 +1508,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "e",
@@ -1524,6 +1566,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "e",
@@ -1581,6 +1624,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "e",
@@ -1650,6 +1694,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -1707,6 +1752,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -1764,6 +1810,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -1821,6 +1868,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -1878,6 +1926,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -1935,6 +1984,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -1992,6 +2042,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2049,6 +2100,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2106,6 +2158,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2163,6 +2216,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2220,6 +2274,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2277,6 +2332,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2346,6 +2402,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2403,6 +2460,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2460,6 +2518,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2517,6 +2576,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2574,6 +2634,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2631,6 +2692,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2688,6 +2750,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2745,6 +2808,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2802,6 +2866,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2859,6 +2924,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2928,6 +2994,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -2985,6 +3052,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3042,6 +3110,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3099,6 +3168,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3156,6 +3226,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3213,6 +3284,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3270,6 +3342,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3327,6 +3400,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3384,6 +3458,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3441,6 +3516,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3498,6 +3574,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3555,6 +3632,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3612,6 +3690,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3669,6 +3748,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3726,6 +3806,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3783,6 +3864,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3840,6 +3922,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3897,6 +3980,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -3954,6 +4038,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4011,6 +4096,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4068,6 +4154,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4125,6 +4212,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4182,6 +4270,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4239,6 +4328,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4308,6 +4398,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4365,6 +4456,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4422,6 +4514,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4479,6 +4572,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4536,6 +4630,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4593,6 +4688,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4650,6 +4746,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4707,6 +4804,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4764,6 +4862,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4821,6 +4920,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4878,6 +4978,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -4935,6 +5036,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "disp",
@@ -5004,6 +5106,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -5045,6 +5148,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -5086,6 +5190,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -5127,6 +5232,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -5168,6 +5274,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -5223,6 +5330,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -5278,6 +5386,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -5333,6 +5442,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -5388,6 +5498,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -5431,6 +5542,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -5474,6 +5586,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -5529,6 +5642,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -5572,6 +5686,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -5615,6 +5730,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -5670,6 +5786,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -5713,6 +5830,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -5756,6 +5874,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -5811,6 +5930,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -5854,6 +5974,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -5897,6 +6018,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -5952,6 +6074,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -5981,6 +6104,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -6022,6 +6146,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -6051,6 +6176,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "d",
@@ -6092,6 +6218,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6121,6 +6248,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6150,6 +6278,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6179,6 +6308,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6208,6 +6338,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6237,6 +6368,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6266,6 +6398,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6295,6 +6428,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6324,6 +6458,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6353,6 +6488,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6382,6 +6518,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6411,6 +6548,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6440,6 +6578,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6469,6 +6608,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6498,6 +6638,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rn",
@@ -6539,6 +6680,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -6582,6 +6724,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "csr",
@@ -6637,6 +6780,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "acc",
@@ -6692,6 +6836,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -6747,6 +6892,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -6830,6 +6976,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -6913,6 +7060,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -6982,6 +7130,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7051,6 +7200,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7120,6 +7270,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7189,6 +7340,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7258,6 +7410,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7327,6 +7480,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7396,6 +7550,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7465,6 +7620,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7534,6 +7690,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7603,6 +7760,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7672,6 +7830,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7741,6 +7900,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7810,6 +7970,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7879,6 +8040,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -7948,6 +8110,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -8017,6 +8180,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -8086,6 +8250,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -8140,7 +8305,7 @@
    "name": "btst",
    "length": 4,
    "kind": "alu",
-   "confidence": "high",
+   "confidence": "medium",
    "slots": 0,
    "table_length": false,
    "control": false,
@@ -8150,11 +8315,12 @@
      "match": "(w & 0x7fff8000) == 0x41ee0000",
      "mask": 2147450880,
      "value": 1106116608,
-     "confidence": "high",
+     "confidence": "medium",
      "slots": 0,
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -8224,6 +8390,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -8283,7 +8450,9 @@
       }
      ],
      "text": "{rd}, {rs}, {rt}  (sub5 {sub5})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "64,0,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -8307,6 +8476,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -8350,6 +8520,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -8405,6 +8576,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "k",
@@ -8450,7 +8622,9 @@
       }
      ],
      "text": "k{k}  (x={x}, {b1})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "66,0,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -8474,6 +8648,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "imm",
@@ -8515,6 +8690,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -8570,6 +8746,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "k",
@@ -8615,7 +8792,9 @@
       }
      ],
      "text": "k{k}.{s}, {rs}",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "69,0,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -8639,6 +8818,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -8698,7 +8878,7 @@
       }
      ],
      "text": "{rd}, {rs}, {rt}, {pos}",
-     "esil": null
+     "esil": "{pos},{rs},<<,1,{pos},1,<<,-,{rt},&,|,{=rd},="
     }
    ]
   },
@@ -8722,6 +8902,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -8787,7 +8968,7 @@
   },
   {
    "ref": 72,
-   "name": "op41",
+   "name": "ctz",
    "length": 4,
    "kind": "alu",
    "confidence": "low",
@@ -8804,7 +8985,8 @@
      "slots": 0,
      "named": true,
      "provisional": false,
-     "hypothetical": true,
+     "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -8828,34 +9010,6 @@
         [
          5,
          5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "b1",
-       "kind": "imm",
-       "fmt": "h2",
-       "pieces": [
-        [
-         16,
-         8
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "x",
-       "kind": "imm",
-       "fmt": "xb",
-       "pieces": [
-        [
-         10,
-         10
         ]
        ],
        "signed": false,
@@ -8865,148 +9019,6 @@
      ],
      "text": "{rd}, {rs}",
      "esil": "32,{rs},{rs},0,-,&,CLZ,31,-,{=rd},="
-    },
-    {
-     "mnemonic": "sqr?",
-     "match": "(w & 0x7ffffc00) == 0x41f38c00",
-     "mask": 2147482624,
-     "value": 1106480128,
-     "confidence": "low",
-     "slots": 0,
-     "named": false,
-     "provisional": true,
-     "hypothetical": true,
-     "operands": [
-      {
-       "name": "rd",
-       "kind": "r5",
-       "fmt": "reg",
-       "pieces": [
-        [
-         0,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "rs",
-       "kind": "r5",
-       "fmt": "reg",
-       "pieces": [
-        [
-         5,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "b1",
-       "kind": "imm",
-       "fmt": "h2",
-       "pieces": [
-        [
-         16,
-         8
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "x",
-       "kind": "imm",
-       "fmt": "xb",
-       "pieces": [
-        [
-         10,
-         10
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      }
-     ],
-     "text": "{rd}, {rs}",
-     "esil": "{rs},{rs},*,{=rd},="
-    },
-    {
-     "mnemonic": "op41",
-     "match": "(w & 0x7f800000) == 0x41800000",
-     "mask": 2139095040,
-     "value": 1098907648,
-     "confidence": "low",
-     "slots": 0,
-     "named": false,
-     "provisional": false,
-     "hypothetical": true,
-     "operands": [
-      {
-       "name": "rd",
-       "kind": "r5",
-       "fmt": "reg",
-       "pieces": [
-        [
-         0,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "rs",
-       "kind": "r5",
-       "fmt": "reg",
-       "pieces": [
-        [
-         5,
-         5
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "b1",
-       "kind": "imm",
-       "fmt": "h2",
-       "pieces": [
-        [
-         16,
-         8
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      },
-      {
-       "name": "x",
-       "kind": "imm",
-       "fmt": "xb",
-       "pieces": [
-        [
-         10,
-         10
-        ]
-       ],
-       "signed": false,
-       "scale": 1,
-       "bias": 0
-      }
-     ],
-     "text": "{rd}, {rs}  (sub {b1} x={x})",
-     "esil": null
     }
    ]
   },
@@ -9030,6 +9042,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -9085,6 +9098,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -9140,6 +9154,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -9195,6 +9210,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -9250,6 +9266,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -9305,6 +9322,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -9360,6 +9378,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -9415,6 +9434,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -9458,6 +9478,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -9501,6 +9522,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -9556,6 +9578,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -9611,6 +9634,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "x",
@@ -9668,6 +9692,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "x",
@@ -9737,6 +9762,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "x",
@@ -9806,6 +9832,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -9875,6 +9902,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -9944,6 +9972,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -10013,6 +10042,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -10082,6 +10112,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -10127,7 +10158,9 @@
       }
      ],
      "text": "{rd}, {rs}, {imm}",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "87,0,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -10151,6 +10184,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -10208,6 +10242,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -10265,6 +10300,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -10322,6 +10358,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -10367,7 +10404,9 @@
       }
      ],
      "text": "{rd}, {rs}, {imm}  (sub 3)",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "88,3,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -10391,6 +10430,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -10445,7 +10485,7 @@
    "name": "sb",
    "length": 4,
    "kind": "mem",
-   "confidence": "medium",
+   "confidence": "high",
    "slots": 0,
    "table_length": false,
    "control": false,
@@ -10455,11 +10495,12 @@
      "match": "(w & 0x7fc00000) == 0x45400000",
      "mask": 2143289344,
      "value": 1161822208,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -10529,6 +10570,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -10598,6 +10640,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -10667,6 +10710,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -10736,6 +10780,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -10805,6 +10850,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -10874,6 +10920,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -10943,6 +10990,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -11012,6 +11060,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -11081,6 +11130,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "r",
@@ -11138,6 +11188,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "r",
@@ -11207,6 +11258,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -11276,6 +11328,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -11345,6 +11398,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -11414,6 +11468,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -11483,6 +11538,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "r",
@@ -11542,7 +11598,9 @@
       }
      ],
      "text": "{r}, s{sub}:{imm8}  (x{x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "104,0,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op43",
@@ -11554,6 +11612,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "r",
@@ -11613,7 +11672,9 @@
       }
      ],
      "text": "{r}, s{sub}:{imm8}  (x{x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "104,1,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op43",
@@ -11625,6 +11686,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "r",
@@ -11684,7 +11746,9 @@
       }
      ],
      "text": "{r}, s{sub}:{imm8}  (x{x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "104,2,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op43",
@@ -11696,6 +11760,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "r",
@@ -11755,7 +11820,9 @@
       }
      ],
      "text": "{r}, s{sub}:{imm8}  (x{x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "104,3,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op43",
@@ -11767,6 +11834,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "r",
@@ -11826,7 +11894,9 @@
       }
      ],
      "text": "s{sub}:{imm8}, {r}  (x{x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "104,4,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op43",
@@ -11838,6 +11908,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "r",
@@ -11897,7 +11968,9 @@
       }
      ],
      "text": "s{sub}:{imm8}, {r}  (x{x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "104,5,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op43",
@@ -11909,6 +11982,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "r",
@@ -11968,7 +12042,9 @@
       }
      ],
      "text": "s{sub}:{imm8}, {r}  (x{x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "104,6,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op43",
@@ -11980,6 +12056,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "r",
@@ -12039,7 +12116,9 @@
       }
      ],
      "text": "s{sub}:{imm8}  (x{x}, {r})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "104,7,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -12063,6 +12142,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "off7",
@@ -12122,7 +12202,9 @@
       }
      ],
      "text": "p{p}, {off7}, m{m}  (b1 {b1})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "105,0,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "vpmem?",
@@ -12134,6 +12216,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "off7",
@@ -12193,7 +12276,9 @@
       }
      ],
      "text": "p{p}, {off7}, m{m}  (b1 {b1})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "105,1,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -12217,6 +12302,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "v",
@@ -12316,6 +12402,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "v",
@@ -12389,7 +12476,9 @@
       }
      ],
      "text": "v{v}, {rs}, {imm}  (q{q} s{s})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "106,1,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "vcfg4c?",
@@ -12401,6 +12490,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "v",
@@ -12474,7 +12564,9 @@
       }
      ],
      "text": "v{v}, {rs}, {imm}  (q{q} s{s})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "106,2,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "vcfg4c?",
@@ -12486,6 +12578,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "v",
@@ -12559,7 +12652,9 @@
       }
      ],
      "text": "v{v}, {rs}, {imm}  (q{q} s{s})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "106,3,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "vcfg4c?",
@@ -12571,6 +12666,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "v",
@@ -12644,7 +12740,9 @@
       }
      ],
      "text": "v{v}, {rs}, {imm}  (q{q} s{s})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "106,4,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -12668,6 +12766,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "ra",
@@ -12739,6 +12838,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "ra",
@@ -12810,6 +12910,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "ra",
@@ -12881,6 +12982,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "ra",
@@ -12964,6 +13066,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "ra",
@@ -13047,6 +13150,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "ra",
@@ -13130,6 +13234,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "ra",
@@ -13213,6 +13318,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "ra",
@@ -13296,6 +13402,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "ra",
@@ -13379,6 +13486,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "ra",
@@ -13462,6 +13570,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "ra",
@@ -13549,7 +13658,9 @@
       }
      ],
      "text": "{rd}, {rs}, {x}, {ra}  (q{q} c{c})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "108,0,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "sel?",
@@ -13561,6 +13672,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "ra",
@@ -13648,7 +13760,9 @@
       }
      ],
      "text": "{rd}, {rs}, {x}, {ra}  (q{q} c{c})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "108,1,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "sel?",
@@ -13660,6 +13774,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "ra",
@@ -13747,7 +13862,9 @@
       }
      ],
      "text": "{rd}, {rs}, {x}, {ra}  (q{q} c{c})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "108,2,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "sel?",
@@ -13759,6 +13876,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "ra",
@@ -13846,7 +13964,9 @@
       }
      ],
      "text": "{rd}, {rs}, {x}, {ra}  (q{q} c{c})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "108,3,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "sel?",
@@ -13858,6 +13978,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "ra",
@@ -13945,7 +14066,9 @@
       }
      ],
      "text": "{rd}, {rs}, x{x}, {ra}  (q{q} c{c})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "108,4,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -13969,6 +14092,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -14014,7 +14138,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "109,0,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op4x",
@@ -14026,6 +14152,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -14071,7 +14198,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "109,1,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op4x",
@@ -14083,6 +14212,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -14128,7 +14258,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "109,2,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op4x",
@@ -14140,6 +14272,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -14185,7 +14318,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "109,3,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op4x",
@@ -14197,6 +14332,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -14242,7 +14378,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "109,4,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op4x",
@@ -14254,6 +14392,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -14299,7 +14438,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "109,5,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op4x",
@@ -14311,6 +14452,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -14356,7 +14498,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "109,6,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op4x",
@@ -14368,6 +14512,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -14413,7 +14558,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "109,7,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -14437,6 +14584,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -14506,6 +14654,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -14575,6 +14724,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -14644,6 +14794,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -14713,6 +14864,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -14782,6 +14934,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -14851,6 +15004,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "r",
@@ -14920,6 +15074,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -14989,6 +15144,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -15044,6 +15200,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -15099,6 +15256,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -15168,6 +15326,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -15223,6 +15382,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -15278,6 +15438,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -15333,6 +15494,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -15388,6 +15550,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -15443,6 +15606,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -15498,6 +15662,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -15553,6 +15718,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "r",
@@ -15598,7 +15764,9 @@
       }
      ],
      "text": "{r}  (sub {b1} x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "123,0,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -15622,6 +15790,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -15691,6 +15860,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -15760,6 +15930,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -15829,6 +16000,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -15898,6 +16070,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -15967,6 +16140,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16036,6 +16210,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16091,6 +16266,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16146,6 +16322,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16201,6 +16378,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16256,6 +16434,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16311,6 +16490,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16366,6 +16546,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16421,6 +16602,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16476,6 +16658,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16525,6 +16708,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16574,6 +16758,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16635,6 +16820,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16684,6 +16870,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16733,6 +16920,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16794,6 +16982,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16855,6 +17044,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -16892,7 +17082,9 @@
       }
      ],
      "text": "{rd}, {rs}, {m}?",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "204,0,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -16916,6 +17108,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -16965,6 +17158,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -17014,6 +17208,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -17063,6 +17258,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -17124,6 +17320,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -17161,7 +17358,9 @@
       }
      ],
      "text": "{rd}, {rs}, {m}?",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "206,0,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "and?",
@@ -17173,6 +17372,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -17210,7 +17410,9 @@
       }
      ],
      "text": "{rd}, {rs}, {m}?",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "206,1,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -17234,6 +17436,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -17283,6 +17486,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -17344,6 +17548,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -17399,6 +17604,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -17446,14 +17652,15 @@
    "alternatives": [
     {
      "mnemonic": "btst",
-     "match": "(w & 0x7ffe00) == 0x67f800",
-     "mask": 8388096,
+     "match": "(w & 0x7ffc00) == 0x67f800",
+     "mask": 8387584,
      "value": 6813696,
      "confidence": "medium",
      "slots": 0,
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -17476,7 +17683,7 @@
        "pieces": [
         [
          5,
-         4
+         5
         ]
        ],
        "signed": false,
@@ -17509,6 +17716,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -17580,6 +17788,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -17625,7 +17834,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "138,1,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -17649,6 +17860,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "k",
@@ -17704,6 +17916,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "k",
@@ -17759,6 +17972,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "k",
@@ -17814,6 +18028,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "k",
@@ -17869,6 +18084,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "k",
@@ -17924,6 +18140,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "k",
@@ -17979,6 +18196,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "k",
@@ -18034,6 +18252,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "k",
@@ -18089,6 +18308,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "k",
@@ -18144,6 +18364,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "k",
@@ -18199,6 +18420,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "k",
@@ -18254,6 +18476,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "k",
@@ -18299,7 +18522,9 @@
       }
      ],
      "text": "{rd}, k{k}, s{s}",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "145,0,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -18323,6 +18548,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -18396,6 +18622,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -18469,6 +18696,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -18538,6 +18766,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -18583,7 +18812,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,0,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op6x",
@@ -18595,6 +18826,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -18640,7 +18872,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,1,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op6x",
@@ -18652,6 +18886,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -18697,7 +18932,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,2,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op6x",
@@ -18709,6 +18946,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -18754,7 +18992,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,3,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op6x",
@@ -18766,6 +19006,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -18811,7 +19052,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,4,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op6x",
@@ -18823,6 +19066,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -18868,7 +19112,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,5,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op6x",
@@ -18880,6 +19126,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -18925,7 +19172,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,6,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op6x",
@@ -18937,6 +19186,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -18982,7 +19232,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,7,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op6x",
@@ -18994,6 +19246,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -19039,7 +19292,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,8,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op6x",
@@ -19051,6 +19306,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -19096,7 +19352,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,9,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op6x",
@@ -19108,6 +19366,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -19153,7 +19412,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,10,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op6x",
@@ -19165,6 +19426,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -19210,7 +19472,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,11,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op6x",
@@ -19222,6 +19486,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -19267,7 +19532,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,12,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "op6x",
@@ -19279,6 +19546,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -19324,7 +19592,9 @@
       }
      ],
      "text": "{rd}, {rs}  (x={x})",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "149,13,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -19348,6 +19618,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "v",
@@ -19389,6 +19660,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "v",
@@ -19430,6 +19702,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -19503,6 +19776,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "v",
@@ -19544,6 +19818,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "off",
@@ -19585,6 +19860,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "off",
@@ -19626,6 +19902,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -19685,6 +19962,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -19744,6 +20022,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -19817,6 +20096,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -19878,6 +20158,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -19939,6 +20220,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -20012,6 +20294,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20073,6 +20356,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20134,6 +20418,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20195,6 +20480,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20268,6 +20554,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20329,6 +20616,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20390,6 +20678,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20463,6 +20752,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20524,6 +20814,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20585,6 +20876,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20658,6 +20950,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20719,6 +21012,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20780,6 +21074,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20853,6 +21148,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20914,6 +21210,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -20987,6 +21284,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21042,6 +21340,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21085,6 +21384,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21140,6 +21440,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rs",
@@ -21195,6 +21496,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21244,6 +21546,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21293,6 +21596,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21342,6 +21646,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21388,7 +21693,7 @@
    "name": "and",
    "length": 2,
    "kind": "alu",
-   "confidence": "medium",
+   "confidence": "high",
    "slots": 0,
    "table_length": false,
    "control": false,
@@ -21398,11 +21703,12 @@
      "match": "(w & 0x7fc0) == 0x0",
      "mask": 32704,
      "value": 0,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21447,11 +21753,12 @@
      "match": "(w & 0x7fc0) == 0x40",
      "mask": 32704,
      "value": 64,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21496,11 +21803,12 @@
      "match": "(w & 0x7fc0) == 0xc0",
      "mask": 32704,
      "value": 192,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21562,6 +21870,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -21599,7 +21908,9 @@
       }
      ],
      "text": "{rd}, {rs}, {m}?",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "168,0,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -21623,6 +21934,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21696,6 +22008,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21742,7 +22055,7 @@
    "name": "add",
    "length": 2,
    "kind": "alu",
-   "confidence": "medium",
+   "confidence": "high",
    "slots": 0,
    "table_length": false,
    "control": false,
@@ -21752,11 +22065,12 @@
      "match": "(w & 0x7fc0) == 0x4c0",
      "mask": 32704,
      "value": 1216,
-     "confidence": "medium",
+     "confidence": "high",
      "slots": 0,
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21818,6 +22132,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -21863,7 +22178,9 @@
       }
      ],
      "text": "{rd}, {rs}, #sub{sub}",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "172,0,open",
+     "esil_origin": "open-marker"
     }
    ]
   },
@@ -21887,6 +22204,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -21948,6 +22266,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -22009,6 +22328,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -22064,6 +22384,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -22119,6 +22440,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -22174,6 +22496,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -22229,6 +22552,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -22284,6 +22608,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -22339,6 +22664,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -22394,6 +22720,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -22449,6 +22776,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -22504,6 +22832,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -22559,6 +22888,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -22614,6 +22944,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "r",
@@ -22670,6 +23001,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "A",
@@ -22782,6 +23114,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "A",
@@ -22893,6 +23226,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "ra",
@@ -22948,6 +23282,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "hi",
@@ -23003,6 +23338,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "vd",
@@ -23058,6 +23394,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -23113,6 +23450,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -23168,6 +23506,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -23223,6 +23562,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -23272,6 +23612,7 @@
      "named": true,
      "provisional": false,
      "hypothetical": false,
+     "open": false,
      "operands": [
       {
        "name": "rd",
@@ -23321,6 +23662,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": false,
+     "open": true,
      "operands": [
       {
        "name": "rd",
@@ -23382,6 +23724,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "slot",
@@ -23437,6 +23780,7 @@
      "named": false,
      "provisional": true,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "b1",
@@ -23494,6 +23838,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "b1",
@@ -23511,7 +23856,9 @@
       }
      ],
      "text": "{b1}",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "197,1,open",
+     "esil_origin": "open-marker"
     },
     {
      "mnemonic": "vec2",
@@ -23523,6 +23870,7 @@
      "named": false,
      "provisional": false,
      "hypothetical": true,
+     "open": true,
      "operands": [
       {
        "name": "b1",
@@ -23540,7 +23888,167 @@
       }
      ],
      "text": "{b1}",
-     "esil": null
+     "esil": null,
+     "esil_plugin": "197,2,open",
+     "esil_origin": "open-marker"
+    }
+   ]
+  },
+  {
+   "ref": 229,
+   "name": "op41",
+   "length": 4,
+   "kind": "alu",
+   "confidence": "low",
+   "slots": 0,
+   "table_length": false,
+   "control": false,
+   "alternatives": [
+    {
+     "mnemonic": "sqr?",
+     "match": "(w & 0x7ffffc00) == 0x41f38c00",
+     "mask": 2147482624,
+     "value": 1106480128,
+     "confidence": "low",
+     "slots": 0,
+     "named": false,
+     "provisional": true,
+     "hypothetical": true,
+     "open": true,
+     "operands": [
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rs",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         5,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "b1",
+       "kind": "imm",
+       "fmt": "h2",
+       "pieces": [
+        [
+         16,
+         8
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "x",
+       "kind": "imm",
+       "fmt": "xb",
+       "pieces": [
+        [
+         10,
+         10
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      }
+     ],
+     "text": "{rd}, {rs}",
+     "esil": "{rs},{rs},*,{=rd},="
+    },
+    {
+     "mnemonic": "op41",
+     "match": "(w & 0x7f800000) == 0x41800000",
+     "mask": 2139095040,
+     "value": 1098907648,
+     "confidence": "low",
+     "slots": 0,
+     "named": false,
+     "provisional": false,
+     "hypothetical": true,
+     "open": true,
+     "operands": [
+      {
+       "name": "rd",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         0,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "rs",
+       "kind": "r5",
+       "fmt": "reg",
+       "pieces": [
+        [
+         5,
+         5
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "b1",
+       "kind": "imm",
+       "fmt": "h2",
+       "pieces": [
+        [
+         16,
+         8
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      },
+      {
+       "name": "x",
+       "kind": "imm",
+       "fmt": "xb",
+       "pieces": [
+        [
+         10,
+         10
+        ]
+       ],
+       "signed": false,
+       "scale": 1,
+       "bias": 0
+      }
+     ],
+     "text": "{rd}, {rs}  (sub {b1} x={x})",
+     "esil": null,
+     "esil_plugin": "229,1,open",
+     "esil_origin": "open-marker"
     }
    ]
   }
