@@ -246,6 +246,63 @@ static bool test_icons(void) {
 	return true;
 }
 
+static bool rom_loads_as(const char *uri, const ut8 *expected) {
+	RCore *core = new_core (uri);
+	CHECK (core);
+	RCoreTama *tama = tama_get (&core->esil.esil);
+	ut8 rom[0x3000];
+	const bool same = r_io_fd_read_at (tama->io, tama->rom_fd, 0, rom, sizeof (rom)) == sizeof (rom)
+		&& !memcmp (rom, expected, sizeof (rom));
+	r_core_free (core);
+	CHECK (same);
+	return true;
+}
+
+static bool rom_format(const char *name, const ut8 *buf, size_t size, const char *scheme, const ut8 *expected) {
+	char *path = r_file_temp_ex ("r2tama", name);
+	CHECK (path && r_file_dump (path, buf, size, false));
+	char *uri = r_str_newf ("%s%s", scheme, path);
+	const bool ok = rom_loads_as (uri, expected);
+	r_file_rm (path);
+	free (uri);
+	free (path);
+	CHECK (ok);
+	return true;
+}
+
+// the same rom as le16 and be16 units, packed le and be 12-bit streams
+static bool test_rom_formats(const char *file) {
+	size_t size = 0;
+	ut8 *rom = (ut8 *)r_file_slurp (file, &size);
+	CHECK (rom && size == 0x3000);
+	ut8 be16[0x3000];
+	ut8 packed[TAMA_PACKED_ROM_SIZE];
+	size_t i;
+	for (i = 0; i < size; i += 2) {
+		r_write_be16 (be16 + i, r_read_le16 (rom + i));
+	}
+	bool ok = rom_format (".le16", rom, size, "", rom)
+		&& rom_format (".be16", be16, size, "", rom)
+		&& rom_format (".le16", rom, size, "bits://16/", rom)
+		&& r_mem_pack_bits (packed, rom, 6144, 12, false)
+		&& rom_format (".le12", packed, sizeof (packed), "bits://12/", rom)
+		&& r_mem_pack_bits (packed, be16, 6144, 12, true)
+		&& rom_format (".be12", packed, sizeof (packed), "bits://12be/", rom);
+	if (ok) {
+		char *path = r_file_temp_ex ("r2tama", ".raw12");
+		ok = path && r_file_dump (path, packed, sizeof (packed), false);
+		RCore *core = ok? r_core_new (): NULL;
+		ok = core && r_core_file_open (core, path, R_PERM_R, 0) && !tama_init (core);
+		r_core_free (core);
+		r_file_rm (path);
+		free (path);
+	}
+	free (rom);
+	CHECK (ok);
+	printf ("%s: loads as le16, be16 and packed bits://12/ and bits://12be/\n", file);
+	return true;
+}
+
 static bool test_rom(const char *file) {
 	RCore *core = new_core (file);
 	CHECK (core);
@@ -306,7 +363,7 @@ int main(int argc, char **argv) {
 	}
 	int i;
 	for (i = 1; i < argc; i++) {
-		if (!test_rom (argv[i])) {
+		if (!test_rom_formats (argv[i]) || !test_rom (argv[i])) {
 			return 1;
 		}
 	}

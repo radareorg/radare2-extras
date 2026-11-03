@@ -14,6 +14,16 @@ r2 -q -c 'r2tama play' roms/p1.bin
 r2 -q -c 'r2tama play' roms/p2.bin
 ```
 
+ROMs are 6144 12-bit words, either unpacked into 16-bit units (12288 bytes,
+little or big endian) or packed as a 12-bit stream (9216 bytes). Open packed
+images through radare2's `bits://` io plugin, selecting the stream endianness:
+
+```sh
+rax2 -p 12 < roms/p1.bin > p1.packed     # le stream, 12288 -> 9216 bytes
+r2 -q -c 'r2tama play' bits://12/p1.packed
+r2 -q -c 'r2tama play' bits://12be/p1be.packed
+```
+
 `play` initializes the ROM automatically. Press **a**, **s**, **d** for the
 physical **A**, **B**, **C** buttons. Press **m** to toggle mute; the status
 line shows `mute=on` or `mute=off`. Muting stops queued playback immediately

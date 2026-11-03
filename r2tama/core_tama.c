@@ -3,6 +3,7 @@
 #include <r_core.h>
 
 #define TAMA_DATA 0x10000
+#define TAMA_PACKED_ROM_SIZE (6144 * 12 / 8)
 #define TAMA_FRAMEBUFFER 0x20000
 #define TAMA_FRAME_SIZE (32 * 16 * 3)
 #define TAMA_SCREEN_BUFFER 0x21000
@@ -504,25 +505,41 @@ static int tama_malloc(RCoreTama *tama, unsigned size) {
 	return desc? desc->fd: -1;
 }
 
+// validate the 12-bit words and normalize big endian units to the little endian rom layout
+static bool tama_rom_words(ut8 *rom, size_t size, bool be) {
+	size_t i;
+	for (i = 0; i < size; i += 2) {
+		if (r_read_ble16 (rom + i, be) > 0xfff) {
+			return false;
+		}
+	}
+	for (i = 0; be && i < size; i += 2) {
+		r_write_le16 (rom + i, r_read_be16 (rom + i));
+	}
+	return true;
+}
+
 static bool tama_init(RCore *core) {
 	REsil *esil = &core->esil.esil;
 	RCoreTama *previous = tama_get (esil);
 	RBinFile *bf = r_bin_cur (core->bin);
 	int fd = previous? previous->source_fd: bf? bf->fd: r_io_fd_get_current (core->io);
-	if (r_io_fd_size (core->io, fd) != 0x3000) {
-		R_LOG_ERROR ("Expected a P1/P2 ROM: 6144 little-endian 12-bit words (12288 bytes)");
+	const ut64 size = r_io_fd_size (core->io, fd);
+	if (size == TAMA_PACKED_ROM_SIZE) {
+		R_LOG_ERROR ("Open packed 12-bit ROMs with bits://12/ or bits://12be/");
+		return false;
+	}
+	if (size != 0x3000) {
+		R_LOG_ERROR ("Expected a P1/P2 ROM: 6144 12-bit words in LE16 or BE16 units (12288 bytes)");
 		return false;
 	}
 	ut8 rom[0x3000];
 	if (r_io_fd_read_at (core->io, fd, 0, rom, sizeof (rom)) != sizeof (rom)) {
 		return false;
 	}
-	unsigned i;
-	for (i = 0; i < sizeof (rom); i += 2) {
-		if (r_read_le16 (rom + i) > 0xfff) {
-			R_LOG_ERROR ("Invalid 12-bit ROM word at byte 0x%x", i);
-			return false;
-		}
+	if (!tama_rom_words (rom, sizeof (rom), false) && !tama_rom_words (rom, sizeof (rom), true)) {
+		R_LOG_ERROR ("Invalid ROM: words wider than 12 bits");
+		return false;
 	}
 	r_esil_plugin_deactivate (esil, "tamagotchi");
 	if (!r_config_set (core->config, "asm.arch", "e0c62")) {
