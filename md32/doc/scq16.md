@@ -46,7 +46,15 @@ same entry serves a stand-alone unit, a head A' and a B slot), the operands (`Sc
 r1-r16 / r1-r8, csr, acc, immediates with up to two pieces, scale and bias, displacements, constants), the text template, the
 ESIL template, the delay-slot count and flags (`SCQ16_FL_NAMED`: an established operation name; `SCQ16_FL_PROV`: provisional name
 with `?`; `SCQ16_FL_TABLELEN`: a form tied to the length table; `SCQ16_FL_CONTROL`: never a packet head; `SCQ16_FL_HYP`: the ESIL
-is a hypothesis).  Within one length the first matching alternative wins (the table is ordered by specificity).  The vector
+is a hypothesis; `SCQ16_FL_OPEN`: an OPEN reading, i.e. a family placeholder or a provisional name — the uniform marker of what the
+table does not establish; an open alternative without a template carries the ESIL marker `REF,ALT,open`).  `isa/scq16_hyp.json` holds
+the PLUGIN HYPOTHESES (hypothetical templates for forms the ISA source lists as HYP without a template of its own): the exporter
+applies them with `--hyp` and records the file's sha256 in the JSON meta and in the header (`SCQ16_PLUGIN_HYP_SHA256`).  The file is
+EMPTY (the packing of `op41.fld` moved into the ISA source), so every ESIL the plugin emits comes from
+the source; the mechanism stays for future hypotheses.  The confidence level of a form (`high` / `medium` / `low` / `format-only`,
+reported by `aoj` under `opex.units[].confidence`) is the ISA table's: execution results raised `and rd, rs, #0x1|#0x3|#0xf` (2 bytes),
+`add rd, rs, #-1` (2 bytes) and the 4-byte `sb rd, off(rb)` to `high` and lowered the 4-byte `btst rd, rs, #pos` to `medium` on
+execution results; no text or encoding changed.  Within one length the first matching alternative wins (the table is ordered by specificity).  The vector
 classes (`scq16_vclass[512]`) and names (`scq16_vname[512]`) are indexed by op9; a name carries its `?` when it is provisional
 (`movi?`, `add?`, `addi?`, `adds?`, `difsc?`) and none when it is an established operation (`v.move.mv` = register copy v[F1] <- v[F3],
 `v.mem.ld` = vector load into v[F1 >> 2], `v.mem.st` = vector store of v0): the decoder prints `v.<class>.<name>` as the table says.
@@ -63,17 +71,21 @@ increment over the two pages, +1..+3 on `22`, -4..-1 on `23`; `22` q3 = +3 keeps
 `44-47` loads and stores with a 12-bit offset or a post-increment (`46` q0 is the provisional `ld46?`: a byte load with a
 post-increment as its hypothetical ESIL), `48-49` `mv #simm20`, `4a-4b` `add`/`and`/`or`/`mul #imm`,
 `4c-4f` `vcfg4c?` (`4c` q0 s0 with `#0xc` on an odd `v >= 17` carries the hypothetical ESIL `p_k <- rs`, k = (v - 17) / 2); the
-`41 f3` sub-ops next to `clz` (0x21) are `ctz` (0x22, established: `rd = 31 - clz(rs & -rs)`) and the provisional `sqr?` (0x23,
-`rd = rs * rs` as its hypothetical ESIL); `op41.fld rd, rs, rt, #pos` (41 8x) is a field insertion with three registers whose
-operation is open (no ESIL); the `42` page is `cmov.<cc> rd, rs, x, ra` =
+`41 f3` sub-ops next to `clz` (0x21) are `ctz` (0x22, established: `rd = 31 - clz(rs & -rs)`, which yields -1 for `rs = 0` because
+`clz(0) = 32`; whether the hardware returns 32 for `ctz(0)` instead is an OPEN question that only an execution on the core decides;
+its own form, not hypothetical) and
+the provisional `sqr?` (0x23, `rd = rs * rs` as its hypothetical ESIL; the `op41` family placeholder); `op41.fld rd, rs, rt, #pos` (41 8x)
+is a field insertion with three registers whose operation is open: the ISA source carries the hypothetical packing
+`rd = (rs << pos) | (rt & ((1 << pos) - 1))` (flagged `SCQ16_FL_HYP`; it was a plugin hypothesis of
+`isa/scq16_hyp.json` before the source carried it, and that file is now empty); the `42` page is `cmov.<cc> rd, rs, x, ra` =
 `rd = cond(rs, x) ? r[ra] : rd` with `cc` = `eq`/`ne` (immediate `#(x-7)` or a register), `lt`/`ltu`/`ge` (immediate), the provisional
 `leu?` (register), `ltu?` (immediate), `lt?`/`le?` (immediate on the left: `#imm <s rs`), and `sel?` for the codes without a name); `50-5d` `bcc` (immediate or two registers) and `do`; `5e` `j`/`jal`/system; `60-6f` 3-byte forms (`add`/`mul
 #imm7`, `sub`, `add rs + rt << k`, `sll`/`srl #imm`, the `67` page of two-address ALU (`mv rd, rs` at 67 c8 and 67 cc, `bset`/`btst
-rd, rd, #pos` at 67 f4/f8, `and #0x1fff/#0x3fff/#0x7fff/#0x8000` at 67 a0-ab/b0-b3, the provisional masks `and? #0xf000?` at 67 98-9b, `#0xfc00?` at
+rd, rd, #pos` at 67 f4/f8 (`btst` with a 5-bit position 0-31, `bset` with 4 bits 0-15), `and #0x1fff/#0x3fff/#0x7fff/#0x8000` at 67 a0-ab/b0-b3, the provisional masks `and? #0xf000?` at 67 98-9b, `#0xfc00?` at
 67 ac-af and `#0xc000?` at 67 b4-b7, the provisional `sra? rd, rd, #pos` at 67 fc-fd) and
 `xtd`, `6a` `j16`, `6b`
 `jal11`/`mv #imm9`/VU ports with 5-bit registers, `6c` `lw`, `6d` `lbu`, `6e` half-word and post-increment memory, `6f` stack
-frames, `jr`, `mv acc` and byte/half loads, `6e` q2 = `lbu.post`/`lhu.post?` with 5-bit registers; the 3-bit post-increment of the `6e` `.post` family — `sh.post`, `lw.post`,
+frames, `jr` (`6f ec`: a 5-bit register field, r0-r31, with `.d1`/`.d2` in bits 6:5), `mv acc` and byte/half loads, `6e` q2 = `lbu.post`/`lhu.post?` with 5-bit registers; the 3-bit post-increment of the `6e` `.post` family — `sh.post`, `lw.post`,
 `lhu.post?`, `lbu.post` — is SIGNED: x = 4..7 means -4..-1 units); `70` `mv #imm32`, `74` 6-byte
 `add #imm19` / `and #imm16` / `or #imm16` (sub 3 is open); `c0-df` vector ops; `e0-ef` vector heads; `f0-f7` bundles.
 
@@ -91,8 +103,9 @@ are in `opex.units[]`.
 
 * A unit's ESIL is its table template with the operands substituted (`{op}` read, `{=op}` write, `{#op}` decimal value for
   register names, `{d}` target, `{ret}` return address after the slots, `{mask}` of a bit-field width).  A packet is A then B
-  with the registers that B reads and A writes copied to `t0-t3` first (parallel semantics).  An instruction with a unit without
-  semantics (vector classes without `vop`, placeholders) has no ESIL.
+  with the registers that B reads and A writes copied to `t0-t3` first (parallel semantics).  An OPEN reading without a template (a placeholder or a provisional name: `SCQ16_FL_OPEN`)
+  carries the uniform marker `REF,ALT,open` (the custom op `open` registered by `esilcb`: no effect), so the other unit of its packet keeps
+  its ESIL and an emulator can stop on it uniformly; only a unit without any template leaves the whole instruction without ESIL.
 * Delayed transfers: `target,SETJT,n,SETD` (n = slots); `aes` executes the slot and then applies the jump.  Conditional branches
   wrap it in `?{ }`.  A `.d2` transfer takes two `aes` steps: the first runs the transfer and its first slot (a packet counts as
   one instruction), the second runs the second slot and applies the jump.
@@ -113,14 +126,19 @@ are in `opex.units[]`.
   (`scq16_vu.inc.c`): a vector register file `vr0-vr31` of 128 bytes each (64 lanes of 16 bits; exposed as four 256-bit quarters
   `vrK_0..vrK_3`, lane 16q being the low 16 bits of quarter q), the pointers `vp0-vp7` (written by `vmem.set` and the hypothetical
   `vcfg4c? #0xc`) and the counts `va0-va7` (written by `vset.a`).  `vop` models the three established operations and nothing else:
+  The scalar ports `v0-v31` are the BROADCAST ports: the ESIL of `vbcast v_k, rs` / `vbcast.i v_k, #imm` / `vbcast.i?` writes the port
+  (the ISA template) and the plugin broadcasts the low 16 bits to the 64 lanes of `vr_k` (an ESIL register-write voyeur registered by
+  `esilcb`); the port keeps the last scalar (`vu0-vu31`, read by `vget`, is a different port, not modelled).
   `v.mem.ld` copies `n` halves from DM[p] into `vr[F1 >> 2]` and `v.mem.st` copies `n` halves from `vr0` to DM[p], with
   `p = vp[2 * F2 + F3[4]]` when `F2 < 4`, `n = va[A]` when 1..64 (otherwise the whole register: the count field of a large packed A is
   not established) and the pointer post-incremented by the bytes accessed; `v.move.mv` copies `vr[F3]` into `vr[F1]`.  A memory op
   with `F2 >= 4` (the second access family, whose pointer is not established), the pair mode `B = 2` of `v.move.mv` and every other
   op9 have no effect.
 * `SCQ16_FL_HYP` alternatives (`cmov.leu?`/`ltu?`/`lt?`/`le?`, `lhu.post?`, `ld46?`/`lhu?` of `46`, `lbu?`/`lh?` on the stack,
-  `sys41`, `vbcast.i?`, `vcfg4c?` `#0xc`, the VU bank ports) carry the ESIL of their provisional reading; an emulator that wants
-  to be strict can refuse them.  The HYP table of the form-description module is exported as the flag: the exporter applies no overlay of its own.
+  `sys41`, `vbcast.i?`, `vcfg4c?` `#0xc`, the VU bank ports, `sqr?`, `sra?`, `vrd?` 1a, `op41.fld`) carry the ESIL of their provisional
+  reading; an emulator that wants to be strict can refuse them.  The table HYP of the ISA source is exported as the flag; the only
+  templates the exporter would add are the declared plugin hypotheses of `isa/scq16_hyp.json`, identified by their sha256 (none:
+  the file is empty).  `ctz` is established but its value for a zero operand is open (-1 in the ESIL, section 2).
 
 Register profile: `r0-r31`, `pc`, `sr`, `ipc`, `isr`, `csr3`, `lf`, `ls0-2`/`le0-2`/`lc0-2`, `sp` (csr14), `lr` (csr15),
 `csr16-31`, `a0` (`a0l`:`a0h`), `t0-t3` (ESIL temporaries), the VU ports, `vr0_0-vr31_3` (the vector register file).  ABI: arguments
@@ -131,9 +149,12 @@ r0-r15 (frame stores of r1-r8 are spills), lr saved by the functions that call.
 
 * The vector unit is modelled only for `v.move.mv`, `v.mem.ld` and `v.mem.st` (section 4): the lane arithmetic of the other op9
   codes, the pointer of the second access family (`F2 >= 4`), the count field of a large packed A, the pair mode `B = 2` of `v.move.mv`
-  and the role of `F1 != 0` / `B = 1` in the stores are not modelled (`vop` has no effect there).  No semantics for the
-  `op41`/`op41.fld`/`op43`/`op67`/`op6f`/`op4x`/`op6x` placeholders, `vcfg4c?` except `#0xc`, `vpmem?`, `sys`, the `74` sub-op 3, the six
-  `sel?` codes without a name, the provisional masks `and? #0xf000?`/`#0xfc00?`/`#0xc000?`; `fup` with overlapping fields is a plain insert.
+  and the role of `F1 != 0` / `B = 1` in the stores are not modelled (`vop` has no effect there); the source lane `F3[3:0]` of a store
+  and the count field of a large packed A are open readings; `v.move.mv` with `B = 2` pairs even registers (an open reading),
+  modelled as the plain copy.  No semantics for the `op41`/`op43`/`op67`/`op6f`/`op4x`/`op6x` placeholders, `vcfg4c?` except `#0xc`,
+  `vpmem?`, `sys`, the `74` sub-op 3, the six `sel?` codes without a name, the provisional masks `and? #0xf000?`/`#0xfc00?`/`#0xc000?`:
+  all of them are OPEN readings with the marker ESIL `REF,ALT,open`; `op41.fld` has only the hypothetical packing of the ISA source;
+  `fup` with overlapping fields is a plain insert.
 * The length of `j.d1 56 0x-3x` is decided by the target (section 1) because the plugin has no function table to decide by
   membership: a `j.d1` whose target is outside the loaded code would still be read as `j.d1`.
 * The plugin annotates no DM strings nor I/O registers; the I/O window (`ior`/`iow`) is modelled as memory at the port index.

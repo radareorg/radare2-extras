@@ -9,7 +9,11 @@ vcfg4c? #0xc, ld46?, the established vector names v.move.mv / v.mem.ld / v.mem.s
 j.d1 decided by its target, `.d2` across two `aes` steps, negative stack offsets; the newest forms (ctz, the provisional sqr? / sra? /
 vrd?, op41.fld with three registers, the provisional and? masks, lw.post of 2 bytes with a 4-bit destination, the signed post-increment
 of the 6e page, the .post templates writing rd last) and the public model of the VU (v.mem.ld / v.mem.st / v.move.mv on vr0-vr31 with
-the pointers vp0-vp7 and the counts va0-va7); the pseudo parser.  No firmware is needed."""
+the pointers vp0-vp7 and the counts va0-va7); the newer forms (jr with a 5-bit register, btst rd, rd, #pos with a 5-bit position, ctz as its own
+form without the HYP flag, op41.fld with the hypothetical packing ESIL of isa/scq16_hyp.json), the uniform marker of the OPEN readings
+(REF,ALT,open; opex open / reading / hypothetical) and the broadcast ports (vbcast / vbcast.i write the 64 lanes of vr{k}); the pseudo
+parser; the confidence levels settled by execution results, the packing ESIL of op41.fld carried by the ISA source, and
+ctz(0) = -1 under the table ESIL (an open question against the hardware).  No firmware is needed."""
 import json
 import os
 import subprocess
@@ -70,7 +74,7 @@ DISASM = [
     ('42b0a464', 4, 'cmov.ltu? r4, r3, #9, r1'), ('4270a464', 4, 'cmov.lt?  r4, #2, r3, r1'), ('4240a464', 4, 'cmov.le?  r4, #9, r3, r1'),
     ('42008864', 4, 'sel?      r4, r3, r2, r1  (q0 c0)'), ('42e08864', 4, 'sel?      r4, r3, r2, r1  (q3 c2)'), ('42508864', 4, 'sel?      r4, r3, #2, r1  (q1 c1)'),
     ('42808864', 4, 'sel?      r4, r3, x2, r1  (q2 c0)'), ('42d0a464', 4, 'cmov.eq   r4, r3, #2, r1'),
-    ('67c875', 3, 'mv        r21, r3'), ('67f409', 3, 'bset      r9, r9, #0'), ('67f865', 3, 'btst      r5, r5, #3'), ('67fb41', 3, 'op67      r1, r26  (x=0x3e)'),
+    ('67c875', 3, 'mv        r21, r3'), ('67f409', 3, 'bset      r9, r9, #0'), ('67f865', 3, 'btst      r5, r5, #3'), ('67fb41', 3, 'btst      r1, r1, #26'),
     ('22c5', 2, 'lbu.post? r6, [r1] += 3'), ('148a', 2, 'addsp     sp, #0x228'), ('5eb00000', 4, 'halt'),
     ('41f3a000', 4, 'sys41     sub 0x28'), ('6f2041', 3, 'lbu?      r1, -0xfd(sp)'), ('5c68a8e6', 4, 'beq       r7, r6, 0x00000a2a'),
     ('563fffce', 4, 'j.d1      0x00000fce'), ('56200000', 2, '.b2       56 20'), ('88904213b0c1', 6, '{ mv        r1, r3 ‖ cmov.ge   r1, r6, #5, r7 }'),
@@ -95,6 +99,15 @@ DISASM = [
     ('6ee463', 3, 'sh.post   r3, [r3] += 0x2'), ('0912', 2, 'sra       r3, r3, #1'), ('c8204002', 4, 'v.mem.ld  op9=0x002 A2 B0 F4,F1,F0'), ('c8006003', 4, 'v.mem.st  op9=0x003 A2 B0 F0,F1,F16'),
     ('c0280109', 4, 'v.move.mv op9=0x109 A0 B0 F5,F0,F0'), ('e00807092005', 6, '{ v.mem.ld  op9=0x012 A0 B0 F2,F0,F7 ‖ ret }'), ('88901a76', 4, '{ mv        r1, r3 ‖ vrd?      r7, vb1[7] }'),
     ('889021aa', 4, '{ mv        r1, r3 ‖ lw.post   r11, [r3] += 4 }'), ('889041f38800', 6, '{ mv        r1, r3 ‖ ctz       r0, r0 }'),
+    # jr rn with a 5-bit register field (r27 / r18 / r29; .d1 / .d2), btst rd, rd, #pos with a 5-bit position (#26, #27), ctz (form 72)
+    # next to sqr? (form op41, 229), vbcast of 2 and 3 bytes, vbcast.i / vbcast.i?, v.move.mv vr0 <- vr1, B slots with jr / btst / op41.fld / sel?
+    ('6fec9b', 3, 'jr        r27'), ('6fecbb', 3, 'jr.d1     r27'), ('6fecdb', 3, 'jr.d2     r27'), ('6fec92', 3, 'jr        r18'), ('6fec9d', 3, 'jr        r29'),
+    ('67fb41', 3, 'btst      r1, r1, #26'), ('67fb65', 3, 'btst      r5, r5, #27'), ('6b6020', 3, 'vbcast    v1, r0'), ('40100000', 4, 'vbcast.i? v0, #0x0  (sub 010)'),
+    ('c0000309', 4, 'v.move.mv op9=0x109 A0 B0 F0,F0,F1'), ('88906fec9b', 5, '{ mv        r1, r3 ‖ jr        r27 }'), ('889067fb41', 5, '{ mv        r1, r3 ‖ btst      r1, r1, #26 }'),
+    ('8890418c0d27', 6, '{ mv        r1, r3 ‖ op41.fld  r7, r9, r3, #24 }'), ('889042008864', 6, '{ mv        r1, r3 ‖ sel?      r4, r3, r2, r1  (q0 c0) }'),
+    # the forms whose confidence was settled by execution (and #0x1 / #0x3 of 2 bytes, add #-1, sb of 4 bytes, btst rd, rs, #pos of 4 bytes), max of 4 bytes, ctz r1, r1
+    ('0001', 2, 'and       r2, r1, #0x1'), ('0045', 2, 'and       r6, r1, #0x3'), ('04ca', 2, 'add       r3, r2, #-1'), ('45401023', 4, 'sb        r3, 0x4(r1)'),
+    ('41ee0c41', 4, 'btst      r1, r2, #3'), ('41e78041', 4, 'max       r1, r2, r0'), ('41f38821', 4, 'ctz       r1, r1'), ('889004ca', 4, '{ mv        r1, r3 ‖ add       r3, r2, #-1 }'),
 ]
 for hx, L, exp in DISASM:
     out = r2('wx %s @ 0x1000;pi 1 @ 0x1000;ao 1 @ 0x1000~size' % hx)
@@ -152,6 +165,30 @@ check(ops[2]['type'] == 'sar' and u[2]['mnemonic'] == 'sra?' and u[2]['provision
 check(ops[3]['type'] == 'mov' and u[3]['mnemonic'] == 'vrd?' and u[3]['provisional'] is True, 'vrd? rd, vb1[x] (1a): mov, provisional')
 check(u[4]['form'] == 'op41.fld' and u[4]['named'] is False and [o['name'] for o in u[4]['operands']][:3] == ['rd', 'rs', 'rt'], 'op41.fld rd, rs, rt, #pos: three registers, unnamed')
 check(ops[5]['type'] == 'load' and u[5]['operands'][0]['value'] == 'r11' and ops[5].get('ireg') == 'r3', 'lw.post r11, [r3] += 4: 4-bit destination, base r3')
+
+# 2e. jr reads a 5-bit register, btst/3 a 5-bit position, ctz is its own form without the HYP flag, sqr? belongs to op41 (HYP),
+# op41.fld carries the hypothetical packing ESIL, the uniform marker of the OPEN readings (open / reading / hypothetical in opex)
+ops = json.loads(r2('wx 6fec9b 6fecbb 67fb41 41f38800 41f38c00 418c0d27 42008864 1c10 c0000001 c0000002 @ 0x5300;aoj 10 @ 0x5300')[0])
+u = [o['opex']['units'][0] for o in ops]
+check(u[0]['mnemonic'] == 'jr' and u[0]['operands'][0]['value'] == 'r27' and ops[0].get('reg') == 'r27', 'jr r27 (6f ec 9b): a 5-bit register field')
+check(u[1]['mnemonic'] == 'jr.d1' and u[1]['operands'][0]['value'] == 'r27' and ops[1].get('delay') == 1, 'jr.d1 r27: 5-bit register, one slot')
+check(u[2]['mnemonic'] == 'btst' and u[2]['named'] is True and ops[2]['type'] == 'and', 'btst r1, r1, #26 (67 fb 41): a 5-bit position')
+check(u[3]['mnemonic'] == 'ctz' and u[3]['form'] == 'ctz' and u[3]['named'] is True and u[3]['open'] is False and u[3]['reading'] == 'established' and 'hypothetical' not in u[3], 'ctz: its own form, established, not hypothetical')
+check(u[4]['mnemonic'] == 'sqr?' and u[4]['form'] == 'op41' and u[4]['open'] is True and u[4]['reading'] == 'provisional' and u[4].get('hypothetical') is True, 'sqr?: form op41, provisional, open, hypothetical')
+check(u[5]['form'] == 'op41.fld' and u[5]['open'] is True and u[5]['reading'] == 'placeholder' and u[5].get('hypothetical') is True, 'op41.fld: open placeholder with the hypothetical packing ESIL')
+check(u[6]['mnemonic'] == 'sel?' and u[6]['open'] is True and u[6]['reading'] == 'provisional' and ops[6]['esil'] == '108,0,open', 'sel?: open, the uniform marker REF,ALT,open')
+check(u[7]['mnemonic'] == 'vbcast' and u[7]['open'] is False and u[7]['reading'] == 'established', 'vbcast: established')
+check(u[8]['open'] is True and u[8]['reading'] == 'provisional' and u[9]['open'] is False and u[9]['reading'] == 'established', 'vector ops: a provisional name is open, an established one is not')
+
+
+# 2f. confidence levels settled by execution results (and rd, rs, #0x1 / #0x3 / #0xf of 2 bytes, add rd, rs, #-1 and the 4-byte sb
+# are high; the 4-byte btst rd, rs, #pos is medium); the packing ESIL of op41.fld now comes from the ISA source (isa/scq16_hyp.json is empty)
+# and stays flagged hypothetical
+ops = json.loads(r2('wx 0001 0045 04ca 45401023 41ee0c41 41e78041 418c0d27 @ 0x5400;aoj 7 @ 0x5400')[0])
+u = [o['opex']['units'][0] for o in ops]
+check([x['mnemonic'] for x in u[:6]] == ['and', 'and', 'add', 'sb', 'btst', 'max'] and [x['confidence'] for x in u[:6]] == ['high', 'high', 'high', 'high', 'medium', 'high'],
+      'confidences by execution: and #0x1 / #0x3 (2 bytes), add #-1, sb (4 bytes) high; btst rd, rs, #pos (4 bytes) medium; max high')
+check(u[6]['form'] == 'op41.fld' and u[6].get('hypothetical') is True and u[6]['open'] is True and ops[6]['esil'] == '0x18,r9,<<,1,0x18,1,<<,-,r3,&,|,r7,=', 'op41.fld: the hypothetical packing ESIL comes from the ISA source (still hypothetical and open)')
 
 # 3. ESIL
 regs = json.loads(r2('wx a40003d19125 @ 0x6000;aei;ar r3=7;ar r6=0;s 0x6000;aeip;aes;arj')[0])
@@ -250,6 +287,37 @@ out = r2('wx f000000285288a02 @ 0x3000;wx aabbccdd @ 0x400;aei;ar va0=2;ar vp0=0
 check([int(l, 16) for l in out[-4:]] == [0xddccbbaa, 0x404, 8, 4], 'bundle { v.mem.ld op9=0x00a ‖ add r2, r6 ‖ add r3, r1 }: the vector load and the two scalar slots')
 out = r2('wx c0000001 c000000e @ 0x3000;aei;ar va0=2;ar vp0=0x400;s 0x3000;aeip;aes;aes;ar vp0;ar pc')
 check([int(l, 16) for l in out[-2:]] == [0x400, 0x3008], 'v.const.movi? / v.alu3.acc.add?: no model (vop without effect), aes steps over them')
+
+# 3e. jr by its 5-bit register, btst with a 5-bit position, the hypothetical packing of op41.fld, the open marker (no effect, the rest
+# of the packet keeps its ESIL), the broadcast ports: vbcast / vbcast.i write the 64 lanes of vr{k} (the port v{k} keeps the scalar)
+regs = json.loads(r2('wx 6fec9b @ 0x3000;aei;ar r27=0x4000;ar r11=0x5000;s 0x3000;aeip;aes;arj')[0])
+check(regs['pc'] == 0x4000, 'jr r27: pc = r27')
+regs = json.loads(r2('wx 67fb41 67fb65 @ 0x3000;aei;ar r1=0x04000000;ar r5=0x04000000;s 0x3000;aeip;aes;aes;arj')[0])
+check(regs['r1'] == 1 and regs['r5'] == 0, 'btst r1, r1, #26 / btst r5, r5, #27: bit 26 of 0x04000000')
+regs = json.loads(r2('wx 418c0d27 @ 0x3000;aei;ar r9=0x1234;ar r3=0xffffffff;ar r7=0;s 0x3000;aeip;aes;arj')[0])
+check(regs['r7'] == 0x34ffffff, 'op41.fld r7, r9, r3, #24 (hypothetical): r7 = (r9 << 24) | (r3 & 0xffffff)')
+regs = json.loads(r2('wx 889042008864 @ 0x3000;aei;ar r1=0;ar r3=0x77;ar r4=0x11;s 0x3000;aeip;aes;arj')[0])
+check(regs['r1'] == 0x77 and regs['r4'] == 0x11 and regs['pc'] == 0x3006, '{ mv r1, r3 ‖ sel? }: the open B slot no longer blanks the ESIL of the packet')
+out = r2('wx 1c10 @ 0x3000;aei;ar r1=0xf9ff;s 0x3000;aeip;aes;ar vr1_0;ar vr1_3;ar v1')
+check(int(out[-3], 16) == int('f9ff' * 16, 16) and int(out[-2], 16) == int('f9ff' * 16, 16) and int(out[-1], 16) == 0xf9ff, 'vbcast v1, r1: the 64 lanes of vr1 <- 0xf9ff, the port v1 keeps the scalar')
+out = r2('wx 1c10 c0000309 c8006003 @ 0x3000;wx 0000000000000000 @ 0x500;aei;ar r1=0xf9ff;ar va2=3;ar vp3=0x500;s 0x3000;aeip;aes;aes;aes;p8 8 @ 0x500;ar vp3')
+check(out[-2].strip() == 'fff9fff9fff90000' and int(out[-1], 16) == 0x506, 'vbcast v1 · v.move.mv vr0 <- vr1 · v.mem.st [p3] <- vr0: the broadcast reaches memory (fff9 x3), vp3 = 0x506')
+out = r2('wx 40078000 40100000 6b6020 @ 0x3000;aei;ar r0=0x1234;s 0x3000;aeip;aes;ar vr0_0;aes;ar vr0_0;aes;ar vr1_0')
+check(int(out[-3], 16) == int('fc00' * 16, 16) and int(out[-2], 16) == 0 and int(out[-1], 16) == int('1234' * 16, 16), 'vbcast.i v0, #-0x400 -> lanes 0xfc00; vbcast.i? v0, #0 -> 0; vbcast v1, r0 (6b 60) -> lanes 0x1234')
+out = r2('wx 1c10 1810 @ 0x3000;aei;ar r1=0x55;ar vu1=0x77;s 0x3000;aeip;aes;aes;ar r1;ar v1')
+check(int(out[-2], 16) == 0x77 and int(out[-1], 16) == 0x55, 'vget r1, vu[1] reads the port vu1 (not the broadcast port v1)')
+
+
+# 3f. ctz(0) under the table ESIL is -1 (31 - clz(rs & -rs) with clz(0) = 32); whether the hardware returns 32 instead is an open
+# question (doc/scq16.md), so the test pins the table's reading, not the hardware's; ctz(0x80) = 7 and ctz(0x80000000) = 31 as controls
+regs = json.loads(r2('wx 41f38821 @ 0x3000;aei;ar r1=0;s 0x3000;aeip;aes;arj')[0])
+check(regs['r1'] == 0xffffffff, 'ctz r1, r1 with r1 = 0: -1 under the table ESIL (open: the hardware may return 32)')
+regs = json.loads(r2('wx 41f38821 @ 0x3000;aei;ar r1=0x80;s 0x3000;aeip;aes;arj')[0])
+check(regs['r1'] == 7, 'ctz(0x80) = 7')
+regs = json.loads(r2('wx 41f38821 @ 0x3000;aei;ar r1=0x80000000;s 0x3000;aeip;aes;arj')[0])
+check(regs['r1'] == 31, 'ctz(0x80000000) = 31')
+regs = json.loads(r2('wx 418c0d27 @ 0x3000;aei;ar r9=0x1234;ar r3=0xffffffff;ar r7=0;s 0x3000;aeip;aes;arj')[0])
+check(regs['r7'] == 0x34ffffff, 'op41.fld r7, r9, r3, #24 from the ISA source: r7 = (r9 << 24) | (r3 & 0xffffff)')
 
 # 4. pseudo
 text = '\n'.join(r2('e asm.pseudo=true;wx 889026e4 3084 1402 0566 2005 @ 0x1000;pD 12 @ 0x1000'))

@@ -1,0 +1,6778 @@
+{
+ "what": "public bytes-only test vectors of the SCQ16 mode: expected disassembly (the ISA reference on the same bytes at the same address), an r2 command line with its initial state and the registers / memory the table predicts in the big-endian regime of the harness (r2 / expected) and in the little-endian regime of the core data memory (r2_le / expected_le); no firmware, no function names",
+ "format": "test/test_scq16.py of the md32 plugin: disasm rows [hex, size, text, pc]; r2 = the commands after the plugin setup (cfg.bigendian=true); r2_le = the same with cfg.bigendian=false; expected / expected_le = {register: hex | mem[...]: bytes} or null when the table makes no prediction",
+ "vectors": [
+  {
+   "id": "A1",
+   "disasm": [
+    [
+     "21a2",
+     2,
+     "lw.post   r3, [r3] += 4",
+     4096
+    ]
+   ],
+   "r2": "wx 21a2 @ 0x1000;wx 11223344 @ 0x100;aei;ar r3=0x100;s 0x1000;aeip;aes;ar r3",
+   "expected": {
+    "r3": "0x11223344"
+   },
+   "r2_le": "wx 21a2 @ 0x1000;wx 44332211 @ 0x100;aei;ar r3=0x100;s 0x1000;aeip;aes;ar r3",
+   "expected_le": {
+    "r3": "0x11223344"
+   },
+   "hypothesis_of_table": "H_load_last"
+  },
+  {
+   "id": "A2",
+   "disasm": [
+    [
+     "2300",
+     2,
+     "lbu.post  r1, [r1] += -4",
+     4096
+    ]
+   ],
+   "r2": "wx 2300 @ 0x1000;wx 7f @ 0x404;aei;ar r1=0x404;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x7f"
+   },
+   "r2_le": "wx 2300 @ 0x1000;wx 7f @ 0x404;aei;ar r1=0x404;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x7f"
+   },
+   "hypothesis_of_table": "H_load_last"
+  },
+  {
+   "id": "A3",
+   "disasm": [
+    [
+     "2249",
+     2,
+     "lbu.post  r2, [r2] += 1",
+     4096
+    ]
+   ],
+   "r2": "wx 2249 @ 0x1000;wx 7f @ 0x404;aei;ar r2=0x404;s 0x1000;aeip;aes;ar r2",
+   "expected": {
+    "r2": "0x7f"
+   },
+   "r2_le": "wx 2249 @ 0x1000;wx 7f @ 0x404;aei;ar r2=0x404;s 0x1000;aeip;aes;ar r2",
+   "expected_le": {
+    "r2": "0x7f"
+   },
+   "hypothesis_of_table": "H_load_last"
+  },
+  {
+   "id": "A4",
+   "disasm": [
+    [
+     "6ed063",
+     3,
+     "lw.post   r3, [r3] += -0x10",
+     4096
+    ]
+   ],
+   "r2": "wx 6ed063 @ 0x1000;wx deadbeef @ 0x200;aei;ar r3=0x200;s 0x1000;aeip;aes;ar r3",
+   "expected": {
+    "r3": "0xdeadbeef"
+   },
+   "r2_le": "wx 6ed063 @ 0x1000;wx efbeadde @ 0x200;aei;ar r3=0x200;s 0x1000;aeip;aes;ar r3",
+   "expected_le": {
+    "r3": "0xdeadbeef"
+   },
+   "hypothesis_of_table": "H_load_last"
+  },
+  {
+   "id": "A5",
+   "disasm": [
+    [
+     "6e8463",
+     3,
+     "lbu.post  r3, [r3] += 0x1",
+     4096
+    ]
+   ],
+   "r2": "wx 6e8463 @ 0x1000;wx 7f @ 0x200;aei;ar r3=0x200;s 0x1000;aeip;aes;ar r3",
+   "expected": {
+    "r3": "0x7f"
+   },
+   "r2_le": "wx 6e8463 @ 0x1000;wx 7f @ 0x200;aei;ar r3=0x200;s 0x1000;aeip;aes;ar r3",
+   "expected_le": {
+    "r3": "0x7f"
+   },
+   "hypothesis_of_table": "H_load_last"
+  },
+  {
+   "id": "A6",
+   "disasm": [
+    [
+     "6ea463",
+     3,
+     "lhu.post? r3, [r3] += 0x2",
+     4096
+    ]
+   ],
+   "r2": "wx 6ea463 @ 0x1000;wx 1234 @ 0x200;aei;ar r3=0x200;s 0x1000;aeip;aes;ar r3",
+   "expected": {
+    "r3": "0x1234"
+   },
+   "r2_le": "wx 6ea463 @ 0x1000;wx 3412 @ 0x200;aei;ar r3=0x200;s 0x1000;aeip;aes;ar r3",
+   "expected_le": {
+    "r3": "0x1234"
+   },
+   "hypothesis_of_table": "H_load_last"
+  },
+  {
+   "id": "A7",
+   "disasm": [
+    [
+     "46401021",
+     4,
+     "lb        r1, [r1] += 4",
+     4096
+    ]
+   ],
+   "r2": "wx 46401021 @ 0x1000;wx 7f @ 0x300;aei;ar r1=0x300;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x7f"
+   },
+   "r2_le": "wx 46401021 @ 0x1000;wx 7f @ 0x300;aei;ar r1=0x300;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x7f"
+   },
+   "hypothesis_of_table": "H_load_last"
+  },
+  {
+   "id": "A8",
+   "disasm": [
+    [
+     "46c01021",
+     4,
+     "lh        r1, [r1] += 4",
+     4096
+    ]
+   ],
+   "r2": "wx 46c01021 @ 0x1000;wx 1234 @ 0x300;aei;ar r1=0x300;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x1234"
+   },
+   "r2_le": "wx 46c01021 @ 0x1000;wx 3412 @ 0x300;aei;ar r1=0x300;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x1234"
+   },
+   "hypothesis_of_table": "H_load_last"
+  },
+  {
+   "id": "A9",
+   "disasm": [
+    [
+     "47001021",
+     4,
+     "lw        r1, [r1] += 4",
+     4096
+    ]
+   ],
+   "r2": "wx 47001021 @ 0x1000;wx 11223344 @ 0x300;aei;ar r1=0x300;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x11223344"
+   },
+   "r2_le": "wx 47001021 @ 0x1000;wx 44332211 @ 0x300;aei;ar r1=0x300;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x11223344"
+   },
+   "hypothesis_of_table": "H_load_last"
+  },
+  {
+   "id": "A10",
+   "disasm": [
+    [
+     "46001021",
+     4,
+     "ld46?     r1, [r1] += 4",
+     4096
+    ]
+   ],
+   "r2": "wx 46001021 @ 0x1000;wx 7f @ 0x300;aei;ar r1=0x300;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x7f"
+   },
+   "r2_le": "wx 46001021 @ 0x1000;wx 7f @ 0x300;aei;ar r1=0x300;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x7f"
+   },
+   "hypothesis_of_table": "H_load_last"
+  },
+  {
+   "id": "A11",
+   "disasm": [
+    [
+     "46801021",
+     4,
+     "lhu?      r1, [r1] += 4",
+     4096
+    ]
+   ],
+   "r2": "wx 46801021 @ 0x1000;wx 1234 @ 0x300;aei;ar r1=0x300;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x1234"
+   },
+   "r2_le": "wx 46801021 @ 0x1000;wx 3412 @ 0x300;aei;ar r1=0x300;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x1234"
+   },
+   "hypothesis_of_table": "H_load_last"
+  },
+  {
+   "id": "B1",
+   "disasm": [
+    [
+     "0652",
+     2,
+     "mv        r3, #5",
+     4096
+    ],
+    [
+     "600463",
+     3,
+     "add       r3, r3, #1",
+     4098
+    ],
+    [
+     "67c864",
+     3,
+     "mv        r4, r3",
+     4101
+    ],
+    [
+     "67cc65",
+     3,
+     "mv        r5, r3",
+     4104
+    ]
+   ],
+   "r2": "wx 0652 @ 0x1000;wx 600463 @ 0x1002;wx 67c864 @ 0x1005;wx 67cc65 @ 0x1008;aei;ar r3=0x0;ar r4=0xaaaa;ar r5=0xbbbb;s 0x1000;aeip;aes;aes;aes;aes;ar r4;ar r5",
+   "expected": {
+    "r4": "0x6",
+    "r5": "0x6"
+   },
+   "r2_le": "wx 0652 @ 0x1000;wx 600463 @ 0x1002;wx 67c864 @ 0x1005;wx 67cc65 @ 0x1008;aei;ar r3=0x0;ar r4=0xaaaa;ar r5=0xbbbb;s 0x1000;aeip;aes;aes;aes;aes;ar r4;ar r5",
+   "expected_le": {
+    "r4": "0x6",
+    "r5": "0x6"
+   },
+   "hypothesis_of_table": "H_c8d0_ccd0"
+  },
+  {
+   "id": "B1b",
+   "disasm": [
+    [
+     "0652",
+     2,
+     "mv        r3, #5",
+     4096
+    ],
+    [
+     "600463",
+     3,
+     "add       r3, r3, #1",
+     4098
+    ],
+    [
+     "67cc65",
+     3,
+     "mv        r5, r3",
+     4101
+    ],
+    [
+     "67c864",
+     3,
+     "mv        r4, r3",
+     4104
+    ]
+   ],
+   "r2": "wx 0652 @ 0x1000;wx 600463 @ 0x1002;wx 67cc65 @ 0x1005;wx 67c864 @ 0x1008;aei;ar r3=0x0;ar r4=0xaaaa;ar r5=0xbbbb;s 0x1000;aeip;aes;aes;aes;aes;ar r4;ar r5",
+   "expected": {
+    "r4": "0x6",
+    "r5": "0x6"
+   },
+   "r2_le": "wx 0652 @ 0x1000;wx 600463 @ 0x1002;wx 67cc65 @ 0x1005;wx 67c864 @ 0x1008;aei;ar r3=0x0;ar r4=0xaaaa;ar r5=0xbbbb;s 0x1000;aeip;aes;aes;aes;aes;ar r4;ar r5",
+   "expected_le": {
+    "r4": "0x6",
+    "r5": "0x6"
+   },
+   "hypothesis_of_table": "H_c8d0_ccd0"
+  },
+  {
+   "id": "B2",
+   "disasm": [
+    [
+     "b3e41a67ca86",
+     6,
+     "{ mv        r20, r1 \u2016 mv        r6, r20 }",
+     4096
+    ]
+   ],
+   "r2": "wx b3e41a67ca86 @ 0x1000;aei;ar r1=0x11;ar r20=0x22;ar r6=0x33;s 0x1000;aeip;aes;ar r20;ar r6",
+   "expected": {
+    "r20": "0x11",
+    "r6": "0x22"
+   },
+   "r2_le": "wx b3e41a67ca86 @ 0x1000;aei;ar r1=0x11;ar r20=0x22;ar r6=0x33;s 0x1000;aeip;aes;ar r20;ar r6",
+   "expected_le": {
+    "r20": "0x11",
+    "r6": "0x22"
+   },
+   "hypothesis_of_table": "H_parallel"
+  },
+  {
+   "id": "B2b",
+   "disasm": [
+    [
+     "b3e46a67c826",
+     6,
+     "{ mv        r20, r6 \u2016 mv        r6, r1 }",
+     4096
+    ]
+   ],
+   "r2": "wx b3e46a67c826 @ 0x1000;aei;ar r1=0x11;ar r20=0x22;ar r6=0x33;s 0x1000;aeip;aes;ar r20;ar r6",
+   "expected": {
+    "r20": "0x33",
+    "r6": "0x11"
+   },
+   "r2_le": "wx b3e46a67c826 @ 0x1000;aei;ar r1=0x11;ar r20=0x22;ar r6=0x33;s 0x1000;aeip;aes;ar r20;ar r6",
+   "expected_le": {
+    "r20": "0x33",
+    "r6": "0x11"
+   },
+   "hypothesis_of_table": "H_parallel"
+  },
+  {
+   "id": "B3",
+   "disasm": [
+    [
+     "b3ec11e7c864",
+     6,
+     "{ add       r3, r3, r1 \u2016 mv        r4, r3 }",
+     4096
+    ]
+   ],
+   "r2": "wx b3ec11e7c864 @ 0x1000;aei;ar r1=0x1;ar r3=0x5;ar r4=0x0;s 0x1000;aeip;aes;ar r3;ar r4",
+   "expected": {
+    "r3": "0x6",
+    "r4": "0x5"
+   },
+   "r2_le": "wx b3ec11e7c864 @ 0x1000;aei;ar r1=0x1;ar r3=0x5;ar r4=0x0;s 0x1000;aeip;aes;ar r3;ar r4",
+   "expected_le": {
+    "r3": "0x6",
+    "r4": "0x5"
+   },
+   "hypothesis_of_table": "H_parallel"
+  },
+  {
+   "id": "C1",
+   "disasm": [
+    [
+     "6f2041",
+     3,
+     "lbu?      r1, -0xfd(sp)",
+     4096
+    ]
+   ],
+   "r2": "wx 6f2041 @ 0x1000;wx 8000 @ 0x503;aei;ar sp=0x600;ar r1=0x0;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x80"
+   },
+   "r2_le": "wx 6f2041 @ 0x1000;wx 8000 @ 0x503;aei;ar sp=0x600;ar r1=0x0;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x80"
+   },
+   "hypothesis_of_table": "H_zext"
+  },
+  {
+   "id": "C1b",
+   "disasm": [
+    [
+     "6f2041",
+     3,
+     "lbu?      r1, -0xfd(sp)",
+     4096
+    ]
+   ],
+   "r2": "wx 6f2041 @ 0x1000;wx 80ff @ 0x503;aei;ar sp=0x600;ar r1=0x0;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x80"
+   },
+   "r2_le": "wx 6f2041 @ 0x1000;wx 80ff @ 0x503;aei;ar sp=0x600;ar r1=0x0;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x80"
+   },
+   "hypothesis_of_table": "H_zext"
+  },
+  {
+   "id": "C1c",
+   "disasm": [
+    [
+     "6f2041",
+     3,
+     "lbu?      r1, -0xfd(sp)",
+     4096
+    ]
+   ],
+   "r2": "wx 6f2041 @ 0x1000;wx 8080 @ 0x503;aei;ar sp=0x600;ar r1=0x0;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x80"
+   },
+   "r2_le": "wx 6f2041 @ 0x1000;wx 8080 @ 0x503;aei;ar sp=0x600;ar r1=0x0;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x80"
+   },
+   "hypothesis_of_table": "H_zext"
+  },
+  {
+   "id": "C2",
+   "disasm": [
+    [
+     "6f4041",
+     3,
+     "lh?       r1, -0x1fa(sp)",
+     4096
+    ]
+   ],
+   "r2": "wx 6f4041 @ 0x1000;wx 8001 @ 0x406;aei;ar sp=0x600;ar r1=0x0;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0xffff8001"
+   },
+   "r2_le": "wx 6f4041 @ 0x1000;wx 0180 @ 0x406;aei;ar sp=0x600;ar r1=0x0;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0xffff8001"
+   },
+   "hypothesis_of_table": "H_sext"
+  },
+  {
+   "id": "C3",
+   "disasm": [
+    [
+     "6ea461",
+     3,
+     "lhu.post? r1, [r3] += 0x2",
+     4096
+    ]
+   ],
+   "r2": "wx 6ea461 @ 0x1000;wx 8001 @ 0x400;aei;ar r3=0x400;ar r1=0x0;s 0x1000;aeip;aes;ar r1;ar r3",
+   "expected": {
+    "r1": "0x8001",
+    "r3": "0x402"
+   },
+   "r2_le": "wx 6ea461 @ 0x1000;wx 0180 @ 0x400;aei;ar r3=0x400;ar r1=0x0;s 0x1000;aeip;aes;ar r1;ar r3",
+   "expected_le": {
+    "r1": "0x8001",
+    "r3": "0x402"
+   },
+   "hypothesis_of_table": "H_zext"
+  },
+  {
+   "id": "C4",
+   "disasm": [
+    [
+     "6eb061",
+     3,
+     "lhu.post? r1, [r3] += -0x8",
+     4096
+    ]
+   ],
+   "r2": "wx 6eb061 @ 0x1000;wx 1234 @ 0x400;aei;ar r3=0x400;ar r1=0x0;s 0x1000;aeip;aes;ar r1;ar r3",
+   "expected": {
+    "r1": "0x1234",
+    "r3": "0x3f8"
+   },
+   "r2_le": "wx 6eb061 @ 0x1000;wx 3412 @ 0x400;aei;ar r3=0x400;ar r1=0x0;s 0x1000;aeip;aes;ar r1;ar r3",
+   "expected_le": {
+    "r1": "0x1234",
+    "r3": "0x3f8"
+   },
+   "hypothesis_of_table": "H_signed"
+  },
+  {
+   "id": "C5",
+   "disasm": [
+    [
+     "6ef423",
+     3,
+     "sh.post   r3, [r1] += -0x6",
+     4096
+    ]
+   ],
+   "r2": "wx 6ef423 @ 0x1000;wx 0000 @ 0x400;aei;ar r1=0x400;ar r3=0xbeef;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x3fa"
+   },
+   "r2_le": "wx 6ef423 @ 0x1000;wx 0000 @ 0x400;aei;ar r1=0x400;ar r3=0xbeef;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x3fa"
+   },
+   "hypothesis_of_table": "H_signed"
+  },
+  {
+   "id": "C6",
+   "disasm": [
+    [
+     "6e9023",
+     3,
+     "lbu.post  r3, [r1] += -0x4",
+     4096
+    ]
+   ],
+   "r2": "wx 6e9023 @ 0x1000;wx 80 @ 0x400;aei;ar r1=0x400;ar r3=0x0;s 0x1000;aeip;aes;ar r1;ar r3",
+   "expected": {
+    "r1": "0x3fc",
+    "r3": "0x80"
+   },
+   "r2_le": "wx 6e9023 @ 0x1000;wx 80 @ 0x400;aei;ar r1=0x400;ar r3=0x0;s 0x1000;aeip;aes;ar r1;ar r3",
+   "expected_le": {
+    "r1": "0x3fc",
+    "r3": "0x80"
+   },
+   "hypothesis_of_table": "H_signed_zext"
+  },
+  {
+   "id": "C7",
+   "disasm": [
+    [
+     "4600a020",
+     4,
+     "ld46?     r0, [r1] += 0x28",
+     4096
+    ]
+   ],
+   "r2": "wx 4600a020 @ 0x1000;wx 80818283 @ 0x400;wx 00000000 @ 0x428;aei;ar r1=0x400;ar r0=0x0;s 0x1000;aeip;aes;ar r0;ar r1",
+   "expected": {
+    "r0": "0x80",
+    "r1": "0x428"
+   },
+   "r2_le": "wx 4600a020 @ 0x1000;wx 80818283 @ 0x400;wx 00000000 @ 0x428;aei;ar r1=0x400;ar r0=0x0;s 0x1000;aeip;aes;ar r0;ar r1",
+   "expected_le": {
+    "r0": "0x80",
+    "r1": "0x428"
+   },
+   "hypothesis_of_table": "H_lbu"
+  },
+  {
+   "id": "C8",
+   "disasm": [
+    [
+     "4680a020",
+     4,
+     "lhu?      r0, [r1] += 0x28",
+     4096
+    ]
+   ],
+   "r2": "wx 4680a020 @ 0x1000;wx 80818283 @ 0x400;wx 00000000 @ 0x428;aei;ar r1=0x400;ar r0=0x0;s 0x1000;aeip;aes;ar r0;ar r1",
+   "expected": null,
+   "r2_le": "wx 4680a020 @ 0x1000;wx 80818283 @ 0x400;wx 00000000 @ 0x428;aei;ar r1=0x400;ar r0=0x0;s 0x1000;aeip;aes;ar r0;ar r1",
+   "expected_le": {
+    "r0": "0x8180",
+    "r1": "0x428"
+   },
+   "hypothesis_of_table": "H_lhu"
+  },
+  {
+   "id": "C9",
+   "disasm": [
+    [
+     "4640a020",
+     4,
+     "lb        r0, [r1] += 0x28",
+     4096
+    ]
+   ],
+   "r2": "wx 4640a020 @ 0x1000;wx 80818283 @ 0x400;wx 00000000 @ 0x428;aei;ar r1=0x400;ar r0=0x0;s 0x1000;aeip;aes;ar r0;ar r1",
+   "expected": {
+    "r0": "0xffffff80",
+    "r1": "0x428"
+   },
+   "r2_le": "wx 4640a020 @ 0x1000;wx 80818283 @ 0x400;wx 00000000 @ 0x428;aei;ar r1=0x400;ar r0=0x0;s 0x1000;aeip;aes;ar r0;ar r1",
+   "expected_le": {
+    "r0": "0xffffff80",
+    "r1": "0x428"
+   },
+   "hypothesis_of_table": "H_lb"
+  },
+  {
+   "id": "C10",
+   "disasm": [
+    [
+     "46c0a020",
+     4,
+     "lh        r0, [r1] += 0x28",
+     4096
+    ]
+   ],
+   "r2": "wx 46c0a020 @ 0x1000;wx 80818283 @ 0x400;wx 00000000 @ 0x428;aei;ar r1=0x400;ar r0=0x0;s 0x1000;aeip;aes;ar r0;ar r1",
+   "expected": null,
+   "r2_le": "wx 46c0a020 @ 0x1000;wx 80818283 @ 0x400;wx 00000000 @ 0x428;aei;ar r1=0x400;ar r0=0x0;s 0x1000;aeip;aes;ar r0;ar r1",
+   "expected_le": {
+    "r0": "0xffff8180",
+    "r1": "0x428"
+   },
+   "hypothesis_of_table": "H_lh"
+  },
+  {
+   "id": "C11",
+   "disasm": [
+    [
+     "2296",
+     2,
+     "lbu.post  r7, [r3] += 2",
+     4096
+    ]
+   ],
+   "r2": "wx 2296 @ 0x1000;wx 80 @ 0x400;aei;ar r3=0x400;ar r7=0x0;s 0x1000;aeip;aes;ar r7;ar r3",
+   "expected": {
+    "r7": "0x80",
+    "r3": "0x402"
+   },
+   "r2_le": "wx 2296 @ 0x1000;wx 80 @ 0x400;aei;ar r3=0x400;ar r7=0x0;s 0x1000;aeip;aes;ar r7;ar r3",
+   "expected_le": {
+    "r7": "0x80",
+    "r3": "0x402"
+   },
+   "hypothesis_of_table": "H_zext"
+  },
+  {
+   "id": "D1",
+   "disasm": [
+    [
+     "0912",
+     2,
+     "sra       r3, r3, #1",
+     4096
+    ]
+   ],
+   "r2": "wx 0912 @ 0x1000;aei;ar r3=0xfffffff7;s 0x1000;aeip;aes;ar r3",
+   "expected": {
+    "r3": "0xfffffffb"
+   },
+   "r2_le": "wx 0912 @ 0x1000;aei;ar r3=0xfffffff7;s 0x1000;aeip;aes;ar r3",
+   "expected_le": {
+    "r3": "0xfffffffb"
+   },
+   "hypothesis_of_table": "H_sra"
+  },
+  {
+   "id": "D2",
+   "disasm": [
+    [
+     "09d2",
+     2,
+     "sra       r3, r3, #13",
+     4096
+    ]
+   ],
+   "r2": "wx 09d2 @ 0x1000;aei;ar r3=0x80000000;s 0x1000;aeip;aes;ar r3",
+   "expected": {
+    "r3": "0xfffc0000"
+   },
+   "r2_le": "wx 09d2 @ 0x1000;aei;ar r3=0x80000000;s 0x1000;aeip;aes;ar r3",
+   "expected_le": {
+    "r3": "0xfffc0000"
+   },
+   "hypothesis_of_table": "H_sra"
+  },
+  {
+   "id": "E1a",
+   "disasm": [
+    [
+     "4270a464",
+     4,
+     "cmov.lt?  r4, #2, r3, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 4270a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x2;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x0"
+   },
+   "r2_le": "wx 4270a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x2;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x0"
+   },
+   "hypothesis_of_table": "H_lt"
+  },
+  {
+   "id": "E1b",
+   "disasm": [
+    [
+     "4270a464",
+     4,
+     "cmov.lt?  r4, #2, r3, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 4270a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x1;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x0"
+   },
+   "r2_le": "wx 4270a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x1;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x0"
+   },
+   "hypothesis_of_table": "H_lt"
+  },
+  {
+   "id": "E1c",
+   "disasm": [
+    [
+     "4270a464",
+     4,
+     "cmov.lt?  r4, #2, r3, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 4270a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x3;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0xcc"
+   },
+   "r2_le": "wx 4270a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x3;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0xcc"
+   },
+   "hypothesis_of_table": "H_lt"
+  },
+  {
+   "id": "E1d",
+   "disasm": [
+    [
+     "4270a464",
+     4,
+     "cmov.lt?  r4, #2, r3, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 4270a464 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x0"
+   },
+   "r2_le": "wx 4270a464 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x0"
+   },
+   "hypothesis_of_table": "H_lt"
+  },
+  {
+   "id": "E1e",
+   "disasm": [
+    [
+     "4270a464",
+     4,
+     "cmov.lt?  r4, #2, r3, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 4270a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x4;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0xcc"
+   },
+   "r2_le": "wx 4270a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x4;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0xcc"
+   },
+   "hypothesis_of_table": "H_lt"
+  },
+  {
+   "id": "E1f",
+   "disasm": [
+    [
+     "4270a464",
+     4,
+     "cmov.lt?  r4, #2, r3, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 4270a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x0;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x0"
+   },
+   "r2_le": "wx 4270a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x0;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x0"
+   },
+   "hypothesis_of_table": "H_lt"
+  },
+  {
+   "id": "E2a",
+   "disasm": [
+    [
+     "4240a464",
+     4,
+     "cmov.le?  r4, #9, r3, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 4240a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x9;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0xcc"
+   },
+   "r2_le": "wx 4240a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x9;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0xcc"
+   },
+   "hypothesis_of_table": "H_le"
+  },
+  {
+   "id": "E2b",
+   "disasm": [
+    [
+     "4240a464",
+     4,
+     "cmov.le?  r4, #9, r3, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 4240a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x8;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x0"
+   },
+   "r2_le": "wx 4240a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x8;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x0"
+   },
+   "hypothesis_of_table": "H_le"
+  },
+  {
+   "id": "E2c",
+   "disasm": [
+    [
+     "4240a464",
+     4,
+     "cmov.le?  r4, #9, r3, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 4240a464 @ 0x1000;aei;ar r4=0x0;ar r3=0xa;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0xcc"
+   },
+   "r2_le": "wx 4240a464 @ 0x1000;aei;ar r4=0x0;ar r3=0xa;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0xcc"
+   },
+   "hypothesis_of_table": "H_le"
+  },
+  {
+   "id": "E2d",
+   "disasm": [
+    [
+     "4240a464",
+     4,
+     "cmov.le?  r4, #9, r3, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 4240a464 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x0"
+   },
+   "r2_le": "wx 4240a464 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x0"
+   },
+   "hypothesis_of_table": "H_le"
+  },
+  {
+   "id": "E3a",
+   "disasm": [
+    [
+     "42b0a464",
+     4,
+     "cmov.ltu? r4, r3, #9, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 42b0a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x9;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x0"
+   },
+   "r2_le": "wx 42b0a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x9;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x0"
+   },
+   "hypothesis_of_table": "H_ltu"
+  },
+  {
+   "id": "E3b",
+   "disasm": [
+    [
+     "42b0a464",
+     4,
+     "cmov.ltu? r4, r3, #9, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 42b0a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x8;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0xcc"
+   },
+   "r2_le": "wx 42b0a464 @ 0x1000;aei;ar r4=0x0;ar r3=0x8;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0xcc"
+   },
+   "hypothesis_of_table": "H_ltu"
+  },
+  {
+   "id": "E3c",
+   "disasm": [
+    [
+     "42b0a464",
+     4,
+     "cmov.ltu? r4, r3, #9, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 42b0a464 @ 0x1000;aei;ar r4=0x0;ar r3=0xa;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x0"
+   },
+   "r2_le": "wx 42b0a464 @ 0x1000;aei;ar r4=0x0;ar r3=0xa;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x0"
+   },
+   "hypothesis_of_table": "H_ltu"
+  },
+  {
+   "id": "E3d",
+   "disasm": [
+    [
+     "42b0a464",
+     4,
+     "cmov.ltu? r4, r3, #9, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 42b0a464 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x0"
+   },
+   "r2_le": "wx 42b0a464 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x0"
+   },
+   "hypothesis_of_table": "H_ltu"
+  },
+  {
+   "id": "E4a",
+   "disasm": [
+    [
+     "42308864",
+     4,
+     "cmov.leu? r4, r3, r2, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 42308864 @ 0x1000;aei;ar r4=0x0;ar r3=0x2;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0xcc"
+   },
+   "r2_le": "wx 42308864 @ 0x1000;aei;ar r4=0x0;ar r3=0x2;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0xcc"
+   },
+   "hypothesis_of_table": "H_leu"
+  },
+  {
+   "id": "E4b",
+   "disasm": [
+    [
+     "42308864",
+     4,
+     "cmov.leu? r4, r3, r2, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 42308864 @ 0x1000;aei;ar r4=0x0;ar r3=0x1;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0xcc"
+   },
+   "r2_le": "wx 42308864 @ 0x1000;aei;ar r4=0x0;ar r3=0x1;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0xcc"
+   },
+   "hypothesis_of_table": "H_leu"
+  },
+  {
+   "id": "E4c",
+   "disasm": [
+    [
+     "42308864",
+     4,
+     "cmov.leu? r4, r3, r2, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 42308864 @ 0x1000;aei;ar r4=0x0;ar r3=0x3;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x0"
+   },
+   "r2_le": "wx 42308864 @ 0x1000;aei;ar r4=0x0;ar r3=0x3;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x0"
+   },
+   "hypothesis_of_table": "H_leu"
+  },
+  {
+   "id": "E4d",
+   "disasm": [
+    [
+     "42308864",
+     4,
+     "cmov.leu? r4, r3, r2, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 42308864 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x0"
+   },
+   "r2_le": "wx 42308864 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x0"
+   },
+   "hypothesis_of_table": "H_leu"
+  },
+  {
+   "id": "E5a",
+   "disasm": [
+    [
+     "4213b0c1",
+     4,
+     "cmov.ge   r1, r6, #5, r7",
+     4096
+    ]
+   ],
+   "r2": "wx 4213b0c1 @ 0x1000;aei;ar r1=0x0;ar r6=0x5;ar r7=0xcc;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0xcc"
+   },
+   "r2_le": "wx 4213b0c1 @ 0x1000;aei;ar r1=0x0;ar r6=0x5;ar r7=0xcc;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0xcc"
+   },
+   "hypothesis_of_table": "H_ge"
+  },
+  {
+   "id": "E5b",
+   "disasm": [
+    [
+     "4213b0c1",
+     4,
+     "cmov.ge   r1, r6, #5, r7",
+     4096
+    ]
+   ],
+   "r2": "wx 4213b0c1 @ 0x1000;aei;ar r1=0x0;ar r6=0x4;ar r7=0xcc;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x0"
+   },
+   "r2_le": "wx 4213b0c1 @ 0x1000;aei;ar r1=0x0;ar r6=0x4;ar r7=0xcc;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x0"
+   },
+   "hypothesis_of_table": "H_ge"
+  },
+  {
+   "id": "E5c",
+   "disasm": [
+    [
+     "4213b0c1",
+     4,
+     "cmov.ge   r1, r6, #5, r7",
+     4096
+    ]
+   ],
+   "r2": "wx 4213b0c1 @ 0x1000;aei;ar r1=0x0;ar r6=0x6;ar r7=0xcc;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0xcc"
+   },
+   "r2_le": "wx 4213b0c1 @ 0x1000;aei;ar r1=0x0;ar r6=0x6;ar r7=0xcc;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0xcc"
+   },
+   "hypothesis_of_table": "H_ge"
+  },
+  {
+   "id": "E5d",
+   "disasm": [
+    [
+     "4213b0c1",
+     4,
+     "cmov.ge   r1, r6, #5, r7",
+     4096
+    ]
+   ],
+   "r2": "wx 4213b0c1 @ 0x1000;aei;ar r1=0x0;ar r6=0xffffffff;ar r7=0xcc;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x0"
+   },
+   "r2_le": "wx 4213b0c1 @ 0x1000;aei;ar r1=0x0;ar r6=0xffffffff;ar r7=0xcc;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x0"
+   },
+   "hypothesis_of_table": "H_ge"
+  },
+  {
+   "id": "E6a",
+   "disasm": [
+    [
+     "42c2b5c8",
+     4,
+     "cmov.eq   r8, r14, r13, r5",
+     4096
+    ]
+   ],
+   "r2": "wx 42c2b5c8 @ 0x1000;aei;ar r8=0x0;ar r14=0x2;ar r5=0xcc;ar r13=0x2;s 0x1000;aeip;aes;ar r8",
+   "expected": {
+    "r8": "0xcc"
+   },
+   "r2_le": "wx 42c2b5c8 @ 0x1000;aei;ar r8=0x0;ar r14=0x2;ar r5=0xcc;ar r13=0x2;s 0x1000;aeip;aes;ar r8",
+   "expected_le": {
+    "r8": "0xcc"
+   },
+   "hypothesis_of_table": "H_eq"
+  },
+  {
+   "id": "E6b",
+   "disasm": [
+    [
+     "42c2b5c8",
+     4,
+     "cmov.eq   r8, r14, r13, r5",
+     4096
+    ]
+   ],
+   "r2": "wx 42c2b5c8 @ 0x1000;aei;ar r8=0x0;ar r14=0x1;ar r5=0xcc;ar r13=0x2;s 0x1000;aeip;aes;ar r8",
+   "expected": {
+    "r8": "0x0"
+   },
+   "r2_le": "wx 42c2b5c8 @ 0x1000;aei;ar r8=0x0;ar r14=0x1;ar r5=0xcc;ar r13=0x2;s 0x1000;aeip;aes;ar r8",
+   "expected_le": {
+    "r8": "0x0"
+   },
+   "hypothesis_of_table": "H_eq"
+  },
+  {
+   "id": "E6c",
+   "disasm": [
+    [
+     "42c2b5c8",
+     4,
+     "cmov.eq   r8, r14, r13, r5",
+     4096
+    ]
+   ],
+   "r2": "wx 42c2b5c8 @ 0x1000;aei;ar r8=0x0;ar r14=0x3;ar r5=0xcc;ar r13=0x2;s 0x1000;aeip;aes;ar r8",
+   "expected": {
+    "r8": "0x0"
+   },
+   "r2_le": "wx 42c2b5c8 @ 0x1000;aei;ar r8=0x0;ar r14=0x3;ar r5=0xcc;ar r13=0x2;s 0x1000;aeip;aes;ar r8",
+   "expected_le": {
+    "r8": "0x0"
+   },
+   "hypothesis_of_table": "H_eq"
+  },
+  {
+   "id": "E6d",
+   "disasm": [
+    [
+     "42c2b5c8",
+     4,
+     "cmov.eq   r8, r14, r13, r5",
+     4096
+    ]
+   ],
+   "r2": "wx 42c2b5c8 @ 0x1000;aei;ar r8=0x0;ar r14=0xffffffff;ar r5=0xcc;ar r13=0x2;s 0x1000;aeip;aes;ar r8",
+   "expected": {
+    "r8": "0x0"
+   },
+   "r2_le": "wx 42c2b5c8 @ 0x1000;aei;ar r8=0x0;ar r14=0xffffffff;ar r5=0xcc;ar r13=0x2;s 0x1000;aeip;aes;ar r8",
+   "expected_le": {
+    "r8": "0x0"
+   },
+   "hypothesis_of_table": "H_eq"
+  },
+  {
+   "id": "E7a",
+   "disasm": [
+    [
+     "42008864",
+     4,
+     "sel?      r4, r3, r2, r1  (q0 c0)",
+     4096
+    ]
+   ],
+   "r2": "wx 42008864 @ 0x1000;aei;ar r4=0x0;ar r3=0x2;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E7b",
+   "disasm": [
+    [
+     "42008864",
+     4,
+     "sel?      r4, r3, r2, r1  (q0 c0)",
+     4096
+    ]
+   ],
+   "r2": "wx 42008864 @ 0x1000;aei;ar r4=0x0;ar r3=0x1;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E7c",
+   "disasm": [
+    [
+     "42008864",
+     4,
+     "sel?      r4, r3, r2, r1  (q0 c0)",
+     4096
+    ]
+   ],
+   "r2": "wx 42008864 @ 0x1000;aei;ar r4=0x0;ar r3=0x3;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E7d",
+   "disasm": [
+    [
+     "42008864",
+     4,
+     "sel?      r4, r3, r2, r1  (q0 c0)",
+     4096
+    ]
+   ],
+   "r2": "wx 42008864 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E8a",
+   "disasm": [
+    [
+     "42908864",
+     4,
+     "sel?      r4, r3, r2, r1  (q2 c1)",
+     4096
+    ]
+   ],
+   "r2": "wx 42908864 @ 0x1000;aei;ar r4=0x0;ar r3=0x2;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E8b",
+   "disasm": [
+    [
+     "42908864",
+     4,
+     "sel?      r4, r3, r2, r1  (q2 c1)",
+     4096
+    ]
+   ],
+   "r2": "wx 42908864 @ 0x1000;aei;ar r4=0x0;ar r3=0x1;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E8c",
+   "disasm": [
+    [
+     "42908864",
+     4,
+     "sel?      r4, r3, r2, r1  (q2 c1)",
+     4096
+    ]
+   ],
+   "r2": "wx 42908864 @ 0x1000;aei;ar r4=0x0;ar r3=0x3;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E8d",
+   "disasm": [
+    [
+     "42908864",
+     4,
+     "sel?      r4, r3, r2, r1  (q2 c1)",
+     4096
+    ]
+   ],
+   "r2": "wx 42908864 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E9a",
+   "disasm": [
+    [
+     "42e08864",
+     4,
+     "sel?      r4, r3, r2, r1  (q3 c2)",
+     4096
+    ]
+   ],
+   "r2": "wx 42e08864 @ 0x1000;aei;ar r4=0x0;ar r3=0x2;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E9b",
+   "disasm": [
+    [
+     "42e08864",
+     4,
+     "sel?      r4, r3, r2, r1  (q3 c2)",
+     4096
+    ]
+   ],
+   "r2": "wx 42e08864 @ 0x1000;aei;ar r4=0x0;ar r3=0x1;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E9c",
+   "disasm": [
+    [
+     "42e08864",
+     4,
+     "sel?      r4, r3, r2, r1  (q3 c2)",
+     4096
+    ]
+   ],
+   "r2": "wx 42e08864 @ 0x1000;aei;ar r4=0x0;ar r3=0x3;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E9d",
+   "disasm": [
+    [
+     "42e08864",
+     4,
+     "sel?      r4, r3, r2, r1  (q3 c2)",
+     4096
+    ]
+   ],
+   "r2": "wx 42e08864 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;ar r2=0x2;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E10a",
+   "disasm": [
+    [
+     "42508864",
+     4,
+     "sel?      r4, r3, #2, r1  (q1 c1)",
+     4096
+    ]
+   ],
+   "r2": "wx 42508864 @ 0x1000;aei;ar r4=0x0;ar r3=0x2;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E10b",
+   "disasm": [
+    [
+     "42508864",
+     4,
+     "sel?      r4, r3, #2, r1  (q1 c1)",
+     4096
+    ]
+   ],
+   "r2": "wx 42508864 @ 0x1000;aei;ar r4=0x0;ar r3=0x1;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E10c",
+   "disasm": [
+    [
+     "42508864",
+     4,
+     "sel?      r4, r3, #2, r1  (q1 c1)",
+     4096
+    ]
+   ],
+   "r2": "wx 42508864 @ 0x1000;aei;ar r4=0x0;ar r3=0x3;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E10d",
+   "disasm": [
+    [
+     "42508864",
+     4,
+     "sel?      r4, r3, #2, r1  (q1 c1)",
+     4096
+    ]
+   ],
+   "r2": "wx 42508864 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E11a",
+   "disasm": [
+    [
+     "42808864",
+     4,
+     "sel?      r4, r3, x2, r1  (q2 c0)",
+     4096
+    ]
+   ],
+   "r2": "wx 42808864 @ 0x1000;aei;ar r4=0x0;ar r3=0x2;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E11b",
+   "disasm": [
+    [
+     "42808864",
+     4,
+     "sel?      r4, r3, x2, r1  (q2 c0)",
+     4096
+    ]
+   ],
+   "r2": "wx 42808864 @ 0x1000;aei;ar r4=0x0;ar r3=0x1;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E11c",
+   "disasm": [
+    [
+     "42808864",
+     4,
+     "sel?      r4, r3, x2, r1  (q2 c0)",
+     4096
+    ]
+   ],
+   "r2": "wx 42808864 @ 0x1000;aei;ar r4=0x0;ar r3=0x3;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E11d",
+   "disasm": [
+    [
+     "42808864",
+     4,
+     "sel?      r4, r3, x2, r1  (q2 c0)",
+     4096
+    ]
+   ],
+   "r2": "wx 42808864 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E12a",
+   "disasm": [
+    [
+     "42208864",
+     4,
+     "sel?      r4, r3, x2, r1  (q0 c2)",
+     4096
+    ]
+   ],
+   "r2": "wx 42208864 @ 0x1000;aei;ar r4=0x0;ar r3=0x2;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E12b",
+   "disasm": [
+    [
+     "42208864",
+     4,
+     "sel?      r4, r3, x2, r1  (q0 c2)",
+     4096
+    ]
+   ],
+   "r2": "wx 42208864 @ 0x1000;aei;ar r4=0x0;ar r3=0x1;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E12c",
+   "disasm": [
+    [
+     "42208864",
+     4,
+     "sel?      r4, r3, x2, r1  (q0 c2)",
+     4096
+    ]
+   ],
+   "r2": "wx 42208864 @ 0x1000;aei;ar r4=0x0;ar r3=0x3;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "E12d",
+   "disasm": [
+    [
+     "42208864",
+     4,
+     "sel?      r4, r3, x2, r1  (q0 c2)",
+     4096
+    ]
+   ],
+   "r2": "wx 42208864 @ 0x1000;aei;ar r4=0x0;ar r3=0xffffffff;ar r1=0xcc;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "F1a",
+   "disasm": [
+    [
+     "2584",
+     2,
+     "bnez.d1   r5, #0, 0x1008",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4098
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4100
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100a",
+     4102
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4104
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4106
+    ]
+   ],
+   "r2": "wx 2584 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x3",
+    "r9": "0x1"
+   },
+   "r2_le": "wx 2584 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x3",
+    "r9": "0x1"
+   },
+   "hypothesis_of_table": "H_ne_d1"
+  },
+  {
+   "id": "F1b",
+   "disasm": [
+    [
+     "2584",
+     2,
+     "bnez.d1   r5, #0, 0x1008",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4098
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4100
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100a",
+     4102
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4104
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4106
+    ]
+   ],
+   "r2": "wx 2584 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "r2_le": "wx 2584 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "hypothesis_of_table": "H_ne_d1"
+  },
+  {
+   "id": "F2a",
+   "disasm": [
+    [
+     "2784",
+     2,
+     "bnez      r5, #0, 0x1008",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4098
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4100
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100a",
+     4102
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4104
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4106
+    ]
+   ],
+   "r2": "wx 2784 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x3",
+    "r9": "0x0"
+   },
+   "r2_le": "wx 2784 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x3",
+    "r9": "0x0"
+   },
+   "hypothesis_of_table": "H_ne_nodelay"
+  },
+  {
+   "id": "F2b",
+   "disasm": [
+    [
+     "2784",
+     2,
+     "bnez      r5, #0, 0x1008",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4098
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4100
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100a",
+     4102
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4104
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4106
+    ]
+   ],
+   "r2": "wx 2784 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "r2_le": "wx 2784 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "hypothesis_of_table": "H_ne_nodelay"
+  },
+  {
+   "id": "F3a",
+   "disasm": [
+    [
+     "2484",
+     2,
+     "beqz.d1   r5, #0, 0x1008",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4098
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4100
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100a",
+     4102
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4104
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4106
+    ]
+   ],
+   "r2": "wx 2484 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "r2_le": "wx 2484 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "hypothesis_of_table": "H_eq_d1"
+  },
+  {
+   "id": "F3b",
+   "disasm": [
+    [
+     "2484",
+     2,
+     "beqz.d1   r5, #0, 0x1008",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4098
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4100
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100a",
+     4102
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4104
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4106
+    ]
+   ],
+   "r2": "wx 2484 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x3",
+    "r9": "0x1"
+   },
+   "r2_le": "wx 2484 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x3",
+    "r9": "0x1"
+   },
+   "hypothesis_of_table": "H_eq_d1"
+  },
+  {
+   "id": "F4a",
+   "disasm": [
+    [
+     "2684",
+     2,
+     "beqz      r5, #0, 0x1008",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4098
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4100
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100a",
+     4102
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4104
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4106
+    ]
+   ],
+   "r2": "wx 2684 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "r2_le": "wx 2684 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "hypothesis_of_table": "H_eq_nodelay"
+  },
+  {
+   "id": "F4b",
+   "disasm": [
+    [
+     "2684",
+     2,
+     "beqz      r5, #0, 0x1008",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4098
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4100
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100a",
+     4102
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4104
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4106
+    ]
+   ],
+   "r2": "wx 2684 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x3",
+    "r9": "0x0"
+   },
+   "r2_le": "wx 2684 @ 0x1000;wx 0618 @ 0x1002;wx 062a @ 0x1004;wx 3f04 @ 0x1006;wx 063a @ 0x1008;wx 2005 @ 0x100a;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x3",
+    "r9": "0x0"
+   },
+   "hypothesis_of_table": "H_eq_nodelay"
+  },
+  {
+   "id": "F5a",
+   "disasm": [
+    [
+     "688125",
+     3,
+     "bnez8     r5, #0, 0x1009",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4099
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4101
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100b",
+     4103
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4105
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4107
+    ]
+   ],
+   "r2": "wx 688125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x3",
+    "r9": "0x0"
+   },
+   "r2_le": "wx 688125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x3",
+    "r9": "0x0"
+   },
+   "hypothesis_of_table": "H_ne_nodelay"
+  },
+  {
+   "id": "F5b",
+   "disasm": [
+    [
+     "688125",
+     3,
+     "bnez8     r5, #0, 0x1009",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4099
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4101
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100b",
+     4103
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4105
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4107
+    ]
+   ],
+   "r2": "wx 688125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "r2_le": "wx 688125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "hypothesis_of_table": "H_ne_nodelay"
+  },
+  {
+   "id": "F6a",
+   "disasm": [
+    [
+     "698125",
+     3,
+     "bnez8.d1  r5, #0, 0x1009",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4099
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4101
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100b",
+     4103
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4105
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4107
+    ]
+   ],
+   "r2": "wx 698125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x3",
+    "r9": "0x1"
+   },
+   "r2_le": "wx 698125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x3",
+    "r9": "0x1"
+   },
+   "hypothesis_of_table": "H_ne_d1"
+  },
+  {
+   "id": "F6b",
+   "disasm": [
+    [
+     "698125",
+     3,
+     "bnez8.d1  r5, #0, 0x1009",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4099
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4101
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100b",
+     4103
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4105
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4107
+    ]
+   ],
+   "r2": "wx 698125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "r2_le": "wx 698125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "hypothesis_of_table": "H_ne_d1"
+  },
+  {
+   "id": "F7a",
+   "disasm": [
+    [
+     "680125",
+     3,
+     "beqz8     r5, #0, 0x1009",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4099
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4101
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100b",
+     4103
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4105
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4107
+    ]
+   ],
+   "r2": "wx 680125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "r2_le": "wx 680125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "hypothesis_of_table": "H_eq_nodelay"
+  },
+  {
+   "id": "F7b",
+   "disasm": [
+    [
+     "680125",
+     3,
+     "beqz8     r5, #0, 0x1009",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4099
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4101
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100b",
+     4103
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4105
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4107
+    ]
+   ],
+   "r2": "wx 680125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x3",
+    "r9": "0x0"
+   },
+   "r2_le": "wx 680125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x3",
+    "r9": "0x0"
+   },
+   "hypothesis_of_table": "H_eq_nodelay"
+  },
+  {
+   "id": "F8a",
+   "disasm": [
+    [
+     "690125",
+     3,
+     "beqz8.d1  r5, #0, 0x1009",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4099
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4101
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100b",
+     4103
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4105
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4107
+    ]
+   ],
+   "r2": "wx 690125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "r2_le": "wx 690125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x1;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x2",
+    "r9": "0x1"
+   },
+   "hypothesis_of_table": "H_eq_d1"
+  },
+  {
+   "id": "F8b",
+   "disasm": [
+    [
+     "690125",
+     3,
+     "beqz8.d1  r5, #0, 0x1009",
+     4096
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     4099
+    ],
+    [
+     "062a",
+     2,
+     "mv        r11, #2",
+     4101
+    ],
+    [
+     "3f04",
+     2,
+     "j8        0x100b",
+     4103
+    ],
+    [
+     "063a",
+     2,
+     "mv        r11, #3",
+     4105
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4107
+    ]
+   ],
+   "r2": "wx 690125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected": {
+    "r11": "0x3",
+    "r9": "0x1"
+   },
+   "r2_le": "wx 690125 @ 0x1000;wx 0618 @ 0x1003;wx 062a @ 0x1005;wx 3f04 @ 0x1007;wx 063a @ 0x1009;wx 2005 @ 0x100b;aei;ar r5=0x0;ar r9=0x0;ar r11=0x0;ar lr=0x2000;s 0x1000;aeip;aes;aes;aes;aes;ar r11;ar r9",
+   "expected_le": {
+    "r11": "0x3",
+    "r9": "0x1"
+   },
+   "hypothesis_of_table": "H_eq_d1"
+  },
+  {
+   "id": "F9",
+   "disasm": [
+    [
+     "6fec9b",
+     3,
+     "jr        r27",
+     4096
+    ],
+    [
+     "0619",
+     2,
+     "mv        r10, #1",
+     4099
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     4101
+    ],
+    [
+     "0618",
+     2,
+     "mv        r9, #1",
+     8192
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     8194
+    ],
+    [
+     "0628",
+     2,
+     "mv        r9, #2",
+     12288
+    ],
+    [
+     "2005",
+     2,
+     "ret",
+     12290
+    ]
+   ],
+   "r2": "wx 6fec9b @ 0x1000;wx 0619 @ 0x1003;wx 2005 @ 0x1005;wx 0618 @ 0x2000;wx 2005 @ 0x2002;wx 0628 @ 0x3000;wx 2005 @ 0x3002;aei;ar r27=0x2000;ar r11=0x3000;ar r9=0x0;ar r10=0x0;ar lr=0x5000;s 0x1000;aeip;aes;aes;aes;ar r9;ar r10",
+   "expected": {
+    "r9": "0x1",
+    "r10": "0x0"
+   },
+   "r2_le": "wx 6fec9b @ 0x1000;wx 0619 @ 0x1003;wx 2005 @ 0x1005;wx 0618 @ 0x2000;wx 2005 @ 0x2002;wx 0628 @ 0x3000;wx 2005 @ 0x3002;aei;ar r27=0x2000;ar r11=0x3000;ar r9=0x0;ar r10=0x0;ar lr=0x5000;s 0x1000;aeip;aes;aes;aes;ar r9;ar r10",
+   "expected_le": {
+    "r9": "0x1",
+    "r10": "0x0"
+   },
+   "hypothesis_of_table": "H_rn5_nodelay"
+  },
+  {
+   "id": "G1",
+   "disasm": [
+    [
+     "22c5",
+     2,
+     "lbu.post? r6, [r1] += 3",
+     4096
+    ]
+   ],
+   "r2": "wx 22c5 @ 0x1000;wx 1122334455 @ 0x400;aei;ar r1=0x400;ar r6=0x0;s 0x1000;aeip;aes;ar r6;ar r1",
+   "expected": {
+    "r6": "0x11",
+    "r1": "0x403"
+   },
+   "r2_le": "wx 22c5 @ 0x1000;wx 1122334455 @ 0x400;aei;ar r1=0x400;ar r6=0x0;s 0x1000;aeip;aes;ar r6;ar r1",
+   "expected_le": {
+    "r6": "0x11",
+    "r1": "0x403"
+   },
+   "hypothesis_of_table": "H_inc3_zext"
+  },
+  {
+   "id": "G1b",
+   "disasm": [
+    [
+     "22c5",
+     2,
+     "lbu.post? r6, [r1] += 3",
+     4096
+    ]
+   ],
+   "r2": "wx 22c5 @ 0x1000;wx 0201000504 @ 0xdd8;aei;ar r1=0xdd8;ar r6=0x0;s 0x1000;aeip;aes;ar r6;ar r1",
+   "expected": {
+    "r6": "0x2",
+    "r1": "0xddb"
+   },
+   "r2_le": "wx 22c5 @ 0x1000;wx 0201000504 @ 0xdd8;aei;ar r1=0xdd8;ar r6=0x0;s 0x1000;aeip;aes;ar r6;ar r1",
+   "expected_le": {
+    "r6": "0x2",
+    "r1": "0xddb"
+   },
+   "hypothesis_of_table": "H_inc3_zext"
+  },
+  {
+   "id": "G1c",
+   "disasm": [
+    [
+     "22c5",
+     2,
+     "lbu.post? r6, [r1] += 3",
+     4096
+    ]
+   ],
+   "r2": "wx 22c5 @ 0x1000;wx 8081828384 @ 0x400;aei;ar r1=0x400;ar r6=0x0;s 0x1000;aeip;aes;ar r6;ar r1",
+   "expected": {
+    "r6": "0x80",
+    "r1": "0x403"
+   },
+   "r2_le": "wx 22c5 @ 0x1000;wx 8081828384 @ 0x400;aei;ar r1=0x400;ar r6=0x0;s 0x1000;aeip;aes;ar r6;ar r1",
+   "expected_le": {
+    "r6": "0x80",
+    "r1": "0x403"
+   },
+   "hypothesis_of_table": "H_inc3_zext"
+  },
+  {
+   "id": "H1",
+   "disasm": [
+    [
+     "41f38c20",
+     4,
+     "sqr?      r0, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 41f38c20 @ 0x1000;aei;ar r1=0x7;ar r0=0x0;s 0x1000;aeip;aes;ar r0",
+   "expected": {
+    "r0": "0x31"
+   },
+   "r2_le": "wx 41f38c20 @ 0x1000;aei;ar r1=0x7;ar r0=0x0;s 0x1000;aeip;aes;ar r0",
+   "expected_le": {
+    "r0": "0x31"
+   },
+   "hypothesis_of_table": "H_sqr"
+  },
+  {
+   "id": "H1b",
+   "disasm": [
+    [
+     "41f38c20",
+     4,
+     "sqr?      r0, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 41f38c20 @ 0x1000;aei;ar r1=0x5;ar r0=0x0;s 0x1000;aeip;aes;ar r0",
+   "expected": {
+    "r0": "0x19"
+   },
+   "r2_le": "wx 41f38c20 @ 0x1000;aei;ar r1=0x5;ar r0=0x0;s 0x1000;aeip;aes;ar r0",
+   "expected_le": {
+    "r0": "0x19"
+   },
+   "hypothesis_of_table": "H_sqr"
+  },
+  {
+   "id": "H1c",
+   "disasm": [
+    [
+     "41f38c20",
+     4,
+     "sqr?      r0, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 41f38c20 @ 0x1000;aei;ar r1=0x10001;ar r0=0x0;s 0x1000;aeip;aes;ar r0",
+   "expected": {
+    "r0": "0x20001"
+   },
+   "r2_le": "wx 41f38c20 @ 0x1000;aei;ar r1=0x10001;ar r0=0x0;s 0x1000;aeip;aes;ar r0",
+   "expected_le": {
+    "r0": "0x20001"
+   },
+   "hypothesis_of_table": "H_sqr"
+  },
+  {
+   "id": "H1d",
+   "disasm": [
+    [
+     "41f38cc1",
+     4,
+     "sqr?      r1, r6",
+     4096
+    ]
+   ],
+   "r2": "wx 41f38cc1 @ 0x1000;aei;ar r6=0x3;ar r1=0x0;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x9"
+   },
+   "r2_le": "wx 41f38cc1 @ 0x1000;aei;ar r6=0x3;ar r1=0x0;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x9"
+   },
+   "hypothesis_of_table": "H_sqr"
+  },
+  {
+   "id": "H2",
+   "disasm": [
+    [
+     "41f38820",
+     4,
+     "ctz       r0, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 41f38820 @ 0x1000;aei;ar r1=0x0;ar r0=0x55;s 0x1000;aeip;aes;ar r0",
+   "expected": {
+    "r0": "0xffffffff"
+   },
+   "r2_le": "wx 41f38820 @ 0x1000;aei;ar r1=0x0;ar r0=0x55;s 0x1000;aeip;aes;ar r0",
+   "expected_le": {
+    "r0": "0xffffffff"
+   },
+   "hypothesis_of_table": "H_ctz_m1"
+  },
+  {
+   "id": "H2b",
+   "disasm": [
+    [
+     "41f38a77",
+     4,
+     "ctz       r23, r19",
+     4096
+    ]
+   ],
+   "r2": "wx 41f38a77 @ 0x1000;aei;ar r19=0x0;ar r23=0x55;s 0x1000;aeip;aes;ar r23",
+   "expected": {
+    "r23": "0xffffffff"
+   },
+   "r2_le": "wx 41f38a77 @ 0x1000;aei;ar r19=0x0;ar r23=0x55;s 0x1000;aeip;aes;ar r23",
+   "expected_le": {
+    "r23": "0xffffffff"
+   },
+   "hypothesis_of_table": "H_ctz_m1"
+  },
+  {
+   "id": "H3",
+   "disasm": [
+    [
+     "41f38820",
+     4,
+     "ctz       r0, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 41f38820 @ 0x1000;aei;ar r1=0x20000;ar r0=0x55;s 0x1000;aeip;aes;ar r0",
+   "expected": {
+    "r0": "0x11"
+   },
+   "r2_le": "wx 41f38820 @ 0x1000;aei;ar r1=0x20000;ar r0=0x55;s 0x1000;aeip;aes;ar r0",
+   "expected_le": {
+    "r0": "0x11"
+   },
+   "hypothesis_of_table": "H_ctz_m1"
+  },
+  {
+   "id": "H3b",
+   "disasm": [
+    [
+     "41f38820",
+     4,
+     "ctz       r0, r1",
+     4096
+    ]
+   ],
+   "r2": "wx 41f38820 @ 0x1000;aei;ar r1=0x28;ar r0=0x55;s 0x1000;aeip;aes;ar r0",
+   "expected": {
+    "r0": "0x3"
+   },
+   "r2_le": "wx 41f38820 @ 0x1000;aei;ar r1=0x28;ar r0=0x55;s 0x1000;aeip;aes;ar r0",
+   "expected_le": {
+    "r0": "0x3"
+   },
+   "hypothesis_of_table": "H_ctz_m1"
+  },
+  {
+   "id": "I1",
+   "disasm": [
+    [
+     "41880d27",
+     4,
+     "op41.fld  r7, r9, r3, #16",
+     4096
+    ]
+   ],
+   "r2": "wx 41880d27 @ 0x1000;aei;ar r9=0x12345678;ar r3=0xabcdef01;ar r7=0x55555555;s 0x1000;aeip;aes;ar r7",
+   "expected": {
+    "r7": "0x5678ef01"
+   },
+   "r2_le": "wx 41880d27 @ 0x1000;aei;ar r9=0x12345678;ar r3=0xabcdef01;ar r7=0x55555555;s 0x1000;aeip;aes;ar r7",
+   "expected_le": {
+    "r7": "0x5678ef01"
+   },
+   "hypothesis_of_table": "H_pack"
+  },
+  {
+   "id": "I2",
+   "disasm": [
+    [
+     "41840d27",
+     4,
+     "op41.fld  r7, r9, r3, #8",
+     4096
+    ]
+   ],
+   "r2": "wx 41840d27 @ 0x1000;aei;ar r9=0x12345678;ar r3=0xabcdef01;ar r7=0x55555555;s 0x1000;aeip;aes;ar r7",
+   "expected": {
+    "r7": "0x34567801"
+   },
+   "r2_le": "wx 41840d27 @ 0x1000;aei;ar r9=0x12345678;ar r3=0xabcdef01;ar r7=0x55555555;s 0x1000;aeip;aes;ar r7",
+   "expected_le": {
+    "r7": "0x34567801"
+   },
+   "hypothesis_of_table": "H_pack"
+  },
+  {
+   "id": "I3",
+   "disasm": [
+    [
+     "418d0d27",
+     4,
+     "op41.fld  r7, r9, r3, #26",
+     4096
+    ]
+   ],
+   "r2": "wx 418d0d27 @ 0x1000;aei;ar r9=0x12345678;ar r3=0xabcdef01;ar r7=0x55555555;s 0x1000;aeip;aes;ar r7",
+   "expected": {
+    "r7": "0xe3cdef01"
+   },
+   "r2_le": "wx 418d0d27 @ 0x1000;aei;ar r9=0x12345678;ar r3=0xabcdef01;ar r7=0x55555555;s 0x1000;aeip;aes;ar r7",
+   "expected_le": {
+    "r7": "0xe3cdef01"
+   },
+   "hypothesis_of_table": "H_pack"
+  },
+  {
+   "id": "J1a",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4104
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4106
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1fa4 @ 0x1008;wx c4004003 @ 0x100a;wx 0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x3;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 136 @ 0x600",
+   "expected": {
+    "mem[0x600:136]": "011102110311eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+   },
+   "r2_le": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1fa4 @ 0x1008;wx c4004003 @ 0x100a;wx 0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x3;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 136 @ 0x600",
+   "expected_le": {
+    "mem[0x600:136]": "011102110311eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+   },
+   "hypothesis_of_table": "H_public"
+  },
+  {
+   "id": "J1b",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4104
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4106
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1fa4 @ 0x1008;wx c4004003 @ 0x100a;wx 0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x43;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 136 @ 0x600",
+   "expected": {
+    "mem[0x600:136]": "0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011eeeeeeeeeeeeeeee"
+   },
+   "r2_le": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1fa4 @ 0x1008;wx c4004003 @ 0x100a;wx 0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x43;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 136 @ 0x600",
+   "expected_le": {
+    "mem[0x600:136]": "0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011eeeeeeeeeeeeeeee"
+   },
+   "hypothesis_of_table": "H_public"
+  },
+  {
+   "id": "J1c",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4104
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4106
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1fa4 @ 0x1008;wx c4004003 @ 0x100a;wx 0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x0;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 136 @ 0x600",
+   "expected": {
+    "mem[0x600:136]": "0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011eeeeeeeeeeeeeeee"
+   },
+   "r2_le": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1fa4 @ 0x1008;wx c4004003 @ 0x100a;wx 0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x0;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 136 @ 0x600",
+   "expected_le": {
+    "mem[0x600:136]": "0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011eeeeeeeeeeeeeeee"
+   },
+   "hypothesis_of_table": "H_public"
+  },
+  {
+   "id": "J1d",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4104
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4106
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1fa4 @ 0x1008;wx c4004003 @ 0x100a;wx 0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x23;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 136 @ 0x600",
+   "expected": {
+    "mem[0x600:136]": "0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f112011211122112311eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+   },
+   "r2_le": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1fa4 @ 0x1008;wx c4004003 @ 0x100a;wx 0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x23;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 136 @ 0x600",
+   "expected_le": {
+    "mem[0x600:136]": "0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f112011211122112311eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+   },
+   "hypothesis_of_table": "H_public"
+  },
+  {
+   "id": "J2",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4104
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4108
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4110
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c4002002 @ 0x1008;wx 1fa4 @ 0x100c;wx c4004003 @ 0x100e;wx 0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011 @ 0x400;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x2;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected": {
+    "mem[0x600:8]": "03110411eeeeeeee"
+   },
+   "r2_le": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c4002002 @ 0x1008;wx 1fa4 @ 0x100c;wx c4004003 @ 0x100e;wx 0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011 @ 0x400;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x2;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected_le": {
+    "mem[0x600:8]": "03110411eeeeeeee"
+   },
+   "hypothesis_of_table": "H_post_bytes"
+  },
+  {
+   "id": "J3",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0400109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F8,F0,F0",
+     4112
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4116
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4120
+    ],
+    [
+     "c4404003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F8,F1,F0",
+     4122
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0400109 @ 0x1010;wx c4002002 @ 0x1014;wx 1fa4 @ 0x1018;wx c4404003 @ 0x101a;wx 011102110311041101220222032204220133023303330433 @ 0x400;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected": {
+    "mem[0x600:8]": "0133023303330433"
+   },
+   "r2_le": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0400109 @ 0x1010;wx c4002002 @ 0x1014;wx 1fa4 @ 0x1018;wx c4404003 @ 0x101a;wx 011102110311041101220222032204220133023303330433 @ 0x400;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected_le": {
+    "mem[0x600:8]": "0133023303330433"
+   },
+   "hypothesis_of_table": "H_data_v0"
+  },
+  {
+   "id": "J4",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4104
+    ],
+    [
+     "c4004403",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F2",
+     4106
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1fa4 @ 0x1008;wx c4004403 @ 0x100a;wx 0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": {
+    "mem[0x600:16]": "01110211031104110511061107110811"
+   },
+   "r2_le": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1fa4 @ 0x1008;wx c4004403 @ 0x100a;wx 0111021103110411051106110711081109110a110b110c110d110e110f1110111111121113111411151116111711181119111a111b111c111d111e111f1120112111221123112411251126112711281129112a112b112c112d112e112f1130113111321133113411351136113711381139113a113b113c113d113e113f114011 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected_le": {
+    "mem[0x600:16]": "01110211031104110511061107110811"
+   },
+   "hypothesis_of_table": "H_lane0"
+  },
+  {
+   "id": "J5",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0080109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c2200109",
+     4,
+     "v.move.mv op9=0x109 A0 B2 F4,F0,F0",
+     4112
+    ],
+    [
+     "c0000b09",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F5",
+     4116
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4120
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4122
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0080109 @ 0x1008;wx c4002002 @ 0x100c;wx c2200109 @ 0x1010;wx c0000b09 @ 0x1014;wx 1fa4 @ 0x1018;wx c4004003 @ 0x101a;wx 01110211031104110122022203220422 @ 0x400;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected": {
+    "mem[0x600:8]": "0000000000000000"
+   },
+   "r2_le": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0080109 @ 0x1008;wx c4002002 @ 0x100c;wx c2200109 @ 0x1010;wx c0000b09 @ 0x1014;wx 1fa4 @ 0x1018;wx c4004003 @ 0x101a;wx 01110211031104110122022203220422 @ 0x400;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected_le": {
+    "mem[0x600:8]": "0000000000000000"
+   },
+   "hypothesis_of_table": "H_single"
+  },
+  {
+   "id": "J6a",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "1f02",
+     2,
+     "vset.a    A0, r3",
+     4104
+    ],
+    [
+     "1f80",
+     2,
+     "vmem.set  p0, r1",
+     4106
+    ],
+    [
+     "4c003231",
+     4,
+     "vcfg4c?   v17, r17, #0xc  (q0 s0)",
+     4108
+    ],
+    [
+     "c0000003",
+     4,
+     "v.mem.st  op9=0x003 A0 B0 F0,F0,F0",
+     4112
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1f02 @ 0x1008;wx 1f80 @ 0x100a;wx 4c003231 @ 0x100c;wx c0000003 @ 0x1010;wx 0111021103110411 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x700;aei;ar r2=0x400;ar r3=0x2;ar r1=0x700;ar r17=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600;p8 16 @ 0x700",
+   "expected": {
+    "mem[0x600:8]": "01110211eeeeeeee",
+    "mem[0x700:16]": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+   },
+   "r2_le": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1f02 @ 0x1008;wx 1f80 @ 0x100a;wx 4c003231 @ 0x100c;wx c0000003 @ 0x1010;wx 0111021103110411 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x700;aei;ar r2=0x400;ar r3=0x2;ar r1=0x700;ar r17=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600;p8 16 @ 0x700",
+   "expected_le": {
+    "mem[0x600:8]": "01110211eeeeeeee",
+    "mem[0x700:16]": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+   },
+   "hypothesis_of_table": "H_p_k"
+  },
+  {
+   "id": "J6b",
+   "disasm": [
+    [
+     "1fa1",
+     2,
+     "vmem.set  p2, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4004002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F1,F0",
+     4100
+    ],
+    [
+     "1f90",
+     2,
+     "vmem.set  p1, r1",
+     4104
+    ],
+    [
+     "4c003233",
+     4,
+     "vcfg4c?   v19, r17, #0xc  (q0 s0)",
+     4106
+    ],
+    [
+     "c4002003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F0,F16",
+     4110
+    ]
+   ],
+   "r2": "wx 1fa1 @ 0x1000;wx 1f12 @ 0x1002;wx c4004002 @ 0x1004;wx 1f90 @ 0x1008;wx 4c003233 @ 0x100a;wx c4002003 @ 0x100e;wx 0111021103110411 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x700;aei;ar r2=0x400;ar r3=0x2;ar r1=0x700;ar r17=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600;p8 16 @ 0x700",
+   "expected": {
+    "mem[0x600:8]": "01110211eeeeeeee",
+    "mem[0x700:16]": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+   },
+   "r2_le": "wx 1fa1 @ 0x1000;wx 1f12 @ 0x1002;wx c4004002 @ 0x1004;wx 1f90 @ 0x1008;wx 4c003233 @ 0x100a;wx c4002003 @ 0x100e;wx 0111021103110411 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x700;aei;ar r2=0x400;ar r3=0x2;ar r1=0x700;ar r17=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600;p8 16 @ 0x700",
+   "expected_le": {
+    "mem[0x600:8]": "01110211eeeeeeee",
+    "mem[0x700:16]": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+   },
+   "hypothesis_of_table": "H_p_k"
+  },
+  {
+   "id": "J6c",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "1f02",
+     2,
+     "vset.a    A0, r3",
+     4104
+    ],
+    [
+     "1f80",
+     2,
+     "vmem.set  p0, r1",
+     4106
+    ],
+    [
+     "4c000a31",
+     4,
+     "vcfg4c?   v17, r17, #0x2  (q0 s0)",
+     4108
+    ],
+    [
+     "c0000003",
+     4,
+     "v.mem.st  op9=0x003 A0 B0 F0,F0,F0",
+     4112
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1f02 @ 0x1008;wx 1f80 @ 0x100a;wx 4c000a31 @ 0x100c;wx c0000003 @ 0x1010;wx 0111021103110411 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x700;aei;ar r2=0x400;ar r3=0x2;ar r1=0x700;ar r17=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600;p8 16 @ 0x700",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J6d",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "1f02",
+     2,
+     "vset.a    A0, r3",
+     4104
+    ],
+    [
+     "1f80",
+     2,
+     "vmem.set  p0, r1",
+     4106
+    ],
+    [
+     "4c000e31",
+     4,
+     "vcfg4c?   v17, r17, #0x3  (q0 s0)",
+     4108
+    ],
+    [
+     "c0000003",
+     4,
+     "v.mem.st  op9=0x003 A0 B0 F0,F0,F0",
+     4112
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx 1f02 @ 0x1008;wx 1f80 @ 0x100a;wx 4c000e31 @ 0x100c;wx c0000003 @ 0x1010;wx 0111021103110411 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x700;aei;ar r2=0x400;ar r3=0x2;ar r1=0x700;ar r17=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600;p8 16 @ 0x700",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J7",
+   "disasm": [
+    [
+     "1f62",
+     2,
+     "vset.a    A6, r3",
+     4096
+    ],
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4098
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4100
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4102
+    ],
+    [
+     "1fe6",
+     2,
+     "vmem.set  p6, r7",
+     4106
+    ],
+    [
+     "437a6c66",
+     4,
+     "vpmem?    p6, #0x26, m3  (b1 7a)",
+     4108
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4112
+    ],
+    [
+     "d8004003",
+     4,
+     "v.mem.st  op9=0x003 A6 B0 F0,F1,F0",
+     4114
+    ],
+    [
+     "c400c003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F3,F0",
+     4118
+    ]
+   ],
+   "r2": "wx 1f62 @ 0x1000;wx 1f91 @ 0x1002;wx 1f12 @ 0x1004;wx c4002002 @ 0x1006;wx 1fe6 @ 0x100a;wx 437a6c66 @ 0x100c;wx 1fa4 @ 0x1010;wx d8004003 @ 0x1012;wx c400c003 @ 0x1016;wx 0111021103110411 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x700;aei;ar r2=0x400;ar r3=0x2;ar r5=0x600;ar r7=0x700;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600;p8 16 @ 0x700",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J8",
+   "disasm": [
+    [
+     "1e20",
+     2,
+     "vins?     slot2, r1",
+     4096
+    ],
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4098
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4100
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4102
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4106
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4110
+    ],
+    [
+     "1f23",
+     2,
+     "vset.a    A2, r4",
+     4114
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4116
+    ],
+    [
+     "480eeee1",
+     4,
+     "mv        r1, #0x7777",
+     4118
+    ],
+    [
+     "41f60041",
+     4,
+     "op41.vput k2.0, r1",
+     4122
+    ],
+    [
+     "1a26",
+     2,
+     "vrd?      r7, vb1[2]",
+     4126
+    ],
+    [
+     "c0000509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F2",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4132
+    ],
+    [
+     "c8004003",
+     4,
+     "v.mem.st  op9=0x003 A2 B0 F0,F1,F0",
+     4136
+    ]
+   ],
+   "r2": "wx 1e20 @ 0x1000;wx 1f91 @ 0x1002;wx 1f12 @ 0x1004;wx c4002002 @ 0x1006;wx c0100109 @ 0x100a;wx c4002002 @ 0x100e;wx 1f23 @ 0x1012;wx 1fa4 @ 0x1014;wx 480eeee1 @ 0x1016;wx 41f60041 @ 0x101a;wx 1a26 @ 0x101e;wx c0000509 @ 0x1020;wx c4004003 @ 0x1024;wx c8004003 @ 0x1028;wx 01110211031104110122022203220422 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r1=0x1111;ar r2=0x400;ar r3=0x4;ar r4=0x2;ar r5=0x600;ar r7=0x0;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;ar r7;p8 32 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J9",
+   "disasm": [
+    [
+     "1e20",
+     2,
+     "vins?     slot2, r1",
+     4096
+    ],
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4098
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4100
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4102
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4106
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4110
+    ],
+    [
+     "1f23",
+     2,
+     "vset.a    A2, r4",
+     4114
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4116
+    ],
+    [
+     "41f40040",
+     4,
+     "op41.vx   k2  (x=0x0, f4)",
+     4118
+    ],
+    [
+     "1a26",
+     2,
+     "vrd?      r7, vb1[2]",
+     4122
+    ],
+    [
+     "c0000509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F2",
+     4124
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4128
+    ],
+    [
+     "c8004003",
+     4,
+     "v.mem.st  op9=0x003 A2 B0 F0,F1,F0",
+     4132
+    ]
+   ],
+   "r2": "wx 1e20 @ 0x1000;wx 1f91 @ 0x1002;wx 1f12 @ 0x1004;wx c4002002 @ 0x1006;wx c0100109 @ 0x100a;wx c4002002 @ 0x100e;wx 1f23 @ 0x1012;wx 1fa4 @ 0x1014;wx 41f40040 @ 0x1016;wx 1a26 @ 0x101a;wx c0000509 @ 0x101c;wx c4004003 @ 0x1020;wx c8004003 @ 0x1024;wx 01110211031104110122022203220422 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r1=0x1111;ar r2=0x400;ar r3=0x4;ar r4=0x2;ar r5=0x600;ar r7=0x0;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;ar r7;p8 32 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J10a",
+   "disasm": [
+    [
+     "4017ff21",
+     4,
+     "vbcast.i? v1, #-0x7  (sub 010)",
+     4096
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4100
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4104
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4106
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4108
+    ]
+   ],
+   "r2": "wx 4017ff21 @ 0x1000;wx c0000309 @ 0x1004;wx 1f12 @ 0x1008;wx 1fa4 @ 0x100a;wx c4004003 @ 0x100c;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected": {
+    "mem[0x600:8]": "f9fff9fff9fff9ff"
+   },
+   "r2_le": "wx 4017ff21 @ 0x1000;wx c0000309 @ 0x1004;wx 1f12 @ 0x1008;wx 1fa4 @ 0x100a;wx c4004003 @ 0x100c;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected_le": {
+    "mem[0x600:8]": "f9fff9fff9fff9ff"
+   },
+   "hypothesis_of_table": "H_all"
+  },
+  {
+   "id": "J10c",
+   "disasm": [
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4096
+    ],
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "4017ff21",
+     4,
+     "vbcast.i? v1, #-0x7  (sub 010)",
+     4104
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4108
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4110
+    ]
+   ],
+   "r2": "wx 1f12 @ 0x1000;wx 1f91 @ 0x1002;wx c4002002 @ 0x1004;wx 4017ff21 @ 0x1008;wx 1fa4 @ 0x100c;wx c4004003 @ 0x100e;wx 0111021103110411 @ 0x400;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected": {
+    "mem[0x600:8]": "0111021103110411"
+   },
+   "r2_le": "wx 1f12 @ 0x1000;wx 1f91 @ 0x1002;wx c4002002 @ 0x1004;wx 4017ff21 @ 0x1008;wx 1fa4 @ 0x100c;wx c4004003 @ 0x100e;wx 0111021103110411 @ 0x400;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected_le": {
+    "mem[0x600:8]": "0111021103110411"
+   },
+   "hypothesis_of_table": "H_all"
+  },
+  {
+   "id": "J10b",
+   "disasm": [
+    [
+     "401fff21",
+     4,
+     "vbcast.i? v1, #-0x7  (sub 011)",
+     4096
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4100
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4104
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4106
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4108
+    ]
+   ],
+   "r2": "wx 401fff21 @ 0x1000;wx c0000309 @ 0x1004;wx 1f12 @ 0x1008;wx 1fa4 @ 0x100a;wx c4004003 @ 0x100c;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected": {
+    "mem[0x600:8]": "f9fff9fff9fff9ff"
+   },
+   "r2_le": "wx 401fff21 @ 0x1000;wx c0000309 @ 0x1004;wx 1f12 @ 0x1008;wx 1fa4 @ 0x100a;wx c4004003 @ 0x100c;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected_le": {
+    "mem[0x600:8]": "f9fff9fff9fff9ff"
+   },
+   "hypothesis_of_table": "H_all"
+  },
+  {
+   "id": "J10d",
+   "disasm": [
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4096
+    ],
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "401fff21",
+     4,
+     "vbcast.i? v1, #-0x7  (sub 011)",
+     4104
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4108
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4110
+    ]
+   ],
+   "r2": "wx 1f12 @ 0x1000;wx 1f91 @ 0x1002;wx c4002002 @ 0x1004;wx 401fff21 @ 0x1008;wx 1fa4 @ 0x100c;wx c4004003 @ 0x100e;wx 0111021103110411 @ 0x400;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected": {
+    "mem[0x600:8]": "0111021103110411"
+   },
+   "r2_le": "wx 1f12 @ 0x1000;wx 1f91 @ 0x1002;wx c4002002 @ 0x1004;wx 401fff21 @ 0x1008;wx 1fa4 @ 0x100c;wx c4004003 @ 0x100e;wx 0111021103110411 @ 0x400;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected_le": {
+    "mem[0x600:8]": "0111021103110411"
+   },
+   "hypothesis_of_table": "H_all"
+  },
+  {
+   "id": "J11_03d",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c008863d",
+     4,
+     "v.alu3    op9=0x03d A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c008863d @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_015",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c0088615",
+     4,
+     "v.alu3    op9=0x015 A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c0088615 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_041",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c0088641",
+     4,
+     "v.alu3    op9=0x041 A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c0088641 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_005",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c0088605",
+     4,
+     "v.alu3    op9=0x005 A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c0088605 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_00d",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c008860d",
+     4,
+     "v.alu3    op9=0x00d A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c008860d @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_1b1",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c00887b1",
+     4,
+     "v.alu3    op9=0x1b1 A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c00887b1 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_026",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c0088626",
+     4,
+     "v.alu3    op9=0x026 A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c0088626 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_141",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c0088741",
+     4,
+     "v.alu3    op9=0x141 A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c0088741 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_006",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c0088606",
+     4,
+     "v.alu3.acc op9=0x006 A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c0088606 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_00e",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c008860e",
+     4,
+     "v.alu3.acc.add? op9=0x00e A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c008860e @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_01e",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c008861e",
+     4,
+     "v.alu3.acc op9=0x01e A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c008861e @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_0f9",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c00886f9",
+     4,
+     "v.alu3.acc op9=0x0f9 A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c00886f9 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_045",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c0080645",
+     4,
+     "v.alu2    op9=0x045 A0 B0 F1,F0,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c0080645 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_009",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c0080609",
+     4,
+     "v.alu2    op9=0x009 A0 B0 F1,F0,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c0080609 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_007",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c0080607",
+     4,
+     "v.alu2    op9=0x007 A0 B0 F1,F0,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c0080607 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_181",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c0080781",
+     4,
+     "v.alu2    op9=0x181 A0 B0 F1,F0,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c0080781 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_120",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c008c720",
+     4,
+     "v.alu2i   op9=0x120 A0 B0 F1,F3,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c008c720 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_159",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c008c759",
+     4,
+     "v.alu2i   op9=0x159 A0 B0 F1,F3,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c008c759 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_055",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c008c655",
+     4,
+     "v.alu2i   op9=0x055 A0 B0 F1,F3,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c008c655 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_021",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c008c621",
+     4,
+     "v.alu2i   op9=0x021 A0 B0 F1,F3,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c008c621 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_0b9",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0080109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F0",
+     4104
+    ],
+    [
+     "c00802b9",
+     4,
+     "v.alu1    op9=0x0b9 A0 B0 F1,F0,F1",
+     4108
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4112
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4116
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4118
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0080109 @ 0x1008;wx c00802b9 @ 0x100c;wx c0000309 @ 0x1010;wx 1fa4 @ 0x1014;wx c4004003 @ 0x1016;wx 0500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_039",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0080109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F0",
+     4104
+    ],
+    [
+     "c0080239",
+     4,
+     "v.alu1    op9=0x039 A0 B0 F1,F0,F1",
+     4108
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4112
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4116
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4118
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0080109 @ 0x1008;wx c0080239 @ 0x100c;wx c0000309 @ 0x1010;wx 1fa4 @ 0x1014;wx c4004003 @ 0x1016;wx 0500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_03f",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0080109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F0",
+     4104
+    ],
+    [
+     "c008023f",
+     4,
+     "v.alu1    op9=0x03f A0 B0 F1,F0,F1",
+     4108
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4112
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4116
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4118
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0080109 @ 0x1008;wx c008023f @ 0x100c;wx c0000309 @ 0x1010;wx 1fa4 @ 0x1014;wx c4004003 @ 0x1016;wx 0500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_1c1",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c00887c1",
+     4,
+     "v.vs      op9=0x1c1 A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c00887c1 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_019",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c0088619",
+     4,
+     "v.vs      op9=0x019 A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c0088619 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J11_049",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0080509",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F2",
+     4116
+    ],
+    [
+     "c0088649",
+     4,
+     "v.vs      op9=0x049 A0 B0 F1,F2,F3",
+     4120
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4124
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4128
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4130
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0080509 @ 0x1014;wx c0088649 @ 0x1018;wx c0000309 @ 0x101c;wx 1fa4 @ 0x1020;wx c4004003 @ 0x1022;wx 01000200fdffff7f00806400070000400500feff0400010001009cff2c010040 @ 0x400;wx eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x8;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 16 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J12",
+   "disasm": [
+    [
+     "c0048201",
+     4,
+     "v.const.movi? op9=0x001 A0 B0 F0,F18,F1",
+     4096
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4100
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4104
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4106
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4108
+    ]
+   ],
+   "r2": "wx c0048201 @ 0x1000;wx c0000309 @ 0x1004;wx 1f12 @ 0x1008;wx 1fa4 @ 0x100a;wx c4004003 @ 0x100c;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J12b",
+   "disasm": [
+    [
+     "c0fdc201",
+     4,
+     "v.const.movi? op9=0x001 A0 B0 F31,F23,F1",
+     4096
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4100
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4104
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4106
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4108
+    ]
+   ],
+   "r2": "wx c0fdc201 @ 0x1000;wx c0000309 @ 0x1004;wx 1f12 @ 0x1008;wx 1fa4 @ 0x100a;wx c4004003 @ 0x100c;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J13",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0080109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F0",
+     4104
+    ],
+    [
+     "c008c328",
+     4,
+     "v.index.addi? op9=0x128 A0 B0 F1,F3,F1",
+     4108
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4112
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4116
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4118
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0080109 @ 0x1008;wx c008c328 @ 0x100c;wx c0000309 @ 0x1010;wx 1fa4 @ 0x1014;wx c4004003 @ 0x1016;wx 0a0014001e002800 @ 0x400;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r2=0x400;ar r3=0x4;ar r5=0x600;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J14",
+   "disasm": [
+    [
+     "1e14",
+     2,
+     "vins?     slot1, r5",
+     4096
+    ],
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4098
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4100
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4102
+    ],
+    [
+     "c0080109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F1,F0,F0",
+     4106
+    ],
+    [
+     "c0090228",
+     4,
+     "v.index.adds? op9=0x028 A0 B0 F1,F4,F1",
+     4110
+    ],
+    [
+     "c0000309",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F0,F0,F1",
+     4114
+    ],
+    [
+     "1fa4",
+     2,
+     "vmem.set  p2, r5",
+     4118
+    ],
+    [
+     "c4004003",
+     4,
+     "v.mem.st  op9=0x003 A1 B0 F0,F1,F0",
+     4120
+    ]
+   ],
+   "r2": "wx 1e14 @ 0x1000;wx 1f91 @ 0x1002;wx 1f12 @ 0x1004;wx c4002002 @ 0x1006;wx c0080109 @ 0x100a;wx c0090228 @ 0x100e;wx c0000309 @ 0x1012;wx 1fa4 @ 0x1016;wx c4004003 @ 0x1018;wx 0a0014001e002800 @ 0x400;wx eeeeeeeeeeeeeeee @ 0x600;aei;ar r5=0x600;ar r2=0x400;ar r3=0x4;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;p8 8 @ 0x600",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J15_0c1",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c02086c1",
+     4,
+     "v.reduce  op9=0x0c1 A0 B0 F4,F2,F3",
+     4116
+    ],
+    [
+     "1821",
+     2,
+     "vget      r2, vu[2]",
+     4120
+    ],
+    [
+     "1843",
+     2,
+     "vget      r4, vu[4]",
+     4122
+    ],
+    [
+     "1814",
+     2,
+     "vget      r5, vu[1]",
+     4124
+    ],
+    [
+     "1835",
+     2,
+     "vget      r6, vu[3]",
+     4126
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c02086c1 @ 0x1014;wx 1821 @ 0x1018;wx 1843 @ 0x101a;wx 1814 @ 0x101c;wx 1835 @ 0x101e;wx 01000200fdff0400feff05000400f8ff @ 0x400;aei;ar r2=0x400;ar r3=0x4;ar r4=0x0;ar r5=0x0;ar r6=0x0;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;ar r2;ar r4;ar r5;ar r6",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J15_0d0",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c02086d0",
+     4,
+     "v.reduce  op9=0x0d0 A0 B0 F4,F2,F3",
+     4116
+    ],
+    [
+     "1821",
+     2,
+     "vget      r2, vu[2]",
+     4120
+    ],
+    [
+     "1843",
+     2,
+     "vget      r4, vu[4]",
+     4122
+    ],
+    [
+     "1814",
+     2,
+     "vget      r5, vu[1]",
+     4124
+    ],
+    [
+     "1835",
+     2,
+     "vget      r6, vu[3]",
+     4126
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c02086d0 @ 0x1014;wx 1821 @ 0x1018;wx 1843 @ 0x101a;wx 1814 @ 0x101c;wx 1835 @ 0x101e;wx 01000200fdff0400feff05000400f8ff @ 0x400;aei;ar r2=0x400;ar r3=0x4;ar r4=0x0;ar r5=0x0;ar r6=0x0;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;ar r2;ar r4;ar r5;ar r6",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J15_087",
+   "disasm": [
+    [
+     "1f91",
+     2,
+     "vmem.set  p1, r2",
+     4096
+    ],
+    [
+     "1f12",
+     2,
+     "vset.a    A1, r3",
+     4098
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4100
+    ],
+    [
+     "c0100109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F2,F0,F0",
+     4104
+    ],
+    [
+     "c4002002",
+     4,
+     "v.mem.ld  op9=0x002 A1 B0 F0,F0,F16",
+     4108
+    ],
+    [
+     "c0180109",
+     4,
+     "v.move.mv op9=0x109 A0 B0 F3,F0,F0",
+     4112
+    ],
+    [
+     "c0208687",
+     4,
+     "v.reduce  op9=0x087 A0 B0 F4,F2,F3",
+     4116
+    ],
+    [
+     "1821",
+     2,
+     "vget      r2, vu[2]",
+     4120
+    ],
+    [
+     "1843",
+     2,
+     "vget      r4, vu[4]",
+     4122
+    ],
+    [
+     "1814",
+     2,
+     "vget      r5, vu[1]",
+     4124
+    ],
+    [
+     "1835",
+     2,
+     "vget      r6, vu[3]",
+     4126
+    ]
+   ],
+   "r2": "wx 1f91 @ 0x1000;wx 1f12 @ 0x1002;wx c4002002 @ 0x1004;wx c0100109 @ 0x1008;wx c4002002 @ 0x100c;wx c0180109 @ 0x1010;wx c0208687 @ 0x1014;wx 1821 @ 0x1018;wx 1843 @ 0x101a;wx 1814 @ 0x101c;wx 1835 @ 0x101e;wx 01000200fdff0400feff05000400f8ff @ 0x400;aei;ar r2=0x400;ar r3=0x4;ar r4=0x0;ar r5=0x0;ar r6=0x0;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;aes;ar r2;ar r4;ar r5;ar r6",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "J16",
+   "disasm": [
+    [
+     "1c03",
+     2,
+     "vbcast    v0, r4",
+     4096
+    ],
+    [
+     "1e12",
+     2,
+     "vins?     slot1, r3",
+     4098
+    ],
+    [
+     "c0400858",
+     4,
+     "v.reduce  op9=0x058 A0 B0 F8,F0,F4",
+     4100
+    ],
+    [
+     "1a20",
+     2,
+     "vrd?      r1, vb1[2]",
+     4104
+    ],
+    [
+     "1841",
+     2,
+     "vget      r2, vu[4]",
+     4106
+    ],
+    [
+     "1852",
+     2,
+     "vget      r3, vu[5]",
+     4108
+    ],
+    [
+     "6b4505",
+     3,
+     "vrd?      r5, vb1[8]",
+     4110
+    ]
+   ],
+   "r2": "wx 1c03 @ 0x1000;wx 1e12 @ 0x1002;wx c0400858 @ 0x1004;wx 1a20 @ 0x1008;wx 1841 @ 0x100a;wx 1852 @ 0x100c;wx 6b4505 @ 0x100e;aei;ar r4=0xd;ar r3=0x1155;ar r1=0x0;ar r2=0x0;ar r5=0x0;ar vu4=0x0;ar vu5=0x0;ar vb1_2=0x0;ar vb1_8=0x0;s 0x1000;aeip;aes;aes;aes;aes;aes;aes;aes;ar r1;ar r2;ar r3;ar r5",
+   "expected": null,
+   "hypothesis_of_table": null
+  },
+  {
+   "id": "K1",
+   "disasm": [
+    [
+     "1e20",
+     2,
+     "vins?     slot2, r1",
+     4096
+    ],
+    [
+     "1a21",
+     2,
+     "vrd?      r2, vb1[2]",
+     4098
+    ],
+    [
+     "6b4443",
+     3,
+     "vrd?      r3, vb1[2]",
+     4100
+    ]
+   ],
+   "r2": "wx 1e20 @ 0x1000;wx 1a21 @ 0x1002;wx 6b4443 @ 0x1004;aei;ar r1=0x1234;ar r2=0xdead;ar r3=0xbeef;s 0x1000;aeip;aes;aes;aes;ar r2;ar r3",
+   "expected": {
+    "r2": "0x0",
+    "r3": "0x0"
+   },
+   "r2_le": "wx 1e20 @ 0x1000;wx 1a21 @ 0x1002;wx 6b4443 @ 0x1004;aei;ar r1=0x1234;ar r2=0xdead;ar r3=0xbeef;s 0x1000;aeip;aes;aes;aes;ar r2;ar r3",
+   "expected_le": {
+    "r2": "0x0",
+    "r3": "0x0"
+   },
+   "hypothesis_of_table": "H_vb1_other"
+  },
+  {
+   "id": "K2",
+   "disasm": [
+    [
+     "1e20",
+     2,
+     "vins?     slot2, r1",
+     4096
+    ],
+    [
+     "6b7442",
+     3,
+     "vwr?      vb5[2], r2",
+     4098
+    ],
+    [
+     "6b7c42",
+     3,
+     "udf.wr?   udf2, r2",
+     4101
+    ],
+    [
+     "6b4c43",
+     3,
+     "vrd?      r3, vb3[2]",
+     4104
+    ]
+   ],
+   "r2": "wx 1e20 @ 0x1000;wx 6b7442 @ 0x1002;wx 6b7c42 @ 0x1005;wx 6b4c43 @ 0x1008;aei;ar r1=0x1111;ar r2=0x2222;ar r3=0xbeef;s 0x1000;aeip;aes;aes;aes;aes;ar r3",
+   "expected": {
+    "r3": "0x0"
+   },
+   "r2_le": "wx 1e20 @ 0x1000;wx 6b7442 @ 0x1002;wx 6b7c42 @ 0x1005;wx 6b4c43 @ 0x1008;aei;ar r1=0x1111;ar r2=0x2222;ar r3=0xbeef;s 0x1000;aeip;aes;aes;aes;aes;ar r3",
+   "expected_le": {
+    "r3": "0x0"
+   },
+   "hypothesis_of_table": "H_vb3_other"
+  },
+  {
+   "id": "K2b",
+   "disasm": [
+    [
+     "1e20",
+     2,
+     "vins?     slot2, r1",
+     4096
+    ],
+    [
+     "6b7442",
+     3,
+     "vwr?      vb5[2], r2",
+     4098
+    ],
+    [
+     "6b7c43",
+     3,
+     "udf.wr?   udf2, r3",
+     4101
+    ],
+    [
+     "6b4c44",
+     3,
+     "vrd?      r4, vb3[2]",
+     4104
+    ]
+   ],
+   "r2": "wx 1e20 @ 0x1000;wx 6b7442 @ 0x1002;wx 6b7c43 @ 0x1005;wx 6b4c44 @ 0x1008;aei;ar r1=0x1111;ar r2=0x2222;ar r3=0x3333;ar r4=0xbeef;s 0x1000;aeip;aes;aes;aes;aes;ar r4",
+   "expected": {
+    "r4": "0x0"
+   },
+   "r2_le": "wx 1e20 @ 0x1000;wx 6b7442 @ 0x1002;wx 6b7c43 @ 0x1005;wx 6b4c44 @ 0x1008;aei;ar r1=0x1111;ar r2=0x2222;ar r3=0x3333;ar r4=0xbeef;s 0x1000;aeip;aes;aes;aes;aes;ar r4",
+   "expected_le": {
+    "r4": "0x0"
+   },
+   "hypothesis_of_table": "H_vb3_other"
+  },
+  {
+   "id": "K3",
+   "disasm": [
+    [
+     "6b7463",
+     3,
+     "vwr?      vb5[3], r3",
+     4096
+    ],
+    [
+     "6b5464",
+     3,
+     "vrd?      r4, vb5[3]",
+     4099
+    ],
+    [
+     "6b4465",
+     3,
+     "vrd?      r5, vb1[3]",
+     4102
+    ],
+    [
+     "6b4c66",
+     3,
+     "vrd?      r6, vb3[3]",
+     4105
+    ],
+    [
+     "1a37",
+     2,
+     "vrd?      r8, vb1[3]",
+     4108
+    ]
+   ],
+   "r2": "wx 6b7463 @ 0x1000;wx 6b5464 @ 0x1003;wx 6b4465 @ 0x1006;wx 6b4c66 @ 0x1009;wx 1a37 @ 0x100c;aei;ar r3=0x5a5a;ar r4=0xbeef;ar r5=0xbeef;ar r6=0xbeef;ar r8=0xbeef;s 0x1000;aeip;aes;aes;aes;aes;aes;ar r4;ar r5;ar r6;ar r8",
+   "expected": {
+    "r4": "0x5a5a",
+    "r5": "0x0",
+    "r6": "0x0",
+    "r8": "0x0"
+   },
+   "r2_le": "wx 6b7463 @ 0x1000;wx 6b5464 @ 0x1003;wx 6b4465 @ 0x1006;wx 6b4c66 @ 0x1009;wx 1a37 @ 0x100c;aei;ar r3=0x5a5a;ar r4=0xbeef;ar r5=0xbeef;ar r6=0xbeef;ar r8=0xbeef;s 0x1000;aeip;aes;aes;aes;aes;aes;ar r4;ar r5;ar r6;ar r8",
+   "expected_le": {
+    "r4": "0x5a5a",
+    "r5": "0x0",
+    "r6": "0x0",
+    "r8": "0x0"
+   },
+   "hypothesis_of_table": "H_vb5_rw"
+  },
+  {
+   "id": "K4",
+   "disasm": [
+    [
+     "6b7c63",
+     3,
+     "udf.wr?   udf3, r3",
+     4096
+    ],
+    [
+     "6b5c84",
+     3,
+     "udf.rd?   r4, udf4",
+     4099
+    ],
+    [
+     "6b5465",
+     3,
+     "vrd?      r5, vb5[3]",
+     4102
+    ],
+    [
+     "6b4466",
+     3,
+     "vrd?      r6, vb1[3]",
+     4105
+    ]
+   ],
+   "r2": "wx 6b7c63 @ 0x1000;wx 6b5c84 @ 0x1003;wx 6b5465 @ 0x1006;wx 6b4466 @ 0x1009;aei;ar r3=0x7;ar r4=0xbeef;ar r5=0xbeef;ar r6=0xbeef;s 0x1000;aeip;aes;aes;aes;aes;ar r4;ar r5;ar r6",
+   "expected": {
+    "r4": "0x0",
+    "r5": "0x0",
+    "r6": "0x0"
+   },
+   "r2_le": "wx 6b7c63 @ 0x1000;wx 6b5c84 @ 0x1003;wx 6b5465 @ 0x1006;wx 6b4466 @ 0x1009;aei;ar r3=0x7;ar r4=0xbeef;ar r5=0xbeef;ar r6=0xbeef;s 0x1000;aeip;aes;aes;aes;aes;ar r4;ar r5;ar r6",
+   "expected_le": {
+    "r4": "0x0",
+    "r5": "0x0",
+    "r6": "0x0"
+   },
+   "hypothesis_of_table": "H_udf_regs"
+  },
+  {
+   "id": "L1",
+   "disasm": [
+    [
+     "41e19904",
+     4,
+     "xor       r4, r8, r6",
+     4096
+    ]
+   ],
+   "r2": "wx 41e19904 @ 0x1000;aei;ar r8=0xf0f0;ar r6=0xff00;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0xff0"
+   },
+   "r2_le": "wx 41e19904 @ 0x1000;aei;ar r8=0xf0f0;ar r6=0xff00;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0xff0"
+   },
+   "hypothesis_of_table": "H_xor"
+  },
+  {
+   "id": "L2",
+   "disasm": [
+    [
+     "41e41904",
+     4,
+     "srl       r4, r8, r6",
+     4096
+    ]
+   ],
+   "r2": "wx 41e41904 @ 0x1000;aei;ar r8=0xffffff00;ar r6=0x4;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0xffffff0"
+   },
+   "r2_le": "wx 41e41904 @ 0x1000;aei;ar r8=0xffffff00;ar r6=0x4;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0xffffff0"
+   },
+   "hypothesis_of_table": "H_srl"
+  },
+  {
+   "id": "L3",
+   "disasm": [
+    [
+     "41e79904",
+     4,
+     "max       r4, r8, r6",
+     4096
+    ]
+   ],
+   "r2": "wx 41e79904 @ 0x1000;aei;ar r8=0xffffffff;ar r6=0x5;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x5"
+   },
+   "r2_le": "wx 41e79904 @ 0x1000;aei;ar r8=0xffffffff;ar r6=0x5;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x5"
+   },
+   "hypothesis_of_table": "H_max_s"
+  },
+  {
+   "id": "L4",
+   "disasm": [
+    [
+     "41e81904",
+     4,
+     "min       r4, r8, r6",
+     4096
+    ]
+   ],
+   "r2": "wx 41e81904 @ 0x1000;aei;ar r8=0xffffffff;ar r6=0x5;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0xffffffff"
+   },
+   "r2_le": "wx 41e81904 @ 0x1000;aei;ar r8=0xffffffff;ar r6=0x5;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0xffffffff"
+   },
+   "hypothesis_of_table": "H_min_s"
+  },
+  {
+   "id": "L3b",
+   "disasm": [
+    [
+     "41e79904",
+     4,
+     "max       r4, r8, r6",
+     4096
+    ]
+   ],
+   "r2": "wx 41e79904 @ 0x1000;aei;ar r8=0xffffffff;ar r6=0xfffffffb;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0xffffffff"
+   },
+   "r2_le": "wx 41e79904 @ 0x1000;aei;ar r8=0xffffffff;ar r6=0xfffffffb;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0xffffffff"
+   },
+   "hypothesis_of_table": "H_max_s"
+  },
+  {
+   "id": "L4b",
+   "disasm": [
+    [
+     "41e81904",
+     4,
+     "min       r4, r8, r6",
+     4096
+    ]
+   ],
+   "r2": "wx 41e81904 @ 0x1000;aei;ar r8=0xffffffff;ar r6=0xfffffffb;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0xfffffffb"
+   },
+   "r2_le": "wx 41e81904 @ 0x1000;aei;ar r8=0xffffffff;ar r6=0xfffffffb;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0xfffffffb"
+   },
+   "hypothesis_of_table": "H_min_s"
+  },
+  {
+   "id": "L5",
+   "disasm": [
+    [
+     "41ea9904",
+     4,
+     "mul       r4, r8, r6",
+     4096
+    ]
+   ],
+   "r2": "wx 41ea9904 @ 0x1000;aei;ar r8=0x10003;ar r6=0x10001;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x40003"
+   },
+   "r2_le": "wx 41ea9904 @ 0x1000;aei;ar r8=0x10003;ar r6=0x10001;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x40003"
+   },
+   "hypothesis_of_table": "H_mul_lo"
+  },
+  {
+   "id": "L6",
+   "disasm": [
+    [
+     "41ed8d04",
+     4,
+     "btgl      r4, r8, #3",
+     4096
+    ]
+   ],
+   "r2": "wx 41ed8d04 @ 0x1000;aei;ar r8=0x5;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0xd"
+   },
+   "r2_le": "wx 41ed8d04 @ 0x1000;aei;ar r8=0x5;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0xd"
+   },
+   "hypothesis_of_table": "H_btgl"
+  },
+  {
+   "id": "L6b",
+   "disasm": [
+    [
+     "41ed8d04",
+     4,
+     "btgl      r4, r8, #3",
+     4096
+    ]
+   ],
+   "r2": "wx 41ed8d04 @ 0x1000;aei;ar r8=0xd;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x5"
+   },
+   "r2_le": "wx 41ed8d04 @ 0x1000;aei;ar r8=0xd;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x5"
+   },
+   "hypothesis_of_table": "H_btgl"
+  },
+  {
+   "id": "L7",
+   "disasm": [
+    [
+     "41ee0d04",
+     4,
+     "btst      r4, r8, #3",
+     4096
+    ]
+   ],
+   "r2": "wx 41ee0d04 @ 0x1000;aei;ar r8=0x18;ar r4=0x77;s 0x1000;aeip;aes;ar r4",
+   "expected": {
+    "r4": "0x1"
+   },
+   "r2_le": "wx 41ee0d04 @ 0x1000;aei;ar r8=0x18;ar r4=0x77;s 0x1000;aeip;aes;ar r4",
+   "expected_le": {
+    "r4": "0x1"
+   },
+   "hypothesis_of_table": "H_btst"
+  },
+  {
+   "id": "L8",
+   "disasm": [
+    [
+     "679c68",
+     3,
+     "and       r8, r3, #0xffff",
+     4096
+    ]
+   ],
+   "r2": "wx 679c68 @ 0x1000;aei;ar r3=0x12345678;ar r8=0x0;s 0x1000;aeip;aes;ar r8",
+   "expected": {
+    "r8": "0x5678"
+   },
+   "r2_le": "wx 679c68 @ 0x1000;aei;ar r3=0x12345678;ar r8=0x0;s 0x1000;aeip;aes;ar r8",
+   "expected_le": {
+    "r8": "0x5678"
+   },
+   "hypothesis_of_table": "H_and_ffff"
+  },
+  {
+   "id": "L8b",
+   "disasm": [
+    [
+     "679068",
+     3,
+     "and       r8, r3, #0x1f",
+     4096
+    ]
+   ],
+   "r2": "wx 679068 @ 0x1000;aei;ar r3=0x12345678;ar r8=0x0;s 0x1000;aeip;aes;ar r8",
+   "expected": {
+    "r8": "0x18"
+   },
+   "r2_le": "wx 679068 @ 0x1000;aei;ar r3=0x12345678;ar r8=0x0;s 0x1000;aeip;aes;ar r8",
+   "expected_le": {
+    "r8": "0x18"
+   },
+   "hypothesis_of_table": "H_and_1f"
+  },
+  {
+   "id": "L9",
+   "disasm": [
+    [
+     "000a",
+     2,
+     "and       r3, r2, #0x1",
+     4096
+    ]
+   ],
+   "r2": "wx 000a @ 0x1000;aei;ar r2=0x1234567a;ar r3=0x0;s 0x1000;aeip;aes;ar r3",
+   "expected": {
+    "r3": "0x0"
+   },
+   "r2_le": "wx 000a @ 0x1000;aei;ar r2=0x1234567a;ar r3=0x0;s 0x1000;aeip;aes;ar r3",
+   "expected_le": {
+    "r3": "0x0"
+   },
+   "hypothesis_of_table": "H_and_1"
+  },
+  {
+   "id": "L9b",
+   "disasm": [
+    [
+     "004a",
+     2,
+     "and       r3, r2, #0x3",
+     4096
+    ]
+   ],
+   "r2": "wx 004a @ 0x1000;aei;ar r2=0x12345677;ar r3=0x0;s 0x1000;aeip;aes;ar r3",
+   "expected": {
+    "r3": "0x3"
+   },
+   "r2_le": "wx 004a @ 0x1000;aei;ar r2=0x12345677;ar r3=0x0;s 0x1000;aeip;aes;ar r3",
+   "expected_le": {
+    "r3": "0x3"
+   },
+   "hypothesis_of_table": "H_and_3"
+  },
+  {
+   "id": "L9c",
+   "disasm": [
+    [
+     "00ca",
+     2,
+     "and       r3, r2, #0xf",
+     4096
+    ]
+   ],
+   "r2": "wx 00ca @ 0x1000;aei;ar r2=0x12345677;ar r3=0x0;s 0x1000;aeip;aes;ar r3",
+   "expected": {
+    "r3": "0x7"
+   },
+   "r2_le": "wx 00ca @ 0x1000;aei;ar r2=0x12345677;ar r3=0x0;s 0x1000;aeip;aes;ar r3",
+   "expected_le": {
+    "r3": "0x7"
+   },
+   "hypothesis_of_table": "H_and_f"
+  },
+  {
+   "id": "L10",
+   "disasm": [
+    [
+     "04ca",
+     2,
+     "add       r3, r2, #-1",
+     4096
+    ]
+   ],
+   "r2": "wx 04ca @ 0x1000;aei;ar r2=0x100;ar r3=0x0;s 0x1000;aeip;aes;ar r3",
+   "expected": {
+    "r3": "0xff"
+   },
+   "r2_le": "wx 04ca @ 0x1000;aei;ar r2=0x100;ar r3=0x0;s 0x1000;aeip;aes;ar r3",
+   "expected_le": {
+    "r3": "0xff"
+   },
+   "hypothesis_of_table": "H_add_m1"
+  },
+  {
+   "id": "L11",
+   "disasm": [
+    [
+     "050a",
+     2,
+     "xtd       r3, r2, #8",
+     4096
+    ]
+   ],
+   "r2": "wx 050a @ 0x1000;aei;ar r2=0x12345680;ar r3=0x0;s 0x1000;aeip;aes;ar r3",
+   "expected": {
+    "r3": "0xffffff80"
+   },
+   "r2_le": "wx 050a @ 0x1000;aei;ar r2=0x12345680;ar r3=0x0;s 0x1000;aeip;aes;ar r3",
+   "expected_le": {
+    "r3": "0xffffff80"
+   },
+   "hypothesis_of_table": "H_xtd8"
+  },
+  {
+   "id": "L13",
+   "disasm": [
+    [
+     "44401023",
+     4,
+     "lb        r3, 0x4(r1)",
+     4096
+    ]
+   ],
+   "r2": "wx 44401023 @ 0x1000;wx 80818283 @ 0x404;aei;ar r1=0x400;ar r3=0x0;s 0x1000;aeip;aes;ar r3",
+   "expected": {
+    "r3": "0xffffff80"
+   },
+   "r2_le": "wx 44401023 @ 0x1000;wx 80818283 @ 0x404;aei;ar r1=0x400;ar r3=0x0;s 0x1000;aeip;aes;ar r3",
+   "expected_le": {
+    "r3": "0xffffff80"
+   },
+   "hypothesis_of_table": "H_lb"
+  },
+  {
+   "id": "L12",
+   "disasm": [
+    [
+     "45401023",
+     4,
+     "sb        r3, 0x4(r1)",
+     4096
+    ]
+   ],
+   "r2": "wx 45401023 @ 0x1000;wx eeeeeeee @ 0x404;aei;ar r1=0x400;ar r3=0x11223344;s 0x1000;aeip;aes;p8 4 @ 0x404",
+   "expected": {
+    "mem[0x404:4]": "44eeeeee"
+   },
+   "r2_le": "wx 45401023 @ 0x1000;wx eeeeeeee @ 0x404;aei;ar r1=0x400;ar r3=0x11223344;s 0x1000;aeip;aes;p8 4 @ 0x404",
+   "expected_le": {
+    "mem[0x404:4]": "44eeeeee"
+   },
+   "hypothesis_of_table": "H_sb"
+  },
+  {
+   "id": "M1a",
+   "disasm": [
+    [
+     "67fb41",
+     3,
+     "btst      r1, r1, #26",
+     4096
+    ]
+   ],
+   "r2": "wx 67fb41 @ 0x1000;aei;ar r1=0xbffffff;ar r26=0x3;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x0"
+   },
+   "r2_le": "wx 67fb41 @ 0x1000;aei;ar r1=0xbffffff;ar r26=0x3;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x0"
+   },
+   "hypothesis_of_table": "H_btst26"
+  },
+  {
+   "id": "M1b",
+   "disasm": [
+    [
+     "67fb41",
+     3,
+     "btst      r1, r1, #26",
+     4096
+    ]
+   ],
+   "r2": "wx 67fb41 @ 0x1000;aei;ar r1=0x84000000;ar r26=0x0;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x1"
+   },
+   "r2_le": "wx 67fb41 @ 0x1000;aei;ar r1=0x84000000;ar r26=0x0;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x1"
+   },
+   "hypothesis_of_table": "H_btst26"
+  },
+  {
+   "id": "M1c",
+   "disasm": [
+    [
+     "67fb41",
+     3,
+     "btst      r1, r1, #26",
+     4096
+    ]
+   ],
+   "r2": "wx 67fb41 @ 0x1000;aei;ar r1=0xc000000;ar r26=0x1f;s 0x1000;aeip;aes;ar r1",
+   "expected": {
+    "r1": "0x1"
+   },
+   "r2_le": "wx 67fb41 @ 0x1000;aei;ar r1=0xc000000;ar r26=0x1f;s 0x1000;aeip;aes;ar r1",
+   "expected_le": {
+    "r1": "0x1"
+   },
+   "hypothesis_of_table": "H_btst26"
+  },
+  {
+   "id": "M2",
+   "disasm": [
+    [
+     "67ac44",
+     3,
+     "and?      r4, r2, #0xfc00?",
+     4096
+    ]
+   ],
+   "r2": "wx 67ac44 @ 0x1000;aei;ar r2=0xffffffff;ar r4=0x0;s 0x1000;aeip;aes;ar r4",
+   "expected": null,
+   "hypothesis_of_table": "H_mask_fc00"
+  },
+  {
+   "id": "M3",
+   "disasm": [
+    [
+     "6799c7",
+     3,
+     "and?      r7, r14, #0xf000?",
+     4096
+    ]
+   ],
+   "r2": "wx 6799c7 @ 0x1000;aei;ar r14=0xffffffff;ar r7=0x0;s 0x1000;aeip;aes;ar r7",
+   "expected": null,
+   "hypothesis_of_table": "H_mask_f000"
+  },
+  {
+   "id": "M3b",
+   "disasm": [
+    [
+     "018a",
+     2,
+     "and?      r3, r2, #0xf000?",
+     4096
+    ]
+   ],
+   "r2": "wx 018a @ 0x1000;aei;ar r2=0xffffffff;ar r3=0x0;s 0x1000;aeip;aes;ar r3",
+   "expected": null,
+   "hypothesis_of_table": "H_mask_f000"
+  }
+ ]
+}

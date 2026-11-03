@@ -47,6 +47,7 @@ test: $(PLUGIN) $(ASM_PLUGIN) tools/md32-run test/test_md32 test/test_parse
 	$(PYTHON) test/test_emulator.py
 	$(PYTHON) test/test_firmware.py
 	$(PYTHON) test/test_scq16.py
+	$(PYTHON) test/test_scq16_vectors.py
 
 usip_opcodes.h: isa/usip_isa.json tools/gen_usip_tables.py
 	$(PYTHON) tools/gen_usip_tables.py $< -o $@

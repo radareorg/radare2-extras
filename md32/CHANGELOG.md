@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+### SCQ16 table update (229 forms), the open-reading marker, the broadcast ports, the confidence levels and the public test vectors
+
+* `isa/scq16_isa.json` / `scq16_opcodes.h`: 229 forms / 402 bit alternatives.
+  `jr rn` (6f ec) reads a 5-bit register field (r0-r31); `btst rd, rd, #pos`
+  (67 f8-fb) has a 5-bit position; `ctz` is its own form without the
+  hypothetical flag, `sqr?` belongs to the `op41` placeholder (hypothetical);
+  `and rd, rs, #0x1|#0x3|#0xf` (2 bytes), `add rd, rs, #-1` (2 bytes) and the
+  4-byte `sb rd, off(rb)` are `high`, the 4-byte `btst rd, rs, #pos` is `medium`
+  (settled by execution results).
+* `tools/gen_scq16_tables.py`: the flag `SCQ16_FL_OPEN` (an open reading: a
+  family placeholder or a provisional name) and, for an open alternative
+  without a template, the uniform ESIL marker `REF,ALT,open`; `export --hyp`
+  applies the declared plugin hypotheses of `isa/scq16_hyp.json` and records
+  the file's sha256 in the JSON meta and in the header.  The file is empty:
+  the packing ESIL / p-code of `op41.fld rd, rs, rt, #pos` is carried by the
+  ISA source (still flagged hypothetical), so every ESIL the plugin emits
+  comes from the source.
+* `scq16_vu.inc.c` / `scq16_arch.inc.c`: the scalar ports `v0-v31` are the
+  broadcast ports of the vector register file: a write by `vbcast` /
+  `vbcast.i` / `vbcast.i?` reaches the 64 lanes of `vr_k` (an ESIL register-
+  write voyeur); the custom op `open` (no effect); `aoj` reports `open`,
+  `reading`, `hypothetical` and `confidence` per unit.
+* `ctz` of a zero operand: -1 under the table ESIL (`31 - clz(0)`); documented
+  as an open question against the hardware (32).
+* `asm_md32.c`: pseudo rule of `op41.fld`.
+* `test/scq16_vectors.json` + `test/test_scq16_vectors.py`: 195 public
+  bytes-only vectors with the expected result in the big-endian regime of the
+  harness and in the little-endian regime of the core data memory;
+  `test/test_scq16.py` (267 checks) and `test/test_md32.c`: the new forms, the
+  marker, the broadcast, the confidence levels, `ctz(0)`.
+* `doc/scq16.md`, README: the new forms, the open marker, the broadcast ports,
+  the declared limits of the vector unit model, the hypothesis file, the
+  confidence levels, `ctz(0)`.
+
 ### SCQ16 table update (402 bit alternatives), the `.post` convention and the vector unit model
 
 * `isa/scq16_isa.json` / `scq16_opcodes.h`: 228 forms / 402 bit alternatives.
