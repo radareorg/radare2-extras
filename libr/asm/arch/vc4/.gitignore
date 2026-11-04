@@ -1,0 +1,9 @@
+# build artifacts
+*.o
+*.dylib
+*.so
+*.a
+
+# editor / assistant caches
+.pmai/
+.DS_Store
