@@ -21,8 +21,8 @@ TARGET=arch_vc4.$(LIBEXT)
 PSEUDO=asm_vc4.$(LIBEXT)
 
 CFLAGS+=$(R2_CFLAGS)
-CFLAGS+=-g -O2 -Wall -fPIC -DLIL_ENDIAN=1
-CFLAGS+=-I$(VC4DIR) -I$(VC4DIR)/libvc4 -I$(VC4DIR)/include -I$(VC4DIR)/include/opcode
+CFLAGS+=-g -O2 -Wall -fPIC
+CFLAGS+=-I$(VC4DIR) -I$(VC4DIR)/include -I$(VC4DIR)/include/opcode
 CFLAGS+=-I$(VC4DIR)/../include
 
 LDFLAGS+=$(R2_LDFLAGS) -lr_anal
@@ -30,8 +30,7 @@ LDFLAGS+=-shared
 
 OBJ=arch_vc4.o \
 	vc4-dis.o vc4-asm.o vc4-desc.o vc4-ibld.o vc4-opc.o \
-	cgen-bitset.o cgen-dis.o cgen-asm.o cgen-opc.o \
-	eval.o decode.o vc4_decode.o vc4_arch.o vc4_util.o
+	cgen-bitset.o cgen-dis.o cgen-asm.o cgen-opc.o
 
 all: $(TARGET) $(PSEUDO)
 
@@ -42,14 +41,8 @@ all: $(TARGET) $(PSEUDO)
 vc4-%.o: vc4-%.c
 	$(CC) -c $(CFLAGS) $< -o $@
 
-# libvc4 sources build into the same dir
-vpath %.c libvc4
-
-eval.o decode.o vc4_decode.o vc4_arch.o vc4_util.o: %.o: libvc4/%.c
-	$(CC) -c $(CFLAGS) $< -o $@
-
 # the r2 glue lives in libr/asm/p/
-arch_vc4.o: $(PLUGSRC)
+arch_vc4.o: $(PLUGSRC) vc4_anal.inc.c
 	$(CC) -c $(CFLAGS) $(PLUGSRC) -o $@
 
 $(TARGET): $(OBJ)

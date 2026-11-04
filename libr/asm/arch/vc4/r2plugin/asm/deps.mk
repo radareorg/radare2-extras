@@ -5,3 +5,5 @@ EXTERNAL_STATIC_OBJS+=$(VC4_ASM_OBJ)
 $(VC4_ASM_OBJ): $(VC4_ASM_WD)/pseudo.c
 	@mkdir -p $(dir $@)
 	$(CC) -c $(CFLAGS) -o $@ $<
+
+-include $(VC4_ASM_OBJ:.o=.d)

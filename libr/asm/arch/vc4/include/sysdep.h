@@ -28,6 +28,8 @@
    file (check in a non-ANSI environment!), it should be.  */
 
 #include "ansidecl.h"
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>

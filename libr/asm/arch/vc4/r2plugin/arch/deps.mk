@@ -18,3 +18,5 @@ $(VC4_ARCH_BUILD)/arch_vc4.o: $(VC4_ARCH_WD)/r2plugin/arch/arch_vc4.c $(VC4_ARCH
 $(VC4_ARCH_BUILD)/%.o: $(VC4_ARCH_WD)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) -c $(VC4_ARCH_CFLAGS) $(CFLAGS) -o $@ $<
+
+-include $(VC4_ARCH_OBJ:.o=.d)

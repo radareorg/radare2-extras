@@ -8,11 +8,6 @@ OBJ_VC4+=cgen-bitset.o
 OBJ_VC4+=cgen-dis.o
 OBJ_VC4+=cgen-asm.o
 OBJ_VC4+=cgen-opc.o
-OBJ_VC4+=eval.o
-OBJ_VC4+=decode.o
-OBJ_VC4+=vc4_decode.o
-OBJ_VC4+=vc4_arch.o
-OBJ_VC4+=vc4_util.o
 
 SRC_VC4=$(patsubst %.o, %.c, $(OBJ_VC4))
 
@@ -20,7 +15,7 @@ CFLAGS_VC4=$(R2_CFLAGS)
 CFLAGS_VC4+=-g -I$(TOP)/shlr
 CFLAGS_VC4+=-Wall -shared -fPIC ${LDFLAGS_LIB}
 
-CFLAGS_VC4+=-I../arch/vc4/ -I../arch/vc4/libvc4/ -I../arch/vc4/include/ -I../arch/vc4/include/opcode/ -I../arch/include/
+CFLAGS_VC4+=-I../arch/vc4/ -I../arch/vc4/include/ -I../arch/vc4/include/opcode/ -I../arch/include/
 CFLAGS+=$(CFLAGS_VC4)
 
 STATIC_OBJ+=${OBJ_VC4}
@@ -45,16 +40,6 @@ cgen-dis.o: ../arch/vc4/cgen-dis.c
 cgen-asm.o: ../arch/vc4/cgen-asm.c
 	$(CC) -c $(CFLAGS_VC4) $< -o $@
 cgen-opc.o: ../arch/vc4/cgen-opc.c
-	$(CC) -c $(CFLAGS_VC4) $< -o $@
-eval.o: ../arch/vc4/libvc4/eval.c
-	$(CC) -c $(CFLAGS_VC4) $< -o $@
-decode.o: ../arch/vc4/libvc4/decode.c
-	$(CC) -c $(CFLAGS_VC4) $< -o $@
-vc4_decode.o: ../arch/vc4/libvc4/vc4_decode.c
-	$(CC) -c $(CFLAGS_VC4) $< -o $@
-vc4_arch.o: ../arch/vc4/libvc4/vc4_arch.c
-	$(CC) -c $(CFLAGS_VC4) $< -o $@
-vc4_util.o: ../arch/vc4/libvc4/vc4_util.c
 	$(CC) -c $(CFLAGS_VC4) $< -o $@
 
 ${TARGET_VC4}: ${OBJ_VC4}
