@@ -5,11 +5,16 @@
 
 xps_arch_plugins += ['vc4']
 
+# p/vc4 is usually a symlink, resolve it before going above this directory
+vc4_shared_inc = run_command('realpath',
+  join_paths(meson.current_source_dir(), '..', '..', 'include'),
+  check: true).stdout().strip()
+
 r_arch_additional_inc += include_directories(
   '..',
   '../include',
   '../include/opcode',
-  '../../include',
+  vc4_shared_inc,
 )
 
 r_arch_additional_sources += files(

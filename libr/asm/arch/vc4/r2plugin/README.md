@@ -1,12 +1,15 @@
 # r2plugin
 
 This directory contains the make and meson files required to link the
-vc4 (VideoCore IV) arch plugin statically inside radare2, using the XPS
+vc4 (VideoCore IV) plugins statically inside radare2, using the XPS
 (static external plugins) mechanism. See `libr/xps/README.md` in the
 radare2 source tree for the full details.
 
-The arch plugin is wrapped by a `core.vc4` plugin that registers it
-when RCore starts, so `r2 -a vc4` works without loading `arch_vc4.so`.
+Two plugins are registered directly, without a core wrapper, so both
+`rasm2` and `r2` get them:
+
+- `arch.vc4`: cgen based disassembler and analysis, linked into libr_arch
+- `asm.vc4`: pseudo syntax (`e asm.pseudo=true`), linked into libr_asm
 
 ## Usage
 
@@ -27,16 +30,20 @@ Then build radare2 as usual:
 meson setup build --reconfigure && meson compile -C build
 ```
 
-Verify the plugin is linked in:
+The meson build needs a radare2 that provides `xps_arch_plugins`,
+`xps_asm_plugins` and `r_{arch,asm}_additional_{sources,inc}`.
+
+Verify the plugins are linked in:
 
 ```console
-./binr/radare2/radare2 -q -c 'Lc~vc4;La~vc4' --
-./binr/radare2/radare2 -a vc4 -qc 'pd 2' -c 'wx 0100' --
+rasm2 -L | grep vc4
+rasm2 -a vc4 -d 01000200
+r2 -NN -qc 'La~vc4;Lp~vc4' --
 ```
 
 ## Notes
 
 - `libvc4/` is not linked: the plugin only uses the cgen disassembler.
-- Since registration happens in the core plugin, `rasm2` does not see
-  the in-tree arch plugin; use `r2 -a vc4` or the external `arch_vc4`.
+- `r2plugin/arch/arch_vc4.c` includes `libr/asm/p/arch_vc4.c`, which
+  lives outside this directory.
 - Object files for the make build are stored under `build/r2plugin/`.

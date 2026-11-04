@@ -117,13 +117,38 @@ static char *transform(const char *data) {
 	return NULL;
 }
 
-static char *addcmpb(const char *str, const char *cond, const char *op) {
+// compare and branch: "addcmpb<cond> a,b,c,dst" and "b<cond> a,b,dst"
+// r_str_pseudo_transform turns "a + -1" into "a -1", make it "a - 1"
+static char *fix_minus(char *s) {
+	RStrBuf *sb = r_strbuf_new ("");
+	char *p;
+	for (p = s; *p; p++) {
+		r_strbuf_append_n (sb, p, 1);
+		if (p > s && p[0] == ' ' && p[1] == '-' && isdigit ((ut8)p[2]) && isalnum ((ut8)p[-1])) {
+			r_strbuf_append (sb, "- ");
+			p++;
+		}
+	}
+	free (s);
+	return r_strbuf_drain (sb);
+}
+
+static char *cmpbranch(const char *str, const char *cond, const char *op) {
+	const bool never = !strcmp (cond, "f");
 	char *rule = op
 		? r_str_newf ("addcmpb%s/4/$1 += $2; if ($1 %s $3) goto $4", cond, op)
+		: never
+		? r_str_newf ("addcmpb%s/4/$1 += $2", cond)
 		: r_str_newf ("addcmpb%s/4/$1 += $2; if (%s ($1 - $3)) goto $4", cond, cond);
-	const char *rules[] = { rule, NULL };
+	char *brule = op
+		? r_str_newf ("b%s/3/if ($1 %s $2) goto $3", cond, op)
+		: never
+		? r_str_newf ("b%s/3/", cond)
+		: r_str_newf ("b%s/3/if (%s ($1 - $2)) goto $3", cond, cond);
+	const char *rules[] = { rule, brule, NULL };
 	char *res = r_str_pseudo_transform (rules, str);
 	free (rule);
+	free (brule);
 	return res;
 }
 
@@ -140,20 +165,24 @@ static char *parse(RAsmPluginSession *aps, const char *data) {
 		if (oplen <= clen || strncmp (str + oplen - clen, cond, clen)) {
 			continue;
 		}
-		if (oplen == clen + 7 && r_str_startswith (str, "addcmpb")) {
-			res = addcmpb (str, cond, conds[i][1]);
+		if ((oplen == clen + 7 && r_str_startswith (str, "addcmpb"))
+				|| (oplen == clen + 1 && *str == 'b' && r_str_char_count (str, ',') == 2)) {
+			res = cmpbranch (str, cond, conds[i][1]);
 			break;
 		}
 		char *base = r_str_newf ("%.*s%s", (int)(oplen - clen), str, sp? sp: "");
 		char *body = transform (base);
 		if (body) {
-			res = r_str_newf ("if (%s) %s", cond, body);
+			res = r_str_newf ("if (%s) %s", *cond == 'f'? "false": cond, body);
 			free (body);
 		}
 		free (base);
 	}
 	free (str);
-	return res? r_str_replace (res, "+ -", "- ", 1): strdup (data);
+	if (!res) {
+		return strdup (data);
+	}
+	return fix_minus (r_str_replace (res, "+= -", "-= ", 1));
 }
 
 RAsmPlugin r_asm_plugin_vc4 = {
