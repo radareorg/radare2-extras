@@ -192,7 +192,7 @@ static void parse_registers_in_instruction_str(char *instr, char reg1[4], char r
 static bool _add_reg_to_list(RList *reg_list, int access, const char* reg) {
 	RAnalValue *val;
 
-	val = r_anal_value_new ();
+	val = r_arch_value_new ();
 	if (!val) {
 		return false;
 	}
@@ -581,7 +581,7 @@ static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 						op->stackptr = i2;
 					}
 
-					val = r_anal_value_new ();
+					val = r_arch_value_new ();
 					if (!val) {
 						break;
 					}
@@ -648,7 +648,7 @@ static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 				RAnalValue *memory_access;
 				st8 delta = 0;
 
-				memory_access = r_anal_value_new ();
+				memory_access = r_arch_value_new ();
 				if (!memory_access) {
 					break;
 				}
@@ -922,7 +922,7 @@ static bool decode(RArchSession *a, RAnalOp *op, RArchDecodeMask mask) {
 				}
 
 				for (nb_stack_op = r_list_length (access_list); nb_stack_op > 0; nb_stack_op--) {
-						val = r_anal_value_new ();
+						val = r_arch_value_new ();
 						if (!val) {
 							break;
 						}

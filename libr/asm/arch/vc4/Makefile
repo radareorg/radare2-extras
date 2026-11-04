@@ -18,6 +18,7 @@ LIBEXT?=so
 endif
 
 TARGET=arch_vc4.$(LIBEXT)
+PSEUDO=asm_vc4.$(LIBEXT)
 
 CFLAGS+=$(R2_CFLAGS)
 CFLAGS+=-g -O2 -Wall -fPIC -DLIL_ENDIAN=1
@@ -32,7 +33,7 @@ OBJ=arch_vc4.o \
 	cgen-bitset.o cgen-dis.o cgen-asm.o cgen-opc.o \
 	eval.o decode.o vc4_decode.o vc4_arch.o vc4_util.o
 
-all: $(TARGET)
+all: $(TARGET) $(PSEUDO)
 
 %.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@
@@ -54,16 +55,19 @@ arch_vc4.o: $(PLUGSRC)
 $(TARGET): $(OBJ)
 	$(CC) -o $(TARGET) $(OBJ) $(LDFLAGS)
 
-install: $(TARGET)
+$(PSEUDO): pseudo.o
+	$(CC) -o $(PSEUDO) pseudo.o $(LDFLAGS)
+
+install: $(TARGET) $(PSEUDO)
 	mkdir -p $(R2HOME)
 	cp -f $(TARGET) $(R2HOME)
 	-codesign -f -s - $(R2HOME)/$(TARGET) 2>/dev/null || true
 
 uninstall:
-	rm -f $(R2HOME)/$(TARGET)
+	rm -f $(R2HOME)/$(TARGET) $(R2HOME)/$(PSEUDO)
 
 clean:
-	rm -f $(OBJ) $(TARGET)
+	rm -f $(OBJ) $(TARGET) pseudo.o $(PSEUDO)
 
 mrproper: clean
 	$(MAKE) -C libvc4 clean 2>/dev/null || true
