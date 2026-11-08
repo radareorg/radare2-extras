@@ -1,0 +1,155 @@
+NAME=MN103 disassembly and analysis of a firmware reset vector
+FILE=malloc://64
+ARGS=-a mn103 -e log.level=0
+CMDS=<<EOF
+wx fafcfff0cbf8fefcfcff8c000000fcde000010988f10f81e08dd710600000000f0f4
+pi 9
+aoj~{[0].size}
+aoj~{[0].type}
+aoj 9~{[7].type}
+aoj 9~{[7].jump}
+aoj 9~{[7].stackptr}
+aoj 9~{[8].type}
+EOF
+EXPECT=<<EOF
+and 0xf0ff, psw
+nop
+add -0x4, sp
+calls 0x00000094
+mov 0x98100000, a2
+mov 0x10, d3
+mov d3, (0x8, a2)
+call 0x0000068a, [], 0x0
+jmp (a0)
+4
+and
+call
+1674
+4
+rjmp
+EOF
+RUN
+
+NAME=MN103 cpu levels name the udf slots
+FILE=malloc://8
+ARGS=-a mn103 -e log.level=0
+CMDS=<<EOF
+wx f60cf9140a
+pi 2
+e asm.cpu=mn10300
+pi 2
+EOF
+EXPECT=<<EOF
+mulq d3, d0
+mulqu 0xa, d0
+udf00 d3, d0
+udfu01 0xa, d0
+EOF
+RUN
+
+NAME=MN103 pseudo syntax
+FILE=malloc://16
+ARGS=-a mn103 -e asm.pseudo=true -e log.level=0
+CMDS=<<EOF
+wx 8f10f81e08f26c1fdfc008
+pi 5
+EOF
+EXPECT=<<EOF
+d3 = 0x10
+[a2 + 0x8] = d3
+d0 = mdr:d0 / d3
+d3 = (uint16_t) d3
+return (restore [d2,d3], frame 0x8)
+EOF
+RUN
+
+NAME=MN103 ESIL: mulq, ext, div, compare and branch
+FILE=malloc://32
+ARGS=-a mn103 -e log.level=0
+CMDS=<<EOF
+wx 8f108003f60cf2d0f26ca005c004
+aei
+aeim
+6aes
+ar d0
+ar mdr
+ar psw
+aes
+ar pc
+EOF
+EXPECT=<<EOF
+0x00000003
+0x00000000
+0x00000006
+0x00000010
+EOF
+RUN
+
+NAME=MN103 ESIL: call and ret frames
+FILE=malloc://512
+ARGS=-a mn103 -e log.level=0
+CMDS=<<EOF
+wx cd2000c008
+wx 8a07dfc008 @ 0x20
+aei
+aeim
+ar sp=0x100
+ar d2=0x11
+ar d3=0x22
+aes
+ar sp
+ar pc
+ar mdr
+2aes
+ar sp
+ar pc
+ar d2
+ar d3
+EOF
+EXPECT=<<EOF
+0x000000ec
+0x00000020
+0x00000005
+0x00000100
+0x00000005
+0x00000011
+0x00000022
+EOF
+RUN
+
+NAME=MN103 ESIL: movm, stack-relative moves, extension and memory bit operations
+FILE=malloc://65536
+ARGS=-a mn103 -e log.level=0
+CMDS=<<EOF
+wx cf308f814e1e5a1e1fce30
+aei
+aeim
+ar sp=0x200
+ar a2=0xaa
+aes
+pxw 8 @ 0x1f8
+5aes
+ar d2
+ar d3
+ar a2
+ar sp
+wx 8081017080fe027080000002fe0070800000f0387080 @ 0x40
+ar pc=0x40
+2aes
+aes
+ar psw
+2aes
+ar d0
+pxw 4 @ 0x8070
+EOF
+EXPECT=<<EOF
+0x000001f8  0x00000200 0x000000aa                        ........
+0xffffff81
+0x0000ff81
+0x000000aa
+0x00000200
+0x00000001
+0x0000fff1
+0x00008070  0xfffffff1                                   ....
+EOF
+RUN
