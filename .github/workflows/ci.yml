@@ -14,7 +14,7 @@ jobs:
     env:
       EXTERNAL_BUILDS: 'keystone-lib unicorn-lib'
       LOCAL_BUILDS: 'asahi blackfin blessr2 keystone microblaze mn103 ppcdisasm r2svd vc4 x86iced'
-      TESTS: 'keystone mn103 vc4'
+      TESTS: 'keystone vc4'
     steps:
     - uses: actions/checkout@v3
       with:
@@ -53,4 +53,6 @@ jobs:
         done
         r2r -u "$GITHUB_WORKSPACE/radare2-extras/test/db/extras/microblaze"
         r2r -u "$GITHUB_WORKSPACE/radare2-extras/test/db/extras/ppcdisasm"
+        r2r -u "$GITHUB_WORKSPACE/radare2-extras/test/db/extras/asm/mn103"
+        r2r -u "$GITHUB_WORKSPACE/radare2-extras/test/db/extras/mn103"
         set +e
