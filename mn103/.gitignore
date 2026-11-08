@@ -1,0 +1,6 @@
+*.so
+*.dylib
+*.dSYM/
+__pycache__/
+test/test_mn103
+tools/mn103-dis
