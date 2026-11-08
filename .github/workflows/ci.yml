@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       EXTERNAL_BUILDS: 'keystone-lib unicorn-lib'
-      LOCAL_BUILDS: 'asahi blackfin blessr2 keystone microblaze ppcdisasm r2svd vc4 x86iced'
-      TESTS: 'keystone vc4'
+      LOCAL_BUILDS: 'asahi blackfin blessr2 keystone microblaze mn103 ppcdisasm r2svd vc4 x86iced'
+      TESTS: 'keystone mn103 vc4'
     steps:
     - uses: actions/checkout@v3
       with:

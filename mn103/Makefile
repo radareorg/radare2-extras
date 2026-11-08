@@ -5,7 +5,8 @@ CC ?= cc
 SO_EXT := $(shell $(R2) -H R2_LIBEXT)
 PLUGIN = arch_mn103.$(SO_EXT)
 ASM_PLUGIN = asm_mn103.$(SO_EXT)
-R2_PLUGIN_PATH ?= $(shell $(R2) -H R2_USER_PLUGINS)
+# r2pm passes R2PM_PLUGDIR; otherwise the user plugin directory
+R2_PLUGIN_PATH ?= $(if $(R2PM_PLUGDIR),$(R2PM_PLUGDIR),$(shell $(R2) -H R2_USER_PLUGINS))
 CPPFLAGS += $(shell $(PKG_CONFIG) --cflags r_arch)
 CFLAGS += -Wall -Wextra -Wno-unused-parameter -fPIC -O2
 LDLIBS += $(shell $(PKG_CONFIG) --libs r_arch)
