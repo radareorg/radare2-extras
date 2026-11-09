@@ -13,8 +13,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       EXTERNAL_BUILDS: 'keystone-lib unicorn-lib'
-      LOCAL_BUILDS: 'asahi blackfin blessr2 keystone microblaze mn103 ppcdisasm r2svd vc4 x86iced'
-      TESTS: 'keystone vc4'
+      LOCAL_BUILDS: 'asahi blackfin blessr2 keystone microblaze ppcdisasm r2svd vc4 x86iced'
     steps:
     - uses: actions/checkout@v3
       with:
@@ -43,16 +42,9 @@ jobs:
           ln -s "$GITHUB_WORKSPACE/radare2-extras" "$R2PM_GITDIR/$p"
           R2PM_OFFLINE=1 r2pm -i $p
         done
+        make -C radare2-extras/mn103 install
     - name: Test plugins
       working-directory: radare2/test
       run: |
-        set -e
-        for p in $TESTS ; do
-          echo $p
-          make $p
-        done
-        r2r -u "$GITHUB_WORKSPACE/radare2-extras/test/db/extras/microblaze"
-        r2r -u "$GITHUB_WORKSPACE/radare2-extras/test/db/extras/ppcdisasm"
-        r2r -u "$GITHUB_WORKSPACE/radare2-extras/test/db/extras/asm/mn103"
-        r2r -u "$GITHUB_WORKSPACE/radare2-extras/test/db/extras/mn103"
-        set +e
+        make keystone
+        r2r -u "$GITHUB_WORKSPACE/radare2-extras/test/db/extras"
