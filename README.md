@@ -30,6 +30,9 @@ is to use r2pm. See the [radare2 plugins](https://github.com/radareorg/radare2#p
 
 ## Notable plugins
 
+* [`r2forwiroh`](r2forwiroh/) — Share the current session over Forwiroh with
+  `r2fw`: pairing QR/URLs, r2pipe commands and comment/function metadata sync.
+
 * [`msl`](msl/) — Memory Slice (`.msl`) support: open/emulate process memory
   dumps (`io`/`bin`/`debug` plugins, with ESIL reverse execution) and produce
   them from a live debug session (`dgm`/`dgma`, `core` plugin).

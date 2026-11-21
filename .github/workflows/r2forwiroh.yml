@@ -1,0 +1,38 @@
+name: r2forwiroh
+on:
+  push:
+    paths: ['r2forwiroh/**', '.github/workflows/r2forwiroh.yml']
+  pull_request:
+    paths: ['r2forwiroh/**', '.github/workflows/r2forwiroh.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: r2forwiroh
+      - name: Build current radare2
+        run: |
+          git clone --depth 1 https://github.com/radareorg/radare2 /tmp/radare2
+          cd /tmp/radare2
+          ./configure --prefix="$HOME/r2"
+          make -j2
+          make install
+          echo "$HOME/r2/bin" >> "$GITHUB_PATH"
+          echo "PKG_CONFIG_PATH=$HOME/r2/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$HOME/r2/lib" >> "$GITHUB_ENV"
+      - name: Build and test plugin
+        working-directory: r2forwiroh
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets --locked -- -D warnings
+          make
+          make test
+          python3 tests/test_plugin.py ./core_r2forwiroh.so
