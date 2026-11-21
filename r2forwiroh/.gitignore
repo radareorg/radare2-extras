@@ -1,0 +1,7 @@
+/target/
+/core_r2forwiroh.so
+/core_r2forwiroh.dylib
+/core_r2forwiroh.dll
+/tests/test_sync
+__pycache__/
+
