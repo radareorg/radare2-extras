@@ -1,0 +1,4 @@
+*.so
+*.dylib
+*.dll
+.quickjs/
