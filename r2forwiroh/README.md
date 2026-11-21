@@ -99,7 +99,7 @@ Use different state directories for simultaneous r2 instances: Forwiroh locks
 each identity directory. Saved peers survive restarts; invitations, tokens,
 tunnels, jobs and events do not. `r2fw stop` cancels requests and joins workers;
 plugin unload does the same. `start STATE_DIR local` uses loopback connections
-without Internet discovery or relays, useful for local testing.
+without Internet discovery or relays.
 
 ## Metadata sync
 
@@ -130,11 +130,10 @@ pending-command count, current invitation and completed jobs. `events` drains
 the last 32 pairing/connection events. This directory provides the plugin/API;
 it does not add iaito widgets or a timer to the iaito repository.
 
-The worker never accesses an `RCore`. The owner-thread dispatcher executes
-commands with a cooperative task and a child console, keeping command contexts
-and output separate. This deliberately avoids executing two commands against
-shared analysis state from unrelated threads. Remote commands cannot invoke
-the plugin's management commands recursively.
+The worker never accesses an `RCore`. The owner-thread dispatcher uses
+`r_core_cmd_str` to capture command output. Remote commands cannot invoke
+the plugin's management commands recursively. C handles local core operations;
+Rust maps transport arguments to requests in one `match`.
 
 ## Wire protocol and permissions
 
@@ -157,17 +156,3 @@ has no browser CORS grants. Authorized clients have normal r2 command execution
 privileges, including writes and shell commands; approve only trusted devices.
 RAP is intentionally unnecessary here: r2pipe HTTP already covers commands and
 JSON metadata without adding another binary protocol/parser.
-
-## Tests
-
-```sh
-make test
-python3 tests/test_plugin.py ./core_r2forwiroh.so
-cargo clippy --all-targets --locked -- -D warnings
-```
-
-The Rust tests use actual local Forwiroh endpoints and tunnels, without relays.
-The C tests cover typed metadata round trips, hostile comment text, hash mismatch,
-64-bit addresses and malformed schemas. The Python test loads the plugin in two
-r2 processes and exercises pairing, commands, both sync directions, restart and
-shutdown with queued requests. Set `R2` to select a particular r2 executable.

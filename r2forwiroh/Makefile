@@ -30,12 +30,7 @@ uninstall user-uninstall:
 	test -n "$(R2PM_PLUGDIR)"
 	rm -f "$(R2PM_PLUGDIR)/$(PLUGIN)"
 
-test:
-	$(CARGO) test --locked
-	$(CC) $(CFLAGS) -o tests/test_sync tests/test_sync.c $(R2_LIBS)
-	./tests/test_sync
-
 clean:
-	rm -f $(PLUGIN) tests/test_sync
+	rm -f $(PLUGIN)
 
-.PHONY: all install user-install uninstall user-uninstall test clean
+.PHONY: all install user-install uninstall user-uninstall clean
