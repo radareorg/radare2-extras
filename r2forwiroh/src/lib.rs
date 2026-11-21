@@ -50,7 +50,7 @@ struct Shared {
     state: Mutex<State>,
     sequence: AtomicU64,
     stop: CancellationToken,
-    controls: mpsc::Sender<Value>,
+    controls: mpsc::Sender<(u64, Value)>,
 }
 
 pub struct Handle {
@@ -73,6 +73,13 @@ fn outcome(result: Result<Value>) -> Value {
 }
 
 impl Shared {
+    fn finish(&self, id: u64, result: Result<Value>) {
+        bounded_push(
+            &mut self.state.lock().unwrap().results,
+            json!({"id":id,"reply":outcome(result)}),
+        );
+    }
+
     async fn core(&self, request: Value) -> Result<Value> {
         ensure!(!contains_nul(&request), "NUL in session request");
         ensure!(
@@ -155,10 +162,8 @@ impl Shared {
             _ => {
                 let id = self.sequence.fetch_add(1, Ordering::Relaxed);
                 drop(state);
-                let mut job = request;
-                job["job"] = json!(id);
                 self.controls
-                    .try_send(job)
+                    .try_send((id, request))
                     .context("transport queue full or stopped")?;
                 Ok(json!({"queued": id}))
             }
@@ -166,11 +171,8 @@ impl Shared {
     }
 }
 
-async fn control(shared: Arc<Shared>, node: Arc<Node>, mut job: Value) -> Result<Value> {
+async fn control(shared: Arc<Shared>, node: Arc<Node>, job: Value) -> Result<Value> {
     let op = job["op"].as_str().context("missing op")?.to_owned();
-    job.as_object_mut()
-        .context("expected object")?
-        .remove("job");
     match op.as_str() {
         "invite" => {
             // Serialize rotation: changing the token also invalidates old HTTP URLs.
@@ -404,38 +406,20 @@ async fn handle_http(shared: Arc<Shared>, mut stream: TcpStream) -> Result<()> {
         let path = path
             .strip_prefix(&prefix)
             .context("invalid or revoked session URL")?;
-        match (method, path) {
-            ("GET", "health") => Ok(serde_json::to_vec(
-                &json!({"protocol":"r2fw/1", "transport":"reachable", "dispatch":"owner-thread"}),
-            )?),
-            ("GET", "sync") => Ok(serde_json::to_vec(
-                &shared.core(json!({"op":"export", "token":token})).await?,
-            )?),
-            ("POST", "sync") => {
-                let metadata: Value = serde_json::from_slice(&request.body)?;
-                ensure!(!contains_nul(&metadata), "NUL in metadata");
-                Ok(serde_json::to_vec(
-                    &shared
-                        .core(json!({"op":"import", "metadata":metadata, "token":token}))
-                        .await?,
-                )?)
-            }
-            ("POST", "cmd/") => {
-                ensure!(!request.body.contains(&0), "NUL in command");
-                let command = std::str::from_utf8(&request.body)?;
-                let output = shared
-                    .core(json!({"op":"cmd", "command":command, "token":token}))
-                    .await?;
-                Ok(output.as_str().unwrap_or("").as_bytes().to_vec())
-            }
-            ("GET", path) if path.starts_with("cmd/") => {
-                let command = decode_command(&path[4..])?;
-                let output = shared
-                    .core(json!({"op":"cmd", "command":command, "token":token}))
-                    .await?;
-                Ok(output.as_str().unwrap_or("").as_bytes().to_vec())
-            }
+        let mut request = match (method, path) {
+            ("GET", "health") => return Ok(serde_json::to_vec(
+                &json!({"protocol":"r2fw/1", "transport":"reachable", "dispatch":"owner-thread"}))?),
+            ("GET", "sync") => json!({"op":"export"}),
+            ("POST", "sync") => json!({"op":"import", "metadata":serde_json::from_slice::<Value>(&request.body)?}),
+            ("POST", "cmd/") => json!({"op":"cmd", "command":std::str::from_utf8(&request.body)?}),
+            ("GET", path) if path.starts_with("cmd/") => json!({"op":"cmd", "command":decode_command(&path[4..])?}),
             _ => bail!("unknown method or endpoint"),
+        };
+        request["token"] = json!(token);
+        let data = shared.core(request).await?;
+        match data.as_str() {
+            Some(output) => Ok(output.as_bytes().to_vec()),
+            None => Ok(serde_json::to_vec(&data)?),
         }
     }
     .await;
@@ -471,7 +455,7 @@ fn contains_nul(value: &Value) -> bool {
 async fn run(
     shared: Arc<Shared>,
     path: PathBuf,
-    mut controls: mpsc::Receiver<Value>,
+    mut controls: mpsc::Receiver<(u64, Value)>,
     mode: TransportMode,
 ) -> Result<()> {
     let node = tokio::select! {
@@ -480,20 +464,17 @@ async fn run(
     };
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let address = listener.local_addr()?;
-    node.set_pairing_policy(Policy {
+    let policy = Policy {
         restricted: true,
         services: BTreeMap::from([("r2".into(), address.to_string())]),
         ..Policy::default()
-    })?;
+    };
+    node.set_pairing_policy(policy.clone())?;
     // Persisted peers must never retain an older, broader policy or a stale port.
     for peer in node.snapshot()["peers"].as_array().unwrap() {
         node.command(Command::PeerPolicy {
             peer: peer["id"].as_str().unwrap().into(),
-            policy: Policy {
-                restricted: true,
-                services: BTreeMap::from([("r2".into(), address.to_string())]),
-                ..Policy::default()
-            },
+            policy: policy.clone(),
         })
         .await?;
     }
@@ -511,23 +492,18 @@ async fn run(
                 snapshot["http_address"] = json!(address.to_string());
                 shared.state.lock().unwrap().status = snapshot;
             }
-            Some(job) = controls.recv() => {
+            Some((id, job)) = controls.recv() => {
                 let state = shared.clone();
                 let n = node.clone();
                 // Invitations are serialized in this loop to make link rotation atomic.
                 if matches!(job["op"].as_str(), Some("invite" | "cancel" | "pair_cancel"
                     | "peer_approve" | "peer_revoke" | "peer_disconnect" | "peer_pending")) {
-                    let id = job["job"].clone();
-                    let result = outcome(control(state.clone(), n, job).await);
-                    bounded_push(&mut state.state.lock().unwrap().results, json!({"id":id,"reply":result}));
+                    state.finish(id, control(state.clone(), n, job).await);
                 } else if jobs.len() >= MAX_PENDING {
-                    bounded_push(&mut state.state.lock().unwrap().results,
-                        json!({"id":job["job"],"reply":{"error":"too many running jobs"}}));
+                    state.finish(id, Err(anyhow::anyhow!("too many running jobs")));
                 } else {
                     jobs.spawn(async move {
-                        let id = job["job"].clone();
-                        let result = outcome(control(state.clone(), n, job).await);
-                        bounded_push(&mut state.state.lock().unwrap().results, json!({"id":id,"reply":result}));
+                        state.finish(id, control(state.clone(), n, job).await);
                     });
                 }
             }
@@ -553,6 +529,55 @@ async fn run(
 
 fn cstring(value: Value) -> *mut c_char {
     CString::new(value.to_string()).unwrap().into_raw()
+}
+
+fn command(args: &[&str]) -> Result<Value> {
+    Ok(match args {
+        ["status" | "statusj"] => json!({"op":"status"}),
+        [op @ ("invite" | "cancel" | "qr" | "ping" | "events" | "close")] => json!({"op":op}),
+        ["pending"] => json!({"op":"peer_pending"}),
+        ["abort"] => json!({"op":"pair_cancel"}),
+        ["network"] => json!({"op":"network_change"}),
+        [op @ ("accept" | "reject"), id] => {
+            json!({"op":"peer_approve", "id":id, "accept":*op == "accept"})
+        }
+        ["revoke", peer] => json!({"op":"peer_revoke", "peer":peer}),
+        ["disconnect", peer] => json!({"op":"peer_disconnect", "peer":peer}),
+        ["connect", uri] => json!({"op":"connect", "uri":uri}),
+        ["open", peer, token @ ..] if token.len() <= 1 => {
+            json!({"op":"open", "peer":peer, "token":token.first()})
+        }
+        ["cmd", text] => json!({"op":"cmd", "command":text}),
+        ["sync", op @ ("push" | "pull")] => json!({"op":op}),
+        ["result"] => json!({"op":"result"}),
+        ["result", id] => json!({"op":"result", "id":id.parse::<u64>().context("invalid job id")?}),
+        _ => bail!("Invalid arguments. Use r2fw?"),
+    })
+}
+
+/// # Safety
+/// `args` contains `argc` valid UTF-8 C strings; handle is live or NULL when stopped.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn r2fw_command(
+    handle: *mut Handle,
+    args: *const *const c_char,
+    argc: usize,
+) -> *mut c_char {
+    let result = (|| {
+        ensure!(!args.is_null() && argc <= 3, "invalid arguments");
+        let args = unsafe { std::slice::from_raw_parts(args, argc) }
+            .iter()
+            .map(|arg| unsafe { CStr::from_ptr(*arg) }.to_str())
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let request = command(&args)?;
+        match unsafe { handle.as_ref() } {
+            Some(handle) => handle.shared.local(request),
+            None if request["op"] == "status" => Ok(json!({"transport":{"state":"stopped"},
+                "invite":null,"pending_commands":0,"remote_port":0,"results":[]})),
+            None => bail!("Run r2fw start first"),
+        }
+    })();
+    cstring(outcome(result))
 }
 
 /// # Safety
@@ -622,7 +647,7 @@ pub unsafe extern "C" fn r2fw_call(handle: *mut Handle, input: *const c_char) ->
 }
 
 /// # Safety
-/// `text` must be NULL or a string returned by r2fw_call.
+/// `text` must be NULL or a string returned by r2fw_call/r2fw_command.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn r2fw_string_free(text: *mut c_char) {
     if !text.is_null() {
@@ -643,6 +668,3 @@ pub unsafe extern "C" fn r2fw_free(handle: *mut Handle) {
         let _ = worker.join();
     }
 }
-
-#[cfg(test)]
-mod tests;

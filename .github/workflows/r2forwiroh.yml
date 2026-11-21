@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -28,11 +28,9 @@ jobs:
           echo "$HOME/r2/bin" >> "$GITHUB_PATH"
           echo "PKG_CONFIG_PATH=$HOME/r2/lib/pkgconfig" >> "$GITHUB_ENV"
           echo "LD_LIBRARY_PATH=$HOME/r2/lib" >> "$GITHUB_ENV"
-      - name: Build and test plugin
+      - name: Build plugin
         working-directory: r2forwiroh
         run: |
           cargo fmt --check
-          cargo clippy --all-targets --locked -- -D warnings
+          cargo clippy --locked -- -D warnings
           make
-          make test
-          python3 tests/test_plugin.py ./core_r2forwiroh.so

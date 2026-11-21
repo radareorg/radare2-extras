@@ -1,12 +1,16 @@
 /* Addresses are hex strings: GUI JSON parsers must not round 64-bit addresses. */
 #define FW_MAX_ITEMS 10000
 
-static char *fw_error(const char *message) {
+static char *fw_json(const char *key, const char *value) {
 	PJ *pj = pj_new ();
 	pj_o (pj);
-	pj_ks (pj, "error", message);
+	pj_ks (pj, key, value);
 	pj_end (pj);
 	return pj_drain (pj);
+}
+
+static char *fw_error(const char *message) {
+	return fw_json ("error", message);
 }
 
 static char *fw_digest(RCore *core) {
