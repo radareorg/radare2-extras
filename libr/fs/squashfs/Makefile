@@ -1,7 +1,3 @@
-LIB=fs_squashfs.$(EXT_SO)
-R2PLUGDIR=$(shell r2 -H R2_USER_PLUGINS)
-RHOMEBIN=$(R2PLUGDIR)/../prefix/bin
-
 #CFLAGS+=-D LZMA_SUPPORT=1
 CFLAGS+=-D GZIP_SUPPORT=1
 CFLAGS+=-D XZ_SUPPORT=1
@@ -13,8 +9,6 @@ LDFLAGS+=-llzma
 LDFLAGS+=-lz
 LDFLAGS+=-lpthread
 
-R2_FLAGS+=$(shell pkg-config --cflags --libs r_fs)
-
 SOURCES+=compressor.c
 SOURCES+=gzip_wrapper.c
 SOURCES+=unsquash-1.c
@@ -25,22 +19,18 @@ SOURCES+=unsquashfs.c
 SOURCES+=xz_wrapper.c
 
 BIN=unsquashfs
+R2 ?= r2
+R2PLUGDIR ?= $(shell $(R2) -H R2_USER_PLUGINS)
+RHOMEBIN ?= $(R2PLUGDIR)/../prefix/bin
 
-EXT_SO?=$(shell r2 -H LIBEXT)
+.PHONY: all clean
+all: $(BIN)
+	$(MAKE) -C ../p install-squash
+	mkdir -p "$(DESTDIR)$(RHOMEBIN)"
+	cp $(BIN) "$(DESTDIR)$(RHOMEBIN)/unsquashfs"
 
-#all: fs_squashfs.$(EXT_SO) $(BIN)
-all: $(LIB) $(BIN)
-	cp -f $(LIB) $(R2PLUGDIR)
-	cp -rf $(LIB)* $(R2PLUGDIR)
-	cp -f unsquashfs $(RHOMEBIN)
-
-$(BIN):
+$(BIN): $(SOURCES)
 	$(CC) ${CFLAGS} $(SOURCES) $(LDFLAGS) -o $(BIN)
-
-$(LIB):
-	$(CC) -DAPIMODE=1 -fPIC -shared $(R2_FLAGS) $(CFLAGS) $(LDFLAGS) -o $(LIB) fs_squashfs.c $(SOURCES)
-
-.PHONY: $(LIB) $(BIN)
 
 clean:
 	rm -f $(BIN)
